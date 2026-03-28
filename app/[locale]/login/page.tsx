@@ -1,12 +1,24 @@
 import { LoginForm } from '@/components/auth/LoginForm';
 import { ZapLogo } from '@/components/ui/ZapLogo';
 import { getTranslations } from 'next-intl/server';
+import Link from 'next/link';
 
 export default async function LoginPage({ params: { locale } }: { params: { locale: string } }) {
   const t = await getTranslations('auth.login');
+  const otherLocale = locale === 'fr' ? 'en' : 'fr';
+  const otherLabel = locale === 'fr' ? 'EN' : 'FR';
+
   return (
     <main className="min-h-screen bg-ivory flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
+
+        {/* Subtle language toggle */}
+        <div className="flex justify-end mb-4">
+          <Link href={`/${otherLocale}/login`} className="text-xs text-navy-400 hover:text-navy-700 transition-colors">
+            {otherLabel}
+          </Link>
+        </div>
+
         <div className="flex justify-center mb-10">
           <ZapLogo size="lg" />
         </div>

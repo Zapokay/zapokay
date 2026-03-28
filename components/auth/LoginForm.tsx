@@ -88,7 +88,7 @@ export function LoginForm({ locale }: LoginFormProps) {
             autoComplete="current-password"
           />
           {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-          <Button type="submit" loading={loading} className="w-full" size="lg">
+          <Button type="submit" loading={loading} className="w-full" size="lg" variant="secondary">
             {t('submit')}
           </Button>
         </form>
@@ -104,7 +104,7 @@ export function LoginForm({ locale }: LoginFormProps) {
             required
           />
           {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-          <Button type="submit" loading={loading} className="w-full" size="lg">
+          <Button type="submit" loading={loading} className="w-full" size="lg" variant="secondary">
             {t('magicLink')}
           </Button>
         </form>

@@ -17,7 +17,7 @@ const isFr = (locale: string) => locale === 'fr';
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between py-3 border-b border-ivory-dark last:border-0">
-      <span className="text-sm text-navy-400">{label}</span>
+      <span className="text-sm text-navy-400 shrink-0 mr-4">{label}</span>
       <span className="text-sm font-medium text-navy-900 text-right max-w-[60%]">{value || '—'}</span>
     </div>
   );
@@ -30,8 +30,8 @@ const roleLabels: Record<string, { fr: string; en: string }> = {
 };
 
 const typeLabels: Record<string, { fr: string; en: string }> = {
-  LSA: { fr: 'Provincial Québec (LSQ)', en: 'Québec Provincial (LSA)' },
-  CBCA: { fr: 'Fédéral (LSCA)', en: 'Federal (CBCA)' },
+  LSA: { fr: 'Provincial Québec (LSAQ)', en: 'Québec Provincial (LSAQ)' },
+  CBCA: { fr: 'Fédéral (LSAC)', en: 'Federal (CBCA)' },
 };
 
 export function StepConfirmation({ data, onBack, onFinish, saving, locale }: StepProps) {
@@ -92,7 +92,7 @@ export function StepConfirmation({ data, onBack, onFinish, saving, locale }: Ste
           {fr ? "Retour" : "Back"}
         </Button>
         <Button onClick={onFinish} loading={saving} className="flex-1" size="lg" variant="secondary">
-          {fr ? "C'est parti 🚀" : "Let's go 🚀"}
+          {fr ? "C'est parti" : "Let's go"}
         </Button>
       </div>
     </div>

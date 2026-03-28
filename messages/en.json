@@ -28,7 +28,8 @@
       "submit": "Create account",
       "hasAccount": "Already have an account?",
       "signIn": "Sign in",
-      "verifyEmail": "Check your email to verify your account."
+      "verifyEmail": "Check your email to verify your account.",
+      "passwordHint": "Minimum 8 characters"
     },
     "logout": "Sign out",
     "magicLinkSent": "Check your email — a sign in link has been sent.",
@@ -49,7 +50,7 @@
     "legalName": "Legal name",
     "legalNamePlaceholder": "9999999 Quebec Inc.",
     "incorporationType": "Incorporation type",
-    "lsa": "Quebec Provincial (LSA)",
+    "lsa": "Quebec Provincial (LSAQ)",
     "cbca": "Federal (CBCA)",
     "incorporationNumber": "Incorporation number",
     "incorporationDate": "Incorporation date",

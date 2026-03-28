@@ -1,36 +1,51 @@
 'use client';
 import type { Company } from '@/lib/types';
-import { useLocale, useTranslations } from 'next-intl';
 
 interface WelcomeCardProps {
   company: Company | null;
   locale: string;
 }
 
+const provinceNames: Record<string, { fr: string; en: string }> = {
+  QC: { fr: 'Québec', en: 'Québec' },
+  ON: { fr: 'Ontario', en: 'Ontario' },
+  BC: { fr: 'Colombie-Britannique', en: 'British Columbia' },
+  AB: { fr: 'Alberta', en: 'Alberta' },
+  MB: { fr: 'Manitoba', en: 'Manitoba' },
+  SK: { fr: 'Saskatchewan', en: 'Saskatchewan' },
+  NS: { fr: 'Nouvelle-Écosse', en: 'Nova Scotia' },
+  NB: { fr: 'Nouveau-Brunswick', en: 'New Brunswick' },
+  NL: { fr: 'Terre-Neuve-et-Labrador', en: 'Newfoundland and Labrador' },
+  PE: { fr: 'Île-du-Prince-Édouard', en: 'Prince Edward Island' },
+  YT: { fr: 'Yukon', en: 'Yukon' },
+  NT: { fr: 'Territoires du Nord-Ouest', en: 'Northwest Territories' },
+  NU: { fr: 'Nunavut', en: 'Nunavut' },
+};
+
+const typeLabels: Record<string, { fr: string; en: string }> = {
+  LSA: { fr: 'Provincial Québec (LSAQ)', en: 'Québec Provincial (LSAQ)' },
+  CBCA: { fr: 'Fédéral (LSAC)', en: 'Federal (CBCA)' },
+};
+
 export function WelcomeCard({ company, locale }: WelcomeCardProps) {
-  const t = useTranslations('dashboard');
   const fr = locale === 'fr';
+  const l = fr ? 'fr' : 'en';
 
   const companyName = company?.legal_name_fr ?? (fr ? 'Votre entreprise' : 'Your company');
   const incType = company?.incorporation_type ?? '';
-  const province = company?.province ?? '';
-
-  const typeLabel: Record<string, { fr: string; en: string }> = {
-    LSA: { fr: 'Provincial Québec (LSQ)', en: 'Québec Provincial (LSA)' },
-    CBCA: { fr: 'Fédéral (LSCA)', en: 'Federal (CBCA)' },
-  };
+  const provinceCode = company?.province ?? '';
+  const province = provinceNames[provinceCode]?.[l] ?? provinceCode;
+  const typeLabel = typeLabels[incType]?.[l] ?? incType;
 
   return (
     <div className="animate-fade-up space-y-6">
-      {/* Welcome header */}
       <div>
         <h1 className="font-sora text-3xl font-semibold text-navy-900">
-          {fr ? "Bienvenue sur ZapOkay" : "Welcome to ZapOkay"} 👋
+          {fr ? "Bienvenue sur ZapOkay" : "Welcome to ZapOkay"}
         </h1>
         <p className="text-navy-400 mt-1">{companyName}</p>
       </div>
 
-      {/* Status card */}
       <div className="bg-white rounded-2xl border border-ivory-dark p-6">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 bg-amber/10 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -53,7 +68,6 @@ export function WelcomeCard({ company, locale }: WelcomeCardProps) {
         </div>
       </div>
 
-      {/* Company info grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-ivory-dark p-5">
           <p className="text-xs font-medium text-navy-400 uppercase tracking-wider mb-2">
@@ -65,9 +79,7 @@ export function WelcomeCard({ company, locale }: WelcomeCardProps) {
           <p className="text-xs font-medium text-navy-400 uppercase tracking-wider mb-2">
             {fr ? "Type de constitution" : "Incorporation type"}
           </p>
-          <p className="font-sora font-semibold text-navy-900 text-sm">
-            {typeLabel[incType]?.[fr ? 'fr' : 'en'] ?? incType}
-          </p>
+          <p className="font-sora font-semibold text-navy-900 text-sm">{typeLabel}</p>
         </div>
         <div className="bg-white rounded-2xl border border-ivory-dark p-5">
           <p className="text-xs font-medium text-navy-400 uppercase tracking-wider mb-2">
@@ -80,7 +92,6 @@ export function WelcomeCard({ company, locale }: WelcomeCardProps) {
         </div>
       </div>
 
-      {/* Coming soon placeholder */}
       <div className="bg-navy-900 rounded-2xl p-6 text-ivory">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 bg-[#D4821A] rounded-lg flex items-center justify-center">

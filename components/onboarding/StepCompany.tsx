@@ -29,6 +29,23 @@ const provinces: { value: Province; labelFr: string; labelEn: string }[] = [
   { value: 'NU', labelFr: 'Nunavut', labelEn: 'Nunavut' },
 ];
 
+const incorporationTypes = [
+  {
+    value: 'LSA' as IncorporationType,
+    labelFr: 'LSAQ',
+    labelEn: 'LSAQ',
+    subFr: 'Provincial Québec',
+    subEn: 'Québec Provincial',
+  },
+  {
+    value: 'CBCA' as IncorporationType,
+    labelFr: 'LSAC',
+    labelEn: 'CBCA',
+    subFr: 'Loi canadienne',
+    subEn: 'Federal Canada',
+  },
+];
+
 const isFr = (locale: string) => locale === 'fr';
 
 export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps) {
@@ -78,25 +95,35 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             {fr ? "Type de constitution" : "Incorporation type"}
           </label>
           <div className="grid grid-cols-2 gap-3">
-            {(['LSA', 'CBCA'] as IncorporationType[]).map(type => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => update('incorporationType', type)}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  data.company.incorporationType === type
-                    ? 'border-navy-900 bg-navy-50'
-                    : 'border-ivory-dark bg-white hover:border-navy-300'
-                }`}
-              >
-                <div className="font-sora font-semibold text-sm text-navy-900">{type}</div>
-                <div className="text-xs text-navy-400 mt-0.5">
-                  {type === 'LSA'
-                    ? fr ? 'Provincial Québec' : 'Québec Provincial'
-                    : fr ? 'Loi canadienne' : 'Federal Canada'}
-                </div>
-              </button>
-            ))}
+            {incorporationTypes.map(type => {
+              const isSelected = data.company.incorporationType === type.value;
+              return (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => update('incorporationType', type.value)}
+                  className={`p-4 rounded-xl border-2 text-left transition-all relative ${
+                    isSelected
+                      ? 'border-navy-900 bg-navy-50 shadow-sm'
+                      : 'border-ivory-dark bg-white hover:border-navy-300'
+                  }`}
+                >
+                  {isSelected && (
+                    <span className="absolute top-2 right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                  )}
+                  <div className="font-sora font-semibold text-sm text-navy-900">
+                    {fr ? type.labelFr : type.labelEn}
+                  </div>
+                  <div className="text-xs text-navy-400 mt-0.5">
+                    {fr ? type.subFr : type.subEn}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -134,7 +161,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
         <Button variant="ghost" onClick={onBack} className="flex-1">
           {fr ? "Retour" : "Back"}
         </Button>
-        <Button onClick={handleNext} className="flex-1" size="lg">
+        <Button onClick={handleNext} variant="secondary" className="flex-1" size="lg">
           {fr ? "Continuer" : "Continue"}
         </Button>
       </div>

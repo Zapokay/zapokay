@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Language, IncorporationType, Province, OfficerRole, OnboardingData } from '@/lib/types';
+import type { Language, OnboardingData } from '@/lib/types';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
 import { StepOfficer } from './StepOfficer';
@@ -15,6 +15,23 @@ interface OnboardingFlowProps {
 }
 
 const TOTAL_STEPS = 4;
+const today = new Date().toISOString().split('T')[0];
+
+const provinceNames: Record<string, { fr: string; en: string }> = {
+  QC: { fr: 'Québec', en: 'Québec' },
+  ON: { fr: 'Ontario', en: 'Ontario' },
+  BC: { fr: 'Colombie-Britannique', en: 'British Columbia' },
+  AB: { fr: 'Alberta', en: 'Alberta' },
+  MB: { fr: 'Manitoba', en: 'Manitoba' },
+  SK: { fr: 'Saskatchewan', en: 'Saskatchewan' },
+  NS: { fr: 'Nouvelle-Écosse', en: 'Nova Scotia' },
+  NB: { fr: 'Nouveau-Brunswick', en: 'New Brunswick' },
+  NL: { fr: 'Terre-Neuve-et-Labrador', en: 'Newfoundland and Labrador' },
+  PE: { fr: 'Île-du-Prince-Édouard', en: 'Prince Edward Island' },
+  YT: { fr: 'Yukon', en: 'Yukon' },
+  NT: { fr: 'Territoires du Nord-Ouest', en: 'Northwest Territories' },
+  NU: { fr: 'Nunavut', en: 'Nunavut' },
+};
 
 export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
   const router = useRouter();
@@ -27,17 +44,18 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
       legalName: '',
       incorporationType: 'LSA',
       incorporationNumber: '',
-      incorporationDate: '',
+      incorporationDate: today,
       province: 'QC',
     },
     officer: {
       fullName: '',
       role: 'director',
-      startDate: '',
+      startDate: today,
     },
   });
 
   const activeLocale = data.language || (locale as Language);
+  const fr = activeLocale === 'fr';
 
   function next() { setStep(s => Math.min(s + 1, TOTAL_STEPS)); }
   function back() { setStep(s => Math.max(s - 1, 1)); }
@@ -45,14 +63,12 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
   async function handleFinish() {
     setSaving(true);
     try {
-      // 1. Update user profile
       await supabase.from('users').upsert({
         id: userId,
         preferred_language: data.language,
         onboarding_completed: true,
       });
 
-      // 2. Create company
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .insert({
@@ -70,7 +86,6 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
 
       if (companyError) throw companyError;
 
-      // 3. Create first officer
       await supabase.from('company_officers').insert({
         company_id: company.id,
         full_name: data.officer.fullName,
@@ -78,7 +93,6 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
         start_date: data.officer.startDate || null,
       });
 
-      // 4. Redirect to dashboard in selected language
       router.push(`/${data.language}/dashboard`);
       router.refresh();
     } catch (err) {
@@ -87,11 +101,22 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
     }
   }
 
+  // Resolve province display name
+  const provinceDisplay = provinceNames[data.company.province]?.[fr ? 'fr' : 'en'] ?? data.company.province;
+
+  // Enrich data for confirmation display
+  const displayData = {
+    ...data,
+    company: {
+      ...data.company,
+      province: provinceDisplay,
+    },
+  };
+
   const stepProps = { data, setData, onNext: next, onBack: back, locale: activeLocale };
 
   return (
     <div className="min-h-screen bg-ivory">
-      {/* Header */}
       <header className="border-b border-ivory-dark bg-white/80 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <ZapLogo size="sm" />
@@ -113,14 +138,18 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
         </div>
       </header>
 
-      {/* Content */}
       <main className="max-w-xl mx-auto px-6 py-12">
         <div className="animate-fade-up">
           {step === 1 && <StepLanguage {...stepProps} />}
           {step === 2 && <StepCompany {...stepProps} />}
           {step === 3 && <StepOfficer {...stepProps} />}
           {step === 4 && (
-            <StepConfirmation {...stepProps} onFinish={handleFinish} saving={saving} />
+            <StepConfirmation
+              {...stepProps}
+              data={displayData}
+              onFinish={handleFinish}
+              saving={saving}
+            />
           )}
         </div>
       </main>

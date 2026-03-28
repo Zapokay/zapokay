@@ -28,7 +28,8 @@
       "submit": "Créer mon compte",
       "hasAccount": "Déjà un compte ?",
       "signIn": "Se connecter",
-      "verifyEmail": "Vérifiez votre courriel pour confirmer votre compte."
+      "verifyEmail": "Vérifiez votre courriel pour confirmer votre compte.",
+      "passwordHint": "Minimum 8 caractères"
     },
     "logout": "Déconnexion",
     "magicLinkSent": "Vérifiez votre courriel — un lien de connexion vous a été envoyé.",
@@ -49,8 +50,8 @@
     "legalName": "Raison sociale",
     "legalNamePlaceholder": "9999999 Québec Inc.",
     "incorporationType": "Type d'incorporation",
-    "lsa": "Québec provincial (LSA)",
-    "cbca": "Fédéral (LSAC)",
+    "lsa": "Québec provincial (LSAQQ)",
+    "cbca": "Fédéral (LSAQC)",
     "incorporationNumber": "Numéro de constitution",
     "incorporationDate": "Date de constitution",
     "province": "Province",

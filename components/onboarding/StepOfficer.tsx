@@ -15,6 +15,8 @@ interface StepProps {
 
 const isFr = (locale: string) => locale === 'fr';
 
+const today = new Date().toISOString().split('T')[0];
+
 export function StepOfficer({ data, setData, onNext, onBack, locale }: StepProps) {
   const fr = isFr(locale);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -66,7 +68,7 @@ export function StepOfficer({ data, setData, onNext, onBack, locale }: StepProps
           id="startDate"
           label={fr ? "Date de début" : "Start date"}
           type="date"
-          value={data.officer.startDate}
+          value={data.officer.startDate || today}
           onChange={e => update('startDate', e.target.value)}
         />
       </div>
@@ -75,7 +77,7 @@ export function StepOfficer({ data, setData, onNext, onBack, locale }: StepProps
         <Button variant="ghost" onClick={onBack} className="flex-1">
           {fr ? "Retour" : "Back"}
         </Button>
-        <Button onClick={() => validate() && onNext()} className="flex-1" size="lg">
+        <Button onClick={() => validate() && onNext()} variant="secondary" className="flex-1" size="lg">
           {fr ? "Continuer" : "Continue"}
         </Button>
       </div>
