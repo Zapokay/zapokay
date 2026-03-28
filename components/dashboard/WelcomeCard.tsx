@@ -46,7 +46,7 @@ export function WelcomeCard({ company, locale }: WelcomeCardProps) {
         <p className="text-navy-400 mt-1">{companyName}</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-ivory-dark p-6">
+      <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--card-border)] p-6">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 bg-amber/10 rounded-xl flex items-center justify-center flex-shrink-0">
             <svg className="w-6 h-6 text-[#D4821A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -69,19 +69,19 @@ export function WelcomeCard({ company, locale }: WelcomeCardProps) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-ivory-dark p-5">
+        <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--card-border)] p-5">
           <p className="text-xs font-medium text-navy-400 uppercase tracking-wider mb-2">
             {fr ? "Entreprise" : "Company"}
           </p>
           <p className="font-sora font-semibold text-navy-900 text-sm leading-snug">{companyName}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-ivory-dark p-5">
+        <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--card-border)] p-5">
           <p className="text-xs font-medium text-navy-400 uppercase tracking-wider mb-2">
             {fr ? "Type de constitution" : "Incorporation type"}
           </p>
           <p className="font-sora font-semibold text-navy-900 text-sm">{typeLabel}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-ivory-dark p-5">
+        <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--card-border)] p-5">
           <p className="text-xs font-medium text-navy-400 uppercase tracking-wider mb-2">
             {fr ? "Province" : "Province"}
           </p>

@@ -107,7 +107,7 @@ export function DashboardShell({ locale, profile, company, children }: Dashboard
   return (
     <div className="min-h-screen bg-ivory flex flex-col">
       {/* Top Nav */}
-      <header className="bg-white border-b border-ivory-dark sticky top-0 z-40">
+      <header className="bg-[var(--card-bg)] border-b border-[var(--card-border)] sticky top-0 z-40">
         <div className="flex items-center justify-between px-4 md:px-6 h-16">
           {/* Left: hamburger + logo */}
           <div className="flex items-center gap-3">
@@ -130,7 +130,7 @@ export function DashboardShell({ locale, profile, company, children }: Dashboard
           <div className="flex items-center gap-3">
             <button
               onClick={toggleLanguage}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-ivory-dark bg-ivory hover:bg-navy-50 transition-colors text-sm font-medium text-navy-700"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--card-border)] bg-ivory hover:bg-navy-50 transition-colors text-sm font-medium text-navy-700"
             >
               <span>{locale === 'fr' ? '🇨🇦' : '🇨🇦'}</span>
               <span>{locale === 'fr' ? 'EN' : 'FR'}</span>
@@ -140,8 +140,8 @@ export function DashboardShell({ locale, profile, company, children }: Dashboard
               <button className="w-8 h-8 bg-navy-900 rounded-full flex items-center justify-center text-ivory text-sm font-semibold">
                 {profile.full_name?.charAt(0)?.toUpperCase() ?? 'U'}
               </button>
-              <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-ivory-dark rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 py-1 z-50">
-                <div className="px-3 py-2 border-b border-ivory-dark">
+              <div className="absolute right-0 top-full mt-2 w-44 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 py-1 z-50">
+                <div className="px-3 py-2 border-b border-[var(--card-border)]">
                   <p className="text-xs font-medium text-navy-900 truncate">{profile.full_name}</p>
                 </div>
                 <button
@@ -160,7 +160,7 @@ export function DashboardShell({ locale, profile, company, children }: Dashboard
         {/* Sidebar */}
         <aside
           className={cn(
-            'fixed md:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white border-r border-ivory-dark flex flex-col transition-transform duration-200 z-30',
+            'fixed md:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-[var(--sb-bg)] border-r border-[var(--card-border)] flex flex-col transition-transform duration-200 z-30',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           )}
         >
@@ -188,7 +188,7 @@ export function DashboardShell({ locale, profile, company, children }: Dashboard
             ))}
           </nav>
 
-          <div className="p-4 border-t border-ivory-dark">
+          <div className="p-4 border-t border-[var(--card-border)]">
             <div className="bg-ivory rounded-xl p-3">
               <p className="text-xs font-semibold text-navy-700 mb-0.5">Sprint 1</p>
               <p className="text-xs text-navy-400">

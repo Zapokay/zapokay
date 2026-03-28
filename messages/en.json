@@ -17,7 +17,11 @@
       "orDivider": "or",
       "magicLink": "Sign in with magic link",
       "noAccount": "Don't have an account?",
-      "signUp": "Sign up"
+      "signUp": "Sign up",
+      "leftTagline": "Zap the paperwork. Move your business forward.",
+      "leftFeature1": "Digital minute book",
+      "leftFeature2": "Legal documents generated in seconds",
+      "leftFeature3": "Always up-to-date compliance"
     },
     "signup": {
       "title": "Get started",
@@ -29,7 +33,11 @@
       "hasAccount": "Already have an account?",
       "signIn": "Sign in",
       "verifyEmail": "Check your email to verify your account.",
-      "passwordHint": "Minimum 8 characters"
+      "passwordHint": "Minimum 8 characters",
+      "leftTagline": "Zap the paperwork. Move your business forward.",
+      "leftFeature1": "Digital minute book",
+      "leftFeature2": "Legal documents generated in seconds",
+      "leftFeature3": "Always up-to-date compliance"
     },
     "logout": "Sign out",
     "magicLinkSent": "Check your email — a sign in link has been sent.",

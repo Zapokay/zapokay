@@ -31,7 +31,7 @@ const provinces: { value: Province; labelFr: string; labelEn: string }[] = [
 
 const incorporationTypes = [
   {
-    value: 'LSA' as IncorporationType,
+    value: 'LSAQ' as IncorporationType,
     labelFr: 'LSAQ',
     labelEn: 'LSAQ',
     subFr: 'Provincial Québec',
@@ -104,12 +104,12 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
                   onClick={() => update('incorporationType', type.value)}
                   className={`p-4 rounded-xl border-2 text-left transition-all relative ${
                     isSelected
-                      ? 'border-navy-900 bg-navy-50 shadow-sm'
-                      : 'border-ivory-dark bg-white hover:border-navy-300'
+                      ? 'border-[var(--amber-400)] bg-[var(--amber-50)] shadow-sm'
+                      : 'border-[var(--card-border)] bg-[var(--card-bg)] opacity-60 hover:opacity-100 hover:border-[var(--input-border-hover)]'
                   }`}
                 >
                   {isSelected && (
-                    <span className="absolute top-2 right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center">
+                    <span className="absolute top-2 right-2 w-6 h-6 bg-[var(--amber-400)] rounded-full flex items-center justify-center">
                       <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>

@@ -22,11 +22,25 @@ export async function GET(request: Request) {
         },
       }
     )
+
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+
     if (!error) {
-      return NextResponse.redirect(`${origin}/onboarding`)
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('onboarding_completed, preferred_language')
+          .eq('id', user.id)
+          .single()
+
+        const lang = profile?.preferred_language ?? 'fr'
+        const destination = profile?.onboarding_completed ? 'dashboard' : 'onboarding'
+        return NextResponse.redirect(`${origin}/${lang}/${destination}`)
+      }
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth`)
+  return NextResponse.redirect(`${origin}/fr/login?error=auth`)
 }

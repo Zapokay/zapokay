@@ -22,7 +22,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             'w-full px-4 py-2.5 rounded-xl border bg-white text-navy-900 placeholder-navy-300',
             'text-sm transition-all duration-150',
             'focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent',
-            error ? 'border-red-400 bg-red-50' : 'border-ivory-dark hover:border-navy-300',
+            error ? 'border-red-400 bg-red-50' : 'border-[var(--card-border)] hover:border-navy-300',
             className
           )}
           {...props}

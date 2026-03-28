@@ -10,13 +10,15 @@ interface StepProps {
   onFinish: () => void;
   saving: boolean;
   locale: string;
+  provinceDisplay: string;
+  error?: string | null;
 }
 
 const isFr = (locale: string) => locale === 'fr';
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between py-3 border-b border-ivory-dark last:border-0">
+    <div className="flex items-start justify-between py-3 border-b border-[var(--card-border)] last:border-0">
       <span className="text-sm text-navy-400 shrink-0 mr-4">{label}</span>
       <span className="text-sm font-medium text-navy-900 text-right max-w-[60%]">{value || '—'}</span>
     </div>
@@ -30,11 +32,12 @@ const roleLabels: Record<string, { fr: string; en: string }> = {
 };
 
 const typeLabels: Record<string, { fr: string; en: string }> = {
+  LSAQ: { fr: 'Provincial Québec (LSAQ)', en: 'Québec Provincial (LSAQ)' },
   LSA: { fr: 'Provincial Québec (LSAQ)', en: 'Québec Provincial (LSAQ)' },
   CBCA: { fr: 'Fédéral (LSAC)', en: 'Federal (CBCA)' },
 };
 
-export function StepConfirmation({ data, onBack, onFinish, saving, locale }: StepProps) {
+export function StepConfirmation({ data, onBack, onFinish, saving, locale, provinceDisplay, error }: StepProps) {
   const fr = isFr(locale);
   const l = fr ? 'fr' : 'en';
 
@@ -55,7 +58,7 @@ export function StepConfirmation({ data, onBack, onFinish, saving, locale }: Ste
           : "Here's a summary of what we've set up for you."}
       </p>
 
-      <div className="bg-white rounded-2xl border border-ivory-dark p-6 mb-4">
+      <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--card-border)] border-l-4 border-l-[var(--amber-400)] p-6 mb-4">
         <h2 className="font-sora font-semibold text-navy-700 text-xs uppercase tracking-wider mb-3">
           {fr ? "Entreprise" : "Company"}
         </h2>
@@ -66,10 +69,10 @@ export function StepConfirmation({ data, onBack, onFinish, saving, locale }: Ste
         />
         <Row label={fr ? "Numéro" : "Number"} value={data.company.incorporationNumber} />
         <Row label={fr ? "Date" : "Date"} value={data.company.incorporationDate} />
-        <Row label={fr ? "Province" : "Province"} value={data.company.province} />
+        <Row label={fr ? "Province" : "Province"} value={provinceDisplay} />
       </div>
 
-      <div className="bg-white rounded-2xl border border-ivory-dark p-6 mb-8">
+      <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--card-border)] border-l-4 border-l-[var(--amber-400)] p-6 mb-8">
         <h2 className="font-sora font-semibold text-navy-700 text-xs uppercase tracking-wider mb-3">
           {fr ? "Premier dirigeant" : "First officer"}
         </h2>
@@ -80,6 +83,12 @@ export function StepConfirmation({ data, onBack, onFinish, saving, locale }: Ste
         />
         <Row label={fr ? "Début" : "Start"} value={data.officer.startDate} />
       </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+          <p className="text-sm text-red-600 text-center">{error}</p>
+        </div>
+      )}
 
       <p className="text-xs text-navy-400 text-center mb-6">
         {fr

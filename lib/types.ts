@@ -1,5 +1,5 @@
 export type Language = "fr" | "en";
-export type IncorporationType = "LSA" | "CBCA";
+export type IncorporationType = "LSAQ" | "LSA" | "CBCA";
 export type Province = "QC" | "ON" | "BC" | "AB" | "MB" | "SK" | "NS" | "NB" | "NL" | "PE" | "YT" | "NT" | "NU";
 export type OfficerRole = "director" | "officer" | "shareholder";
 export type DocumentType = "resolution" | "bylaw" | "register" | "certificate" | "other";

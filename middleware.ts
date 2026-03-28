@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import createIntlMiddleware from 'next-intl/middleware'
-import { createServerClient } from '@supabase/ssr'
 import { routing } from './i18n/routing'
 
 const intlMiddleware = createIntlMiddleware(routing)

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Language, OnboardingData } from '@/lib/types';
+import type { Language, OnboardingData, Province } from '@/lib/types';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
 import { StepOfficer } from './StepOfficer';
@@ -38,11 +38,12 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
   const supabase = createClient();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [data, setData] = useState<OnboardingData>({
     language: locale as Language,
     company: {
       legalName: '',
-      incorporationType: 'LSA',
+      incorporationType: 'LSAQ',
       incorporationNumber: '',
       incorporationDate: today,
       province: 'QC',
@@ -62,6 +63,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
 
   async function handleFinish() {
     setSaving(true);
+    setSaveError(null);
     try {
       await supabase.from('users').upsert({
         id: userId,
@@ -69,13 +71,15 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
         onboarding_completed: true,
       });
 
+      const dbIncorporationType = data.company.incorporationType === 'LSAQ' ? 'LSA' : data.company.incorporationType;
+
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .insert({
           user_id: userId,
           legal_name_fr: data.company.legalName,
           legal_name_en: data.company.legalName,
-          incorporation_type: data.company.incorporationType,
+          incorporation_type: dbIncorporationType,
           incorporation_number: data.company.incorporationNumber || null,
           incorporation_date: data.company.incorporationDate || null,
           province: data.company.province,
@@ -97,44 +101,52 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
       router.refresh();
     } catch (err) {
       console.error('Onboarding save error:', err);
+      setSaveError(
+        fr
+          ? 'Une erreur est survenue. Veuillez réessayer.'
+          : 'An error occurred. Please try again.'
+      );
       setSaving(false);
     }
   }
 
-  // Resolve province display name
   const provinceDisplay = provinceNames[data.company.province]?.[fr ? 'fr' : 'en'] ?? data.company.province;
-
-  // Enrich data for confirmation display
-  const displayData = {
-    ...data,
-    company: {
-      ...data.company,
-      province: provinceDisplay,
-    },
-  };
 
   const stepProps = { data, setData, onNext: next, onBack: back, locale: activeLocale };
 
   return (
-    <div className="min-h-screen bg-ivory">
-      <header className="border-b border-ivory-dark bg-white/80 backdrop-blur-sm">
+    <div className="min-h-screen bg-[var(--ob-bg)]">
+      <header className="border-b border-[var(--card-border)] bg-[var(--card-bg)] backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <ZapLogo size="sm" />
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-navy-400">
-              {step} / {TOTAL_STEPS}
-            </span>
-            <div className="flex gap-1">
-              {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+          {/* Visual dot progress with connecting track */}
+          <div className="flex items-center">
+            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+              <div key={i} className="flex items-center">
                 <div
-                  key={i}
-                  className={`h-1.5 w-8 rounded-full transition-all duration-300 ${
-                    i + 1 <= step ? 'bg-navy-900' : 'bg-navy-200'
+                  className={`rounded-full transition-all duration-300 ${
+                    i + 1 < step
+                      ? 'w-2.5 h-2.5 bg-[var(--ob-step-done)]'
+                      : i + 1 === step
+                      ? 'w-4 h-4 bg-[var(--ob-step-active)]'
+                      : 'w-2.5 h-2.5 bg-[var(--ob-step-todo)]'
                   }`}
                 />
-              ))}
-            </div>
+                {i < TOTAL_STEPS - 1 && (
+                  <div
+                    className={`h-0.5 w-6 transition-all duration-300 ${
+                      i + 1 < step
+                        ? 'bg-[var(--ob-step-done)]'
+                        : 'bg-[var(--ob-step-todo)]'
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
           </div>
+          <span className="text-sm text-[var(--text-muted)]">
+            {step} / {TOTAL_STEPS}
+          </span>
         </div>
       </header>
 
@@ -146,9 +158,10 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
           {step === 4 && (
             <StepConfirmation
               {...stepProps}
-              data={displayData}
+              provinceDisplay={provinceDisplay}
               onFinish={handleFinish}
               saving={saving}
+              error={saveError}
             />
           )}
         </div>

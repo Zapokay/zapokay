@@ -112,10 +112,10 @@ export function LoginForm({ locale }: LoginFormProps) {
 
       <div className="relative my-5">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-ivory-dark" />
+          <div className="w-full border-t border-[var(--card-border)]" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-white px-3 text-xs text-navy-400">{t('orDivider')}</span>
+          <span className="bg-[var(--auth-card-bg)] px-3 text-xs text-[var(--text-muted)]">{t('orDivider')}</span>
         </div>
       </div>
 

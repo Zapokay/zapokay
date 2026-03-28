@@ -14,10 +14,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       'inline-flex items-center justify-center font-dm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl';
 
     const variants = {
-      primary: 'bg-navy-900 text-ivory hover:bg-navy-700 focus:ring-navy-500',
-      secondary: 'bg-[#D4821A] text-white hover:bg-[#B36A0E] focus:ring-[#D4821A]',
-      ghost: 'bg-transparent text-navy-900 hover:bg-navy-100 focus:ring-navy-200',
-      outline: 'border-2 border-navy-900 text-navy-900 hover:bg-navy-900 hover:text-ivory focus:ring-navy-500',
+      primary: 'bg-[var(--navy-900)] text-[var(--neutral-0)] hover:bg-[var(--navy-800)] focus:ring-[var(--navy-400)]',
+      secondary: 'bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold hover:bg-[var(--spark-400)] focus:ring-[var(--amber-400)]',
+      ghost: 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-body)] focus:ring-[var(--input-border-focus)]',
+      outline: 'border-2 border-[var(--navy-900)] text-[var(--navy-900)] hover:bg-[var(--navy-900)] hover:text-[var(--neutral-0)] focus:ring-[var(--navy-400)]',
     };
 
     const sizes = {

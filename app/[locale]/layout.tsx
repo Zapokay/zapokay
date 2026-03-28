@@ -22,7 +22,7 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} data-theme="original" suppressHydrationWarning>
       <body>
         <NextIntlClientProvider messages={messages}>
           {children}
