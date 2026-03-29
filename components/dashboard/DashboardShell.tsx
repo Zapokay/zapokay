@@ -95,119 +95,186 @@ export function DashboardShell({ locale, profile, company, children }: Dashboard
     router.refresh();
   }
 
-  function toggleLanguage() {
-    const newLocale = locale === 'fr' ? 'en' : 'fr';
-    // Update language preference
-    supabase.from('users').update({ preferred_language: newLocale }).eq('id', profile.id);
-    router.push(`/${newLocale}/dashboard`);
-  }
-
-  const companyName = company?.legal_name_fr ?? (fr ? "Votre entreprise" : "Your company");
+  const companyName = company?.legal_name_fr ?? (fr ? 'Votre entreprise' : 'Your company');
+  const initials = profile.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? 'DR';
+  const displayType = company?.incorporation_type === 'LSA' ? 'LSAQ' : company?.incorporation_type;
+  const otherLocale = locale === 'fr' ? 'en' : 'fr';
+  const otherLabel = locale === 'fr' ? 'EN' : 'FR';
 
   return (
-    <div className="min-h-screen bg-ivory flex flex-col">
-      {/* Top Nav */}
-      <header className="bg-[var(--card-bg)] border-b border-[var(--card-border)] sticky top-0 z-40">
-        <div className="flex items-center justify-between px-4 md:px-6 h-16">
-          {/* Left: hamburger + logo */}
+    <div className="flex h-screen overflow-hidden bg-[var(--page-bg)]">
+
+      {/* Sidebar — full height, in-flow on desktop, fixed on mobile */}
+      <aside
+        className={cn(
+          'w-[240px] flex-shrink-0 flex flex-col h-full bg-[var(--sb-bg)] z-30 transition-transform duration-200',
+          'fixed md:relative',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        )}
+      >
+        {/* Logo */}
+        <div
+          className="px-4 pt-5 pb-3"
+          style={{ '--wordmark-color': 'var(--sb-wordmark)', '--logo-sq': 'var(--neutral-0)', '--logo-z': 'var(--navy-900)' } as React.CSSProperties}
+        >
+          <ZapLogo size="sm" variant="wordmark" />
+        </div>
+
+        {/* Company selector */}
+        <div style={{
+          background: 'var(--sb-co-bg)',
+          border: '1px solid var(--sb-co-border)',
+          borderRadius: '10px',
+          padding: '10px 12px',
+          margin: '0 12px 8px',
+        }}>
+          <div style={{ fontSize: '9px', color: 'var(--sb-co-label)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: '4px' }}>
+            ENTREPRISE ACTIVE
+          </div>
+          <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sb-co-name)' }}>
+            {company?.legal_name_fr ?? 'Mon entreprise'}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--sb-co-label)', marginTop: '2px' }}>
+            {displayType} · {company?.province}
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+          {navItems.map(item => (
+            <div key={item.key}>
+              {item.active ? (
+                <Link
+                  href={`/${locale}/${item.href}`}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium"
+                  style={{ background: 'var(--sb-item-active)', color: 'var(--sb-label-active)' }}
+                >
+                  <span style={{ color: 'var(--sb-icon-active)' }}>{item.icon}</span>
+                  {fr ? item.labelFr : item.labelEn}
+                </Link>
+              ) : (
+                <div
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm cursor-not-allowed opacity-60"
+                  style={{ color: 'var(--sb-label-default)' }}
+                >
+                  <span style={{ color: 'var(--sb-icon-default)' }}>{item.icon}</span>
+                  {fr ? item.labelFr : item.labelEn}
+                  <span className="ml-auto text-xs px-1.5 py-0.5 rounded-md" style={{ color: 'var(--sb-group-label)' }}>
+                    {fr ? 'Bientôt' : 'Soon'}
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
+
+        {/* User footer */}
+        <div style={{ borderTop: '1px solid var(--sb-footer-border)', padding: '12px', marginTop: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: 'var(--sb-user-avatar-bg)',
+              border: '1px solid var(--sb-user-avatar-bd)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '12px', fontWeight: 700, color: 'white', flexShrink: 0,
+            }}>
+              {initials}
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--sb-user-name)' }}>
+                {profile.full_name ?? 'Utilisateur'}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--sb-user-role)' }}>
+                Propriétaire · Plan Pro
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push(`/${locale}/login`);
+            }}
+            style={{
+              width: '100%',
+              marginTop: '8px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              color: 'rgba(255,255,255,.40)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'color 150ms',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,.70)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,.40)')}
+          >
+            {fr ? '→ Déconnexion' : '→ Sign out'}
+          </button>
+        </div>
+      </aside>
+
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-[var(--navy-900)]/30 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main area */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+
+        {/* Topbar — does NOT span over sidebar */}
+        <header
+          className="flex-shrink-0 flex items-center justify-between px-6 h-16 border-b border-[var(--tb-border)]"
+          style={{ background: 'var(--tb-bg)' }}
+        >
+          {/* Left: hamburger (mobile) + title */}
           <div className="flex items-center gap-3">
             <button
-              className="md:hidden p-2 rounded-lg text-navy-500 hover:bg-ivory transition-colors"
+              className="md:hidden p-2 rounded-lg text-[var(--text-muted)] hover:bg-[var(--page-bg)] transition-colors"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <ZapLogo size="sm" />
-            <div className="hidden md:flex items-center gap-1 text-navy-400">
-              <span>/</span>
-              <span className="text-sm font-medium text-navy-700 truncate max-w-[200px]">{companyName}</span>
+            <div>
+              <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '17px', fontWeight: 700, color: 'var(--tb-title)' }}>
+                {fr ? 'Tableau de bord' : 'Dashboard'}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                {companyName}
+              </div>
             </div>
           </div>
 
-          {/* Right: lang toggle + avatar */}
+          {/* Right: search + CTA + lang toggle */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={toggleLanguage}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--card-border)] bg-ivory hover:bg-navy-50 transition-colors text-sm font-medium text-navy-700"
-            >
-              <span>{locale === 'fr' ? '🇨🇦' : '🇨🇦'}</span>
-              <span>{locale === 'fr' ? 'EN' : 'FR'}</span>
+
+            <input
+              type="text"
+              placeholder={fr ? 'Rechercher...' : 'Search...'}
+              className="hidden md:block w-48 px-3 py-1.5 rounded-lg text-sm text-[var(--text-body)] placeholder:text-[var(--text-muted)] border border-[var(--tb-border)] outline-none focus:border-[var(--input-border-focus)]"
+              style={{ background: 'var(--tb-search-bg)' }}
+            />
+
+            <button className="bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold text-sm px-4 py-2 rounded-lg hover:bg-[var(--spark-400)] transition-colors whitespace-nowrap">
+              ⚡ {fr ? 'Nouvelle résolution' : 'New resolution'}
             </button>
-
-            <div className="relative group">
-              <button className="w-8 h-8 bg-navy-900 rounded-full flex items-center justify-center text-ivory text-sm font-semibold">
-                {profile.full_name?.charAt(0)?.toUpperCase() ?? 'U'}
-              </button>
-              <div className="absolute right-0 top-full mt-2 w-44 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 py-1 z-50">
-                <div className="px-3 py-2 border-b border-[var(--card-border)]">
-                  <p className="text-xs font-medium text-navy-900 truncate">{profile.full_name}</p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                >
-                  {fr ? "Se déconnecter" : "Log out"}
-                </button>
-              </div>
-            </div>
+            <Link
+              href={`/${otherLocale}/dashboard`}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors"
+              onClick={() => supabase.from('users').update({ preferred_language: otherLocale }).eq('id', profile.id)}
+            >
+              {otherLabel}
+            </Link>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="flex flex-1">
-        {/* Sidebar */}
-        <aside
-          className={cn(
-            'fixed md:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-[var(--sb-bg)] border-r border-[var(--card-border)] flex flex-col transition-transform duration-200 z-30',
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          )}
-        >
-          <nav className="flex-1 px-3 py-4 space-y-1">
-            {navItems.map(item => (
-              <div key={item.key}>
-                {item.active ? (
-                  <Link
-                    href={`/${locale}/${item.href}`}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-navy-50 text-navy-900 font-medium text-sm"
-                  >
-                    <span className="text-navy-900">{item.icon}</span>
-                    {fr ? item.labelFr : item.labelEn}
-                  </Link>
-                ) : (
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-navy-400 text-sm cursor-not-allowed opacity-60">
-                    {item.icon}
-                    {fr ? item.labelFr : item.labelEn}
-                    <span className="ml-auto text-xs bg-ivory-dark text-navy-400 px-1.5 py-0.5 rounded-md">
-                      {fr ? 'Bientôt' : 'Soon'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </nav>
-
-          <div className="p-4 border-t border-[var(--card-border)]">
-            <div className="bg-ivory rounded-xl p-3">
-              <p className="text-xs font-semibold text-navy-700 mb-0.5">Sprint 1</p>
-              <p className="text-xs text-navy-400">
-                {fr ? "Livre des minutes en configuration" : "Minute book being set up"}
-              </p>
-            </div>
-          </div>
-        </aside>
-
-        {/* Overlay on mobile */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-navy-900/30 z-20 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Main content */}
-        <main className="flex-1 p-6 md:p-8 max-w-5xl">
+        {/* Page content */}
+        <main className="flex-1 overflow-auto p-6 md:p-8">
           {children}
         </main>
       </div>

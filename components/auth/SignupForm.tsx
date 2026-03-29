@@ -8,9 +8,11 @@ import Link from 'next/link';
 
 interface SignupFormProps {
   locale: string;
+  title?: string;
+  subtitle?: string;
 }
 
-export function SignupForm({ locale }: SignupFormProps) {
+export function SignupForm({ locale, title, subtitle }: SignupFormProps) {
   const t = useTranslations('auth.signup');
   const supabase = createClient();
 
@@ -42,17 +44,18 @@ export function SignupForm({ locale }: SignupFormProps) {
 
   if (done) {
     return (
-      <div className="text-center py-6">
-        <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <p className="font-sora font-medium text-navy-900">{t('verifyEmail')}</p>
-        <p className="text-sm text-navy-400 mt-1">{email}</p>
+      <div className="text-center py-8">
+        <svg style={{ color: 'var(--amber-400)' }} className="w-8 h-8 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <p className="font-sora font-semibold text-[var(--text-heading)] text-lg mb-1">
+          {locale === 'fr' ? 'Vérifiez votre courriel' : 'Check your email'}
+        </p>
+        <p className="text-sm text-[var(--text-muted)]">{t('verifyEmail')}</p>
+        <p className="text-sm font-medium text-[var(--text-body)] mt-1">{email}</p>
         <Link
           href={`/${locale}/login`}
-          className="inline-block mt-6 text-sm text-navy-400 hover:text-navy-700 transition-colors underline underline-offset-2"
+          className="inline-block mt-6 text-sm text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors underline underline-offset-2"
         >
           {locale === 'fr' ? 'Retour à la connexion' : 'Back to sign in'}
         </Link>
@@ -61,6 +64,9 @@ export function SignupForm({ locale }: SignupFormProps) {
   }
 
   return (
+    <>
+      {title && <h1 className="font-sora text-2xl font-semibold text-[var(--text-heading)] mb-1">{title}</h1>}
+      {subtitle && <p className="text-sm text-[var(--text-muted)] mb-8">{subtitle}</p>}
     <form onSubmit={handleSignup} className="space-y-4">
       <Input
         id="fullName"
@@ -104,5 +110,6 @@ export function SignupForm({ locale }: SignupFormProps) {
         </Link>
       </p>
     </form>
+    </>
   );
 }

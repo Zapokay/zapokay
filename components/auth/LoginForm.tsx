@@ -115,14 +115,14 @@ export function LoginForm({ locale }: LoginFormProps) {
           <div className="w-full border-t border-[var(--card-border)]" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-[var(--auth-card-bg)] px-3 text-xs text-[var(--text-muted)]">{t('orDivider')}</span>
+          <span className="bg-[var(--page-bg)] px-3 text-xs text-[var(--text-muted)]">{t('orDivider')}</span>
         </div>
       </div>
 
       <button
         type="button"
         onClick={() => setMode(mode === 'password' ? 'magic' : 'password')}
-        className="w-full text-center text-sm text-navy-500 hover:text-navy-900 transition-colors py-2"
+        className="w-full px-5 py-2.5 rounded-lg border border-[var(--navy-200)] text-[var(--text-body)] bg-transparent hover:bg-[var(--navy-50)] transition-colors text-sm font-medium"
       >
         {mode === 'password' ? t('magicLink') : t('submit')}
       </button>

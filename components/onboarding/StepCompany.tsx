@@ -39,10 +39,10 @@ const incorporationTypes = [
   },
   {
     value: 'CBCA' as IncorporationType,
-    labelFr: 'LSAC',
+    labelFr: 'CBCA',
     labelEn: 'CBCA',
-    subFr: 'Loi canadienne',
-    subEn: 'Federal Canada',
+    subFr: 'Loi canadienne sur les sociétés par actions',
+    subEn: 'Canada Business Corporations Act',
   },
 ];
 

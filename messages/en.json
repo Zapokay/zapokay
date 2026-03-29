@@ -19,6 +19,7 @@
       "noAccount": "Don't have an account?",
       "signUp": "Sign up",
       "leftTagline": "Zap the paperwork. Move your business forward.",
+      "leftSubtagline": "Corporate compliance, simplified.",
       "leftFeature1": "Digital minute book",
       "leftFeature2": "Legal documents generated in seconds",
       "leftFeature3": "Always up-to-date compliance"
@@ -35,6 +36,7 @@
       "verifyEmail": "Check your email to verify your account.",
       "passwordHint": "Minimum 8 characters",
       "leftTagline": "Zap the paperwork. Move your business forward.",
+      "leftSubtagline": "Corporate compliance, simplified.",
       "leftFeature1": "Digital minute book",
       "leftFeature2": "Legal documents generated in seconds",
       "leftFeature3": "Always up-to-date compliance"
@@ -75,7 +77,7 @@
     "summaryDate": "Incorporation date",
     "summaryOfficer": "First officer",
     "summaryRole": "Role",
-    "letsGo": "Let's go!",
+    "letsGo": "Access my dashboard",
     "stepOf": "Step {current} of {total}"
   },
   "dashboard": {

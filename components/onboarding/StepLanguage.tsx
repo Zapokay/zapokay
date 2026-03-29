@@ -10,10 +10,11 @@ interface StepProps {
   locale: string;
 }
 
-export function StepLanguage({ data, setData, onNext }: StepProps) {
+export function StepLanguage({ data, setData, onNext, locale }: StepProps) {
+  const fr = data.language === 'fr' || locale === 'fr';
+
   function select(lang: Language) {
     setData(d => ({ ...d, language: lang }));
-    setTimeout(onNext, 150);
   }
 
   return (
@@ -53,6 +54,19 @@ export function StepLanguage({ data, setData, onNext }: StepProps) {
             )}
           </button>
         ))}
+      </div>
+
+      <div className="flex gap-3 mt-8">
+        <Button variant="ghost" onClick={onNext} className="flex-1">
+          {fr ? 'Passer' : 'Skip'}
+        </Button>
+        <Button
+          onClick={onNext}
+          className="flex-1 bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold hover:bg-[var(--spark-400)]"
+          size="lg"
+        >
+          {fr ? 'Continuer →' : 'Continue →'}
+        </Button>
       </div>
     </div>
   );

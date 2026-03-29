@@ -1,6 +1,5 @@
 'use client';
 import type { OnboardingData } from '@/lib/types';
-import Button from '@/components/ui/Button';
 
 interface StepProps {
   data: OnboardingData;
@@ -16,94 +15,83 @@ interface StepProps {
 
 const isFr = (locale: string) => locale === 'fr';
 
-function Row({ label, value }: { label: string; value: string }) {
+function CheckItem({ text }: { text: string }) {
   return (
-    <div className="flex items-start justify-between py-3 border-b border-[var(--card-border)] last:border-0">
-      <span className="text-sm text-navy-400 shrink-0 mr-4">{label}</span>
-      <span className="text-sm font-medium text-navy-900 text-right max-w-[60%]">{value || '—'}</span>
-    </div>
+    <li className="flex items-center gap-2 text-sm text-[var(--text-body)]">
+      <svg className="w-4 h-4 flex-shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+      </svg>
+      {text}
+    </li>
   );
 }
 
-const roleLabels: Record<string, { fr: string; en: string }> = {
-  director: { fr: 'Administrateur', en: 'Director' },
-  officer: { fr: 'Dirigeant', en: 'Officer' },
-  shareholder: { fr: 'Actionnaire', en: 'Shareholder' },
-};
-
-const typeLabels: Record<string, { fr: string; en: string }> = {
-  LSAQ: { fr: 'Provincial Québec (LSAQ)', en: 'Québec Provincial (LSAQ)' },
-  LSA: { fr: 'Provincial Québec (LSAQ)', en: 'Québec Provincial (LSAQ)' },
-  CBCA: { fr: 'Fédéral (LSAC)', en: 'Federal (CBCA)' },
-};
-
-export function StepConfirmation({ data, onBack, onFinish, saving, locale, provinceDisplay, error }: StepProps) {
+export function StepConfirmation({ data, onFinish, saving, locale, error }: StepProps) {
   const fr = isFr(locale);
-  const l = fr ? 'fr' : 'en';
+  const isCBCA = data.company.incorporationType === 'CBCA';
+  const complianceLabel = isCBCA ? 'CBCA' : 'LSAQ';
+
+  const checklistFr = [
+    'Livre de minutes numérique créé',
+    `Règles de conformité ${complianceLabel} chargées`,
+    'Premier rapport de conformité généré',
+    'Rappels annuels activés',
+  ];
+  const checklistEn = [
+    'Digital minute book created',
+    `${complianceLabel} compliance rules loaded`,
+    'First compliance report generated',
+    'Annual reminders activated',
+  ];
+  const checklist = fr ? checklistFr : checklistEn;
 
   return (
-    <div>
-      <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-6">
-        <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-        </svg>
+    <div className="bg-[var(--card-bg)] rounded-2xl p-8 text-center max-w-md mx-auto">
+      {/* Triple-halo amber ⚡ icon */}
+      <div style={{ width: '80px', height: '80px', background: 'rgba(245,185,30,0.12)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+        <div style={{ width: '64px', height: '64px', background: 'rgba(245,185,30,0.20)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '48px', height: '48px', background: 'var(--amber-400)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M13 3L6 14h7l-1 7 8-11h-7l1-7z" fill="white" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
       </div>
 
-      <h1 className="font-sora text-3xl font-semibold text-navy-900 mb-2">
-        {fr ? "Tout semble parfait!" : "Everything looks good!"}
+      {/* Title */}
+      <h1 className="font-sora font-bold text-2xl text-[var(--text-heading)] mb-2">
+        {fr ? 'Vous êtes prêt !' : "You're all set!"}
       </h1>
-      <p className="text-navy-400 text-sm mb-8">
+
+      {/* Subtitle */}
+      <p className="text-sm text-[var(--text-muted)] mb-6">
         {fr
-          ? "Voici un résumé de ce que nous avons configuré pour vous."
-          : "Here's a summary of what we've set up for you."}
+          ? `Votre livre de minutes numérique pour ${data.company.legalName} est configuré. Zappons la paperasse ensemble.`
+          : `Your digital minute book for ${data.company.legalName} is set up. Let's zap the paperwork together.`}
       </p>
 
-      <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--card-border)] border-l-4 border-l-[var(--amber-400)] p-6 mb-4">
-        <h2 className="font-sora font-semibold text-navy-700 text-xs uppercase tracking-wider mb-3">
-          {fr ? "Entreprise" : "Company"}
-        </h2>
-        <Row label={fr ? "Nom légal" : "Legal name"} value={data.company.legalName} />
-        <Row
-          label={fr ? "Type de constitution" : "Incorporation type"}
-          value={typeLabels[data.company.incorporationType]?.[l] ?? data.company.incorporationType}
-        />
-        <Row label={fr ? "Numéro" : "Number"} value={data.company.incorporationNumber} />
-        <Row label={fr ? "Date" : "Date"} value={data.company.incorporationDate} />
-        <Row label={fr ? "Province" : "Province"} value={provinceDisplay} />
-      </div>
+      {/* Checklist */}
+      <ul className="text-left mb-8 space-y-3">
+        {checklist.map(item => <CheckItem key={item} text={item} />)}
+      </ul>
 
-      <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--card-border)] border-l-4 border-l-[var(--amber-400)] p-6 mb-8">
-        <h2 className="font-sora font-semibold text-navy-700 text-xs uppercase tracking-wider mb-3">
-          {fr ? "Premier dirigeant" : "First officer"}
-        </h2>
-        <Row label={fr ? "Nom" : "Name"} value={data.officer.fullName} />
-        <Row
-          label={fr ? "Rôle" : "Role"}
-          value={roleLabels[data.officer.role]?.[l] ?? data.officer.role}
-        />
-        <Row label={fr ? "Début" : "Start"} value={data.officer.startDate} />
-      </div>
-
+      {/* Error */}
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
           <p className="text-sm text-red-600 text-center">{error}</p>
         </div>
       )}
 
-      <p className="text-xs text-navy-400 text-center mb-6">
-        {fr
-          ? "Vous pouvez modifier ces détails dans Paramètres."
-          : "You can update these details later in Settings."}
-      </p>
-
-      <div className="flex gap-3">
-        <Button variant="ghost" onClick={onBack} className="flex-1">
-          {fr ? "Retour" : "Back"}
-        </Button>
-        <Button onClick={onFinish} loading={saving} className="flex-1" size="lg" variant="secondary">
-          {fr ? "C'est parti" : "Let's go"}
-        </Button>
-      </div>
+      {/* CTA */}
+      <button
+        onClick={onFinish}
+        disabled={saving}
+        className="w-full bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold py-3 rounded-lg hover:bg-[var(--spark-400)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {saving
+          ? (fr ? 'Chargement...' : 'Loading...')
+          : (fr ? '⚡ Accéder à mon tableau de bord' : '⚡ Access my dashboard')}
+      </button>
     </div>
   );
 }
