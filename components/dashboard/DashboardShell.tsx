@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { ZapLogo } from '@/components/ui/ZapLogo';
 import type { UserProfile, Company } from '@/lib/types';
@@ -26,7 +26,7 @@ const navItems = [
     labelFr: 'Tableau de bord',
     labelEn: 'Dashboard',
     href: 'dashboard',
-    active: true,
+    comingSoon: false,
   },
   {
     key: 'documents',
@@ -39,7 +39,7 @@ const navItems = [
     labelFr: 'Documents',
     labelEn: 'Documents',
     href: 'documents',
-    active: false,
+    comingSoon: false,
   },
   {
     key: 'compliance',
@@ -52,7 +52,7 @@ const navItems = [
     labelFr: 'Conformité',
     labelEn: 'Compliance',
     href: 'compliance',
-    active: false,
+    comingSoon: true,
   },
   {
     key: 'resolutions',
@@ -65,7 +65,7 @@ const navItems = [
     labelFr: 'Résolutions',
     labelEn: 'Resolutions',
     href: 'resolutions',
-    active: false,
+    comingSoon: true,
   },
   {
     key: 'settings',
@@ -79,15 +79,31 @@ const navItems = [
     labelFr: 'Paramètres',
     labelEn: 'Settings',
     href: 'settings',
-    active: false,
+    comingSoon: true,
   },
 ];
 
 export function DashboardShell({ locale, profile, company, children }: DashboardShellProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
   const fr = locale === 'fr';
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  function isActive(href: string) {
+    if (href === 'dashboard') {
+      return pathname.endsWith('/dashboard');
+    }
+    return pathname.includes(`/dashboard/${href}`);
+  }
+
+  function getPageTitle() {
+    if (pathname.includes('/dashboard/documents')) return fr ? 'Documents' : 'Documents';
+    if (pathname.includes('/dashboard/compliance')) return fr ? 'Conformité' : 'Compliance';
+    if (pathname.includes('/dashboard/resolutions')) return fr ? 'Résolutions' : 'Resolutions';
+    if (pathname.includes('/dashboard/settings')) return fr ? 'Paramètres' : 'Settings';
+    return fr ? 'Tableau de bord' : 'Dashboard';
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -143,13 +159,20 @@ export function DashboardShell({ locale, profile, company, children }: Dashboard
         <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
           {navItems.map(item => (
             <div key={item.key}>
-              {item.active ? (
+              {!item.comingSoon ? (
                 <Link
-                  href={`/${locale}/${item.href}`}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium"
-                  style={{ background: 'var(--sb-item-active)', color: 'var(--sb-label-active)' }}
+                  href={item.href === 'dashboard' ? `/${locale}/dashboard` : `/${locale}/dashboard/${item.href}`}
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                  style={
+                    isActive(item.href)
+                      ? { background: 'var(--sb-item-active)', color: 'var(--sb-label-active)' }
+                      : { color: 'var(--sb-label-default)' }
+                  }
                 >
-                  <span style={{ color: 'var(--sb-icon-active)' }}>{item.icon}</span>
+                  <span style={{ color: isActive(item.href) ? 'var(--sb-icon-active)' : 'var(--sb-icon-default)' }}>
+                    {item.icon}
+                  </span>
                   {fr ? item.labelFr : item.labelEn}
                 </Link>
               ) : (
@@ -242,7 +265,7 @@ export function DashboardShell({ locale, profile, company, children }: Dashboard
             </button>
             <div>
               <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '17px', fontWeight: 700, color: 'var(--tb-title)' }}>
-                {fr ? 'Tableau de bord' : 'Dashboard'}
+                {getPageTitle()}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                 {companyName}
