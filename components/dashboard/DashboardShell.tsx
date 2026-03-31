@@ -164,11 +164,14 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
                 <Link
                   href={item.href === 'dashboard' ? `/${locale}/dashboard` : `/${locale}/dashboard/${item.href}`}
                   onClick={() => setSidebarOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors no-underline',
+                    !isActive(item.href) && 'hover:bg-white/5'
+                  )}
                   style={
                     isActive(item.href)
-                      ? { background: 'var(--sb-item-active)', color: 'var(--sb-label-active)' }
-                      : { color: 'var(--sb-label-default)' }
+                      ? { background: 'var(--sb-item-active)', color: 'var(--sb-label-active)', textDecoration: 'none' }
+                      : { color: 'var(--sb-label-default)', textDecoration: 'none' }
                   }
                 >
                   <span style={{ color: isActive(item.href) ? 'var(--sb-icon-active)' : 'var(--sb-icon-default)' }}>
@@ -295,13 +298,16 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
             <button className="bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold text-sm px-4 py-2 rounded-lg hover:bg-[var(--spark-400)] transition-colors whitespace-nowrap">
               ⚡ {fr ? 'Nouvelle résolution' : 'New resolution'}
             </button>
-            <Link
-              href={`/${otherLocale}/dashboard`}
-              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors"
-              onClick={() => supabase.from('users').update({ preferred_language: otherLocale }).eq('id', profile.id)}
+            <button
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors bg-transparent border-none cursor-pointer"
+              onClick={() => {
+                supabase.from('users').update({ preferred_language: otherLocale }).eq('id', profile.id);
+                const newPath = pathname.replace(`/${locale}/`, `/${otherLocale}/`);
+                router.replace(newPath);
+              }}
             >
               {otherLabel}
-            </Link>
+            </button>
           </div>
         </header>
 

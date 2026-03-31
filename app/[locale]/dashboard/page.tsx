@@ -136,40 +136,40 @@ export default async function DashboardPage({
               </svg>
             }
           />
-          <Link href={`/${locale}/dashboard/compliance`} className="block">
-            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                  {fr ? 'Actions requises' : 'Required actions'}
-                </span>
-                <div className="w-8 h-8 rounded-lg bg-[var(--info-bg)] flex items-center justify-center text-[var(--info-text)]">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-2xl font-bold text-[var(--text-heading)]"
-                  style={{ fontFamily: 'Sora, sans-serif' }}
-                >
-                  {complianceResult?.urgentCount ?? 0}
-                </span>
-                {(complianceResult?.urgentCount ?? 0) > 0 && (
-                  <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                    style={{ backgroundColor: '#C9A5A5', color: '#6B1E1E' }}
-                  >
-                    !
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-[var(--text-muted)] mt-1">
-                {fr ? 'voir la conformité →' : 'view compliance →'}
+          <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                {fr ? 'Actions requises' : 'Required actions'}
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-[var(--info-bg)] flex items-center justify-center text-[var(--info-text)]">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
               </div>
             </div>
-          </Link>
+            <div className="flex items-center gap-2">
+              <span
+                className="text-2xl font-bold text-[var(--text-heading)]"
+                style={{ fontFamily: 'Sora, sans-serif' }}
+              >
+                {complianceResult?.urgentCount ?? 0}
+              </span>
+              {(complianceResult?.urgentCount ?? 0) > 0 && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: '#C9A5A5', color: '#6B1E1E' }}
+                >
+                  !
+                </span>
+              )}
+            </div>
+            <div className="text-xs mt-1">
+              <Link href={`/${locale}/dashboard/compliance`} className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors no-underline">
+                {fr ? 'voir la conformité →' : 'view compliance →'}
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* Recent documents */}
