@@ -156,6 +156,23 @@
       "bilingual": "Bilingue"
     }
   },
+  "compliance": {
+    "title": "Conformité corporative",
+    "subtitle": "{compliant} sur {total} obligations remplies",
+    "missingFiscalYear": "Votre date de fin d'exercice fiscal n'est pas configurée. Le calcul de conformité est désactivé.",
+    "goToSettings": "Configurer →",
+    "sectionRequired": "Actions requises",
+    "sectionPending": "À venir",
+    "sectionCompliant": "Complété",
+    "uploadDocument": "Téléverser un document",
+    "emptyTitle": "Aucun document encore",
+    "emptyDescription": "Commencez par téléverser vos documents corporatifs pour calculer votre taux de conformité.",
+    "cardCompliant": "Conforme · Document du",
+    "cardPendingDays": "Échéance dans {days, plural, one {# jour} other {# jours}} · {date}",
+    "cardPendingDate": "Échéance le {date}",
+    "cardRequired": "Échéance dépassée · {date}",
+    "urgentBadge": "⚡ Urgent"
+  },
   "provinces": {
     "QC": "Québec",
     "ON": "Ontario",

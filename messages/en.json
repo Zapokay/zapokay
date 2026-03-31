@@ -156,6 +156,23 @@
       "bilingual": "Bilingual"
     }
   },
+  "compliance": {
+    "title": "Corporate Compliance",
+    "subtitle": "{compliant} of {total} obligations fulfilled",
+    "missingFiscalYear": "Your fiscal year end date is not configured. Compliance tracking is disabled.",
+    "goToSettings": "Configure →",
+    "sectionRequired": "Required actions",
+    "sectionPending": "Upcoming",
+    "sectionCompliant": "Completed",
+    "uploadDocument": "Upload a document",
+    "emptyTitle": "No documents yet",
+    "emptyDescription": "Start by uploading your corporate documents to calculate your compliance score.",
+    "cardCompliant": "Compliant · Document from",
+    "cardPendingDays": "Due in {days, plural, one {# day} other {# days}} · {date}",
+    "cardPendingDate": "Due on {date}",
+    "cardRequired": "Overdue · {date}",
+    "urgentBadge": "⚡ Urgent"
+  },
   "provinces": {
     "QC": "Quebec",
     "ON": "Ontario",

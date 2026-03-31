@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
+import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems';
+import ComplianceItemCard from '@/components/compliance/ComplianceItemCard';
 
 function StatCard({
   label,
@@ -63,6 +65,12 @@ export default async function DashboardPage({
     .eq('status', 'active')
     .single();
 
+  const complianceResult = company
+    ? await calculateComplianceItems(company.id, supabase)
+    : null;
+
+  const urgentItems = complianceResult?.items.filter(i => i.status === 'required').slice(0, 2) ?? [];
+
   const { data: documents } = await supabase
     .from('documents')
     .select('*')
@@ -88,7 +96,7 @@ export default async function DashboardPage({
   const firstName = profile.full_name?.split(' ')[0] ?? '';
 
   return (
-    <DashboardShell locale={locale} profile={profile} company={company}>
+    <DashboardShell locale={locale} profile={profile} company={company} urgentCount={complianceResult?.urgentCount ?? 0}>
       <div className="space-y-8">
 
         {/* Greeting */}
@@ -118,27 +126,50 @@ export default async function DashboardPage({
             }
           />
           <StatCard
-            label={fr ? 'Ajoutés ce mois' : 'Added this month'}
-            value={thisMonth}
-            sub={fr ? 'nouveaux documents' : 'new documents'}
+            label={fr ? 'Taux de conformité' : 'Compliance rate'}
+            value={complianceResult ? `${complianceResult.percentage}%` : '—'}
+            sub={fr ? 'obligations remplies' : 'obligations met'}
             icon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                  d="M12 4v16m8-8H4" />
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
             }
           />
-          <StatCard
-            label={fr ? 'Types différents' : 'Document types'}
-            value={uniqueTypes}
-            sub={fr ? 'catégories utilisées' : 'categories used'}
-            icon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                  d="M7 7h.01M7 3h5l2 2h5a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h2z" />
-              </svg>
-            }
-          />
+          <Link href={`/${locale}/dashboard/compliance`} className="block">
+            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  {fr ? 'Actions requises' : 'Required actions'}
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-[var(--info-bg)] flex items-center justify-center text-[var(--info-text)]">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-2xl font-bold text-[var(--text-heading)]"
+                  style={{ fontFamily: 'Sora, sans-serif' }}
+                >
+                  {complianceResult?.urgentCount ?? 0}
+                </span>
+                {(complianceResult?.urgentCount ?? 0) > 0 && (
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ backgroundColor: '#C9A5A5', color: '#6B1E1E' }}
+                  >
+                    !
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-[var(--text-muted)] mt-1">
+                {fr ? 'voir la conformité →' : 'view compliance →'}
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Recent documents */}
@@ -199,6 +230,39 @@ export default async function DashboardPage({
             </div>
           )}
         </div>
+
+        {urgentItems.length > 0 && (
+          <section className="mt-8">
+            <div className="flex items-center justify-between mb-3">
+              <h2
+                className="text-sm font-bold uppercase tracking-wider"
+                style={{
+                  fontFamily: "'Sora', sans-serif",
+                  color: '#6B1E1E',
+                  letterSpacing: '0.08em',
+                }}
+              >
+                ⚡ {fr ? 'Actions urgentes' : 'Urgent actions'}
+              </h2>
+              <Link
+                href={`/${locale}/dashboard/compliance`}
+                className="text-xs font-semibold underline-offset-2 underline"
+                style={{ color: '#4A6B93' }}
+              >
+                {fr ? 'Voir tout →' : 'View all →'}
+              </Link>
+            </div>
+            <div className="flex flex-col gap-3">
+              {urgentItems.map(item => (
+                <ComplianceItemCard
+                  key={item.id}
+                  item={item}
+                  locale={locale as 'fr' | 'en'}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
       </div>
     </DashboardShell>

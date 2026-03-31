@@ -12,6 +12,7 @@ interface DashboardShellProps {
   profile: UserProfile;
   company: Company | null;
   children: React.ReactNode;
+  urgentCount?: number;
 }
 
 const navItems = [
@@ -29,6 +30,19 @@ const navItems = [
     comingSoon: false,
   },
   {
+    key: 'compliance',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+    ),
+    labelFr: 'Conformité',
+    labelEn: 'Compliance',
+    href: 'compliance',
+    comingSoon: false,
+  },
+  {
     key: 'documents',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -40,19 +54,6 @@ const navItems = [
     labelEn: 'Documents',
     href: 'documents',
     comingSoon: false,
-  },
-  {
-    key: 'compliance',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-      </svg>
-    ),
-    labelFr: 'Conformité',
-    labelEn: 'Compliance',
-    href: 'compliance',
-    comingSoon: true,
   },
   {
     key: 'resolutions',
@@ -83,7 +84,7 @@ const navItems = [
   },
 ];
 
-export function DashboardShell({ locale, profile, company, children }: DashboardShellProps) {
+export function DashboardShell({ locale, profile, company, children, urgentCount = 0 }: DashboardShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -173,7 +174,15 @@ export function DashboardShell({ locale, profile, company, children }: Dashboard
                   <span style={{ color: isActive(item.href) ? 'var(--sb-icon-active)' : 'var(--sb-icon-default)' }}>
                     {item.icon}
                   </span>
-                  {fr ? item.labelFr : item.labelEn}
+                  <span className="flex-1">{fr ? item.labelFr : item.labelEn}</span>
+                  {item.key === 'compliance' && urgentCount > 0 && (
+                    <span
+                      className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
+                      style={{ backgroundColor: '#C9A5A5', color: '#6B1E1E' }}
+                    >
+                      {urgentCount}
+                    </span>
+                  )}
                 </Link>
               ) : (
                 <div
