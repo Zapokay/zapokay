@@ -5,7 +5,63 @@ import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
 import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems';
-import ComplianceItemCard from '@/components/compliance/ComplianceItemCard';
+
+// ─── Static descriptions per rule_key ─────────────────────────────────────────
+
+const ACTION_DESCRIPTIONS: Record<string, { fr: string; en: string }> = {
+  annual_board_resolution: {
+    fr: "Adopter et consigner la résolution du conseil",
+    en: "Adopt and record the board resolution",
+  },
+  annual_shareholder_resolution: {
+    fr: "Tenir l'assemblée annuelle des actionnaires",
+    en: "Hold the annual shareholders meeting",
+  },
+  annual_financial_statements: {
+    fr: "Préparer et approuver les états financiers",
+    en: "Prepare and approve financial statements",
+  },
+  auditor_waiver: {
+    fr: "Faire signer la renonciation à l'auditeur",
+    en: "Obtain signed auditor waiver",
+  },
+  req_annual_update: {
+    fr: "Déposer la mise à jour annuelle au REQ",
+    en: "File annual update with the REQ",
+  },
+  corporations_canada_annual_return: {
+    fr: "Déposer le rapport annuel à Corporations Canada",
+    en: "File annual return with Corporations Canada",
+  },
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fiscalYearLabel(
+  company: { fiscal_year_end_month?: number | null; fiscal_year_end_day?: number | null } | null
+): string {
+  if (!company?.fiscal_year_end_month) return '—';
+  const today = new Date();
+  const fyEndMonth = company.fiscal_year_end_month;
+  const fyEndDay = company.fiscal_year_end_day ?? 31;
+  let fyStart = new Date(today.getFullYear(), fyEndMonth - 1, fyEndDay);
+  if (fyStart > today) {
+    fyStart = new Date(today.getFullYear() - 1, fyEndMonth - 1, fyEndDay);
+  }
+  return `${fyStart.getFullYear()}–${fyStart.getFullYear() + 1}`;
+}
+
+function formatDueDate(dateStr: string | null, fr: boolean): string {
+  if (!dateStr) return '—';
+  const date = new Date(dateStr + 'T00:00:00');
+  return date.toLocaleDateString(fr ? 'fr-CA' : 'en-CA', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+// ─── StatCard ─────────────────────────────────────────────────────────────────
 
 function StatCard({
   label,
@@ -39,6 +95,8 @@ function StatCard({
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default async function DashboardPage({
   params: { locale },
 }: {
@@ -69,8 +127,6 @@ export default async function DashboardPage({
     ? await calculateComplianceItems(company.id, supabase)
     : null;
 
-  const urgentItems = complianceResult?.items.filter(i => i.status === 'required').slice(0, 2) ?? [];
-
   const { data: documents } = await supabase
     .from('documents')
     .select('*')
@@ -79,24 +135,29 @@ export default async function DashboardPage({
 
   const allDocs = documents ?? [];
   const totalDocs = allDocs.length;
-
-  const now = new Date();
-  const thisMonth = allDocs.filter(d => {
-    const date = new Date(d.created_at);
-    return (
-      date.getMonth() === now.getMonth() &&
-      date.getFullYear() === now.getFullYear()
-    );
-  }).length;
-
-  const uniqueTypes = new Set(allDocs.map(d => d.document_type)).size;
   const recentDocs = allDocs.slice(0, 5);
 
   const fr = locale === 'fr';
   const firstName = profile.full_name?.split(' ')[0] ?? '';
 
+  // Compliance derived data
+  const urgentCount    = complianceResult?.urgentCount    ?? 0;
+  const pendingCount   = complianceResult?.pendingCount   ?? 0;
+  const compliantCount = complianceResult?.compliantCount ?? 0;
+  const percentage     = complianceResult?.percentage     ?? 0;
+  const total          = complianceResult?.items.length   ?? 0;
+  const actionItems    = complianceResult?.items.filter(i => i.status === 'required' || i.status === 'pending') ?? [];
+  const actionCount    = urgentCount + pendingCount;
+  const frameworkLabel = company?.incorporation_type === 'CBCA' ? 'CBCA' : 'LSAQ';
+  const fyLabel        = fiscalYearLabel(company);
+
+  // Prochaine échéance : item pending ou required avec la date la plus proche
+  const nextDueItem = complianceResult?.items
+    .filter(i => (i.status === 'pending' || i.status === 'required') && i.due_date !== null)
+    .sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1))[0] ?? null;
+
   return (
-    <DashboardShell locale={locale} profile={profile} company={company} urgentCount={complianceResult?.urgentCount ?? 0}>
+    <DashboardShell locale={locale} profile={profile} company={company} urgentCount={urgentCount}>
       <div className="space-y-8">
 
         {/* Greeting */}
@@ -127,7 +188,7 @@ export default async function DashboardPage({
           />
           <StatCard
             label={fr ? 'Taux de conformité' : 'Compliance rate'}
-            value={complianceResult ? `${complianceResult.percentage}%` : '—'}
+            value={complianceResult ? `${percentage}%` : '—'}
             sub={fr ? 'obligations remplies' : 'obligations met'}
             icon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -136,133 +197,247 @@ export default async function DashboardPage({
               </svg>
             }
           />
+          {/* Prochaine échéance — stat card */}
           <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                {fr ? 'Actions requises' : 'Required actions'}
+                {fr ? 'Prochaine échéance' : 'Next deadline'}
               </span>
               <div className="w-8 h-8 rounded-lg bg-[var(--info-bg)] flex items-center justify-center text-[var(--info-text)]">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="text-2xl font-bold text-[var(--text-heading)]"
-                style={{ fontFamily: 'Sora, sans-serif' }}
-              >
-                {complianceResult?.urgentCount ?? 0}
-              </span>
-              {(complianceResult?.urgentCount ?? 0) > 0 && (
-                <span
-                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: '#C9A5A5', color: '#6B1E1E' }}
-                >
-                  !
-                </span>
-              )}
-            </div>
-            <div className="text-xs mt-1">
-              <Link href={`/${locale}/dashboard/compliance`} className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors no-underline">
-                {fr ? 'voir la conformité →' : 'view compliance →'}
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent documents */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2
-              className="text-base font-semibold text-[var(--text-heading)]"
+            <div
+              className="text-2xl font-bold text-[var(--text-heading)]"
               style={{ fontFamily: 'Sora, sans-serif' }}
             >
-              {fr ? 'Documents récents' : 'Recent documents'}
-            </h2>
-            <Link
-              href={`/${locale}/dashboard/documents`}
-              className="text-sm font-medium text-[var(--text-link)] hover:underline"
-            >
-              {fr ? 'Voir tout →' : 'View all →'}
-            </Link>
+              {nextDueItem?.due_date
+                ? new Date(nextDueItem.due_date + 'T00:00:00').toLocaleDateString(
+                    fr ? 'fr-CA' : 'en-CA',
+                    { month: 'short', day: 'numeric', year: 'numeric' }
+                  )
+                : '—'}
+            </div>
+            <div className="text-xs text-[var(--text-muted)] mt-1 truncate">
+              {nextDueItem
+                ? (fr ? nextDueItem.rule.title_fr : nextDueItem.rule.title_en)
+                : (fr ? 'Aucune échéance à venir' : 'No upcoming deadlines')}
+            </div>
           </div>
-
-          {recentDocs.length === 0 ? (
-            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-8 text-center">
-              <p className="text-sm text-[var(--text-muted)]">
-                {fr ? "Aucun document pour l'instant." : 'No documents yet.'}
-              </p>
-              <Link
-                href={`/${locale}/dashboard/documents`}
-                className="inline-block mt-3 text-sm font-medium text-[var(--text-link)] hover:underline"
-              >
-                {fr ? 'Ajouter votre premier document →' : 'Add your first document →'}
-              </Link>
-            </div>
-          ) : (
-            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl overflow-hidden shadow-md">
-              {recentDocs.map((doc, i) => (
-                <Link
-                  key={doc.id}
-                  href={`/${locale}/dashboard/documents`}
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--page-bg)] transition-colors ${
-                    i < recentDocs.length - 1 ? 'border-b border-[var(--card-border)]' : ''
-                  }`}
-                  style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                  <DocumentTypePill type={doc.document_type} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[var(--text-body)] truncate">
-                      {doc.title}
-                    </p>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      {new Date(doc.created_at).toLocaleDateString(
-                        fr ? 'fr-CA' : 'en-CA',
-                        { year: 'numeric', month: 'short', day: 'numeric' }
-                      )}
-                    </p>
-                  </div>
-                  <LanguageBadge language={doc.language} />
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
 
-        {urgentItems.length > 0 && (
-          <section className="mt-8">
-            <div className="flex items-center justify-between mb-3">
+        {/* Main content — 2-column grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+
+          {/* Left: Recent documents */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
               <h2
-                className="text-sm font-bold uppercase tracking-wider"
-                style={{
-                  fontFamily: "'Sora', sans-serif",
-                  color: '#6B1E1E',
-                  letterSpacing: '0.08em',
-                }}
+                className="text-base font-semibold text-[var(--text-heading)]"
+                style={{ fontFamily: 'Sora, sans-serif' }}
               >
-                ⚡ {fr ? 'Actions urgentes' : 'Urgent actions'}
+                {fr ? 'Documents récents' : 'Recent documents'}
               </h2>
               <Link
-                href={`/${locale}/dashboard/compliance`}
-                className="text-xs font-semibold underline-offset-2 underline"
-                style={{ color: '#4A6B93' }}
+                href={`/${locale}/dashboard/documents`}
+                className="text-sm font-medium text-[var(--text-link)] hover:underline"
               >
                 {fr ? 'Voir tout →' : 'View all →'}
               </Link>
             </div>
-            <div className="flex flex-col gap-3">
-              {urgentItems.map(item => (
-                <ComplianceItemCard
-                  key={item.id}
-                  item={item}
-                  locale={locale as 'fr' | 'en'}
-                />
-              ))}
+
+            {recentDocs.length === 0 ? (
+              <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-8 text-center">
+                <p className="text-sm text-[var(--text-muted)]">
+                  {fr ? "Aucun document pour l'instant." : 'No documents yet.'}
+                </p>
+                <Link
+                  href={`/${locale}/dashboard/documents`}
+                  className="inline-block mt-3 text-sm font-medium text-[var(--text-link)] hover:underline"
+                >
+                  {fr ? 'Ajouter votre premier document →' : 'Add your first document →'}
+                </Link>
+              </div>
+            ) : (
+              <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl overflow-hidden shadow-md">
+                {recentDocs.map((doc, i) => (
+                  <Link
+                    key={doc.id}
+                    href={`/${locale}/dashboard/documents`}
+                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--page-bg)] transition-colors ${
+                      i < recentDocs.length - 1 ? 'border-b border-[var(--card-border)]' : ''
+                    }`}
+                    style={{ textDecoration: 'none', color: 'inherit' }}
+                  >
+                    <DocumentTypePill type={doc.document_type} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--text-body)] truncate">
+                        {doc.title}
+                      </p>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {new Date(doc.created_at).toLocaleDateString(
+                          fr ? 'fr-CA' : 'en-CA',
+                          { year: 'numeric', month: 'short', day: 'numeric' }
+                        )}
+                      </p>
+                    </div>
+                    <LanguageBadge language={doc.language} />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right: stacked blocks */}
+          <div className="flex flex-col gap-4">
+
+            {/* Block 1 — Actions requises (required + pending) */}
+            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
+              <div className="flex items-center justify-between mb-4">
+                <h2
+                  className="text-sm font-bold text-[var(--text-heading)]"
+                  style={{ fontFamily: 'Sora, sans-serif' }}
+                >
+                  {fr ? `Actions requises (${actionCount})` : `Required actions (${actionCount})`}
+                </h2>
+                <Link
+                  href={`/${locale}/dashboard/compliance`}
+                  className="text-xs font-medium text-[var(--text-link)] hover:underline"
+                >
+                  {fr ? 'Voir tout →' : 'View all →'}
+                </Link>
+              </div>
+
+              {actionCount === 0 && percentage === 100 ? (
+                <p className="text-sm font-medium" style={{ color: '#2E5425' }}>
+                  {fr ? 'Tout est en ordre ✓' : 'Everything is in order ✓'}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {actionItems.map(item => {
+                    const title = fr ? item.rule.title_fr : item.rule.title_en;
+                    const dueFormatted = formatDueDate(item.due_date, fr);
+                    const isRequired = item.status === 'required';
+                    return (
+                      <div
+                        key={item.id}
+                        className="rounded-lg p-3"
+                        style={{
+                          backgroundColor: isRequired ? '#F5EEEE' : '#FFF8E7',
+                          borderLeft: `3px solid ${isRequired ? '#6B1E1E' : '#FDDB8C'}`,
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span
+                            className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
+                            style={
+                              isRequired
+                                ? { backgroundColor: '#6B1E1E', color: '#FAF8F7' }
+                                : { backgroundColor: '#FDDB8C', color: '#7A5804' }
+                            }
+                          >
+                            {isRequired ? 'URGENT' : (fr ? 'À VENIR' : 'UPCOMING')}
+                          </span>
+                          <p
+                            className="text-xs font-bold truncate"
+                            style={{
+                              fontFamily: 'Sora, sans-serif',
+                              color: isRequired ? '#6B1E1E' : '#070E1C',
+                            }}
+                          >
+                            {title}
+                          </p>
+                        </div>
+                        <p
+                          className="text-xs font-medium"
+                          style={{ color: isRequired ? '#C0392B' : '#7A5804' }}
+                        >
+                          {fr ? `Dû le ${dueFormatted}` : `Due ${dueFormatted}`}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </section>
-        )}
+
+            {/* Block 2 — Conformité */}
+            {complianceResult && total > 0 && (
+              <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
+                <div className="flex items-center justify-between mb-3">
+                  <h2
+                    className="text-sm font-bold text-[var(--text-heading)]"
+                    style={{ fontFamily: 'Sora, sans-serif' }}
+                  >
+                    {fr ? `Conformité ${frameworkLabel}` : `${frameworkLabel} Compliance`}
+                  </h2>
+                  <Link
+                    href={`/${locale}/dashboard/compliance`}
+                    className="text-xs font-medium text-[var(--text-link)] hover:underline"
+                  >
+                    {fr ? 'Détails →' : 'Details →'}
+                  </Link>
+                </div>
+
+                {/* Big percentage */}
+                <div
+                  className="leading-none"
+                  style={{
+                    fontFamily: 'Sora, sans-serif',
+                    fontWeight: 800,
+                    fontSize: '48px',
+                    color: 'var(--text-heading)',
+                  }}
+                >
+                  {percentage}%
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-1 mb-3">
+                  {fr ? `Exercice ${fyLabel}` : `Fiscal year ${fyLabel}`}
+                </p>
+
+                {/* Navy progress bar */}
+                <div className="h-2 rounded-full mb-4" style={{ backgroundColor: '#E2E8F0' }}>
+                  <div
+                    className="h-2 rounded-full transition-all"
+                    style={{ width: `${percentage}%`, backgroundColor: '#070E1C' }}
+                  />
+                </div>
+
+                {/* Stats — couleurs sémantiques explicites */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: '#2E5425' /* vert succès */ }}>
+                      {fr ? 'Complétés' : 'Completed'}
+                    </span>
+                    <span className="text-xs font-semibold" style={{ color: '#2E5425' }}>
+                      {compliantCount}/{total}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: '#7A5804' /* amber */ }}>
+                      {fr ? 'En attente' : 'Pending'}
+                    </span>
+                    <span className="text-xs font-semibold" style={{ color: '#7A5804' }}>
+                      {pendingCount}/{total}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: '#6B1E1E' /* bordeaux */ }}>
+                      {fr ? 'À corriger' : 'To fix'}
+                    </span>
+                    <span className="text-xs font-semibold" style={{ color: '#6B1E1E' }}>
+                      {urgentCount}/{total}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
 
       </div>
     </DashboardShell>
