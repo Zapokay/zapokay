@@ -113,6 +113,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
   }
 
   const companyName = company?.legal_name_fr ?? (fr ? 'Votre entreprise' : 'Your company');
+  const companyInitials = ((company?.legal_name_fr ?? '').trim().slice(0, 2).toUpperCase()) || 'ZO';
   const initials = profile.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? 'DR';
   const displayType = company?.incorporation_type === 'LSA' ? 'LSAQ' : company?.incorporation_type;
   const otherLocale = locale === 'fr' ? 'en' : 'fr';
@@ -145,14 +146,28 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
           padding: '10px 12px',
           margin: '0 12px 8px',
         }}>
-          <div style={{ fontSize: '9px', color: 'var(--sb-co-label)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: '4px' }}>
+          <div style={{ fontSize: '9px', color: 'var(--sb-co-label)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: '8px' }}>
             ENTREPRISE ACTIVE
           </div>
-          <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sb-co-name)' }}>
-            {company?.legal_name_fr ?? 'Mon entreprise'}
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--sb-co-label)', marginTop: '2px' }}>
-            {displayType} · {company?.province}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Avatar initiales entreprise */}
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '8px',
+              background: 'var(--navy-600)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 700,
+              color: '#FFFFFF', flexShrink: 0, letterSpacing: '0.02em',
+            }}>
+              {companyInitials}
+            </div>
+            <div>
+              <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sb-co-name)' }}>
+                {company?.legal_name_fr ?? 'Mon entreprise'}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--sb-co-label)', marginTop: '2px' }}>
+                {displayType} · {company?.province}
+              </div>
+            </div>
           </div>
         </div>
 

@@ -229,69 +229,73 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        {/* Main content — 2-column grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+        {/* Main content — grille 3 colonnes stricte */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* Left: Recent documents */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2
-                className="text-base font-semibold text-[var(--text-heading)]"
-                style={{ fontFamily: 'Sora, sans-serif' }}
-              >
-                {fr ? 'Documents récents' : 'Recent documents'}
-              </h2>
-              <Link
-                href={`/${locale}/dashboard/documents`}
-                className="text-sm font-medium text-[var(--text-link)] hover:underline"
-              >
-                {fr ? 'Voir tout →' : 'View all →'}
-              </Link>
-            </div>
+          {/* Left: Documents récents — col-span-2, s'étire à la hauteur de la colonne droite */}
+          <div className="lg:col-span-2 flex flex-col">
+            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-md flex-1 flex flex-col overflow-hidden">
 
-            {recentDocs.length === 0 ? (
-              <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-8 text-center">
-                <p className="text-sm text-[var(--text-muted)]">
-                  {fr ? "Aucun document pour l'instant." : 'No documents yet.'}
-                </p>
+              {/* Header à l'intérieur de la carte */}
+              <div className="flex items-center justify-between px-5 pt-5 pb-4">
+                <h2
+                  className="text-sm font-bold text-[var(--text-heading)]"
+                  style={{ fontFamily: 'Sora, sans-serif' }}
+                >
+                  {fr ? 'Documents récents' : 'Recent documents'}
+                </h2>
                 <Link
                   href={`/${locale}/dashboard/documents`}
-                  className="inline-block mt-3 text-sm font-medium text-[var(--text-link)] hover:underline"
+                  className="text-xs font-medium text-[var(--text-link)] hover:underline"
                 >
-                  {fr ? 'Ajouter votre premier document →' : 'Add your first document →'}
+                  {fr ? 'Voir tout →' : 'View all →'}
                 </Link>
               </div>
-            ) : (
-              <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl overflow-hidden shadow-md">
-                {recentDocs.map((doc, i) => (
+
+              {recentDocs.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                  <p className="text-sm text-[var(--text-muted)]">
+                    {fr ? "Aucun document pour l'instant." : 'No documents yet.'}
+                  </p>
                   <Link
-                    key={doc.id}
                     href={`/${locale}/dashboard/documents`}
-                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--page-bg)] transition-colors ${
-                      i < recentDocs.length - 1 ? 'border-b border-[var(--card-border)]' : ''
-                    }`}
-                    style={{ textDecoration: 'none', color: 'inherit' }}
+                    className="inline-block mt-3 text-sm font-medium text-[var(--text-link)] hover:underline"
                   >
-                    <DocumentTypePill type={doc.document_type} size="sm" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[var(--text-body)] truncate">
-                        {doc.title}
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {new Date(doc.created_at).toLocaleDateString(
-                          fr ? 'fr-CA' : 'en-CA',
-                          { year: 'numeric', month: 'short', day: 'numeric' }
-                        )}
-                      </p>
-                    </div>
-                    <LanguageBadge language={doc.language} />
+                    {fr ? 'Ajouter votre premier document →' : 'Add your first document →'}
                   </Link>
-                ))}
-              </div>
-            )}
+                </div>
+              ) : (
+                <div>
+                  {recentDocs.map((doc, i) => (
+                    <Link
+                      key={doc.id}
+                      href={`/${locale}/dashboard/documents`}
+                      className={`flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-[var(--page-bg)] transition-colors ${
+                        i < recentDocs.length - 1 ? 'border-b border-[var(--card-border)]' : ''
+                      }`}
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <DocumentTypePill type={doc.document_type} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[var(--text-body)] truncate">
+                          {doc.title}
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {new Date(doc.created_at).toLocaleDateString(
+                            fr ? 'fr-CA' : 'en-CA',
+                            { year: 'numeric', month: 'short', day: 'numeric' }
+                          )}
+                        </p>
+                      </div>
+                      <LanguageBadge language={doc.language} />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right: stacked blocks */}
+          {/* Right: stacked blocks — col-span-1 */}
           <div className="flex flex-col gap-4">
 
             {/* Block 1 — Actions requises (required + pending) */}
