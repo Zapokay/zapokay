@@ -1,5 +1,4 @@
 import { SignupForm } from '@/components/auth/SignupForm';
-import { ZapLogo } from '@/components/ui/ZapLogo';
 import { getTranslations } from 'next-intl/server';
 import Link from 'next/link';
 
@@ -19,9 +18,16 @@ export default async function SignupPage({ params: { locale } }: { params: { loc
             'repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 8px)',
         }}
       >
-        <div style={{ '--wordmark-color': 'var(--auth-left-heading)', '--logo-sq': 'var(--neutral-0)', '--logo-z': 'var(--navy-900)' } as React.CSSProperties}>
-          <ZapLogo size="lg" variant="wordmark" />
-        </div>
+        <span style={{
+          fontFamily: 'Sora, sans-serif',
+          fontSize: '28px',
+          fontWeight: 900,
+          letterSpacing: '-0.025em',
+          lineHeight: 1,
+        }}>
+          <span style={{ color: '#F5B91E' }}>Zap</span>
+          <span style={{ color: 'white' }}>Okay</span>
+        </span>
 
         <div className="max-w-sm">
           <h2

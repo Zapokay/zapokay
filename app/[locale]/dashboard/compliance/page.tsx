@@ -98,17 +98,13 @@ export default async function CompliancePage({ params }: PageProps) {
 
       {/* ── En-tête de contenu ─────────────────────────────────────────────── */}
       <div style={{ marginBottom: '24px' }}>
-        <h2 style={{
-          fontFamily: "'Sora', sans-serif",
-          fontSize: '24px',
-          fontWeight: 700,
-          color: 'var(--text-heading)',
-          marginBottom: '4px',
-          margin: '0 0 4px 0',
-        }}>
+        <h1
+          className="text-2xl font-bold text-[var(--text-heading)]"
+          style={{ fontFamily: 'Sora, sans-serif' }}
+        >
           {fr ? 'Suivi de conformité' : 'Compliance tracker'}
-        </h2>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
           {contentSubtitle}
         </p>
       </div>
