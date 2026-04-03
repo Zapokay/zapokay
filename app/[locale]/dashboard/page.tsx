@@ -5,6 +5,7 @@ import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
 import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems';
+import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
 
 // ─── Static descriptions per rule_key ─────────────────────────────────────────
 
@@ -168,9 +169,6 @@ export default async function DashboardPage({
           >
             {fr ? `Bonjour, ${firstName}` : `Hello, ${firstName}`}
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            {company?.legal_name_fr ?? (fr ? 'Votre entreprise' : 'Your company')}
-          </p>
         </div>
 
         {/* Stat cards */}
@@ -228,6 +226,11 @@ export default async function DashboardPage({
             </div>
           </div>
         </div>
+
+        {/* Gap Analysis Panel — full width, between stat cards and main content */}
+        {company && (
+          <GapAnalysisPanel companyId={company.id} locale={locale as 'fr' | 'en'} />
+        )}
 
         {/* Main content — grille 3 colonnes stricte */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

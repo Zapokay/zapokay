@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { DocumentRow, type VaultDocument } from '@/components/documents/DocumentRow';
 import { UploadZone } from '@/components/documents/UploadZone';
@@ -41,6 +41,16 @@ export function DocumentsClient({ locale, company, initialDocuments }: Documents
   const [typeFilter, setTypeFilter] = useState('');
   const [langFilter, setLangFilter] = useState('');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [aiSummariesEnabled, setAiSummariesEnabled] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from('feature_flags')
+      .select('is_enabled')
+      .eq('flag_key', 'ai_summaries')
+      .single()
+      .then(({ data }) => setAiSummariesEnabled(data?.is_enabled ?? false));
+  }, [supabase]);
 
   // Map incorporation_type → framework required by the documents table
   const framework = company?.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
@@ -207,6 +217,7 @@ export function DocumentsClient({ locale, company, initialDocuments }: Documents
               doc={doc}
               locale={locale}
               onDelete={handleDelete}
+              aiSummariesEnabled={aiSummariesEnabled}
             />
           ))}
         </div>

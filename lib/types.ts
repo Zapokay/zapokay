@@ -25,6 +25,7 @@ export interface Company {
   incorporation_date: string | null;
   province: Province;
   status: CompanyStatus;
+  neq: string | null;
   created_at: string;
   updated_at: string;
 }

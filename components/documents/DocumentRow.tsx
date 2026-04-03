@@ -4,6 +4,7 @@ import { Eye, Download } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { DocumentTypePill } from './DocumentTypePill';
 import { LanguageBadge } from './LanguageBadge';
+import { DocumentModal } from './DocumentModal';
 
 export interface VaultDocument {
   id: string;
@@ -20,13 +21,15 @@ interface DocumentRowProps {
   doc: VaultDocument;
   locale: string;
   onDelete: (id: string) => Promise<void>;
+  aiSummariesEnabled?: boolean;
 }
 
 const BUCKET_MARKER = '/object/public/documents/';
 
-export function DocumentRow({ doc, locale, onDelete }: DocumentRowProps) {
+export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false }: DocumentRowProps) {
   const [hovered, setHovered] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDocModal, setShowDocModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState<'view' | 'download' | null>(null);
   const fr = locale === 'fr';
@@ -60,6 +63,11 @@ export function DocumentRow({ doc, locale, onDelete }: DocumentRowProps) {
   }
 
   async function handleView() {
+    // If AI summaries enabled, open modal with tabs
+    if (aiSummariesEnabled) {
+      setShowDocModal(true);
+      return;
+    }
     setLoading('view');
     try {
       const signedUrl = await getSignedUrl();
@@ -168,6 +176,16 @@ export function DocumentRow({ doc, locale, onDelete }: DocumentRowProps) {
           {formattedDate}
         </div>
       </div>
+
+      {/* Document modal with AI tabs */}
+      {showDocModal && (
+        <DocumentModal
+          doc={doc}
+          locale={locale}
+          aiSummariesEnabled={aiSummariesEnabled}
+          onClose={() => setShowDocModal(false)}
+        />
+      )}
 
       {/* Delete confirmation modal */}
       {showDeleteModal && (

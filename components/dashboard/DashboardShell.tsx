@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { ZapLogo } from '@/components/ui/ZapLogo';
+import { CompanySwitcher } from '@/components/dashboard/CompanySwitcher';
 import type { UserProfile, Company } from '@/lib/types';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ interface DashboardShellProps {
   company: Company | null;
   children: React.ReactNode;
   urgentCount?: number;
+  topbarSubtitle?: string;
 }
 
 const navItems = [
@@ -84,7 +85,7 @@ const navItems = [
   },
 ];
 
-export function DashboardShell({ locale, profile, company, children, urgentCount = 0 }: DashboardShellProps) {
+export function DashboardShell({ locale, profile, company, children, urgentCount = 0, topbarSubtitle }: DashboardShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -112,10 +113,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
     router.refresh();
   }
 
-  const companyName = company?.legal_name_fr ?? (fr ? 'Votre entreprise' : 'Your company');
-  const companyInitials = ((company?.legal_name_fr ?? '').trim().slice(0, 2).toUpperCase()) || 'ZO';
   const initials = profile.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? 'DR';
-  const displayType = company?.incorporation_type === 'LSA' ? 'LSAQ' : company?.incorporation_type;
   const otherLocale = locale === 'fr' ? 'en' : 'fr';
   const otherLabel = locale === 'fr' ? 'EN' : 'FR';
 
@@ -130,46 +128,16 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
       >
-        {/* Logo */}
-        <div
-          className="px-4 pt-5 pb-3"
-          style={{ '--wordmark-color': 'var(--sb-wordmark)', '--logo-sq': 'var(--neutral-0)', '--logo-z': 'var(--navy-900)' } as React.CSSProperties}
-        >
-          <ZapLogo size="sm" variant="wordmark" />
+        {/* Brand */}
+        <div className="sb-brand">
+          <span className="sb-signature">
+            <span className="sig-zap">Zap</span>
+            <span className="sig-okay">Okay</span>
+          </span>
         </div>
 
-        {/* Company selector */}
-        <div style={{
-          background: 'var(--sb-co-bg)',
-          border: '1px solid var(--sb-co-border)',
-          borderRadius: '10px',
-          padding: '10px 12px',
-          margin: '0 12px 8px',
-        }}>
-          <div style={{ fontSize: '9px', color: 'var(--sb-co-label)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: '8px' }}>
-            ENTREPRISE ACTIVE
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Avatar initiales entreprise */}
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '8px',
-              background: 'var(--navy-600)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 700,
-              color: '#FFFFFF', flexShrink: 0, letterSpacing: '0.02em',
-            }}>
-              {companyInitials}
-            </div>
-            <div>
-              <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sb-co-name)' }}>
-                {company?.legal_name_fr ?? 'Mon entreprise'}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--sb-co-label)', marginTop: '2px' }}>
-                {displayType} · {company?.province}
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Company switcher */}
+        <CompanySwitcher company={company} locale={locale} />
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
@@ -273,15 +241,12 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
       )}
 
       {/* Main area */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="main-area flex-1">
 
-        {/* Topbar — does NOT span over sidebar */}
-        <header
-          className="flex-shrink-0 flex items-center justify-between px-6 h-16 border-b border-[var(--tb-border)]"
-          style={{ background: 'var(--tb-bg)' }}
-        >
-          {/* Left: hamburger (mobile) + title */}
+        {/* Topbar */}
+        <div className="topbar">
           <div className="flex items-center gap-3">
+            {/* Hamburger mobile */}
             <button
               className="md:hidden p-2 rounded-lg text-[var(--text-muted)] hover:bg-[var(--page-bg)] transition-colors"
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -290,19 +255,14 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div>
-              <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '17px', fontWeight: 700, color: 'var(--tb-title)' }}>
-                {getPageTitle()}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                {companyName}
-              </div>
+            <div className="topbar-left">
+              <h1 className="page-title">{getPageTitle()}</h1>
+              {topbarSubtitle && <p className="page-subtitle">{topbarSubtitle}</p>}
             </div>
           </div>
 
-          {/* Right: search + CTA + lang toggle */}
-          <div className="flex items-center gap-3">
-
+          {/* Right: search + CTA conditionnel + lang toggle */}
+          <div className="topbar-right">
             <input
               type="text"
               placeholder={fr ? 'Rechercher...' : 'Search...'}
@@ -310,9 +270,14 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
               style={{ background: 'var(--tb-search-bg)' }}
             />
 
-            <button className="bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold text-sm px-4 py-2 rounded-lg hover:bg-[var(--spark-400)] transition-colors whitespace-nowrap">
-              ⚡ {fr ? 'Nouvelle résolution' : 'New resolution'}
-            </button>
+            {!pathname.includes('/compliance') && (
+              <button className="bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold text-sm px-4 py-2 rounded-lg hover:bg-[var(--spark-400)] transition-colors whitespace-nowrap">
+                {pathname.includes('/documents')
+                  ? `⚡ ${fr ? 'Ajouter' : 'Add'}`
+                  : `⚡ ${fr ? 'Nouvelle résolution' : 'New resolution'}`}
+              </button>
+            )}
+
             <button
               className="text-xs text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors bg-transparent border-none cursor-pointer"
               onClick={() => {
@@ -324,12 +289,12 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
               {otherLabel}
             </button>
           </div>
-        </header>
+        </div>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto p-6 md:p-8">
+        <div className="page-content">
           {children}
-        </main>
+        </div>
       </div>
     </div>
   );
