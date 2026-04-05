@@ -46,6 +46,15 @@ const incorporationTypes = [
   },
 ];
 
+const MONTHS_FR = [
+  'Janvier','Février','Mars','Avril','Mai','Juin',
+  'Juillet','Août','Septembre','Octobre','Novembre','Décembre',
+];
+const MONTHS_EN = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
+
 const isFr = (locale: string) => locale === 'fr';
 
 export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps) {
@@ -55,6 +64,10 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
   function update(field: keyof typeof data.company, value: string) {
     setData(d => ({ ...d, company: { ...d.company, [field]: value } }));
     if (errors[field]) setErrors(e => ({ ...e, [field]: '' }));
+  }
+
+  function updateNum(field: 'fiscalYearEndMonth' | 'fiscalYearEndDay', value: number) {
+    setData(d => ({ ...d, company: { ...d.company, [field]: value } }));
   }
 
   function validate() {
@@ -155,6 +168,40 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             </option>
           ))}
         </Select>
+
+        {/* Fin d'exercice financier */}
+        <div>
+          <label className="block text-sm font-medium text-navy-700 mb-1">
+            {fr ? "Fin d'exercice financier" : "Fiscal year end"}
+          </label>
+          <p className="text-xs text-navy-400 mb-2">
+            {fr
+              ? "Requis pour le calcul de conformité"
+              : "Required for compliance calculation"}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <select
+              value={data.company.fiscalYearEndMonth}
+              onChange={e => updateNum('fiscalYearEndMonth', parseInt(e.target.value))}
+              className="px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                <option key={m} value={m}>
+                  {fr ? MONTHS_FR[m - 1] : MONTHS_EN[m - 1]}
+                </option>
+              ))}
+            </select>
+            <select
+              value={data.company.fiscalYearEndDay}
+              onChange={e => updateNum('fiscalYearEndDay', parseInt(e.target.value))}
+              className="px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+            >
+              {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-3 mt-8">

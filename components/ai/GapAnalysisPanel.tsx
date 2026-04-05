@@ -15,7 +15,7 @@ interface GapAnalysisPanelProps {
   locale: 'fr' | 'en';
 }
 
-type PanelState = 'idle' | 'loading' | 'complete_clean' | 'complete_gaps' | 'error';
+type PanelState = 'idle' | 'loading' | 'complete_clean' | 'complete_gaps' | 'error' | 'no_fiscal_years';
 
 function SkeletonLine({ width = '100%' }: { width?: string }) {
   return (
@@ -68,6 +68,19 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
       .single()
       .then(({ data }) => setFeatureEnabled(data?.is_enabled ?? false));
   }, [supabase]);
+
+  useEffect(() => {
+    if (!featureEnabled) return;
+    supabase
+      .from('company_fiscal_years')
+      .select('year')
+      .eq('company_id', companyId)
+      .eq('status', 'active')
+      .limit(1)
+      .then(({ data }) => {
+        if (!data || data.length === 0) setPanelState('no_fiscal_years');
+      });
+  }, [featureEnabled, companyId, supabase]);
 
   if (featureEnabled === null) return null;
   if (!featureEnabled) return null;
@@ -129,7 +142,7 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
           </span>
         </div>
 
-        {panelState === 'idle' && (
+        {(panelState === 'idle') && (
           <button
             onClick={handleAnalyze}
             style={{
@@ -230,6 +243,30 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
             }}
           >
             {fr ? 'Voir les détails de conformité →' : 'View compliance details →'}
+          </Link>
+        </div>
+      )}
+
+      {/* No fiscal years state */}
+      {panelState === 'no_fiscal_years' && (
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>📅</div>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.5 }}>
+            {fr
+              ? "Configurez vos exercices financiers pour activer l'analyse de registre."
+              : 'Configure your fiscal years to enable records analysis.'}
+          </p>
+          <Link
+            href={`/${locale}/dashboard/settings`}
+            style={{
+              display: 'inline-block',
+              padding: '8px 16px', borderRadius: '8px',
+              background: '#F5B91E', border: 'none',
+              fontSize: '13px', fontWeight: 600,
+              color: '#070E1C', textDecoration: 'none',
+            }}
+          >
+            {fr ? 'Configurer mes exercices →' : 'Configure fiscal years →'}
           </Link>
         </div>
       )}

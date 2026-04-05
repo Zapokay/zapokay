@@ -90,7 +90,7 @@ export function StepConfirmation({ data, onFinish, saving, locale, error }: Step
       >
         {saving
           ? (fr ? 'Chargement...' : 'Loading...')
-          : (fr ? '⚡ Accéder à mon tableau de bord' : '⚡ Access my dashboard')}
+          : (fr ? 'Choisir mes exercices →' : 'Choose my fiscal years →')}
       </button>
     </div>
   );

@@ -82,7 +82,8 @@ function calculateDueDate(
 
 export async function calculateComplianceItems(
   companyId: string,
-  supabaseClient: SupabaseClient
+  supabaseClient: SupabaseClient,
+  referenceDate?: Date
 ): Promise<ComplianceResult & { needsFiscalYear?: boolean }> {
 
   const emptyResult: ComplianceResult & { needsFiscalYear?: boolean } = {
@@ -146,7 +147,7 @@ export async function calculateComplianceItems(
   if (!rules || rules.length === 0) return emptyResult
 
   // ── 4. Calculer les dates et statuts ─────────────────────────────────────
-  const today = new Date()
+  const today = referenceDate ?? new Date()
 
   // Début de l'exercice fiscal courant (pour filtrer les documents)
   const fyStart = currentFiscalYearStart(fyEndMonth, fyEndDay, today)

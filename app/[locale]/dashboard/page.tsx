@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -6,6 +9,50 @@ import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
 import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
+
+// ─── Fiscal year history helper ───────────────────────────────────────────────
+
+interface FiscalYearHistoryEntry {
+  year: number
+  hasBoard: boolean
+  hasShareholder: boolean
+  status: 'complete' | 'partial' | 'missing'
+}
+
+function computeFiscalYearHistory(
+  incorporationDate: string | null,
+  fyMonth: number,
+  fyDay: number,
+  docs: { document_type: string; document_year: number | null }[]
+): FiscalYearHistoryEntry[] {
+  if (!incorporationDate) return []
+  const incYear = new Date(incorporationDate).getFullYear()
+  const today = new Date()
+  const lastFyEnd = new Date(today.getFullYear(), fyMonth - 1, fyDay)
+  const lastCompletedYear = lastFyEnd <= today ? today.getFullYear() : today.getFullYear() - 1
+  if (lastCompletedYear < incYear) return []
+
+  const docsByYear: Record<number, Set<string>> = {}
+  for (const doc of docs) {
+    if (doc.document_year) {
+      if (!docsByYear[doc.document_year]) docsByYear[doc.document_year] = new Set()
+      docsByYear[doc.document_year].add(doc.document_type)
+    }
+  }
+
+  const entries: FiscalYearHistoryEntry[] = []
+  for (let yr = lastCompletedYear; yr >= Math.max(incYear, lastCompletedYear - 4); yr--) {
+    const present = docsByYear[yr] ?? new Set<string>()
+    const hasBoard = present.has('resolution')
+    const hasShareholder = present.has('pv')
+    let status: FiscalYearHistoryEntry['status']
+    if (hasBoard && hasShareholder) status = 'complete'
+    else if (hasBoard || hasShareholder) status = 'partial'
+    else status = 'missing'
+    entries.push({ year: yr, hasBoard, hasShareholder, status })
+  }
+  return entries
+}
 
 // ─── Static descriptions per rule_key ─────────────────────────────────────────
 
@@ -135,8 +182,38 @@ export default async function DashboardPage({
     .order('created_at', { ascending: false });
 
   const allDocs = documents ?? [];
-  const totalDocs = allDocs.length;
   const recentDocs = allDocs.slice(0, 5);
+
+  // Fetch tracked fiscal years from company_fiscal_years
+  const { data: trackedFiscalYears } = company
+    ? await supabase
+        .from('company_fiscal_years')
+        .select('year, status')
+        .eq('company_id', company.id)
+        .eq('status', 'active')
+        .order('year', { ascending: false })
+    : { data: [] };
+
+  // Build history entries from tracked years + docs
+  const docsByYear: Record<number, Set<string>> = {};
+  for (const doc of allDocs) {
+    const dy = (doc as Record<string, unknown>).document_year as number | null;
+    const dt = (doc as Record<string, unknown>).document_type as string;
+    if (dy) {
+      if (!docsByYear[dy]) docsByYear[dy] = new Set();
+      docsByYear[dy].add(dt);
+    }
+  }
+  const fiscalYearHistory: FiscalYearHistoryEntry[] = (trackedFiscalYears ?? []).map(fy => {
+    const present = docsByYear[fy.year] ?? new Set<string>();
+    const hasBoard = present.has('resolution');
+    const hasShareholder = present.has('pv');
+    let status: FiscalYearHistoryEntry['status'];
+    if (hasBoard && hasShareholder) status = 'complete';
+    else if (hasBoard || hasShareholder) status = 'partial';
+    else status = 'missing';
+    return { year: fy.year, hasBoard, hasShareholder, status };
+  });
 
   const fr = locale === 'fr';
   const firstName = profile.full_name?.split(' ')[0] ?? '';
@@ -173,17 +250,85 @@ export default async function DashboardPage({
 
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard
-            label={fr ? 'Documents' : 'Documents'}
-            value={totalDocs}
-            sub={fr ? 'dans le coffre-fort' : 'in the vault'}
-            icon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            }
-          />
+          {/* Historique card — remplace la card Documents */}
+          <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                {fr ? 'Historique' : 'History'}
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-[var(--info-bg)] flex items-center justify-center text-[var(--info-text)]">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            {fiscalYearHistory.length === 0 ? (
+              <div>
+                <p className="text-sm text-[var(--text-muted)] mb-2">
+                  {fr ? 'Aucun exercice configuré.' : 'No fiscal years configured.'}
+                </p>
+                <Link
+                  href={`/${locale}/onboarding/fiscal-years`}
+                  className="text-xs font-semibold no-underline px-2 py-1 rounded"
+                  style={{ backgroundColor: 'var(--amber-400)', color: 'var(--navy-900)' }}
+                >
+                  {fr ? 'Configurer →' : 'Configure →'}
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {fiscalYearHistory.map(entry => (
+                  <div key={entry.year} className="flex items-center justify-between">
+                    {(() => {
+                      const currentYear = new Date().getFullYear()
+                      const isCurrent = entry.year === currentYear
+                      return (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text-heading)' }}>
+                              {entry.year}
+                            </span>
+                            {isCurrent ? (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: '#EEF1F7', color: '#4A6B93' }}>
+                                {fr ? 'En cours' : 'In progress'}
+                              </span>
+                            ) : (
+                              <span
+                                className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                                style={
+                                  entry.status === 'complete'
+                                    ? { backgroundColor: '#F0F4EE', color: '#2E5425' }
+                                    : entry.status === 'partial'
+                                    ? { backgroundColor: '#FFF8E7', color: '#7A5804' }
+                                    : { backgroundColor: '#F5EEEE', color: '#6B1E1E' }
+                                }
+                              >
+                                {entry.status === 'complete'
+                                  ? (fr ? 'Complet' : 'Complete')
+                                  : entry.status === 'partial'
+                                  ? (fr ? 'Partiel' : 'Partial')
+                                  : (fr ? 'Manquant' : 'Missing')}
+                              </span>
+                            )}
+                          </div>
+                          {!isCurrent && entry.status !== 'complete' && (
+                            <Link
+                              href={`/${locale}/dashboard/wizard?year=${entry.year}`}
+                              className="text-[10px] font-semibold no-underline px-2 py-0.5 rounded"
+                              style={{ backgroundColor: 'var(--amber-400)', color: 'var(--navy-900)' }}
+                            >
+                              {fr ? 'Corriger' : 'Fix'}
+                            </Link>
+                          )}
+                        </>
+                      )
+                    })()}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <StatCard
             label={fr ? 'Taux de conformité' : 'Compliance rate'}
             value={complianceResult ? `${percentage}%` : '—'}

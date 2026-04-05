@@ -36,12 +36,23 @@ export default async function DocumentsPage({
     .eq('company_id', company?.id ?? '')
     .order('created_at', { ascending: false });
 
+  const { data: fiscalYearsData } = company
+    ? await supabase
+        .from('company_fiscal_years')
+        .select('year')
+        .eq('company_id', company.id)
+        .eq('status', 'active')
+        .order('year', { ascending: false })
+    : { data: [] };
+  const fiscalYears = (fiscalYearsData ?? []).map((fy: { year: number }) => fy.year);
+
   return (
-    <DashboardShell locale={locale} profile={profile} company={company}>
+    <DashboardShell locale={locale} profile={profile} company={company} fiscalYears={fiscalYears}>
       <DocumentsClient
         locale={locale}
         company={company}
         initialDocuments={(documents ?? []) as VaultDocument[]}
+        fiscalYearsConfigured={fiscalYears.length > 0}
       />
     </DashboardShell>
   );

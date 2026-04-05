@@ -49,13 +49,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const incDate = company.incorporation_date ?? new Date().toISOString().slice(0, 10);
-    const fyMonth = company.fiscal_year_end_month ?? 12;
-    const fyDay = company.fiscal_year_end_day ?? 31;
     const incType = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
     const requiredDocs = REQUIRED_DOCS[incType] ?? REQUIRED_DOCS['LSA'];
 
-    const years = getFiscalYears(incDate, fyMonth, fyDay);
+    // Only analyze configured fiscal years
+    const { data: fiscalYearsData } = await supabase
+      .from('company_fiscal_years')
+      .select('year')
+      .eq('company_id', companyId)
+      .eq('status', 'active')
+      .order('year', { ascending: true });
+
+    if (!fiscalYearsData || fiscalYearsData.length === 0) {
+      return NextResponse.json({
+        hasGaps: false,
+        gaps: [],
+        noFiscalYears: true,
+        summary: locale === 'fr'
+          ? 'Aucun exercice financier configuré.'
+          : 'No fiscal years configured.',
+      });
+    }
+
+    const years = fiscalYearsData.map((fy: { year: number }) => fy.year);
 
     const { data: documents } = await supabase
       .from('documents')

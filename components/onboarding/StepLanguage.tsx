@@ -57,7 +57,7 @@ export function StepLanguage({ data, setData, onNext, locale }: StepProps) {
       </div>
 
       <div className="flex gap-3 mt-8">
-        <Button variant="ghost" onClick={onNext} className="flex-1">
+        <Button variant="ghost" onClick={() => { setData(d => ({ ...d, language: 'fr' })); onNext(); }} className="flex-1">
           {fr ? 'Passer' : 'Skip'}
         </Button>
         <Button

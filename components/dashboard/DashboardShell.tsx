@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CompanySwitcher } from '@/components/dashboard/CompanySwitcher';
+import { YearPicker } from '@/components/ui/YearPicker';
 import type { UserProfile, Company } from '@/lib/types';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,7 @@ interface DashboardShellProps {
   children: React.ReactNode;
   urgentCount?: number;
   topbarSubtitle?: string;
+  fiscalYears?: number[];
 }
 
 const navItems = [
@@ -66,8 +68,8 @@ const navItems = [
     ),
     labelFr: 'Résolutions',
     labelEn: 'Resolutions',
-    href: 'resolutions',
-    comingSoon: true,
+    href: 'wizard',
+    comingSoon: false,
   },
   {
     key: 'settings',
@@ -81,11 +83,11 @@ const navItems = [
     labelFr: 'Paramètres',
     labelEn: 'Settings',
     href: 'settings',
-    comingSoon: true,
+    comingSoon: false,
   },
 ];
 
-export function DashboardShell({ locale, profile, company, children, urgentCount = 0, topbarSubtitle }: DashboardShellProps) {
+export function DashboardShell({ locale, profile, company, children, urgentCount = 0, topbarSubtitle, fiscalYears }: DashboardShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -102,6 +104,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
   function getPageTitle() {
     if (pathname.includes('/dashboard/documents')) return fr ? 'Documents' : 'Documents';
     if (pathname.includes('/dashboard/compliance')) return fr ? 'Conformité' : 'Compliance';
+    if (pathname.includes('/dashboard/wizard')) return fr ? 'Résolutions' : 'Resolutions';
     if (pathname.includes('/dashboard/resolutions')) return fr ? 'Résolutions' : 'Resolutions';
     if (pathname.includes('/dashboard/settings')) return fr ? 'Paramètres' : 'Settings';
     return fr ? 'Tableau de bord' : 'Dashboard';
@@ -261,7 +264,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
             </div>
           </div>
 
-          {/* Right: search + CTA conditionnel + lang toggle */}
+          {/* Right: search + YearPicker (compliance/documents only) + CTA conditionnel + lang toggle */}
           <div className="topbar-right">
             <input
               type="text"
@@ -270,7 +273,11 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
               style={{ background: 'var(--tb-search-bg)' }}
             />
 
-            {!pathname.includes('/compliance') && (
+            {fiscalYears !== undefined && fiscalYears.length > 0 && (
+              <YearPicker locale={locale} years={fiscalYears} />
+            )}
+
+            {!pathname.includes('/compliance') && !pathname.includes('/wizard') && !pathname.includes('/settings') && (
               <button className="bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold text-sm px-4 py-2 rounded-lg hover:bg-[var(--spark-400)] transition-colors whitespace-nowrap">
                 {pathname.includes('/documents')
                   ? `⚡ ${fr ? 'Ajouter' : 'Add'}`

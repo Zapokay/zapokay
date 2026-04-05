@@ -47,6 +47,8 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
       incorporationNumber: '',
       incorporationDate: today,
       province: 'QC',
+      fiscalYearEndMonth: 12,
+      fiscalYearEndDay: 31,
     },
     officer: {
       fullName: '',
@@ -83,6 +85,8 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
           incorporation_number: data.company.incorporationNumber || null,
           incorporation_date: data.company.incorporationDate || null,
           province: data.company.province,
+          fiscal_year_end_month: data.company.fiscalYearEndMonth,
+          fiscal_year_end_day: data.company.fiscalYearEndDay,
           status: 'active',
         })
         .select()
@@ -97,7 +101,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
         start_date: data.officer.startDate || null,
       });
 
-      router.push(`/${data.language}/dashboard`);
+      router.push(`/${data.language}/onboarding/fiscal-years`);
       router.refresh();
     } catch (err) {
       console.error('Onboarding save error:', err);

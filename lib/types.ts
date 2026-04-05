@@ -48,6 +48,8 @@ export interface OnboardingData {
     incorporationNumber: string;
     incorporationDate: string;
     province: Province;
+    fiscalYearEndMonth: number;
+    fiscalYearEndDay: number;
   };
   officer: {
     fullName: string;

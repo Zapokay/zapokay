@@ -11,10 +11,12 @@ export interface VaultDocument {
   company_id: string;
   title: string;
   document_type: string;
+  document_year: number | null;
   file_url: string | null;
   language: string;
   uploaded_at: string | null;
   created_at: string;
+  source?: string | null;
 }
 
 interface DocumentRowProps {
@@ -125,7 +127,27 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false 
         <DocumentTypePill type={doc.document_type} />
 
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-[var(--text-heading)] truncate">{doc.title}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-[var(--text-heading)] truncate">{doc.title}</span>
+            {doc.source === 'generated' && (
+              <span
+                className="flex-shrink-0"
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  letterSpacing: '.06em',
+                  textTransform: 'uppercase' as const,
+                  background: '#FFF8E7',
+                  color: '#7A5804',
+                  border: '1px solid #FDDB8C',
+                  borderRadius: '20px',
+                  padding: '2px 8px',
+                }}
+              >
+                {fr ? 'À signer' : 'To sign'}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Actions — Eye → Download → Delete */}

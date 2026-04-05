@@ -1,5 +1,6 @@
 'use client';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { DocumentRow, type VaultDocument } from '@/components/documents/DocumentRow';
 import { UploadZone } from '@/components/documents/UploadZone';
@@ -9,6 +10,7 @@ interface DocumentsClientProps {
   locale: string;
   company: Company | null;
   initialDocuments: VaultDocument[];
+  fiscalYearsConfigured?: boolean;
 }
 
 type ToastType = 'success' | 'error';
@@ -31,9 +33,12 @@ const LANG_OPTIONS = [
   { value: 'bilingual', labelFr: 'Bilingue',           labelEn: 'Bilingual' },
 ];
 
-export function DocumentsClient({ locale, company, initialDocuments }: DocumentsClientProps) {
+function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsConfigured = true }: DocumentsClientProps) {
   const fr = locale === 'fr';
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const yearParam = searchParams.get('year');
+  const activeYear = yearParam ? parseInt(yearParam, 10) : null;
 
   const [documents, setDocuments] = useState<VaultDocument[]>(initialDocuments);
   const [search, setSearch] = useState('');
@@ -118,7 +123,8 @@ export function DocumentsClient({ locale, company, initialDocuments }: Documents
       const matchSearch = !search || doc.title.toLowerCase().includes(search.toLowerCase());
       const matchType   = !typeFilter || doc.document_type === typeFilter;
       const matchLang   = !langFilter || doc.language === langFilter;
-      return matchSearch && matchType && matchLang;
+      const matchYear   = !activeYear || doc.document_year === activeYear;
+      return matchSearch && matchType && matchLang && matchYear;
     })
     .sort((a, b) => {
       const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -131,6 +137,39 @@ export function DocumentsClient({ locale, company, initialDocuments }: Documents
   return (
     <div className="space-y-6">
 
+      {/* Bannière exercices non configurés */}
+      {!fiscalYearsConfigured && (
+        <div style={{
+          background: '#F5EEEE',
+          border: '1px solid #C9A5A5',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '18px' }}>⚠️</span>
+            <div>
+              <div style={{ fontFamily: 'Sora', fontSize: '14px', fontWeight: 700, color: '#6B1E1E', marginBottom: '2px' }}>
+                {fr ? 'Exercices financiers non configurés' : 'Fiscal years not configured'}
+              </div>
+              <div style={{ fontSize: '13px', color: '#6B1E1E', opacity: 0.8 }}>
+                {fr
+                  ? 'Configurez vos exercices pour activer le filtre par année.'
+                  : 'Configure your fiscal years to enable year filtering.'}
+              </div>
+            </div>
+          </div>
+          <a
+            href={`/${locale}/dashboard/settings`}
+            style={{ background: '#6B1E1E', color: 'white', fontSize: '13px', fontWeight: 700, padding: '8px 16px', borderRadius: '8px', textDecoration: 'none', whiteSpace: 'nowrap', marginLeft: '16px' }}
+          >
+            {fr ? 'Configurer →' : 'Configure →'}
+          </a>
+        </div>
+      )}
+
       {/* Page header */}
       <div>
         <h1
@@ -142,7 +181,7 @@ export function DocumentsClient({ locale, company, initialDocuments }: Documents
         <p className="text-sm text-[var(--text-muted)] mt-1">
           {documents.length === 0
             ? (fr ? 'Aucun document' : 'No documents')
-            : `${documents.length} document${documents.length !== 1 ? 's' : ''}`}
+            : `${filtered.length} document${filtered.length !== 1 ? 's' : ''}${activeYear ? ` · ${activeYear}` : ''}`}
         </p>
       </div>
 
@@ -239,5 +278,13 @@ export function DocumentsClient({ locale, company, initialDocuments }: Documents
         ))}
       </div>
     </div>
+  );
+}
+
+export function DocumentsClient(props: DocumentsClientProps) {
+  return (
+    <Suspense fallback={null}>
+      <DocumentsClientInner {...props} />
+    </Suspense>
   );
 }
