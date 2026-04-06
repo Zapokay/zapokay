@@ -18,72 +18,138 @@ interface DashboardShellProps {
   fiscalYears?: number[];
 }
 
-const navItems = [
+type NavItem = {
+  key: string;
+  icon: React.ReactNode;
+  labelFr: string;
+  labelEn: string;
+  href: string;
+  comingSoon?: boolean;
+};
+
+type NavGroup = {
+  groupKeyFr: string;
+  groupKeyEn: string;
+  items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
   {
-    key: 'dashboard',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
-    labelFr: 'Tableau de bord',
-    labelEn: 'Dashboard',
-    href: 'dashboard',
-    comingSoon: false,
+    groupKeyFr: 'ENTREPRISE',
+    groupKeyEn: 'COMPANY',
+    items: [
+      {
+        key: 'dashboard',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+        ),
+        labelFr: 'Tableau de bord',
+        labelEn: 'Dashboard',
+        href: 'dashboard',
+      },
+      {
+        key: 'directors',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        ),
+        labelFr: 'Administrateurs',
+        labelEn: 'Directors',
+        href: 'directors',
+      },
+      {
+        key: 'officers',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        ),
+        labelFr: 'Dirigeants',
+        labelEn: 'Officers',
+        href: 'officers',
+      },
+      {
+        key: 'shareholders',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+          </svg>
+        ),
+        labelFr: 'Actionnaires',
+        labelEn: 'Shareholders',
+        href: 'shareholders',
+      },
+    ],
   },
   {
-    key: 'compliance',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-      </svg>
-    ),
-    labelFr: 'Conformité',
-    labelEn: 'Compliance',
-    href: 'compliance',
-    comingSoon: false,
+    groupKeyFr: 'DOCUMENTS',
+    groupKeyEn: 'DOCUMENTS',
+    items: [
+      {
+        key: 'documents',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        ),
+        labelFr: 'Documents',
+        labelEn: 'Documents',
+        href: 'documents',
+      },
+      {
+        key: 'resolutions',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        ),
+        labelFr: 'Résolutions',
+        labelEn: 'Resolutions',
+        href: 'wizard',
+      },
+    ],
   },
   {
-    key: 'documents',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-    labelFr: 'Documents',
-    labelEn: 'Documents',
-    href: 'documents',
-    comingSoon: false,
-  },
-  {
-    key: 'resolutions',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-      </svg>
-    ),
-    labelFr: 'Résolutions',
-    labelEn: 'Resolutions',
-    href: 'wizard',
-    comingSoon: false,
-  },
-  {
-    key: 'settings',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-    labelFr: 'Paramètres',
-    labelEn: 'Settings',
-    href: 'settings',
-    comingSoon: false,
+    groupKeyFr: 'CONFORMITÉ',
+    groupKeyEn: 'COMPLIANCE',
+    items: [
+      {
+        key: 'compliance',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        ),
+        labelFr: 'Suivi',
+        labelEn: 'Tracking',
+        href: 'compliance',
+      },
+      {
+        key: 'settings',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        ),
+        labelFr: 'Paramètres',
+        labelEn: 'Settings',
+        href: 'settings',
+      },
+    ],
   },
 ];
 
@@ -103,10 +169,13 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
 
   function getPageTitle() {
     if (pathname.includes('/dashboard/documents')) return fr ? 'Documents' : 'Documents';
-    if (pathname.includes('/dashboard/compliance')) return fr ? 'Conformité' : 'Compliance';
+    if (pathname.includes('/dashboard/compliance')) return fr ? 'Suivi' : 'Tracking';
     if (pathname.includes('/dashboard/wizard')) return fr ? 'Résolutions' : 'Resolutions';
     if (pathname.includes('/dashboard/resolutions')) return fr ? 'Résolutions' : 'Resolutions';
     if (pathname.includes('/dashboard/settings')) return fr ? 'Paramètres' : 'Settings';
+    if (pathname.includes('/dashboard/directors')) return fr ? 'Administrateurs' : 'Directors';
+    if (pathname.includes('/dashboard/officers')) return fr ? 'Dirigeants' : 'Officers';
+    if (pathname.includes('/dashboard/shareholders')) return fr ? 'Actionnaires' : 'Shareholders';
     return fr ? 'Tableau de bord' : 'Dashboard';
   }
 
@@ -143,48 +212,61 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
         <CompanySwitcher company={company} locale={locale} />
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
-          {navItems.map(item => (
-            <div key={item.key}>
-              {!item.comingSoon ? (
-                <Link
-                  href={item.href === 'dashboard' ? `/${locale}/dashboard` : `/${locale}/dashboard/${item.href}`}
-                  onClick={() => setSidebarOpen(false)}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors no-underline',
-                    !isActive(item.href) && 'hover:bg-white/5'
-                  )}
-                  style={
-                    isActive(item.href)
-                      ? { background: 'var(--sb-item-active)', color: 'var(--sb-label-active)', textDecoration: 'none' }
-                      : { color: 'var(--sb-label-default)', textDecoration: 'none' }
-                  }
-                >
-                  <span style={{ color: isActive(item.href) ? 'var(--sb-icon-active)' : 'var(--sb-icon-default)' }}>
-                    {item.icon}
-                  </span>
-                  <span className="flex-1">{fr ? item.labelFr : item.labelEn}</span>
-                  {item.key === 'compliance' && urgentCount > 0 && (
-                    <span
-                      className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
-                      style={{ backgroundColor: '#C9A5A5', color: '#6B1E1E' }}
-                    >
-                      {urgentCount}
-                    </span>
-                  )}
-                </Link>
-              ) : (
-                <div
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm cursor-not-allowed opacity-60"
-                  style={{ color: 'var(--sb-label-default)' }}
-                >
-                  <span style={{ color: 'var(--sb-icon-default)' }}>{item.icon}</span>
-                  {fr ? item.labelFr : item.labelEn}
-                  <span className="ml-auto text-xs px-1.5 py-0.5 rounded-md" style={{ color: 'var(--sb-group-label)' }}>
-                    {fr ? 'Bientôt' : 'Soon'}
-                  </span>
-                </div>
-              )}
+        <nav className="flex-1 px-3 py-2 overflow-y-auto">
+          {navGroups.map((group, gi) => (
+            <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
+              {/* Group label */}
+              <div
+                className="px-3 py-1 text-[10px] font-bold tracking-widest"
+                style={{ color: 'var(--sb-group-label)' }}
+              >
+                {fr ? group.groupKeyFr : group.groupKeyEn}
+              </div>
+              <div className="space-y-0.5 mt-1">
+                {group.items.map(item => (
+                  <div key={item.key}>
+                    {!item.comingSoon ? (
+                      <Link
+                        href={item.href === 'dashboard' ? `/${locale}/dashboard` : `/${locale}/dashboard/${item.href}`}
+                        onClick={() => setSidebarOpen(false)}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors no-underline',
+                          !isActive(item.href) && 'hover:bg-white/5'
+                        )}
+                        style={
+                          isActive(item.href)
+                            ? { background: 'var(--sb-item-active)', color: 'var(--sb-label-active)', textDecoration: 'none' }
+                            : { color: 'var(--sb-label-default)', textDecoration: 'none' }
+                        }
+                      >
+                        <span style={{ color: isActive(item.href) ? 'var(--sb-icon-active)' : 'var(--sb-icon-default)' }}>
+                          {item.icon}
+                        </span>
+                        <span className="flex-1">{fr ? item.labelFr : item.labelEn}</span>
+                        {item.key === 'compliance' && urgentCount > 0 && (
+                          <span
+                            className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
+                            style={{ backgroundColor: '#C9A5A5', color: '#6B1E1E' }}
+                          >
+                            {urgentCount}
+                          </span>
+                        )}
+                      </Link>
+                    ) : (
+                      <div
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm cursor-not-allowed opacity-60"
+                        style={{ color: 'var(--sb-label-default)' }}
+                      >
+                        <span style={{ color: 'var(--sb-icon-default)' }}>{item.icon}</span>
+                        {fr ? item.labelFr : item.labelEn}
+                        <span className="ml-auto text-xs px-1.5 py-0.5 rounded-md" style={{ color: 'var(--sb-group-label)' }}>
+                          {fr ? 'Bientôt' : 'Soon'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </nav>
@@ -277,7 +359,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
               <YearPicker locale={locale} years={fiscalYears} />
             )}
 
-            {!pathname.includes('/compliance') && !pathname.includes('/wizard') && !pathname.includes('/settings') && (
+            {!pathname.includes('/compliance') && !pathname.includes('/wizard') && !pathname.includes('/settings') && !pathname.includes('/directors') && !pathname.includes('/officers') && !pathname.includes('/shareholders') && (
               <button className="bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold text-sm px-4 py-2 rounded-lg hover:bg-[var(--spark-400)] transition-colors whitespace-nowrap">
                 {pathname.includes('/documents')
                   ? `⚡ ${fr ? 'Ajouter' : 'Add'}`

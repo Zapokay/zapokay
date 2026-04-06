@@ -1,0 +1,19 @@
+{
+  "nav": {
+    "group": {
+      "company": "COMPANY",
+      "documents": "DOCUMENTS",
+      "compliance": "COMPLIANCE"
+    },
+    "dashboard": "Dashboard",
+    "directors": "Directors",
+    "officers": "Officers",
+    "shareholders": "Shareholders",
+    "documents": "Documents",
+    "resolutions": "Resolutions",
+    "compliance": "Tracking",
+    "settings": "Settings",
+    "signOut": "Sign out"
+  }
+}
+

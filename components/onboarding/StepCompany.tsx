@@ -156,19 +156,6 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           onChange={e => update('incorporationDate', e.target.value)}
         />
 
-        <Select
-          id="province"
-          label={fr ? "Province" : "Province"}
-          value={data.company.province}
-          onChange={e => update('province', e.target.value)}
-        >
-          {provinces.map(p => (
-            <option key={p.value} value={p.value}>
-              {fr ? p.labelFr : p.labelEn}
-            </option>
-          ))}
-        </Select>
-
         {/* Fin d'exercice financier */}
         <div>
           <label className="block text-sm font-medium text-navy-700 mb-1">

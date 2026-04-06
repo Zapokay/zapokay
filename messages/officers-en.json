@@ -1,0 +1,26 @@
+{
+  "officers": {
+    "_locale": "en",
+    "title": "Officers",
+    "appointOfficer": "Appoint Officer",
+    "person": "Person",
+    "role": "Position",
+    "customTitle": "Custom title",
+    "signingAuthority": "Authorized signatory",
+    "appointmentDate": "Appointment date",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "replace": "Replace",
+    "remove": "Remove",
+    "replaceOfficer": "Replace Officer",
+    "removeOfficer": "Remove Officer",
+    "endDate": "End date",
+    "confirmReplace": "Confirm replacement",
+    "confirmRemove": "Confirm removal",
+    "errorSelectPerson": "Please select a person.",
+    "errorAppointmentDate": "Appointment date is required.",
+    "errorCustomTitle": "Custom title is required."
+  }
+}
+

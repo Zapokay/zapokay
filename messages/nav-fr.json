@@ -1,0 +1,19 @@
+{
+  "nav": {
+    "group": {
+      "company": "ENTREPRISE",
+      "documents": "DOCUMENTS",
+      "compliance": "CONFORMITÉ"
+    },
+    "dashboard": "Tableau de bord",
+    "directors": "Administrateurs",
+    "officers": "Dirigeants",
+    "shareholders": "Actionnaires",
+    "documents": "Documents",
+    "resolutions": "Résolutions",
+    "compliance": "Suivi",
+    "settings": "Paramètres",
+    "signOut": "Déconnexion"
+  }
+}
+

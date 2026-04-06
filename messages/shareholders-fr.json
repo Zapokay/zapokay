@@ -1,0 +1,22 @@
+{
+  "shareholders": {
+    "_locale": "fr",
+    "title": "Actionnaires",
+    "issueShares": "Émettre des actions",
+    "person": "Personne",
+    "shareClass": "Classe d'actions",
+    "numberOfShares": "Nombre d'actions",
+    "pricePerShare": "Prix par action",
+    "issueDate": "Date d'émission",
+    "certificateNumber": "Numéro de certificat",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "edit": "Modifier",
+    "transfer": "Transférer",
+    "errorSelectPerson": "Veuillez sélectionner une personne.",
+    "errorShareClass": "Veuillez sélectionner une classe d'actions.",
+    "errorQuantity": "Le nombre d'actions doit être supérieur à 0.",
+    "errorIssueDate": "La date d'émission est requise."
+  }
+}
+
