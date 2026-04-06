@@ -1,75 +1,41 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
-import { X, Zap, Loader2 } from 'lucide-react';
-import PersonSelector, {
-  type PersonSelectorValue,
-} from '@/components/people/PersonSelector';
-import type { ShareClass } from '@/lib/supabase/people-types';
+import { X, Loader2 } from 'lucide-react';
+import type { ShareholdingWithDetails, ShareClass } from '@/lib/supabase/people-types';
 
-// =============================================================================
-// Types
-// =============================================================================
-
-interface IssueSharesModalProps {
-  companyId: string;
-  incorporationDate: string | null;
+interface EditShareholdingModalProps {
+  shareholding: ShareholdingWithDetails;
   shareClasses: ShareClass[];
-  /** Current max certificate number so we can auto-increment */
-  nextCertificateNumber: number;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-// =============================================================================
-// Component
-// =============================================================================
-
-export default function IssueSharesModal({
-  companyId,
-  incorporationDate,
+export default function EditShareholdingModal({
+  shareholding,
   shareClasses,
-  nextCertificateNumber,
   onClose,
   onSuccess,
-}: IssueSharesModalProps) {
+}: EditShareholdingModalProps) {
   const t = useTranslations('shareholders');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
-  // ---- State ----------------------------------------------------------------
-  const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);
-  const [shareClassId, setShareClassId] = useState(shareClasses[0]?.id || '');
-  const [quantity, setQuantity] = useState('100');
-  const [pricePerShare, setPricePerShare] = useState('');
-  const [issueDate, setIssueDate] = useState(
-    incorporationDate || new Date().toISOString().split('T')[0]
+  const [shareClassId, setShareClassId] = useState(shareholding.share_class_id);
+  const [quantity, setQuantity] = useState(String(shareholding.quantity));
+  const [pricePerShare, setPricePerShare] = useState(
+    shareholding.issue_price_per_share ? String(shareholding.issue_price_per_share) : ''
   );
+  const [issueDate, setIssueDate] = useState(shareholding.issue_date);
   const [certificateNumber, setCertificateNumber] = useState(
-    String(nextCertificateNumber).padStart(3, '0')
+    shareholding.certificate_number ?? ''
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Update default share class if list changes
-  useEffect(() => {
-    if (!shareClassId && shareClasses.length > 0) {
-      setShareClassId(shareClasses[0].id);
-    }
-  }, [shareClasses, shareClassId]);
-
-  // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async () => {
-    if (!personValue) {
-      setError(t('errorSelectPerson'));
-      return;
-    }
-    if (!shareClassId) {
-      setError(t('errorShareClass'));
-      return;
-    }
     const qty = parseInt(quantity, 10);
     if (!qty || qty <= 0) {
       setError(t('errorQuantity'));
@@ -84,72 +50,35 @@ export default function IssueSharesModal({
     setError(null);
 
     try {
-      let personId: string;
+      const { error: err } = await supabase
+        .from('shareholdings')
+        .update({
+          share_class_id: shareClassId,
+          quantity: qty,
+          issue_date: issueDate,
+          issue_price_per_share: pricePerShare.trim() ? parseFloat(pricePerShare) : null,
+          certificate_number: certificateNumber.trim() || null,
+        })
+        .eq('id', shareholding.id);
 
-      if (personValue.mode === 'new') {
-        const { data: newPerson, error: insertErr } = await supabase
-          .from('company_people')
-          .insert({
-            company_id: companyId,
-            full_name: personValue.fullName,
-            email: personValue.email || null,
-            phone: personValue.phone || null,
-            address_line1: personValue.addressLine1 || null,
-            address_city: personValue.addressCity || null,
-            address_province: personValue.addressProvince || null,
-            address_postal_code: personValue.addressPostalCode || null,
-            address_country: personValue.addressCountry,
-            is_canadian_resident: personValue.isCanadianResident,
-          })
-          .select('id')
-          .single();
-
-        if (insertErr || !newPerson) {
-          throw new Error(insertErr?.message || 'Failed to create person');
-        }
-        personId = newPerson.id;
-      } else {
-        personId = personValue.personId;
-      }
-
-      // Parse price
-      const price = pricePerShare.trim()
-        ? parseFloat(pricePerShare)
-        : null;
-
-      // Create shareholding
-      const { error: shErr } = await supabase.from('shareholdings').insert({
-        company_id: companyId,
-        person_id: personId,
-        share_class_id: shareClassId,
-        quantity: qty,
-        issue_date: issueDate,
-        issue_price_per_share: price,
-        certificate_number: certificateNumber.trim() || null,
-      });
-
-      if (shErr) throw new Error(shErr.message);
-
+      if (err) throw err;
       onSuccess();
     } catch (err: any) {
       setError(err.message || 'An error occurred');
-    } finally {
       setSaving(false);
     }
   }, [
-    personValue,
+    shareholding.id,
     shareClassId,
     quantity,
     pricePerShare,
     issueDate,
     certificateNumber,
-    companyId,
     supabase,
     onSuccess,
     t,
   ]);
 
-  // ---- Render ---------------------------------------------------------------
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -158,8 +87,10 @@ export default function IssueSharesModal({
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            <Zap className="mr-1.5 inline h-4 w-4 text-amber-500" />
-            {t('issueShares')}
+            {locale === 'fr' ? 'Modifier les actions' : 'Edit shareholding'}
+            <span className="ml-2 text-sm font-normal text-zinc-500">
+              — {shareholding.person.full_name}
+            </span>
           </h2>
           <button
             type="button"
@@ -172,41 +103,25 @@ export default function IssueSharesModal({
 
         {/* Body */}
         <div className="space-y-5 px-6 py-5">
-          {/* Person selector */}
-          <PersonSelector
-            companyId={companyId}
-            value={personValue}
-            onChange={setPersonValue}
-            label={t('person')}
-          />
-
           {/* Share class */}
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               {t('shareClass')} <span className="text-red-500">*</span>
             </label>
-            {shareClasses.length === 0 ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
-                {locale === 'fr'
-                  ? "Aucune classe d'actions configurée. Fermez cette fenêtre et ajoutez une classe d'actions d'abord."
-                  : 'No share classes configured. Close this window and add a share class first.'}
-              </div>
-            ) : (
-              <select
-                value={shareClassId}
-                onChange={(e) => setShareClassId(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                {shareClasses.map((sc) => (
-                  <option key={sc.id} value={sc.id}>
-                    {sc.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            <select
+              value={shareClassId}
+              onChange={(e) => setShareClassId(e.target.value)}
+              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            >
+              {shareClasses.map((sc) => (
+                <option key={sc.id} value={sc.id}>
+                  {sc.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Quantity + Price per share row */}
+          {/* Quantity + Price */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -218,8 +133,7 @@ export default function IssueSharesModal({
                 step="1"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                placeholder="100"
-                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
             </div>
             <div>
@@ -240,13 +154,10 @@ export default function IssueSharesModal({
                   className="w-full rounded-lg border border-zinc-200 bg-white py-2.5 pl-7 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 />
               </div>
-              <p className="mt-1 text-[11px] text-zinc-400">
-                {locale === 'fr' ? 'Optionnel — utile pour les dossiers fiscaux' : 'Optional — useful for tax records'}
-              </p>
             </div>
           </div>
 
-          {/* Issue date + Certificate row */}
+          {/* Issue date + Certificate */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -270,13 +181,9 @@ export default function IssueSharesModal({
                 placeholder="001"
                 className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
-              <p className="mt-1 text-[11px] text-zinc-400">
-                {locale === 'fr' ? 'Auto-généré, modifiable' : 'Auto-generated, editable'}
-              </p>
             </div>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
               {error}
@@ -297,7 +204,7 @@ export default function IssueSharesModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !personValue || shareClasses.length === 0}
+            disabled={saving}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -308,4 +215,3 @@ export default function IssueSharesModal({
     </div>
   );
 }
-

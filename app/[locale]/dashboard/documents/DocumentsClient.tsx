@@ -1,6 +1,7 @@
 'use client';
 import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { DocumentRow, type VaultDocument } from '@/components/documents/DocumentRow';
 import { UploadZone } from '@/components/documents/UploadZone';
@@ -36,11 +37,17 @@ const LANG_OPTIONS = [
 function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsConfigured = true }: DocumentsClientProps) {
   const fr = locale === 'fr';
   const supabase = createClient();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const yearParam = searchParams.get('year');
   const activeYear = yearParam ? parseInt(yearParam, 10) : null;
 
   const [documents, setDocuments] = useState<VaultDocument[]>(initialDocuments);
+
+  // Sync local state when server re-renders with fresh data (after router.refresh())
+  useEffect(() => {
+    setDocuments(initialDocuments);
+  }, [initialDocuments]);
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [typeFilter, setTypeFilter] = useState('');
@@ -78,6 +85,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
 
   function handleUploadComplete() {
     fetchDocuments();
+    router.refresh();
     addToast(
       fr ? 'Document ajouté avec succès.' : 'Document added successfully.',
       'success'

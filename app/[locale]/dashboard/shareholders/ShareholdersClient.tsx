@@ -8,6 +8,8 @@ import CapTableChart from '@/components/shareholders/CapTableChart';
 import ShareClassCard from '@/components/shareholders/ShareClassCard';
 import ShareholderCard from '@/components/shareholders/ShareholderCard';
 import IssueSharesModal from '@/components/shareholders/IssueSharesModal';
+import ShareClassModal from '@/components/shareholders/ShareClassModal';
+import EditShareholdingModal from '@/components/shareholders/EditShareholdingModal';
 import type {
   CompanyPerson,
   ShareClass,
@@ -29,6 +31,9 @@ export default function ShareholdersClient() {
   const [officerAppointments, setOfficerAppointments] = useState<OfficerAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showIssueModal, setShowIssueModal] = useState(false);
+  const [showShareClassModal, setShowShareClassModal] = useState(false);
+  const [editingShareClass, setEditingShareClass] = useState<ShareClass | null>(null);
+  const [editingShareholding, setEditingShareholding] = useState<ShareholdingWithDetails | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -144,12 +149,16 @@ export default function ShareholdersClient() {
             </h3>
             <div className="space-y-2">
               {shareClasses.map((sc) => (
-                <ShareClassCard key={sc.id} shareClass={sc} onEdit={() => {}} />
+                <ShareClassCard
+                  key={sc.id}
+                  shareClass={sc}
+                  onEdit={(sc) => { setEditingShareClass(sc); setShowShareClassModal(true); }}
+                />
               ))}
               <button
-                type="button" disabled
-                className="flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-[var(--card-border)] px-4 py-2.5 text-sm font-medium text-[var(--text-muted)] opacity-60"
-                title={locale === 'fr' ? 'Bientôt disponible' : 'Coming soon'}
+                type="button"
+                onClick={() => { setEditingShareClass(null); setShowShareClassModal(true); }}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-[var(--card-border)] px-4 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:border-amber-400 hover:text-amber-600"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {locale === 'fr' ? 'Ajouter une classe' : 'Add a class'}
@@ -169,7 +178,7 @@ export default function ShareholdersClient() {
                   totalIssuedShares={totalIssued}
                   directorMandates={getDirectorMandatesForPerson(personId)}
                   officerAppointments={getOfficerAppointmentsForPerson(personId)}
-                  onEdit={() => {}}
+                  onEdit={(sh) => setEditingShareholding(sh)}
                 />
               ))}
             </div>
@@ -205,7 +214,13 @@ export default function ShareholdersClient() {
             {locale === 'fr' ? "Classes d'actions disponibles" : 'Available Share Classes'}
           </h3>
           <div className="space-y-2">
-            {shareClasses.map((sc) => <ShareClassCard key={sc.id} shareClass={sc} onEdit={() => {}} />)}
+            {shareClasses.map((sc) => (
+              <ShareClassCard
+                key={sc.id}
+                shareClass={sc}
+                onEdit={(sc) => { setEditingShareClass(sc); setShowShareClassModal(true); }}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -218,6 +233,24 @@ export default function ShareholdersClient() {
           nextCertificateNumber={nextCertificateNumber}
           onClose={() => setShowIssueModal(false)}
           onSuccess={() => { setShowIssueModal(false); fetchData(); }}
+        />
+      )}
+
+      {showShareClassModal && companyId && (
+        <ShareClassModal
+          companyId={companyId}
+          shareClass={editingShareClass}
+          onClose={() => { setShowShareClassModal(false); setEditingShareClass(null); }}
+          onSuccess={() => { setShowShareClassModal(false); setEditingShareClass(null); fetchData(); }}
+        />
+      )}
+
+      {editingShareholding && companyId && (
+        <EditShareholdingModal
+          shareholding={editingShareholding}
+          shareClasses={shareClasses}
+          onClose={() => setEditingShareholding(null)}
+          onSuccess={() => { setEditingShareholding(null); fetchData(); }}
         />
       )}
     </div>

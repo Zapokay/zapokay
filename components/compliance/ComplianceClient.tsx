@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useLocale } from 'next-intl'
 import ComplianceGauge from './ComplianceGauge'
 import ComplianceItemCard from './ComplianceItemCard'
 import ComplianceUploadRedirect from './ComplianceUploadRedirect'
@@ -61,7 +62,8 @@ export function ComplianceClient({
   hasFiscalYearConfig,
   t,
 }: ComplianceClientProps) {
-  const fr = locale === 'fr'
+  const currentLocale = useLocale()
+  const fr = currentLocale === 'fr'
 
   const requiredItems  = items.filter(i => i.status === 'required')
   const pendingItems   = items.filter(i => i.status === 'pending')

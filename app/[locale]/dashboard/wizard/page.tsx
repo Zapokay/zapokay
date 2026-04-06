@@ -134,24 +134,41 @@ export default async function WizardPage({
   if (!companyRaw) redirect(`/${locale}/onboarding`)
   const company = companyRaw as FullCompany
 
-  // Fetch officers
-  const { data: officers } = await supabase
-    .from('company_officers')
-    .select('full_name, role')
+  // Fetch active directors
+  const { data: directorMandates } = await supabase
+    .from('director_mandates')
+    .select('company_people(full_name)')
     .eq('company_id', company.id)
-    .is('end_date', null)
+    .eq('is_active', true)
 
-  const officerList: Officer[] = officers ?? []
+  // Fetch active officers
+  const { data: officerAppointments } = await supabase
+    .from('officer_appointments')
+    .select('title, custom_title, company_people(full_name)')
+    .eq('company_id', company.id)
+    .eq('is_active', true)
 
-  // Determine director and officer
-  const director =
-    officerList.find((o) => o.role === 'director') ??
-    officerList[0] ??
-    null
+  // Determine director
+  const rawDirectorPeople = (directorMandates ?? [])[0]?.company_people
+  const directorPerson = Array.isArray(rawDirectorPeople)
+    ? (rawDirectorPeople[0] as { full_name: string } | undefined) ?? null
+    : (rawDirectorPeople as { full_name: string } | null) ?? null
+  const director: Officer | null = directorPerson
+    ? { full_name: directorPerson.full_name, role: 'director' }
+    : null
 
-  const nonDirectorOfficer =
-    officerList.find((o) => o.role !== 'director') ??
-    director
+  // Determine officer (first active officer appointment, fallback to director)
+  const firstOfficer = (officerAppointments ?? [])[0]
+  const rawOfficerPeople = firstOfficer?.company_people
+  const officerPerson = Array.isArray(rawOfficerPeople)
+    ? (rawOfficerPeople[0] as { full_name: string } | undefined) ?? null
+    : (rawOfficerPeople as { full_name: string } | null) ?? null
+  const nonDirectorOfficer: Officer | null = officerPerson
+    ? {
+        full_name: officerPerson.full_name,
+        role: firstOfficer.custom_title ?? firstOfficer.title,
+      }
+    : director
 
   // Fetch existing documents for gap analysis
   const { data: existingDocs } = await supabase
