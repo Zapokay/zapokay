@@ -273,15 +273,24 @@ export function SettingsClient({
             <input value={legalName} onChange={e => setLegalName(e.target.value)} className={inputClass} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              NEQ
-            </label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-muted)]">
+                {fr ? "NEQ (Numéro d'entreprise du Québec)" : "NEQ (Québec Enterprise Number)"}
+              </label>
+            </div>
             <input
               value={neq}
-              onChange={e => setNeq(e.target.value)}
+              onChange={e => setNeq(e.target.value.replace(/\D/g, '').slice(0, 10))}
               placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
+              inputMode="numeric"
+              maxLength={10}
               className={inputClass}
             />
+            {neq.length > 0 && neq.length < 10 && (
+              <p className="mt-1 text-xs text-amber-600">
+                {fr ? `${10 - neq.length} chiffres manquants` : `${10 - neq.length} digits missing`}
+              </p>
+            )}
           </div>
           {/* Read-only fields */}
           <div className="grid grid-cols-2 gap-3">
@@ -318,6 +327,27 @@ export function SettingsClient({
               </div>
             </div>
           </div>
+          {incorporationDate && (
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                {fr ? 'Date de constitution' : 'Incorporation date'}
+              </label>
+              <div
+                className="px-3 py-2 rounded-lg text-sm border"
+                style={{
+                  borderColor: 'var(--card-border)',
+                  backgroundColor: 'var(--page-bg)',
+                  color: 'var(--text-body)',
+                  opacity: 0.7,
+                }}
+              >
+                {new Date(incorporationDate + 'T00:00:00').toLocaleDateString(
+                  fr ? 'fr-CA' : 'en-CA',
+                  { year: 'numeric', month: 'long', day: 'numeric' }
+                )}
+              </div>
+            </div>
+          )}
           {/* Fin d'exercice */}
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">

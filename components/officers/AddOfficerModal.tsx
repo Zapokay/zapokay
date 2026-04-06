@@ -56,9 +56,10 @@ export default function AddOfficerModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflictOfficer, setConflictOfficer] = useState<{ id: string; name: string; titleLabel: string } | null>(null);
 
   // ---- Save -----------------------------------------------------------------
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (replaceConflict = false) => {
     if (!personValue) {
       setError(t('errorSelectPerson'));
       return;
@@ -76,6 +77,37 @@ export default function AddOfficerModal({
     setError(null);
 
     try {
+      // Check for title conflict (non-custom roles only)
+      if (title !== 'custom' && !replaceConflict) {
+        const { data: existing } = await supabase
+          .from('officer_appointments')
+          .select('id, company_people(full_name)')
+          .eq('company_id', companyId)
+          .eq('title', title)
+          .eq('is_active', true)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          const existingPerson = existing[0].company_people;
+          const name = Array.isArray(existingPerson)
+            ? (existingPerson[0] as { full_name: string } | undefined)?.full_name ?? ''
+            : (existingPerson as { full_name: string } | null)?.full_name ?? '';
+          const titleLabel = TITLE_OPTIONS.find(o => o.value === title)?.[locale === 'fr' ? 'fr' : 'en'] ?? title;
+          setConflictOfficer({ id: existing[0].id, name, titleLabel });
+          setSaving(false);
+          return;
+        }
+      }
+
+      // If replacing, deactivate the existing officer first
+      if (replaceConflict && conflictOfficer) {
+        await supabase
+          .from('officer_appointments')
+          .update({ is_active: false })
+          .eq('id', conflictOfficer.id);
+        setConflictOfficer(null);
+      }
+
       let personId: string;
 
       if (personValue.mode === 'new') {
@@ -127,7 +159,7 @@ export default function AddOfficerModal({
     } finally {
       setSaving(false);
     }
-  }, [personValue, title, customTitle, isSigningAuthority, appointmentDate, companyId, supabase, onSuccess, t]);
+  }, [personValue, title, customTitle, isSigningAuthority, appointmentDate, companyId, conflictOfficer, supabase, onSuccess, t, locale]);
 
   // ---- Render ---------------------------------------------------------------
   return (
@@ -230,6 +262,40 @@ export default function AddOfficerModal({
               {error}
             </div>
           )}
+
+          {/* Conflict dialog */}
+          {conflictOfficer && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                {locale === 'fr'
+                  ? `Le poste de ${conflictOfficer.titleLabel} est déjà occupé par ${conflictOfficer.name}.`
+                  : `The ${conflictOfficer.titleLabel} position is already held by ${conflictOfficer.name}.`}
+              </p>
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                {locale === 'fr'
+                  ? 'Voulez-vous remplacer ce dirigeant ?'
+                  : 'Do you want to replace this officer?'}
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSave(true)}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-600 disabled:opacity-50"
+                >
+                  {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {locale === 'fr' ? 'Remplacer' : 'Replace'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConflictOfficer(null)}
+                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/40"
+                >
+                  {locale === 'fr' ? 'Annuler' : 'Cancel'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -244,7 +310,7 @@ export default function AddOfficerModal({
           </button>
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={saving || !personValue}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
           >

@@ -9,8 +9,12 @@ function computeAllYears(
   fiscalYearEndDay: number
 ): number[] {
   const currentYear = new Date().getFullYear()
-  // Always show last 8 years (matching FiscalYearsSetup)
-  return Array.from({ length: 8 }, (_, i) => currentYear - 7 + i).reverse()
+  const incorpYear = incorporationDate
+    ? new Date(incorporationDate).getFullYear()
+    : currentYear - 7
+  const startYear = Math.max(incorpYear, currentYear - 7)
+  const length = currentYear - startYear + 1
+  return Array.from({ length }, (_, i) => startYear + i).reverse()
 }
 
 export default async function SettingsPage({

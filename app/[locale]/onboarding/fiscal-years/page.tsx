@@ -16,7 +16,7 @@ export default async function FiscalYearsPage({
 
   const { data: company } = await supabase
     .from('companies')
-    .select('id')
+    .select('id, incorporation_date')
     .eq('user_id', user.id)
     .eq('status', 'active')
     .single()
@@ -43,6 +43,7 @@ export default async function FiscalYearsPage({
       companyId={company.id}
       savedFiscalYears={(fiscalYears ?? []) as { year: number; status: string }[]}
       documentYears={documentYears}
+      incorporationDate={(company as { id: string; incorporation_date: string | null }).incorporation_date}
     />
   )
 }

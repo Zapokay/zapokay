@@ -98,12 +98,23 @@ export default function DirectorsClient() {
 
   return (
     <div className="space-y-6">
+      {/* Page heading */}
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
+          {locale === 'fr' ? "Conseil d'administration" : 'Board of Directors'}
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          {totalDirectors > 0
+            ? locale === 'fr'
+              ? `${totalDirectors} administrateur${totalDirectors > 1 ? 's' : ''} actif${totalDirectors > 1 ? 's' : ''}`
+              : `${totalDirectors} active director${totalDirectors > 1 ? 's' : ''}`
+            : locale === 'fr' ? 'Aucun administrateur enregistré' : 'No directors registered'}
+        </p>
+      </div>
+
       {/* Action bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <p className="text-sm text-[var(--text-muted)]">
-            {locale === 'fr' ? "Conseil d'administration" : 'Board of Directors'}
-          </p>
           <button
             type="button"
             onMouseEnter={() => setShowTooltip(true)}

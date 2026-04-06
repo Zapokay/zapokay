@@ -218,7 +218,6 @@ export default async function WizardPage({
       profile={profile}
       company={company}
       urgentCount={0}
-      topbarSubtitle={fr ? 'Catch-Up Wizard · Génération automatique' : 'Catch-Up Wizard · Auto-generation'}
     >
       <CatchUpWizard
         locale={fr ? 'fr' : 'en'}

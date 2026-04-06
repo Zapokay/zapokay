@@ -107,12 +107,23 @@ export default function ShareholdersClient() {
 
   return (
     <div className="space-y-6">
+      {/* Page heading */}
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
+          {locale === 'fr' ? 'Structure du capital' : 'Capital Structure'}
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          {hasShareholders
+            ? locale === 'fr'
+              ? `${totalIssued.toLocaleString('fr-CA')} actions émises`
+              : `${totalIssued.toLocaleString('en-CA')} shares issued`
+            : locale === 'fr' ? 'Aucun actionnaire enregistré' : 'No shareholders registered'}
+        </p>
+      </div>
+
       {/* Action bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <p className="text-sm text-[var(--text-muted)]">
-            {locale === 'fr' ? 'Structure du capital' : 'Capital Structure'}
-          </p>
           <button
             type="button"
             onMouseEnter={() => setShowTooltip(true)}
@@ -141,7 +152,7 @@ export default function ShareholdersClient() {
 
       {hasShareholders ? (
         <>
-          <CapTableChart shareholdings={shareholdings} totalIssued={totalIssued} />
+          <CapTableChart key={`${totalIssued}-${shareholdings.length}`} shareholdings={shareholdings} totalIssued={totalIssued} />
 
           <div>
             <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">

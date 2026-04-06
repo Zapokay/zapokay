@@ -371,9 +371,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Admin client for storage + DB writes (bypasses RLS)
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceKey) {
+      console.error('[wizard/generate] SUPABASE_SERVICE_ROLE_KEY is not configured')
+      return NextResponse.json(
+        { error: 'Server configuration error. Please contact support.' },
+        { status: 500 }
+      )
+    }
     const supabaseAdmin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      serviceKey
     )
 
     const generatedFiles: GeneratedFile[] = []

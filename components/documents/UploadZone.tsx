@@ -6,6 +6,7 @@ interface UploadZoneProps {
   companyId: string;
   framework: string;        // 'LSA' | 'CBCA' — derived from company.incorporation_type
   locale: string;
+  activeFiscalYears?: number[];
   onUploadComplete: () => void;
   onError?: (message: string) => void;
 }
@@ -29,8 +30,9 @@ const LANGUAGES = [
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 
-export function UploadZone({ companyId, framework, locale, onUploadComplete, onError }: UploadZoneProps) {
+export function UploadZone({ companyId, framework, locale, activeFiscalYears = [], onUploadComplete, onError }: UploadZoneProps) {
   const fr = locale === 'fr';
+  const currentYear = new Date().getFullYear();
   const [step, setStep] = useState<UploadStep>('idle');
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -39,6 +41,9 @@ export function UploadZone({ companyId, framework, locale, onUploadComplete, onE
   const [title, setTitle] = useState('');
   const [docType, setDocType] = useState('autre');
   const [language, setLanguage] = useState('fr');
+  const [docYear, setDocYear] = useState<number | ''>(
+    activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? ''
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   function validateFile(f: File): string | null {
@@ -104,6 +109,7 @@ export function UploadZone({ companyId, framework, locale, onUploadComplete, onE
       company_id: companyId,
       title: title.trim(),
       document_type: docType,
+      document_year: docYear !== '' ? docYear : null,
       file_url: urlData?.publicUrl ?? null,
       language,
       framework,
@@ -130,6 +136,7 @@ export function UploadZone({ companyId, framework, locale, onUploadComplete, onE
       setTitle('');
       setDocType('autre');
       setLanguage('fr');
+      setDocYear(activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? '');
       setProgress(0);
       if (inputRef.current) inputRef.current.value = '';
       onUploadComplete();
@@ -262,6 +269,26 @@ export function UploadZone({ companyId, framework, locale, onUploadComplete, onE
               </select>
             </div>
           </div>
+
+          {activeFiscalYears.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
+                {fr ? 'Exercice fiscal' : 'Fiscal year'}
+              </label>
+              <select
+                value={docYear}
+                onChange={e => setDocYear(e.target.value === '' ? '' : parseInt(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+              >
+                <option value="">{fr ? '— Aucun exercice —' : '— No fiscal year —'}</option>
+                {activeFiscalYears.map(y => (
+                  <option key={y} value={y}>
+                    {fr ? `Exercice ${y}` : `Fiscal year ${y}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {error && <p className="text-xs text-[var(--error-text)]">{error}</p>}

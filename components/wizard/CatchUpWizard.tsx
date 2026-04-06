@@ -149,6 +149,16 @@ export function CatchUpWizard({
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Page heading */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
+          {fr ? 'Assistant de rattrapage' : 'Catch-Up Wizard'}
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          {fr ? 'Génération automatique de résolutions' : 'Automatic resolution generation'}
+        </p>
+      </div>
+
       {/* Progress bar */}
       <WizardProgressBar currentStep={step} locale={locale} />
 

@@ -84,12 +84,23 @@ export default function OfficersClient() {
 
   return (
     <div className="space-y-6">
+      {/* Page heading */}
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
+          {locale === 'fr' ? 'Équipe de direction' : 'Management Team'}
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          {sortedOfficers.length > 0
+            ? locale === 'fr'
+              ? `${sortedOfficers.length} dirigeant${sortedOfficers.length > 1 ? 's' : ''} nommé${sortedOfficers.length > 1 ? 's' : ''}`
+              : `${sortedOfficers.length} officer${sortedOfficers.length > 1 ? 's' : ''} appointed`
+            : locale === 'fr' ? 'Aucun dirigeant nommé' : 'No officers appointed'}
+        </p>
+      </div>
+
       {/* Action bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <p className="text-sm text-[var(--text-muted)]">
-            {locale === 'fr' ? 'Équipe de direction' : 'Management Team'}
-          </p>
           <button
             type="button"
             onMouseEnter={() => setShowTooltip(true)}

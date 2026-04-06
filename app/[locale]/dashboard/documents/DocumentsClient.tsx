@@ -12,6 +12,7 @@ interface DocumentsClientProps {
   company: Company | null;
   initialDocuments: VaultDocument[];
   fiscalYearsConfigured?: boolean;
+  activeFiscalYears?: number[];
 }
 
 type ToastType = 'success' | 'error';
@@ -34,7 +35,7 @@ const LANG_OPTIONS = [
   { value: 'bilingual', labelFr: 'Bilingue',           labelEn: 'Bilingual' },
 ];
 
-function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsConfigured = true }: DocumentsClientProps) {
+function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsConfigured = true, activeFiscalYears = [] }: DocumentsClientProps) {
   const fr = locale === 'fr';
   const supabase = createClient();
   const router = useRouter();
@@ -199,6 +200,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
           companyId={company.id}
           framework={framework}
           locale={locale}
+          activeFiscalYears={activeFiscalYears}
           onUploadComplete={handleUploadComplete}
           onError={handleUploadError}
         />

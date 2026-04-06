@@ -53,6 +53,7 @@ export default async function DocumentsPage({
         company={company}
         initialDocuments={(documents ?? []) as VaultDocument[]}
         fiscalYearsConfigured={fiscalYears.length > 0}
+        activeFiscalYears={fiscalYears}
       />
     </DashboardShell>
   );

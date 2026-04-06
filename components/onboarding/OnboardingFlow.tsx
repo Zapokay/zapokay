@@ -84,6 +84,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
           legal_name_en: data.company.legalName,
           incorporation_type: dbType,
           incorporation_number: data.company.incorporationNumber || null,
+          neq: data.company.incorporationNumber || null,
           incorporation_date: data.company.incorporationDate || null,
           province: data.company.province,
           fiscal_year_end_month: data.company.fiscalYearEndMonth,

@@ -140,13 +140,41 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           </div>
         </div>
 
-        <Input
-          id="incorporationNumber"
-          label={fr ? "Numéro de constitution" : "Incorporation number"}
-          value={data.company.incorporationNumber}
-          onChange={e => update('incorporationNumber', e.target.value)}
-          placeholder={fr ? "ex. 1234567890" : "e.g. 1234567890"}
-        />
+        <div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <label className="block text-sm font-medium text-navy-700">
+              {fr ? "NEQ (Numéro d'entreprise du Québec)" : "NEQ (Québec Enterprise Number)"}
+            </label>
+            <div className="relative group">
+              <svg className="w-4 h-4 text-navy-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="absolute left-5 top-0 z-40 hidden group-hover:block w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs text-[var(--text-body)] shadow-lg">
+                {fr
+                  ? "Le NEQ est le numéro à 10 chiffres attribué à votre entreprise par le Registraire des entreprises du Québec. Vous le trouverez sur vos statuts de constitution ou votre extrait du REQ."
+                  : "The NEQ is the 10-digit number assigned to your company by the Québec Enterprise Registrar. You can find it on your articles of incorporation or REQ extract."}
+              </div>
+            </div>
+          </div>
+          <input
+            id="incorporationNumber"
+            type="text"
+            inputMode="numeric"
+            value={data.company.incorporationNumber}
+            onChange={e => {
+              const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+              update('incorporationNumber', val);
+            }}
+            placeholder={fr ? "ex. 1234567890" : "e.g. 1234567890"}
+            maxLength={10}
+            className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+          />
+          {data.company.incorporationNumber.length > 0 && data.company.incorporationNumber.length < 10 && (
+            <p className="mt-1 text-xs text-amber-600">
+              {fr ? `${10 - data.company.incorporationNumber.length} chiffres manquants` : `${10 - data.company.incorporationNumber.length} digits missing`}
+            </p>
+          )}
+        </div>
 
         <Input
           id="incorporationDate"

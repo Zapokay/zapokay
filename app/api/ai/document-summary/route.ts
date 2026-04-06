@@ -63,9 +63,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate signed URL via service role (bypasses private bucket)
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceKey) {
+      return NextResponse.json({ error: 'summary_unavailable' }, { status: 422 })
+    }
     const supabaseAdmin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      serviceKey
     );
     const { data: signedData, error: signedError } = await supabaseAdmin
       .storage
@@ -92,7 +96,7 @@ export async function POST(req: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1000,
         system: `Tu es l'assistant de ZapOkay. Tu crées des résumés de documents corporatifs. Tu réponds UNIQUEMENT en JSON valide, sans texte avant ni après.`,
         messages: [{

@@ -10,6 +10,7 @@ interface FiscalYearsSetupProps {
   companyId: string
   savedFiscalYears: { year: number; status: string }[]
   documentYears: number[]
+  incorporationDate?: string | null
 }
 
 export function FiscalYearsSetup({
@@ -17,14 +18,18 @@ export function FiscalYearsSetup({
   companyId,
   savedFiscalYears,
   documentYears,
+  incorporationDate,
 }: FiscalYearsSetupProps) {
   const router = useRouter()
   const supabase = createClient()
   const fr = locale === 'fr'
 
   const currentYear = new Date().getFullYear()
-  // 8 années : 2019 → 2026 (si currentYear = 2026), ordre décroissant
-  const years = Array.from({ length: 8 }, (_, i) => currentYear - 7 + i).reverse()
+  const incorpYear = incorporationDate
+    ? new Date(incorporationDate).getFullYear()
+    : currentYear - 7
+  const startYear = Math.max(incorpYear, currentYear - 7)
+  const years = Array.from({ length: currentYear - startYear + 1 }, (_, i) => startYear + i).reverse()
 
   const defaultSelected = new Set<number>([currentYear, currentYear - 1])
   const initialActive = new Set<number>(
