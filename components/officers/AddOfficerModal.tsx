@@ -56,7 +56,7 @@ export default function AddOfficerModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [conflictOfficer, setConflictOfficer] = useState<{ id: string; name: string; titleLabel: string } | null>(null);
+  const [conflictOfficer, setConflictOfficer] = useState<{ id: string; personId: string; name: string; titleLabel: string } | null>(null);
 
   // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async (replaceConflict = false) => {
@@ -81,7 +81,7 @@ export default function AddOfficerModal({
       if (title !== 'custom' && !replaceConflict) {
         const { data: existing } = await supabase
           .from('officer_appointments')
-          .select('id, company_people(full_name)')
+          .select('id, person_id, company_people(full_name)')
           .eq('company_id', companyId)
           .eq('title', title)
           .eq('is_active', true)
@@ -93,7 +93,7 @@ export default function AddOfficerModal({
             ? (existingPerson[0] as { full_name: string } | undefined)?.full_name ?? ''
             : (existingPerson as { full_name: string } | null)?.full_name ?? '';
           const titleLabel = TITLE_OPTIONS.find(o => o.value === title)?.[locale === 'fr' ? 'fr' : 'en'] ?? title;
-          setConflictOfficer({ id: existing[0].id, name, titleLabel });
+          setConflictOfficer({ id: existing[0].id, personId: existing[0].person_id, name, titleLabel });
           setSaving(false);
           return;
         }
@@ -190,6 +190,7 @@ export default function AddOfficerModal({
             value={personValue}
             onChange={setPersonValue}
             label={t('person')}
+            excludePersonIds={conflictOfficer ? [conflictOfficer.personId] : []}
           />
 
           {/* Role selector */}

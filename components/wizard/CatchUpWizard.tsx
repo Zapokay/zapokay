@@ -148,8 +148,8 @@ export function CatchUpWizard({
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Page heading */}
+    <div>
+      {/* Page heading — outside max-w-2xl to align with other pages */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
           {fr ? 'Assistant de rattrapage' : 'Catch-Up Wizard'}
@@ -159,6 +159,7 @@ export function CatchUpWizard({
         </p>
       </div>
 
+    <div className="max-w-2xl mx-auto">
       {/* Progress bar */}
       <WizardProgressBar currentStep={step} locale={locale} />
 
@@ -266,6 +267,7 @@ export function CatchUpWizard({
           ? 'Les documents générés sont fournis à titre indicatif et ne constituent pas un avis juridique. Consultez un professionnel pour valider leur conformité.'
           : 'Generated documents are provided for reference purposes only and do not constitute legal advice. Consult a professional to validate their compliance.'}
       </p>
+    </div>
     </div>
   )
 }
