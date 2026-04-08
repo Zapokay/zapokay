@@ -42,6 +42,9 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
   const searchParams = useSearchParams();
   const yearParam = searchParams.get('year');
   const activeYear = yearParam ? parseInt(yearParam, 10) : null;
+  const initialRequirementKey = searchParams.get('requirement_key');
+  const initialRequirementYearRaw = searchParams.get('requirement_year');
+  const initialRequirementYear = initialRequirementYearRaw ? parseInt(initialRequirementYearRaw, 10) : null;
 
   const [documents, setDocuments] = useState<VaultDocument[]>(initialDocuments);
 
@@ -203,6 +206,8 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
           activeFiscalYears={activeFiscalYears}
           onUploadComplete={handleUploadComplete}
           onError={handleUploadError}
+          initialRequirementKey={initialRequirementKey}
+          initialRequirementYear={initialRequirementYear}
         />
       )}
 

@@ -460,6 +460,13 @@ export async function POST(req: NextRequest) {
 
       const title = `${typeLabel} — ${selection.year}`
 
+      // Determine requirement_key for minute book tracking
+      const framework = incorporationType === 'CBCA' ? 'cbca' : 'lsaq'
+      const requirementKey =
+        selection.type === 'board'
+          ? `${framework}_annual_board_resolution`
+          : `${framework}_annual_shareholder_resolution`
+
       // Insert document record
       const { data: docRecord, error: dbError } = await supabaseAdmin
         .from('documents')
@@ -474,6 +481,8 @@ export async function POST(req: NextRequest) {
           uploaded_at: new Date().toISOString(),
           status: 'active',
           source: 'generated',
+          requirement_key: requirementKey,
+          requirement_year: selection.year,
         })
         .select('id')
         .single()

@@ -78,13 +78,19 @@ export function FiscalYearsSetup({
 
   async function handleStart() {
     setSaving(true)
-    const upserts = Array.from(activeYears).map(year => ({
+    // Delete all existing entries then insert only the selected years
+    // (intermediate toggles can write stale data — this ensures a clean final state)
+    await supabase
+      .from('company_fiscal_years')
+      .delete()
+      .eq('company_id', companyId)
+    const inserts = Array.from(activeYears).map(year => ({
       company_id: companyId,
       year,
       status: 'active',
     }))
-    if (upserts.length > 0) {
-      await supabase.from('company_fiscal_years').upsert(upserts)
+    if (inserts.length > 0) {
+      await supabase.from('company_fiscal_years').insert(inserts)
     }
     router.push(`/${locale}/dashboard`)
     router.refresh()

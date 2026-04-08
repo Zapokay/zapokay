@@ -9,6 +9,7 @@ import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
 import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
+import MinuteBookCard from '@/components/dashboard/MinuteBookCard';
 
 // ─── Fiscal year history helper ───────────────────────────────────────────────
 
@@ -371,6 +372,9 @@ export default async function DashboardPage({
             </div>
           </div>
         </div>
+
+        {/* MinuteBook card */}
+        {company && <MinuteBookCard />}
 
         {/* Gap Analysis Panel — full width, between stat cards and main content */}
         {company && (

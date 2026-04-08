@@ -1,6 +1,7 @@
 'use client';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 
 interface UploadZoneProps {
   companyId: string;
@@ -9,6 +10,9 @@ interface UploadZoneProps {
   activeFiscalYears?: number[];
   onUploadComplete: () => void;
   onError?: (message: string) => void;
+  /** Pre-filled from URL params (when navigating from minute-book page) */
+  initialRequirementKey?: string | null;
+  initialRequirementYear?: number | null;
 }
 
 type UploadStep = 'idle' | 'selected' | 'uploading' | 'done';
@@ -30,7 +34,7 @@ const LANGUAGES = [
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 
-export function UploadZone({ companyId, framework, locale, activeFiscalYears = [], onUploadComplete, onError }: UploadZoneProps) {
+export function UploadZone({ companyId, framework, locale, activeFiscalYears = [], onUploadComplete, onError, initialRequirementKey, initialRequirementYear }: UploadZoneProps) {
   const fr = locale === 'fr';
   const currentYear = new Date().getFullYear();
   const [step, setStep] = useState<UploadStep>('idle');
@@ -44,7 +48,22 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
   const [docYear, setDocYear] = useState<number | ''>(
     activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? ''
   );
+  const [requirementKey, setRequirementKey] = useState<string | null>(initialRequirementKey ?? null);
+  const [requirementYear, setRequirementYear] = useState<number | null>(initialRequirementYear ?? null);
+  const [requirements, setRequirements] = useState<ChecklistItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch unsatisfied requirements for the optional dropdown
+  useEffect(() => {
+    fetch('/api/minute-book/completeness')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.checklist) {
+          setRequirements(data.checklist.filter((i: ChecklistItem) => !i.satisfied));
+        }
+      })
+      .catch(() => {/* non-fatal */});
+  }, []);
 
   function validateFile(f: File): string | null {
     if (f.type !== 'application/pdf') {
@@ -114,6 +133,9 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
       language,
       framework,
       uploaded_at: new Date().toISOString(),
+      source: 'uploaded',
+      ...(requirementKey ? { requirement_key: requirementKey } : {}),
+      ...(requirementYear !== null ? { requirement_year: requirementYear } : {}),
     });
 
     if (dbError) {
@@ -284,6 +306,44 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
                 {activeFiscalYears.map(y => (
                   <option key={y} value={y}>
                     {fr ? `Exercice ${y}` : `Fiscal year ${y}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Optional: link to a minute-book requirement */}
+          {requirements.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
+                {fr ? 'Ce document correspond à :' : 'This document corresponds to:'}
+              </label>
+              <select
+                value={requirementKey && requirementYear !== null
+                  ? `${requirementKey}|${requirementYear}`
+                  : requirementKey ?? ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val) {
+                    const [key, yearStr] = val.split('|');
+                    setRequirementKey(key);
+                    setRequirementYear(yearStr ? parseInt(yearStr) : null);
+                  } else {
+                    setRequirementKey(null);
+                    setRequirementYear(null);
+                  }
+                }}
+                className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+              >
+                <option value="">
+                  {fr ? 'Sélectionner un document requis (optionnel)' : 'Select a required document (optional)'}
+                </option>
+                {requirements.map(req => (
+                  <option
+                    key={`${req.requirement_key}-${req.year ?? 'f'}`}
+                    value={`${req.requirement_key}|${req.year ?? ''}`}
+                  >
+                    {req.title_fr}{req.year ? ` (${req.year})` : ''}
                   </option>
                 ))}
               </select>

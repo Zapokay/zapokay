@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Lock } from 'lucide-react'
 
 const MONTHS_FR = [
   'Janvier','Février','Mars','Avril','Mai','Juin',
@@ -76,6 +77,13 @@ export function SettingsClient({
   const [savingCompany, setSavingCompany] = useState(false)
   const [companyMsg, setCompanyMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
+  // ── Locked fields state ────────────────────────────────────────────────────
+  const [editIncorpType, setEditIncorpType] = useState(incorporationType)
+  const [editProvince, setEditProvince] = useState(province)
+  const [editIncorpDate, setEditIncorpDate] = useState(incorporationDate ?? '')
+  const [unlockedFields, setUnlockedFields] = useState<Set<string>>(new Set())
+  const [pendingUnlock, setPendingUnlock] = useState<string | null>(null)
+
   // ── Fiscal years state ─────────────────────────────────────────────────────
   const initialActive = new Set<number>(
     savedFiscalYears.filter(fy => fy.status === 'active').map(fy => fy.year)
@@ -132,15 +140,25 @@ export function SettingsClient({
   // ── Save company ────────────────────────────────────────────────────────────
   async function saveCompany() {
     setSavingCompany(true)
+    const updates: Record<string, unknown> = {
+      legal_name_fr: legalName,
+      legal_name_en: legalName,
+      neq: neq || null,
+      fiscal_year_end_month: fyMonth,
+      fiscal_year_end_day: fyDay,
+    }
+    if (unlockedFields.has('incorporationType')) {
+      updates.incorporation_type = editIncorpType
+    }
+    if (unlockedFields.has('province')) {
+      updates.province = editProvince
+    }
+    if (unlockedFields.has('incorporationDate')) {
+      updates.incorporation_date = editIncorpDate || null
+    }
     const { error } = await supabase
       .from('companies')
-      .update({
-        legal_name_fr: legalName,
-        legal_name_en: legalName,
-        neq: neq || null,
-        fiscal_year_end_month: fyMonth,
-        fiscal_year_end_day: fyDay,
-      })
+      .update(updates)
       .eq('id', companyId)
     setSavingCompany(false)
     if (error) {
@@ -292,46 +310,102 @@ export function SettingsClient({
               </p>
             )}
           </div>
-          {/* Read-only fields */}
+          {/* Protected fields — Type, Province, Date de constitution */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                {fr ? 'Type' : 'Type'}
-              </label>
-              <div
-                className="px-3 py-2 rounded-lg text-sm border"
-                style={{
-                  borderColor: 'var(--card-border)',
-                  backgroundColor: 'var(--page-bg)',
-                  color: 'var(--text-body)',
-                  opacity: 0.7,
-                }}
-              >
-                {incorporationType}
+              <div className="flex items-center gap-1.5 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-muted)]">
+                  {fr ? 'Type de constitution' : 'Incorporation type'}
+                </label>
+                <button
+                  onClick={() => !unlockedFields.has('incorporationType') && setPendingUnlock('incorporationType')}
+                  style={{ background: 'none', border: 'none', cursor: unlockedFields.has('incorporationType') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
+                  title={unlockedFields.has('incorporationType')
+                    ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
+                    : (fr ? 'Cliquer pour déverrouiller' : 'Click to unlock')}
+                >
+                  <Lock size={12} style={{ color: unlockedFields.has('incorporationType') ? '#2E5425' : 'var(--text-muted)' }} />
+                </button>
               </div>
+              {unlockedFields.has('incorporationType') ? (
+                <input
+                  value={editIncorpType}
+                  onChange={e => setEditIncorpType(e.target.value)}
+                  className={inputClass}
+                />
+              ) : (
+                <div
+                  className="px-3 py-2 rounded-lg text-sm border"
+                  style={{
+                    borderColor: 'var(--card-border)',
+                    backgroundColor: 'var(--page-bg)',
+                    color: 'var(--text-body)',
+                    opacity: 0.7,
+                  }}
+                >
+                  {editIncorpType}
+                </div>
+              )}
             </div>
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                {fr ? 'Province' : 'Province'}
-              </label>
-              <div
-                className="px-3 py-2 rounded-lg text-sm border"
-                style={{
-                  borderColor: 'var(--card-border)',
-                  backgroundColor: 'var(--page-bg)',
-                  color: 'var(--text-body)',
-                  opacity: 0.7,
-                }}
-              >
-                {province}
+              <div className="flex items-center gap-1.5 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-muted)]">
+                  {fr ? 'Province' : 'Province'}
+                </label>
+                <button
+                  onClick={() => !unlockedFields.has('province') && setPendingUnlock('province')}
+                  style={{ background: 'none', border: 'none', cursor: unlockedFields.has('province') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
+                  title={unlockedFields.has('province')
+                    ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
+                    : (fr ? 'Cliquer pour déverrouiller' : 'Click to unlock')}
+                >
+                  <Lock size={12} style={{ color: unlockedFields.has('province') ? '#2E5425' : 'var(--text-muted)' }} />
+                </button>
               </div>
+              {unlockedFields.has('province') ? (
+                <input
+                  value={editProvince}
+                  onChange={e => setEditProvince(e.target.value)}
+                  className={inputClass}
+                />
+              ) : (
+                <div
+                  className="px-3 py-2 rounded-lg text-sm border"
+                  style={{
+                    borderColor: 'var(--card-border)',
+                    backgroundColor: 'var(--page-bg)',
+                    color: 'var(--text-body)',
+                    opacity: 0.7,
+                  }}
+                >
+                  {editProvince}
+                </div>
+              )}
             </div>
           </div>
-          {incorporationDate && (
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-muted)]">
                 {fr ? 'Date de constitution' : 'Incorporation date'}
               </label>
+              <button
+                onClick={() => !unlockedFields.has('incorporationDate') && setPendingUnlock('incorporationDate')}
+                style={{ background: 'none', border: 'none', cursor: unlockedFields.has('incorporationDate') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
+                title={unlockedFields.has('incorporationDate')
+                  ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
+                  : (fr ? 'Cliquer pour déverrouiller' : 'Click to unlock')}
+              >
+                <Lock size={12} style={{ color: unlockedFields.has('incorporationDate') ? '#2E5425' : 'var(--text-muted)' }} />
+              </button>
+            </div>
+            {unlockedFields.has('incorporationDate') ? (
+              <input
+                type="date"
+                value={editIncorpDate}
+                onChange={e => setEditIncorpDate(e.target.value)}
+                className={inputClass}
+              />
+            ) : (
               <div
                 className="px-3 py-2 rounded-lg text-sm border"
                 style={{
@@ -341,13 +415,15 @@ export function SettingsClient({
                   opacity: 0.7,
                 }}
               >
-                {new Date(incorporationDate + 'T00:00:00').toLocaleDateString(
-                  fr ? 'fr-CA' : 'en-CA',
-                  { year: 'numeric', month: 'long', day: 'numeric' }
-                )}
+                {editIncorpDate
+                  ? new Date(editIncorpDate + 'T00:00:00').toLocaleDateString(
+                      fr ? 'fr-CA' : 'en-CA',
+                      { year: 'numeric', month: 'long', day: 'numeric' }
+                    )
+                  : (fr ? 'Non renseigné' : 'Not set')}
               </div>
-            </div>
-          )}
+            )}
+          </div>
           {/* Fin d'exercice */}
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
@@ -483,6 +559,50 @@ export function SettingsClient({
           </div>
         )}
       </div>
+
+      {/* ── Unlock confirmation modal ──────────────────────────────────────── */}
+      {pendingUnlock && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+        >
+          <div
+            className="rounded-xl p-6 shadow-xl max-w-sm mx-4"
+            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+          >
+            <h3
+              className="text-sm font-bold mb-3"
+              style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text-heading)' }}
+            >
+              ⚠ {fr ? 'Attention' : 'Warning'}
+            </h3>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-body)' }}>
+              {fr
+                ? 'Modifier ce champ recalculera votre conformité et pourrait invalider des documents déjà générés. Voulez-vous continuer ?'
+                : 'Editing this field will recalculate your compliance and may invalidate already generated documents. Do you want to continue?'}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setPendingUnlock(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium border"
+                style={{ borderColor: 'var(--neutral-200)', color: 'var(--text-body)', backgroundColor: 'transparent' }}
+              >
+                {fr ? 'Annuler' : 'Cancel'}
+              </button>
+              <button
+                onClick={() => {
+                  setUnlockedFields(prev => { const s = new Set(prev); s.add(pendingUnlock!); return s })
+                  setPendingUnlock(null)
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ backgroundColor: '#070E1C', color: 'white' }}
+              >
+                {fr ? 'Déverrouiller' : 'Unlock'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

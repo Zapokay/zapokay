@@ -107,6 +107,18 @@ const navGroups: NavGroup[] = [
         href: 'documents',
       },
       {
+        key: 'minute-book',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        ),
+        labelFr: 'Livre de minutes',
+        labelEn: 'Minute Book',
+        href: 'minute-book',
+      },
+      {
         key: 'resolutions',
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -169,6 +181,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
 
   function getPageTitle() {
     if (pathname.includes('/dashboard/documents')) return fr ? 'Documents' : 'Documents';
+    if (pathname.includes('/dashboard/minute-book')) return fr ? 'Livre de minutes' : 'Minute Book';
     if (pathname.includes('/dashboard/compliance')) return fr ? 'Suivi' : 'Tracking';
     if (pathname.includes('/dashboard/wizard')) return fr ? 'Résolutions' : 'Resolutions';
     if (pathname.includes('/dashboard/resolutions')) return fr ? 'Résolutions' : 'Resolutions';
@@ -359,7 +372,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
               <YearPicker locale={locale} years={fiscalYears} />
             )}
 
-            {!pathname.includes('/compliance') && !pathname.includes('/wizard') && !pathname.includes('/settings') && !pathname.includes('/directors') && !pathname.includes('/officers') && !pathname.includes('/shareholders') && (
+            {!pathname.includes('/compliance') && !pathname.includes('/wizard') && !pathname.includes('/settings') && !pathname.includes('/directors') && !pathname.includes('/officers') && !pathname.includes('/shareholders') && !pathname.includes('/minute-book') && (
               <button className="bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold text-sm px-4 py-2 rounded-lg hover:bg-[var(--spark-400)] transition-colors whitespace-nowrap">
                 {pathname.includes('/documents')
                   ? `⚡ ${fr ? 'Ajouter' : 'Add'}`

@@ -1,0 +1,111 @@
+'use client';
+
+import { useState } from 'react';
+import { CheckCircle2, XCircle, Info, Upload, Sparkles } from 'lucide-react';
+
+interface RequirementRowProps {
+  requirementKey: string;
+  titleFr: string;
+  descriptionFr: string | null;
+  satisfied: boolean;
+  source?: 'uploaded' | 'generated' | null;
+  canUpload: boolean;
+  canGenerate: boolean;
+  year: number | null;
+  onUpload?: (requirementKey: string, year: number | null) => void;
+  onGenerate?: (requirementKey: string, year: number | null) => void;
+}
+
+export default function RequirementRow({
+  requirementKey,
+  titleFr,
+  descriptionFr,
+  satisfied,
+  source,
+  canUpload,
+  canGenerate,
+  year,
+  onUpload,
+  onGenerate,
+}: RequirementRowProps) {
+  const [showDescription, setShowDescription] = useState(false);
+
+  return (
+    <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-neutral-50 transition-colors">
+      {/* Left side: icon + title */}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        {satisfied ? (
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+        ) : (
+          <XCircle className="h-5 w-5 text-red-800 flex-shrink-0" />
+        )}
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className={`text-sm ${
+              satisfied ? 'text-neutral-700' : 'text-neutral-900 font-medium'
+            }`}
+          >
+            {titleFr}
+          </span>
+          {descriptionFr && (
+            <button
+              type="button"
+              onMouseEnter={() => setShowDescription(true)}
+              onMouseLeave={() => setShowDescription(false)}
+              className="relative rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-body)] flex-shrink-0"
+            >
+              <Info className="h-4 w-4" />
+              {showDescription && (
+                <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs text-[var(--text-body)] shadow-lg">
+                  {descriptionFr}
+                </div>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Right side: badge or action buttons */}
+      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+        {satisfied ? (
+          <span
+            className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+              source === 'generated'
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-neutral-100 text-neutral-600'
+            }`}
+          >
+            {source === 'generated' ? 'Généré' : 'Téléversé'}
+          </span>
+        ) : (
+          <>
+            {canUpload && (
+              <button
+                onClick={() => onUpload?.(requirementKey, year)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-navy text-navy hover:bg-navy hover:text-white transition-colors"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Téléverser
+              </button>
+            )}
+            {canGenerate ? (
+              <button
+                onClick={() => onGenerate?.(requirementKey, year)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-navy text-navy hover:bg-navy hover:text-white transition-colors"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Générer
+              </button>
+            ) : null}
+            {!canUpload && !canGenerate && (
+              <span className="text-xs text-neutral-400">
+                Bientôt disponible
+              </span>
+            )}
+          </>
+        )}
+      </div>
+
+    </div>
+  );
+}

@@ -8,6 +8,25 @@ import { CatchUpWizard } from '@/components/wizard/CatchUpWizard'
 import type { FiscalYearInfo, CompanyInfo } from '@/components/wizard/CatchUpWizard'
 import type { Company } from '@/lib/types'
 
+// ─── Officer title translations ───────────────────────────────────────────────
+
+const OFFICER_TITLE_FR: Record<string, string> = {
+  president: 'Président·e',
+  vice_president: 'Vice-président·e',
+  secretary: 'Secrétaire',
+  treasurer: 'Trésorier·ière',
+}
+const OFFICER_TITLE_EN: Record<string, string> = {
+  president: 'President',
+  vice_president: 'Vice President',
+  secretary: 'Secretary',
+  treasurer: 'Treasurer',
+}
+
+function translateOfficerTitle(raw: string, fr: boolean): string {
+  return (fr ? OFFICER_TITLE_FR : OFFICER_TITLE_EN)[raw] ?? raw
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FullCompany extends Company {
@@ -208,7 +227,7 @@ export default async function WizardPage({
     companyName,
     directorName: director?.full_name ?? '',
     officerName: nonDirectorOfficer?.full_name ?? director?.full_name ?? '',
-    officerRole: nonDirectorOfficer?.role ?? director?.role ?? '',
+    officerRole: translateOfficerTitle(nonDirectorOfficer?.role ?? director?.role ?? '', fr),
     resolutionDate: today,
   }
 

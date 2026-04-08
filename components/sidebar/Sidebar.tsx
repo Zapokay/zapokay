@@ -9,6 +9,7 @@ import {
   Briefcase,
   PieChart,
   FileText,
+  BookOpen,
   Sparkles,
   ShieldCheck,
   Settings,
@@ -54,6 +55,7 @@ function getNavGroups(locale: string): NavGroup[] {
       labelKey: 'nav.group.documents',
       items: [
         { key: 'nav.documents', href: `${base}/documents`, icon: FileText },
+        { key: 'nav.minuteBook', href: `${base}/minute-book`, icon: BookOpen },
         { key: 'nav.resolutions', href: `${base}/resolutions`, icon: Sparkles },
       ],
     },
