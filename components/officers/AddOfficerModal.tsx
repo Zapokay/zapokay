@@ -8,6 +8,7 @@ import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
 import type { OfficerTitle } from '@/lib/supabase/people-types';
+import { logActivity } from '@/lib/activity-log';
 
 // =============================================================================
 // Types
@@ -151,6 +152,28 @@ export default function AddOfficerModal({
 
       if (appointErr) {
         throw new Error(appointErr.message);
+      }
+
+      const titleFrMap: Record<string, string> = {
+        president: 'Président·e',
+        vice_president: 'Vice-président·e',
+        secretary: 'Secrétaire',
+        treasurer: 'Trésorier·ère',
+        director_general: 'Directeur·rice général·e',
+      };
+      const fullName = personValue.mode === 'new' ? personValue.fullName : personValue.person.full_name;
+      const titleLabel = title === 'custom' ? customTitle.trim() : (titleFrMap[title] || title);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await logActivity(
+          supabase,
+          companyId,
+          user.id,
+          'officer_added',
+          `Dirigeant nommé : ${fullName} — ${titleLabel}`,
+          `Officer appointed: ${fullName} — ${title}`,
+          { person_id: personId, title }
+        );
       }
 
       onSuccess();

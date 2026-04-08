@@ -280,7 +280,59 @@
     "minuteBook": "Minute Book",
     "resolutions": "Resolutions",
     "compliance": "Tracking",
+    "historique": "History",
     "settings": "Settings",
     "signOut": "Sign out"
+  },
+  "minuteBook": {
+    "tabs": {
+      "completude": "Completeness",
+      "livre": "Binder"
+    },
+    "binder": {
+      "sections": {
+        "statuts": "Articles of Incorporation",
+        "avis": "Notices and Declarations",
+        "reglements": "By-Laws",
+        "resolutions": "Resolutions",
+        "administrateurs": "Directors",
+        "dirigeants": "Officers",
+        "actionnaires": "Shareholders and Certificates",
+        "registres": "Corporate Registers"
+      },
+      "emptySection": "No documents in this section",
+      "documents": "{count} document | {count} documents",
+      "registres": "3 registers"
+    },
+    "registers": {
+      "directors": "Director Register",
+      "officers": "Officer Register",
+      "shareholders": "Shareholder Register",
+      "emptyRegister": "No data recorded",
+      "columns": {
+        "name": "Name",
+        "residence": "Residence",
+        "start": "Start",
+        "end": "End",
+        "active": "Active",
+        "title": "Title",
+        "shareClass": "Class",
+        "quantity": "Qty",
+        "certificate": "Cert.",
+        "issueDate": "Issued"
+      },
+      "residentYes": "Yes",
+      "residentNo": "No"
+    }
+  },
+  "activity": {
+    "pageTitle": "Activity History",
+    "tooltip": "Chronological log of all actions performed on your company. This log is immutable and cannot be modified.",
+    "eventCount": "{count} event recorded | {count} events recorded",
+    "empty": "No events recorded yet.",
+    "loadMore": "Load more ↓",
+    "loading": "Loading…",
+    "today": "Today",
+    "yesterday": "Yesterday"
   }
 }

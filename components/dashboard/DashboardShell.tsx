@@ -149,6 +149,18 @@ const navGroups: NavGroup[] = [
         href: 'compliance',
       },
       {
+        key: 'activity',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        ),
+        labelFr: 'Historique',
+        labelEn: 'History',
+        href: 'activity',
+      },
+      {
         key: 'settings',
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -189,6 +201,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
     if (pathname.includes('/dashboard/directors')) return fr ? 'Administrateurs' : 'Directors';
     if (pathname.includes('/dashboard/officers')) return fr ? 'Dirigeants' : 'Officers';
     if (pathname.includes('/dashboard/shareholders')) return fr ? 'Actionnaires' : 'Shareholders';
+    if (pathname.includes('/dashboard/activity')) return fr ? 'Historique' : 'History';
     return fr ? 'Tableau de bord' : 'Dashboard';
   }
 

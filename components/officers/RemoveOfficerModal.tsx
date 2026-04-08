@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import type { OfficerWithPerson } from '@/lib/supabase/people-types';
+import { logActivity } from '@/lib/activity-log';
 
 // =============================================================================
 // Helpers
@@ -63,6 +64,29 @@ export default function RemoveOfficerModal({
         .eq('id', officer.id);
 
       if (updateErr) throw new Error(updateErr.message);
+
+      const titleFrMap: Record<string, string> = {
+        president: 'Président·e',
+        vice_president: 'Vice-président·e',
+        secretary: 'Secrétaire',
+        treasurer: 'Trésorier·ère',
+        director_general: 'Directeur·rice général·e',
+      };
+      const titleLabel = officer.title === 'custom'
+        ? (officer.custom_title || officer.title)
+        : (titleFrMap[officer.title] || officer.title);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await logActivity(
+          supabase,
+          officer.company_id,
+          user.id,
+          'officer_removed',
+          `Dirigeant retiré : ${officer.person.full_name} — ${titleLabel}`,
+          `Officer removed: ${officer.person.full_name} — ${officer.title}`,
+          { person_id: officer.person_id, title: officer.title }
+        );
+      }
       onSuccess();
     } catch (err: any) {
       setError(err.message || 'An error occurred');

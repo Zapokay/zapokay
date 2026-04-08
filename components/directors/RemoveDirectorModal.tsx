@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import type { DirectorWithPerson, DirectorEndReason } from '@/lib/supabase/people-types';
+import { logActivity } from '@/lib/activity-log';
 
 // =============================================================================
 // Types
@@ -61,6 +62,19 @@ export default function RemoveDirectorModal({
         .eq('id', director.id);
 
       if (updateErr) throw new Error(updateErr.message);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await logActivity(
+          supabase,
+          director.company_id,
+          user.id,
+          'director_removed',
+          `Administrateur retiré : ${director.person.full_name}`,
+          `Director removed: ${director.person.full_name}`,
+          { person_id: director.person_id }
+        );
+      }
 
       onSuccess();
     } catch (err: any) {

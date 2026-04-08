@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { logActivity } from '@/lib/activity-log'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -483,6 +484,7 @@ export async function POST(req: NextRequest) {
           source: 'generated',
           requirement_key: requirementKey,
           requirement_year: selection.year,
+          minute_book_section: 'resolutions',
         })
         .select('id')
         .single()
@@ -501,6 +503,31 @@ export async function POST(req: NextRequest) {
         storagePath,
       })
     }
+
+    // Log each generated document
+    for (const doc of generatedFiles) {
+      await logActivity(
+        supabase,
+        companyId,
+        user.id,
+        'document_generated',
+        `Document généré : ${doc.title}`,
+        `Document generated: ${doc.title}`,
+        { document_id: doc.id }
+      )
+    }
+
+    // Log wizard completion
+    const fiscalYearCount = selections.length
+    await logActivity(
+      supabase,
+      companyId,
+      user.id,
+      'wizard_completed',
+      `Assistant de rattrapage complété : ${fiscalYearCount} exercice${fiscalYearCount > 1 ? 's' : ''}`,
+      `Catch-up wizard completed: ${fiscalYearCount} fiscal year${fiscalYearCount > 1 ? 's' : ''}`,
+      { fiscal_years_count: fiscalYearCount }
+    )
 
     revalidatePath('/[locale]/dashboard/wizard', 'page')
     revalidatePath('/[locale]/dashboard', 'page')

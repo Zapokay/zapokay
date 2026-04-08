@@ -280,7 +280,59 @@
     "minuteBook": "Livre de minutes",
     "resolutions": "Résolutions",
     "compliance": "Suivi",
+    "historique": "Historique",
     "settings": "Paramètres",
     "signOut": "Déconnexion"
+  },
+  "minuteBook": {
+    "tabs": {
+      "completude": "Complétude",
+      "livre": "Livre"
+    },
+    "binder": {
+      "sections": {
+        "statuts": "Statuts et actes constitutifs",
+        "avis": "Avis et déclarations",
+        "reglements": "Règlements",
+        "resolutions": "Résolutions",
+        "administrateurs": "Administrateurs",
+        "dirigeants": "Dirigeants",
+        "actionnaires": "Actionnaires et certificats",
+        "registres": "Registres corporatifs"
+      },
+      "emptySection": "Aucun document dans cette section",
+      "documents": "{count} document | {count} documents",
+      "registres": "3 registres"
+    },
+    "registers": {
+      "directors": "Registre des administrateurs",
+      "officers": "Registre des dirigeants",
+      "shareholders": "Registre des actionnaires",
+      "emptyRegister": "Aucune donnée enregistrée",
+      "columns": {
+        "name": "Nom",
+        "residence": "Résidence",
+        "start": "Début",
+        "end": "Fin",
+        "active": "Actif",
+        "title": "Titre",
+        "shareClass": "Catégorie",
+        "quantity": "Qté",
+        "certificate": "Cert.",
+        "issueDate": "Émission"
+      },
+      "residentYes": "Oui",
+      "residentNo": "Non"
+    }
+  },
+  "activity": {
+    "pageTitle": "Historique des activités",
+    "tooltip": "Journal chronologique de toutes les actions effectuées sur votre société. Ce registre est immuable et ne peut être modifié.",
+    "eventCount": "{count} événement enregistré | {count} événements enregistrés",
+    "empty": "Aucun événement enregistré pour le moment.",
+    "loadMore": "Charger plus ↓",
+    "loading": "Chargement…",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier"
   }
 }

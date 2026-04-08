@@ -8,6 +8,7 @@ import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
 import type { ShareClass } from '@/lib/supabase/people-types';
+import { logActivity } from '@/lib/activity-log';
 
 // =============================================================================
 // Types
@@ -129,6 +130,22 @@ export default function IssueSharesModal({
       });
 
       if (shErr) throw new Error(shErr.message);
+
+      const selectedClass = shareClasses.find((sc) => sc.id === shareClassId);
+      const shareClassName = selectedClass?.name || '';
+      const fullName = personValue.mode === 'new' ? personValue.fullName : personValue.person.full_name;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await logActivity(
+          supabase,
+          companyId,
+          user.id,
+          'shares_issued',
+          `Actions émises : ${qty} ${shareClassName} à ${fullName}`,
+          `Shares issued: ${qty} ${shareClassName} to ${fullName}`,
+          { person_id: personId, share_class: shareClassName, quantity: qty }
+        );
+      }
 
       onSuccess();
     } catch (err: any) {

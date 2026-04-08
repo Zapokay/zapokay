@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Lock } from 'lucide-react'
+import { logActivity } from '@/lib/activity-log'
 
 const MONTHS_FR = [
   'Janvier','Février','Mars','Avril','Mai','Juin',
@@ -129,6 +130,11 @@ export function SettingsClient({
       flash(setProfileMsg, false, fr ? 'Erreur lors de la sauvegarde.' : 'Error saving.')
     } else {
       flash(setProfileMsg, true, fr ? 'Profil enregistré ✓' : 'Profile saved ✓')
+      await logActivity(supabase, companyId, userId, 'settings_updated',
+        'Paramètres modifiés : profil utilisateur',
+        'Settings updated: user profile',
+        { changed_fields: ['full_name', 'preferred_language'] }
+      )
       if (lang !== locale) {
         router.push(`/${lang}/dashboard/settings`)
       } else {
@@ -165,6 +171,11 @@ export function SettingsClient({
       flash(setCompanyMsg, false, fr ? 'Erreur lors de la sauvegarde.' : 'Error saving.')
     } else {
       flash(setCompanyMsg, true, fr ? 'Entreprise enregistrée ✓' : 'Company saved ✓')
+      await logActivity(supabase, companyId, userId, 'settings_updated',
+        'Paramètres modifiés : informations de la société',
+        'Settings updated: company information',
+        { changed_fields: Object.keys(updates) }
+      )
       router.refresh()
     }
   }

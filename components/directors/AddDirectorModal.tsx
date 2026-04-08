@@ -7,6 +7,7 @@ import { X, Zap, Loader2 } from 'lucide-react';
 import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
+import { logActivity } from '@/lib/activity-log';
 
 // =============================================================================
 // Types
@@ -99,6 +100,20 @@ export default function AddDirectorModal({
 
       if (mandateErr) {
         throw new Error(mandateErr.message);
+      }
+
+      const fullName = personValue.mode === 'new' ? personValue.fullName : personValue.person.full_name;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await logActivity(
+          supabase,
+          companyId,
+          user.id,
+          'director_added',
+          `Administrateur ajouté : ${fullName}`,
+          `Director added: ${fullName}`,
+          { person_id: personId }
+        );
       }
 
       onSuccess();

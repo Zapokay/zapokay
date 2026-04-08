@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X } from 'lucide-react';
 import type { ShareClass } from '@/lib/supabase/people-types';
+import { logActivity } from '@/lib/activity-log';
 
 interface ShareClassModalProps {
   companyId: string;
@@ -61,8 +62,24 @@ export default function ShareClassModal({
           .eq('id', shareClass.id);
         if (err) throw err;
       } else {
-        const { error: err } = await supabase.from('share_classes').insert(payload);
+        const { data: newClass, error: err } = await supabase
+          .from('share_classes')
+          .insert(payload)
+          .select('id')
+          .single();
         if (err) throw err;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && newClass) {
+          await logActivity(
+            supabase,
+            companyId,
+            user.id,
+            'share_class_created',
+            `Catégorie d'actions créée : ${name.trim()}`,
+            `Share class created: ${name.trim()}`,
+            { share_class_id: newClass.id }
+          );
+        }
       }
       onSuccess();
     } catch (err: any) {
