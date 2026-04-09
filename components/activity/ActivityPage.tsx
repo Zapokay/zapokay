@@ -89,29 +89,30 @@ export default function ActivityPage() {
 
   return (
     <div>
-      <div className="mb-1 flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-neutral-800">
-          Historique des activités
-        </h2>
-        <div className="relative">
+      {/* Page heading */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
+            Historique des activités
+          </h1>
           <button
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
-            className="text-neutral-400 hover:text-neutral-600"
+            className="relative rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-body)]"
           >
             <Info className="w-4 h-4" />
+            {showTooltip && (
+              <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs text-[var(--text-body)] shadow-lg">
+                Journal chronologique de toutes les actions effectuées sur votre
+                société. Ce registre est immuable et ne peut être modifié.
+              </div>
+            )}
           </button>
-          {showTooltip && (
-            <div className="absolute left-6 top-0 z-50 w-72 rounded-lg bg-neutral-800 text-white text-xs px-3 py-2 shadow-lg">
-              Journal chronologique de toutes les actions effectuées sur votre
-              société. Ce registre est immuable et ne peut être modifié.
-            </div>
-          )}
         </div>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          {total} événement{total !== 1 ? 's' : ''} enregistré{total !== 1 ? 's' : ''}
+        </p>
       </div>
-      <p className="text-sm text-neutral-500 mb-6">
-        {total} événement{total !== 1 ? 's' : ''} enregistré{total !== 1 ? 's' : ''}
-      </p>
 
       {events.length === 0 ? (
         <p className="text-center text-neutral-400 italic py-12">

@@ -1,6 +1,6 @@
 'use client';
 import type { OnboardingData, Language } from '@/lib/types';
-import Button from '@/components/ui/Button';
+import { OnboardingStepLayout } from './OnboardingStepLayout';
 
 interface StepProps {
   data: OnboardingData;
@@ -17,57 +17,67 @@ export function StepLanguage({ data, setData, onNext, locale }: StepProps) {
     setData(d => ({ ...d, language: lang }));
   }
 
+  const globeIcon = (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.15" />
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 1 0 20 14.5 14.5 0 0 1 0-20" />
+      <path d="M2 12h20" />
+    </svg>
+  );
+
   return (
-    <div>
-      <h1 className="font-sora text-3xl font-semibold text-navy-900 mb-2">
-        Choose your language
-        <span className="block text-2xl text-navy-400 mt-1">Choisissez votre langue</span>
-      </h1>
-      <p className="text-navy-400 text-sm mb-10">
-        You can change this at any time. · Vous pouvez modifier ceci en tout temps.
-      </p>
-      <div className="grid grid-cols-2 gap-4">
-        {(['fr', 'en'] as Language[]).map(lang => (
-          <button
-            key={lang}
-            onClick={() => select(lang)}
-            className={`
-              group relative flex flex-col items-center justify-center gap-3
-              p-8 rounded-2xl border-2 transition-all duration-200 cursor-pointer
-              ${data.language === lang
-                ? 'border-navy-900 bg-navy-900 text-ivory shadow-lg scale-[1.02]'
-                : 'border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-body)] hover:border-[var(--input-border-hover)] hover:shadow-md'
-              }
-            `}
-          >
-            <span className="font-sora font-semibold text-lg">
-              {lang === 'fr' ? 'Français' : 'English'}
-            </span>
-            {data.language === lang && (
-              <div className="absolute top-3 right-3">
-                <div className="w-5 h-5 bg-[var(--amber-400)] rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+    <OnboardingStepLayout
+      stepLabel={fr ? 'ÉTAPE 1 — LANGUE' : 'STEP 1 — LANGUAGE'}
+      icon={globeIcon}
+      title={fr ? (
+        <>Choisissez<br />votre langue</>
+      ) : (
+        <>Choose<br />your language</>
+      )}
+      locale={locale}
+      onContinue={onNext}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        {(['fr', 'en'] as Language[]).map(lang => {
+          const isSelected = data.language === lang;
+          return (
+            <button
+              key={lang}
+              type="button"
+              onClick={() => select(lang)}
+              style={{
+                position: 'relative',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                gap: '8px', padding: '28px 16px',
+                borderRadius: '14px',
+                border: `2px solid ${isSelected ? '#F5B91E' : 'var(--card-border)'}`,
+                background: isSelected ? 'rgba(245,185,30,0.08)' : 'var(--card-bg)',
+                cursor: 'pointer', transition: 'all 200ms',
+              }}
+            >
+              <span style={{
+                fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '16px',
+                color: 'var(--text-heading)',
+              }}>
+                {lang === 'fr' ? 'Français' : 'English'}
+              </span>
+              {isSelected && (
+                <div style={{
+                  position: 'absolute', top: '10px', right: '10px',
+                  width: '20px', height: '20px', borderRadius: '50%',
+                  background: '#F5B91E',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-              </div>
-            )}
-          </button>
-        ))}
+              )}
+            </button>
+          );
+        })}
       </div>
-
-      <div className="flex gap-3 mt-8">
-        <Button variant="ghost" onClick={() => { setData(d => ({ ...d, language: 'fr' })); onNext(); }} className="flex-1">
-          {fr ? 'Passer' : 'Skip'}
-        </Button>
-        <Button
-          onClick={onNext}
-          className="flex-1 bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold hover:bg-[var(--spark-400)]"
-          size="lg"
-        >
-          {fr ? 'Continuer →' : 'Continue →'}
-        </Button>
-      </div>
-    </div>
+    </OnboardingStepLayout>
   );
 }

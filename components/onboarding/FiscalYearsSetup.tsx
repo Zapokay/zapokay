@@ -1,9 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ZapLogo } from '@/components/ui/ZapLogo'
 
 interface FiscalYearsSetupProps {
   locale: string
@@ -78,8 +77,6 @@ export function FiscalYearsSetup({
 
   async function handleStart() {
     setSaving(true)
-    // Delete all existing entries then insert only the selected years
-    // (intermediate toggles can write stale data — this ensures a clean final state)
     await supabase
       .from('company_fiscal_years')
       .delete()
@@ -96,166 +93,309 @@ export function FiscalYearsSetup({
     router.refresh()
   }
 
+  // ── Stepper config (same as OnboardingFlow) ───────────────────────────────
+  const stepConfig = [
+    { labelFr: 'Langue',   labelEn: 'Language' },
+    { labelFr: 'Société',  labelEn: 'Company' },
+    { labelFr: 'Province', labelEn: 'Province' },
+    { labelFr: 'Admin.',   labelEn: 'Directors' },
+    { labelFr: 'Action.',  labelEn: 'Shares' },
+    { labelFr: 'Dirig.',   labelEn: 'Officers' },
+    { labelFr: 'Sommaire', labelEn: 'Summary' },
+    { labelFr: 'Fiscal',   labelEn: 'Fiscal' },
+  ]
+  const STEP = 8
+  const AMBER = '#F5B91E'
+  const GREY = '#E6E4DE'
+  const PAGE = 'var(--page-bg)'
+
   return (
-    <div className="min-h-screen bg-[var(--ob-bg)]">
-      <header className="border-b border-[var(--card-border)] bg-[var(--card-bg)]">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <ZapLogo size="sm" />
-          <span className="text-sm text-[var(--text-muted)]">
-            {fr ? 'Configuration des exercices' : 'Fiscal year setup'}
+    <div style={{ minHeight: '100vh', background: 'var(--page-bg)' }}>
+
+      {/* ─── Header ─── */}
+      <header style={{
+        height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 32px',
+      }}>
+        {/* Left: Z tag + ZapOkay signature */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ position: 'relative', width: '28px', height: '28px', borderRadius: '6px', background: '#1C1A17', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 900, fontSize: '18px', color: '#F5B91E', lineHeight: 1 }}>Z</span>
+            <span style={{ position: 'absolute', top: '-3px', right: '-3px', width: '8px', height: '8px', borderRadius: '50%', background: '#F5B91E', border: '1.5px solid #F5F4F0' }} />
+          </div>
+          <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 900, fontSize: '14px', letterSpacing: '-0.02em' }}>
+            <span style={{ color: '#F5B91E' }}>Zap</span>
+            <span style={{ color: '#1C1A17' }}>Okay</span>
           </span>
+        </div>
+
+        {/* Right: Aide + FR/EN toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <a href="#" style={{ fontSize: '12px', color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {fr ? 'Aide' : 'Help'}
+          </a>
+          <div style={{ display: 'flex', gap: '2px' }}>
+            {(['fr', 'en'] as const).map(lang => (
+              <a
+                key={lang}
+                href={`/${lang}/onboarding/fiscal-years`}
+                style={{
+                  padding: '3px 8px', fontSize: '10px', fontWeight: 600,
+                  borderRadius: '5px', border: '1px solid #E6E4DE',
+                  cursor: 'pointer', transition: 'all 120ms',
+                  background: locale === lang ? '#1C1A17' : 'white',
+                  color: locale === lang ? 'white' : '#7A7066',
+                  textDecoration: 'none',
+                }}
+              >
+                {lang.toUpperCase()}
+              </a>
+            ))}
+          </div>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-6 py-12">
-        <div className="space-y-8">
-          {/* Header */}
-          <div>
-            <h1
-              className="text-2xl font-bold text-[var(--text-heading)] mb-2"
-              style={{ fontFamily: 'Sora, sans-serif' }}
-            >
-              {fr
-                ? 'Quels exercices souhaitez-vous suivre ?'
-                : 'Which fiscal years do you want to track?'}
-            </h1>
-            <p className="text-sm text-[var(--text-muted)]">
-              {fr
-                ? 'Sélectionnez les exercices fiscaux pour lesquels vous avez des obligations de conformité. Vous pourrez toujours les modifier dans les paramètres.'
-                : 'Select the fiscal years for which you have compliance obligations. You can always change this in settings.'}
-            </p>
+      {/* ─── Progress Stepper ─── */}
+      <div style={{ padding: '24px 32px 0', maxWidth: '700px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
+          {stepConfig.map((sc, i) => {
+            const sNum = i + 1
+            const done = sNum < STEP
+            const current = sNum === STEP
+            const isLast = i === stepConfig.length - 1
+            return (
+              <React.Fragment key={i}>
+                <div style={{ width: '56px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                  <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    background: done || current ? AMBER : GREY,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    outline: `3px solid ${PAGE}`,
+                    outlineOffset: '0px',
+                    flexShrink: 0,
+                    zIndex: 1, position: 'relative',
+                  }}>
+                    {done ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <span style={{
+                        fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '11px',
+                        color: current ? 'white' : '#AAA59A',
+                      }}>{sNum}</span>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: '9px', fontWeight: current ? 700 : 400,
+                    color: current ? '#1C1A17' : '#AAA59A',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden', textOverflow: 'ellipsis',
+                    maxWidth: '56px', textAlign: 'center',
+                  }}>
+                    {fr ? sc.labelFr : sc.labelEn}
+                  </span>
+                </div>
+                {!isLast && (
+                  <div style={{
+                    flex: 1, height: '4px', flexShrink: 1,
+                    marginTop: '14px',
+                    zIndex: 0,
+                    background: done ? AMBER : GREY,
+                    transition: 'background 300ms',
+                  }} />
+                )}
+              </React.Fragment>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ─── Main content ─── */}
+      <main style={{ maxWidth: '560px', margin: '0 auto', padding: '32px 24px 40px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+          {/* Step icon — 56x56 */}
+          <div style={{
+            width: '56px', height: '56px', borderRadius: '16px',
+            background: 'rgba(245,185,30,0.20)',
+            border: '1px solid rgba(245,185,30,0.50)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: '16px',
+            color: '#C4900A',
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <path d="M16 2v4M8 2v4M3 10h18" />
+              <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+            </svg>
           </div>
 
-          {/* Tout sélectionner / désélectionner */}
-          <div className="flex justify-end">
-            <button
-              onClick={toggleAll}
-              className="text-xs font-medium underline"
-              style={{ color: 'var(--text-link)', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              {allSelected
-                ? (fr ? 'Tout désélectionner' : 'Deselect all')
-                : (fr ? 'Tout sélectionner' : 'Select all')}
-            </button>
-          </div>
+          {/* Step label */}
+          <p style={{
+            fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em',
+            textTransform: 'uppercase', color: '#C4900A',
+            textAlign: 'center', marginBottom: '10px',
+          }}>
+            {fr ? 'ÉTAPE 8 — EXERCICES FINANCIERS' : 'STEP 8 — FISCAL YEARS'}
+          </p>
 
-          {/* Year list */}
-          <div className="space-y-2">
-            {years.map(year => {
-              const isActive = activeYears.has(year)
-              const hasDoc = docYearSet.has(year)
-              const isCurrent = year === currentYear
-              return (
-                <button
-                  key={year}
-                  onClick={() => toggleYear(year)}
-                  disabled={hasDoc}
-                  title={
-                    hasDoc
-                      ? (fr ? 'Des documents existent pour cette année' : 'Documents exist for this year')
-                      : undefined
-                  }
-                  className="w-full text-left rounded-xl p-4 border transition-all"
-                  style={{
-                    borderColor: isActive ? '#F5B91E' : 'var(--card-border)',
-                    backgroundColor: isActive ? '#FFF8E7' : 'var(--card-bg)',
-                    opacity: hasDoc ? 0.6 : 1,
-                    cursor: hasDoc ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
-                        style={{
-                          borderColor: isActive ? '#F5B91E' : 'var(--neutral-300)',
+          {/* Title */}
+          <h1 style={{
+            fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '28px',
+            color: '#1C1A17', textAlign: 'center', lineHeight: 1.25,
+            marginBottom: '24px',
+          }}>
+            {fr
+              ? <>Quels exercices souhaitez-<br />vous suivre ?</>
+              : <>Which fiscal years do you<br />want to track?</>}
+          </h1>
+
+          {/* Form card */}
+          <div style={{
+            width: '100%',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--card-border)',
+            borderRadius: '14px',
+            padding: '24px',
+            marginBottom: '20px',
+          }}>
+            {/* Select all toggle */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+              <button
+                onClick={toggleAll}
+                style={{
+                  fontSize: '12px', fontWeight: 500, color: '#C4900A',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  textDecoration: 'underline', padding: 0,
+                }}
+              >
+                {allSelected
+                  ? (fr ? 'Tout désélectionner' : 'Deselect all')
+                  : (fr ? 'Tout sélectionner' : 'Select all')}
+              </button>
+            </div>
+
+            {/* Year list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {years.map(year => {
+                const isActive = activeYears.has(year)
+                const hasDoc = docYearSet.has(year)
+                const isCurrent = year === currentYear
+                return (
+                  <button
+                    key={year}
+                    onClick={() => toggleYear(year)}
+                    disabled={hasDoc}
+                    title={
+                      hasDoc
+                        ? (fr ? 'Des documents existent pour cette année' : 'Documents exist for this year')
+                        : undefined
+                    }
+                    style={{
+                      width: '100%', textAlign: 'left',
+                      borderRadius: '10px', padding: '12px 14px',
+                      border: `1px solid ${isActive ? '#F5B91E' : 'var(--card-border)'}`,
+                      backgroundColor: isActive ? '#FFF8E7' : 'var(--page-bg)',
+                      opacity: hasDoc ? 0.6 : 1,
+                      cursor: hasDoc ? 'not-allowed' : 'pointer',
+                      transition: 'border-color 150ms, background-color 150ms',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '18px', height: '18px', borderRadius: '4px',
+                          border: `2px solid ${isActive ? '#F5B91E' : 'var(--card-border)'}`,
                           backgroundColor: isActive ? '#F5B91E' : 'transparent',
-                        }}
-                      >
-                        {isActive && (
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="var(--navy-900)">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0, transition: 'all 150ms',
+                        }}>
+                          {isActive && (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1C1A17" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '14px', color: 'var(--text-heading)' }}>
+                          {fr ? `Exercice ${year}` : `Fiscal year ${year}`}
+                        </span>
+                        {isCurrent && (
+                          <span style={{
+                            background: '#F5B91E', color: '#070E1C',
+                            fontSize: '10px', fontWeight: 800,
+                            letterSpacing: '.06em', textTransform: 'uppercase',
+                            padding: '2px 8px', borderRadius: '20px',
+                          }}>
+                            {fr ? 'Exercice en cours' : 'Current year'}
+                          </span>
                         )}
                       </div>
-                      <span
-                        className="font-semibold text-sm"
-                        style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text-heading)' }}
-                      >
-                        {fr ? `Exercice ${year}` : `Fiscal year ${year}`}
-                      </span>
-                      {isCurrent && (
-                        <span
-                          style={{
-                            background: '#F5B91E',
-                            color: '#070E1C',
-                            fontSize: '10px',
-                            fontWeight: 800,
-                            letterSpacing: '.06em',
-                            textTransform: 'uppercase',
-                            padding: '3px 10px',
-                            borderRadius: '20px',
-                            marginLeft: '4px',
-                          }}
-                        >
-                          {fr ? 'Exercice en cours' : 'Current year'}
+                      {hasDoc && (
+                        <span style={{
+                          fontSize: '11px', padding: '2px 8px', borderRadius: '20px',
+                          backgroundColor: 'var(--success-bg)', color: 'var(--success-text)',
+                          border: '1px solid var(--success-border)',
+                        }}>
+                          {fr ? 'Documents existants' : 'Has documents'}
                         </span>
                       )}
                     </div>
-                    {hasDoc && (
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: '#F0F4EE', color: '#2E5425' }}
-                      >
-                        {fr ? 'Documents existants' : 'Has documents'}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Info banner */}
+            <div style={{
+              marginTop: '16px', borderRadius: '10px', padding: '12px 14px',
+              display: 'flex', gap: '10px',
+              background: 'var(--info-bg)', border: '1px solid var(--info-border)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--info-text)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }}>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4M12 8h.01" />
+              </svg>
+              <p style={{ fontSize: '12px', color: 'var(--info-text)', lineHeight: 1.6 }}>
+                {fr
+                  ? 'Le Wizard de rattrapage vous permettra de générer les résolutions manquantes pour chaque exercice sélectionné.'
+                  : 'The Catch-Up Wizard will let you generate missing resolutions for each selected fiscal year.'}
+              </p>
+            </div>
           </div>
 
-          {/* Info banner */}
-          <div
-            className="rounded-lg p-4 flex gap-3"
-            style={{ backgroundColor: '#F0F4F8', border: '1px solid #CBD5E5' }}
-          >
-            <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="#4A6B93">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-xs" style={{ color: '#4A6B93' }}>
-              {fr
-                ? 'Le Wizard de rattrapage vous permettra de générer les résolutions manquantes pour chaque exercice sélectionné.'
-                : 'The Catch-Up Wizard will let you generate missing resolutions for each selected fiscal year.'}
-            </p>
-          </div>
-
-          {/* CTA + Passer */}
-          <div className="flex flex-col items-center gap-3">
-            <button
-              onClick={handleStart}
-              disabled={saving}
-              className="w-full py-3 rounded-lg font-semibold transition-colors disabled:opacity-50"
-              style={{ backgroundColor: 'var(--amber-400)', color: 'var(--navy-900)' }}
-            >
-              {saving
-                ? (fr ? 'Chargement...' : 'Loading...')
-                : (fr ? '⚡ Commencer' : '⚡ Get started')}
-            </button>
+          {/* Actions */}
+          <div style={{
+            width: '100%',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
             <button
               onClick={() => router.push(`/${locale}/dashboard`)}
               style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                fontSize: '13px',
-                cursor: 'pointer',
-                textDecoration: 'underline',
+                fontSize: '14px', color: 'var(--text-muted)',
+                background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0',
               }}
             >
-              {fr ? 'Passer cette étape' : 'Skip this step'}
+              {fr ? 'Passer' : 'Skip'}
+            </button>
+            <button
+              onClick={handleStart}
+              disabled={saving}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                background: '#F5B91E', color: '#1C1A17',
+                fontSize: '15px', fontWeight: 700,
+                padding: '13px 32px', borderRadius: '10px',
+                border: 'none', cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.7 : 1, transition: 'opacity 150ms',
+              }}
+            >
+              {saving ? (fr ? 'Chargement...' : 'Loading...') : (fr ? 'Terminer' : 'Finish')}
+              {!saving && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              )}
             </button>
           </div>
         </div>

@@ -1,9 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { OnboardingData, IncorporationType, Province } from '@/lib/types';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
+import { OnboardingStepLayout } from './OnboardingStepLayout';
 
 interface StepProps {
   data: OnboardingData;
@@ -55,6 +53,20 @@ const MONTHS_EN = [
   'July','August','September','October','November','December',
 ];
 
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px',
+  border: '1px solid var(--input-border)',
+  borderRadius: '10px',
+  background: 'var(--input-bg)',
+  fontSize: '14px', color: 'var(--text-heading)',
+  outline: 'none', boxSizing: 'border-box',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: '13px', fontWeight: 500,
+  color: 'var(--text-body)', marginBottom: '6px',
+};
+
 const isFr = (locale: string) => locale === 'fr';
 
 export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps) {
@@ -81,33 +93,53 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     if (validate()) onNext();
   }
 
+  const buildingIcon = (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="7" width="18" height="14" rx="1" />
+      <path d="M8 21V7" />
+      <path d="M16 21V7" />
+      <path d="M3 11h18" />
+      <path d="M3 15h18" />
+      <path d="M8 7V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3" />
+    </svg>
+  );
+
   return (
-    <div>
-      <h1 className="font-sora text-3xl font-semibold text-navy-900 mb-2">
-        {fr ? "Parlez-nous de votre entreprise" : "Tell us about your company"}
-      </h1>
-      <p className="text-navy-400 text-sm mb-8">
-        {fr
-          ? "Nous utiliserons ceci pour configurer votre livre des minutes."
-          : "We'll use this to set up your minute book correctly."}
-      </p>
-
-      <div className="space-y-5">
-        <Input
-          id="legalName"
-          label={fr ? "Nom légal de l'entreprise" : "Legal name of the company"}
-          value={data.company.legalName}
-          onChange={e => update('legalName', e.target.value)}
-          placeholder={fr ? "ex. 9453-2281 Québec Inc." : "e.g. 9453-2281 Québec Inc."}
-          error={errors.legalName}
-          required
-        />
-
+    <OnboardingStepLayout
+      stepLabel={fr ? 'ÉTAPE 2 — SOCIÉTÉ' : 'STEP 2 — COMPANY'}
+      icon={buildingIcon}
+      title={fr ? 'Votre entreprise' : 'Your company'}
+      locale={locale}
+      onSkip={onBack}
+      skipLabel={fr ? 'Retour' : 'Back'}
+      onContinue={handleNext}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        {/* Legal name */}
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-2">
-            {fr ? "Type de constitution" : "Incorporation type"}
+          <label style={labelStyle}>
+            {fr ? "Nom légal de l'entreprise" : 'Legal name of the company'}
+            <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <input
+            id="legalName"
+            type="text"
+            value={data.company.legalName}
+            onChange={e => update('legalName', e.target.value)}
+            placeholder={fr ? 'ex. 9453-2281 Québec Inc.' : 'e.g. 9453-2281 Québec Inc.'}
+            style={inputStyle}
+          />
+          {errors.legalName && (
+            <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>{errors.legalName}</p>
+          )}
+        </div>
+
+        {/* Incorporation type */}
+        <div>
+          <label style={labelStyle}>
+            {fr ? 'Type de constitution' : 'Incorporation type'}
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {incorporationTypes.map(type => {
               const isSelected = data.company.incorporationType === type.value;
               return (
@@ -115,23 +147,30 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
                   key={type.value}
                   type="button"
                   onClick={() => update('incorporationType', type.value)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all relative ${
-                    isSelected
-                      ? 'border-[var(--amber-400)] bg-[var(--amber-50)] shadow-sm'
-                      : 'border-[var(--card-border)] bg-[var(--card-bg)] opacity-60 hover:opacity-100 hover:border-[var(--input-border-hover)]'
-                  }`}
+                  style={{
+                    position: 'relative', padding: '14px', borderRadius: '10px', textAlign: 'left',
+                    border: `2px solid ${isSelected ? '#F5B91E' : 'var(--card-border)'}`,
+                    background: isSelected ? 'rgba(245,185,30,0.08)' : 'var(--card-bg)',
+                    cursor: 'pointer', transition: 'all 150ms',
+                    opacity: isSelected ? 1 : 0.7,
+                  }}
                 >
                   {isSelected && (
-                    <span className="absolute top-2 right-2 w-6 h-6 bg-[var(--amber-400)] rounded-full flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    <span style={{
+                      position: 'absolute', top: '8px', right: '8px',
+                      width: '20px', height: '20px', borderRadius: '50%',
+                      background: '#F5B91E',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 13l4 4L19 7" />
                       </svg>
                     </span>
                   )}
-                  <div className="font-sora font-semibold text-sm text-navy-900">
+                  <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '13px', color: 'var(--text-heading)' }}>
                     {fr ? type.labelFr : type.labelEn}
                   </div>
-                  <div className="text-xs text-navy-400 mt-0.5">
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
                     {fr ? type.subFr : type.subEn}
                   </div>
                 </button>
@@ -140,16 +179,23 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           </div>
         </div>
 
+        {/* NEQ */}
         <div>
-          <div className="flex items-center gap-1.5 mb-1">
-            <label className="block text-sm font-medium text-navy-700">
-              {fr ? "NEQ (Numéro d'entreprise du Québec)" : "NEQ (Québec Enterprise Number)"}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>
+              {fr ? "NEQ (Numéro d'entreprise du Québec)" : 'NEQ (Québec Enterprise Number)'}
             </label>
-            <div className="relative group">
-              <svg className="w-4 h-4 text-navy-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <div style={{ position: 'relative', display: 'inline-block' }} className="group">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'help' }}>
+                <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <div className="absolute left-5 top-0 z-40 hidden group-hover:block w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs text-[var(--text-body)] shadow-lg">
+              <div style={{
+                position: 'absolute', left: '20px', top: 0, zIndex: 40,
+                width: '256px', borderRadius: '10px',
+                border: '1px solid var(--card-border)', background: 'var(--card-bg)',
+                padding: '12px', fontSize: '12px', color: 'var(--text-body)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              }} className="hidden group-hover:block">
                 {fr
                   ? "Le NEQ est le numéro à 10 chiffres attribué à votre entreprise par le Registraire des entreprises du Québec. Vous le trouverez sur vos statuts de constitution ou votre extrait du REQ."
                   : "The NEQ is the 10-digit number assigned to your company by the Québec Enterprise Registrar. You can find it on your articles of incorporation or REQ extract."}
@@ -165,40 +211,44 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
               const val = e.target.value.replace(/\D/g, '').slice(0, 10);
               update('incorporationNumber', val);
             }}
-            placeholder={fr ? "ex. 1234567890" : "e.g. 1234567890"}
+            placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
             maxLength={10}
-            className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+            style={inputStyle}
           />
           {data.company.incorporationNumber.length > 0 && data.company.incorporationNumber.length < 10 && (
-            <p className="mt-1 text-xs text-amber-600">
+            <p style={{ marginTop: '4px', fontSize: '12px', color: '#d97706' }}>
               {fr ? `${10 - data.company.incorporationNumber.length} chiffres manquants` : `${10 - data.company.incorporationNumber.length} digits missing`}
             </p>
           )}
         </div>
 
-        <Input
-          id="incorporationDate"
-          label={fr ? "Date de constitution" : "Incorporation date"}
-          type="date"
-          value={data.company.incorporationDate}
-          onChange={e => update('incorporationDate', e.target.value)}
-        />
-
-        {/* Fin d'exercice financier */}
+        {/* Incorporation date */}
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">
-            {fr ? "Fin d'exercice financier" : "Fiscal year end"}
+          <label style={labelStyle}>
+            {fr ? 'Date de constitution' : 'Incorporation date'}
           </label>
-          <p className="text-xs text-navy-400 mb-2">
-            {fr
-              ? "Requis pour le calcul de conformité"
-              : "Required for compliance calculation"}
+          <input
+            id="incorporationDate"
+            type="date"
+            value={data.company.incorporationDate}
+            onChange={e => update('incorporationDate', e.target.value)}
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Fiscal year end */}
+        <div>
+          <label style={labelStyle}>
+            {fr ? "Fin d'exercice financier" : 'Fiscal year end'}
+          </label>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', marginTop: '-2px' }}>
+            {fr ? 'Requis pour le calcul de conformité' : 'Required for compliance calculation'}
           </p>
-          <div className="grid grid-cols-2 gap-3">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <select
               value={data.company.fiscalYearEndMonth}
               onChange={e => updateNum('fiscalYearEndMonth', parseInt(e.target.value))}
-              className="px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+              style={inputStyle}
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                 <option key={m} value={m}>
@@ -209,7 +259,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             <select
               value={data.company.fiscalYearEndDay}
               onChange={e => updateNum('fiscalYearEndDay', parseInt(e.target.value))}
-              className="px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+              style={inputStyle}
             >
               {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
                 <option key={d} value={d}>{d}</option>
@@ -218,15 +268,6 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           </div>
         </div>
       </div>
-
-      <div className="flex gap-3 mt-8">
-        <Button variant="ghost" onClick={onBack} className="flex-1">
-          {fr ? "Retour" : "Back"}
-        </Button>
-        <Button onClick={handleNext} variant="secondary" className="flex-1" size="lg">
-          {fr ? "Continuer" : "Continue"}
-        </Button>
-      </div>
-    </div>
+    </OnboardingStepLayout>
   );
 }

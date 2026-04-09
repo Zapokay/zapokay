@@ -89,21 +89,50 @@ export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
 
   return (
     <div>
+      {/* Page heading — always visible above tabs */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
+            {fr ? 'Livre de minutes' : 'Minute Book'}
+          </h1>
+          <button
+            type="button"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            className="relative rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-body)]"
+          >
+            <Info className="h-4 w-4" />
+            {showTooltip && (
+              <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs text-[var(--text-body)] shadow-lg">
+                {fr
+                  ? 'Le livre de minutes est le registre officiel de votre société. Il contient tous les documents juridiques fondateurs et les résolutions adoptées chaque année.'
+                  : 'The minute book is the official record of your company. It contains all founding legal documents and resolutions adopted each year.'}
+              </div>
+            )}
+          </button>
+        </div>
+        {!loading && data && (
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            {data.score}% {fr ? 'complet' : 'complete'} · {data.totalMissing} {fr ? 'documents manquants' : 'missing documents'}
+          </p>
+        )}
+      </div>
+
       {/* Tab navigation */}
-      <div className="flex gap-6 border-b border-neutral-200 mb-6">
+      <div className="flex gap-6 border-b border-[var(--card-border)] mb-6">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`pb-3 text-sm font-medium transition-colors relative ${
               activeTab === tab.key
-                ? 'text-neutral-800'
-                : 'text-neutral-400 hover:text-neutral-600'
+                ? 'text-[var(--text-heading)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-body)]'
             }`}
           >
             {fr ? tab.labelFr : tab.labelEn}
             {activeTab === tab.key && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--amber-400)] rounded-full" />
             )}
           </button>
         ))}
@@ -113,47 +142,22 @@ export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
       {activeTab === 'completude' && (
         <div className="space-y-6">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
-                {fr ? 'Livre de minutes' : 'Minute Book'}
-              </h1>
-              <button
-                type="button"
-                onMouseEnter={() => setShowTooltip(true)}
-                onMouseLeave={() => setShowTooltip(false)}
-                className="relative rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-body)]"
-              >
-                <Info className="h-4 w-4" />
-                {showTooltip && (
-                  <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs text-[var(--text-body)] shadow-lg">
-                    {fr
-                      ? 'Le livre de minutes est le registre officiel de votre société. Il contient tous les documents juridiques fondateurs et les résolutions adoptées chaque année.'
-                      : 'The minute book is the official record of your company. It contains all founding legal documents and resolutions adopted each year.'}
-                  </div>
-                )}
-              </button>
-            </div>
             {loading ? (
-              <div className="animate-pulse space-y-6 mt-4">
+              <div className="animate-pulse space-y-6">
                 <div className="h-3 w-full bg-neutral-200 rounded-full" />
                 <div className="h-48 bg-neutral-100 rounded-xl" />
               </div>
             ) : data ? (
-              <>
-                <p className="text-sm text-[var(--text-muted)] mt-1">
-                  {data.score}% {fr ? 'complet' : 'complete'} · {data.totalMissing} {fr ? 'documents manquants' : 'missing documents'}
-                </p>
-                <div className="mt-4">
-                  <CompletenessBar
-                    score={data.score}
-                    totalSatisfied={data.totalSatisfied}
-                    totalRequired={data.totalRequired}
-                    size="lg"
-                  />
-                </div>
-              </>
+              <div className="mt-0">
+                <CompletenessBar
+                  score={data.score}
+                  totalSatisfied={data.totalSatisfied}
+                  totalRequired={data.totalRequired}
+                  size="lg"
+                />
+              </div>
             ) : (
-              <p className="text-sm text-[var(--text-muted)] mt-2">
+              <p className="text-sm text-[var(--text-muted)]">
                 {fr ? 'Impossible de charger le livre de minutes.' : 'Unable to load minute book.'}
               </p>
             )}

@@ -1,6 +1,6 @@
 'use client';
 import type { OnboardingData, Province } from '@/lib/types';
-import Button from '@/components/ui/Button';
+import { OnboardingStepLayout } from './OnboardingStepLayout';
 
 interface StepProvinceProps {
   data: OnboardingData;
@@ -35,18 +35,26 @@ export function StepProvince({ data, setData, onNext, onBack, locale, saving, sa
     setData(d => ({ ...d, company: { ...d.company, province: value } }));
   }
 
-  return (
-    <div>
-      <h1 className="font-sora text-3xl font-semibold text-navy-900 mb-2">
-        {fr ? "Province d'incorporation" : 'Province of incorporation'}
-      </h1>
-      <p className="text-navy-400 text-sm mb-8">
-        {fr
-          ? "Dans quelle province votre entreprise a-t-elle été constituée ?"
-          : "In which province was your company incorporated?"}
-      </p>
+  const mapPinIcon = (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+      <circle cx="12" cy="9" r="2.5" />
+    </svg>
+  );
 
-      <div className="grid grid-cols-2 gap-3">
+  return (
+    <OnboardingStepLayout
+      stepLabel={fr ? 'ÉTAPE 3 — PROVINCE' : 'STEP 3 — PROVINCE'}
+      icon={mapPinIcon}
+      title={fr ? 'Dans quelle province ?' : 'Which province?'}
+      locale={locale}
+      onSkip={onBack}
+      skipLabel={fr ? 'Retour' : 'Back'}
+      onContinue={onNext}
+      saving={saving}
+      continueLabel={saving ? (fr ? 'Enregistrement…' : 'Saving…') : undefined}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         {provinces.map(p => {
           const isSelected = data.company.province === p.value;
           return (
@@ -54,26 +62,36 @@ export function StepProvince({ data, setData, onNext, onBack, locale, saving, sa
               key={p.value}
               type="button"
               onClick={() => select(p.value as Province)}
-              className={`
-                relative flex flex-col items-center justify-center gap-1
-                p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer text-sm font-medium
-                ${isSelected
-                  ? 'border-[var(--amber-400)] bg-[var(--amber-50)] text-[var(--navy-900)] shadow-sm'
-                  : 'border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-body)] hover:border-[var(--input-border-hover)] hover:shadow-sm'
-                }
-              `}
+              style={{
+                position: 'relative',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                gap: '4px', padding: '14px 10px',
+                borderRadius: '10px',
+                border: `2px solid ${isSelected ? '#F5B91E' : 'var(--card-border)'}`,
+                background: isSelected ? 'rgba(245,185,30,0.08)' : 'var(--card-bg)',
+                cursor: 'pointer', transition: 'all 150ms',
+              }}
             >
               {isSelected && (
-                <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--amber-400)] rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                <div style={{
+                  position: 'absolute', top: '6px', right: '6px',
+                  width: '18px', height: '18px', borderRadius: '50%',
+                  background: '#F5B91E',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
               )}
-              <span className="font-sora font-semibold text-xs uppercase tracking-wide text-[var(--text-muted)]">
+              <span style={{
+                fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '11px',
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+                color: 'var(--text-muted)',
+              }}>
                 {p.value}
               </span>
-              <span className="text-xs text-center leading-tight">
+              <span style={{ fontSize: '11px', color: 'var(--text-body)', textAlign: 'center', lineHeight: 1.3 }}>
                 {fr ? p.labelFr : p.labelEn}
               </span>
             </button>
@@ -82,25 +100,8 @@ export function StepProvince({ data, setData, onNext, onBack, locale, saving, sa
       </div>
 
       {saveError && (
-        <p className="mt-4 text-center text-sm text-red-500">{saveError}</p>
+        <p style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#ef4444' }}>{saveError}</p>
       )}
-
-      <div className="flex gap-3 mt-8">
-        <Button variant="ghost" onClick={onBack} className="flex-1">
-          {fr ? 'Retour' : 'Back'}
-        </Button>
-        <Button
-          onClick={onNext}
-          variant="secondary"
-          className="flex-1"
-          size="lg"
-          disabled={saving}
-        >
-          {saving
-            ? (fr ? 'Enregistrement…' : 'Saving…')
-            : (fr ? 'Continuer' : 'Continue')}
-        </Button>
-      </div>
-    </div>
+    </OnboardingStepLayout>
   );
 }

@@ -109,21 +109,10 @@ export default function ShareholdersClient() {
     <div className="space-y-6">
       {/* Page heading */}
       <div>
-        <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
-          {locale === 'fr' ? 'Structure du capital' : 'Capital Structure'}
-        </h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">
-          {hasShareholders
-            ? locale === 'fr'
-              ? `${totalIssued.toLocaleString('fr-CA')} actions émises`
-              : `${totalIssued.toLocaleString('en-CA')} shares issued`
-            : locale === 'fr' ? 'Aucun actionnaire enregistré' : 'No shareholders registered'}
-        </p>
-      </div>
-
-      {/* Action bar */}
-      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
+            {locale === 'fr' ? 'Structure du capital' : 'Capital Structure'}
+          </h1>
           <button
             type="button"
             onMouseEnter={() => setShowTooltip(true)}
@@ -140,6 +129,18 @@ export default function ShareholdersClient() {
             )}
           </button>
         </div>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          {hasShareholders
+            ? locale === 'fr'
+              ? `${totalIssued.toLocaleString('fr-CA')} actions émises`
+              : `${totalIssued.toLocaleString('en-CA')} shares issued`
+            : locale === 'fr' ? 'Aucun actionnaire enregistré' : 'No shareholders registered'}
+        </p>
+      </div>
+
+      {/* Action bar */}
+      <div className="flex items-center justify-between">
+        <div />
         <button
           type="button"
           onClick={() => setShowIssueModal(true)}

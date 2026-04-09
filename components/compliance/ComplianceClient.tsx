@@ -157,7 +157,7 @@ export function ComplianceClient({
               alignItems: 'center',
               padding: '12px 20px',
               borderRadius: '12px',
-              backgroundColor: '#070E1C',
+              backgroundColor: '#1C1A17',
               color: 'white',
               marginBottom: '16px',
             }}
@@ -254,7 +254,7 @@ export function ComplianceClient({
                 stroke="#4A6B93" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </div>
-          <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: '18px', fontWeight: 600, color: '#070E1C', marginBottom: '8px' }}>
+          <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: '18px', fontWeight: 600, color: '#1C1A17', marginBottom: '8px' }}>
             {t.emptyTitle}
           </h2>
           <p style={{ fontSize: '14px', color: '#7A7066', maxWidth: '360px', margin: '0 auto 24px' }}>

@@ -3,6 +3,8 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import '../globals.css';
+import { createClient } from '@/lib/supabase/server';
+import { ThemeProvider } from '@/components/theme/ThemeProvider';
 
 export const metadata: Metadata = {
   title: 'ZapOkay',
@@ -21,12 +23,27 @@ export default async function LocaleLayout({
   if (!locales.includes(locale)) notFound();
   const messages = await getMessages();
 
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  let preferredTheme: 'light' | 'dark' | null = null;
+  if (user) {
+    const { data } = await supabase
+      .from('users')
+      .select('preferred_theme')
+      .eq('id', user.id)
+      .single();
+    const raw = data?.preferred_theme;
+    if (raw === 'light' || raw === 'dark') preferredTheme = raw;
+  }
+
   return (
-    <html lang={locale} data-theme="original" suppressHydrationWarning>
+    <html lang={locale} data-theme="light" suppressHydrationWarning>
       <body>
-        <NextIntlClientProvider messages={messages}>
-          {children}
-        </NextIntlClientProvider>
+        <ThemeProvider userPreferredTheme={preferredTheme}>
+          <NextIntlClientProvider messages={messages}>
+            {children}
+          </NextIntlClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

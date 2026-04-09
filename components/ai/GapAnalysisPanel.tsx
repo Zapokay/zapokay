@@ -149,7 +149,7 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
               padding: '8px 16px', borderRadius: '8px',
               background: '#F5B91E', border: 'none',
               fontWeight: 600, fontSize: '13px',
-              color: '#070E1C', cursor: 'pointer',
+              color: '#1C1A17', cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
           >
@@ -263,7 +263,7 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
               padding: '8px 16px', borderRadius: '8px',
               background: '#F5B91E', border: 'none',
               fontSize: '13px', fontWeight: 600,
-              color: '#070E1C', textDecoration: 'none',
+              color: '#1C1A17', textDecoration: 'none',
             }}
           >
             {fr ? 'Configurer mes exercices →' : 'Configure fiscal years →'}

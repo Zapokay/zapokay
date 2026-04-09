@@ -98,10 +98,10 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
           {/* Avatar */}
           <div style={{
             width: '40px', height: '40px', borderRadius: '8px',
-            background: '#1E3D6B',
+            background: 'var(--sb-co-icon-bg)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 700,
-            color: '#FFFFFF', flexShrink: 0, letterSpacing: '0.02em',
+            color: 'var(--sb-co-icon-text)', flexShrink: 0, letterSpacing: '0.02em',
           }}>
             {initials}
           </div>
@@ -110,13 +110,13 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
               fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500,
-              color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              color: 'var(--sb-co-name)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               {truncatedName}
             </div>
             <div style={{
               fontFamily: 'DM Sans, sans-serif', fontSize: '11px', fontWeight: 400,
-              color: '#9EB0C9', marginTop: '2px',
+              color: 'var(--sb-co-label)', marginTop: '2px',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               {neqDisplay}
@@ -126,7 +126,7 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
           {/* Chevron */}
           <svg
             width="12" height="12" viewBox="0 0 12 12" fill="none"
-            style={{ flexShrink: 0, opacity: 0.6, color: '#FFFFFF', transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }}
+            style={{ flexShrink: 0, opacity: 0.6, color: 'var(--sb-co-label)', transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }}
           >
             <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -153,10 +153,10 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
             }}>
               <div style={{
                 width: '32px', height: '32px', borderRadius: '6px',
-                background: '#1E3D6B',
+                background: 'var(--sb-co-icon-bg)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'Sora, sans-serif', fontSize: '11px', fontWeight: 700,
-                color: '#FFFFFF', flexShrink: 0,
+                color: 'var(--sb-co-icon-text)', flexShrink: 0,
               }}>
                 {initials}
               </div>
@@ -243,7 +243,7 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
                   <div style={{ fontSize: '32px', marginBottom: '12px' }}>⚡</div>
                   <h2 style={{
                     fontFamily: 'Sora, sans-serif', fontSize: '18px', fontWeight: 700,
-                    color: '#070E1C', margin: '0 0 8px',
+                    color: '#1C1A17', margin: '0 0 8px',
                   }}>
                     {fr ? 'Bientôt disponible' : 'Coming soon'}
                   </h2>
@@ -289,7 +289,7 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
                           flex: 1, padding: '10px 16px', borderRadius: '10px',
                           background: '#F5B91E', border: 'none',
                           fontWeight: 600, fontSize: '14px',
-                          color: '#070E1C', cursor: 'pointer',
+                          color: '#1C1A17', cursor: 'pointer',
                           opacity: submitting || !email ? 0.6 : 1,
                         }}
                       >
@@ -328,7 +328,7 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
                   <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏢</div>
                   <h2 style={{
                     fontFamily: 'Sora, sans-serif', fontSize: '18px', fontWeight: 700,
-                    color: '#070E1C', margin: '0 0 8px',
+                    color: '#1C1A17', margin: '0 0 8px',
                   }}>
                     {fr ? 'Ajouter une entreprise' : 'Add a company'}
                   </h2>
@@ -356,7 +356,7 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
                       flex: 1, padding: '10px', borderRadius: '10px',
                       background: '#F5B91E', border: 'none',
                       fontWeight: 600, fontSize: '14px',
-                      color: '#070E1C', cursor: 'pointer',
+                      color: '#1C1A17', cursor: 'pointer',
                     }}
                   >
                     {fr ? 'Commencer →' : 'Get started →'}

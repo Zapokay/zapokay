@@ -107,7 +107,7 @@ export default function ComplianceItemCard({
         <div className="min-w-0">
           <p
             className="text-sm font-semibold"
-            style={{ fontFamily: "'Sora', sans-serif", color: '#070E1C' }}
+            style={{ fontFamily: "'Sora', sans-serif", color: '#1C1A17' }}
           >
             {title}
           </p>
@@ -136,7 +136,7 @@ export default function ComplianceItemCard({
           className="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full"
           style={{
             backgroundColor: '#F5B91E',
-            color: '#070E1C',
+            color: '#1C1A17',
             fontFamily: "'DM Sans', sans-serif",
             whiteSpace: 'nowrap',
           }}

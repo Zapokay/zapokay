@@ -54,7 +54,7 @@ export default function FiscalYearForm({ companyId, locale }: FiscalYearFormProp
     >
       <h3
         className="text-sm font-semibold mb-4"
-        style={{ fontFamily: "'Sora', sans-serif", color: '#070E1C' }}
+        style={{ fontFamily: "'Sora', sans-serif", color: '#1C1A17' }}
       >
         {fr ? "Fin d'exercice fiscal" : 'Fiscal Year End'}
       </h3>
@@ -69,7 +69,7 @@ export default function FiscalYearForm({ companyId, locale }: FiscalYearFormProp
             value={month}
             onChange={e => setMonth(e.target.value)}
             className="px-3 py-2 rounded-lg border text-sm outline-none"
-            style={{ borderColor: '#D4C9BB', color: '#070E1C', backgroundColor: '#FAF8F4' }}
+            style={{ borderColor: '#D4C9BB', color: '#1C1A17', backgroundColor: '#FAF8F4' }}
           >
             {months.map((label, i) => (
               <option key={i + 1} value={String(i + 1)}>
@@ -88,7 +88,7 @@ export default function FiscalYearForm({ companyId, locale }: FiscalYearFormProp
             value={day}
             onChange={e => setDay(e.target.value)}
             className="px-3 py-2 rounded-lg border text-sm outline-none"
-            style={{ borderColor: '#D4C9BB', color: '#070E1C', backgroundColor: '#FAF8F4' }}
+            style={{ borderColor: '#D4C9BB', color: '#1C1A17', backgroundColor: '#FAF8F4' }}
           >
             {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
               <option key={d} value={String(d)}>
@@ -105,7 +105,7 @@ export default function FiscalYearForm({ companyId, locale }: FiscalYearFormProp
           className="px-5 py-2 rounded-lg text-sm font-semibold transition-opacity"
           style={{
             backgroundColor: '#F5B91E',
-            color: '#070E1C',
+            color: '#1C1A17',
             fontFamily: "'DM Sans', sans-serif",
             opacity: saving ? 0.6 : 1,
           }}

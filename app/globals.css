@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -75,72 +75,298 @@ body {
   --wm-zap:#F5B91E; --wm-okay:white;
 }
 
+/* ─── Aria v2 LIGHT — Lin Naturel ─── */
 [data-theme="light"] {
-  --page-bg:var(--neutral-50); --card-bg:var(--neutral-0); --card-border:var(--neutral-200);
-  --text-heading:var(--navy-900); --text-body:var(--neutral-600);
-  --text-muted:var(--neutral-400); --text-link:var(--navy-600);
-  --input-bg:var(--neutral-0); --input-border:var(--neutral-200);
-  --input-border-hover:var(--neutral-300); --input-border-focus:var(--navy-400);
-  --input-ring-focus:var(--navy-50); --input-placeholder:var(--neutral-400);
-  --divider:var(--neutral-200);
-  --logo-sq:var(--navy-900); --logo-z:var(--neutral-0); --logo-dot:var(--amber-400);
-  --wordmark-color:var(--navy-900);
-  --sb-bg:var(--neutral-0); --sb-item-hover:var(--neutral-100);
-  --sb-item-active:var(--navy-50); --sb-icon-default:var(--neutral-400);
-  --sb-icon-active:var(--navy-600); --sb-label-default:var(--neutral-600);
-  --sb-label-active:var(--navy-900); --sb-wordmark:var(--navy-900);
-  --sb-co-bg:var(--neutral-50); --sb-co-border:var(--neutral-200);
-  --sb-co-name:var(--navy-900); --sb-co-label:var(--neutral-400);
-  --sb-group-label:var(--neutral-400); --sb-footer-border:var(--neutral-200);
-  --sb-user-name:var(--navy-900); --sb-user-role:var(--neutral-500);
-  --sb-user-avatar-bg:var(--navy-100); --sb-user-avatar-bd:var(--navy-200);
-  --tb-bg:var(--neutral-0); --tb-border:var(--neutral-200);
-  --tb-title:var(--navy-900); --tb-search-bg:var(--neutral-50);
-  --main-bg:var(--neutral-50);
-  --auth-left-bg:var(--neutral-100); --auth-left-text:var(--neutral-600);
-  --auth-left-heading:var(--navy-900); --auth-card-bg:var(--neutral-0);
-  --ob-bg:var(--neutral-50); --ob-step-active:var(--amber-400);
-  --ob-step-done:var(--navy-800); --ob-step-todo:var(--neutral-200);
-  --ob-radio-sel-title:var(--navy-900); --ob-radio-sel-desc:var(--navy-600);
-  --progress-bg:var(--neutral-100); --progress-fill:var(--navy-600);
-  --sb-logo-bd:var(--neutral-200);
-  --wm-zap:#F5B91E; --wm-okay:#070E1C;
+  /* Page & surfaces */
+  --page-bg: #F5F4F0;
+  --surface-bg: #FAFAF8;
+  --card-bg: #FEFEFE;
+  --card-border: #E6E4DE;
+  --card-hover-border: #D5D2CC;
+  --hover: #F2F0EA;
+  --active: #EBE8DF;
+
+  /* Sidebar — light warm surface */
+  --sb-bg: #FAFAF8;
+  --sb-text: #7A7066;
+  --sb-text-active: #1C1A17;
+  --sb-hover-bg: #F2F0EA;
+  --sb-active-bg: #EBE8DF;
+  --sb-active-indicator: #E8D800;
+  --sb-border: #E6E4DE;
+  --sb-group-label: #AAA59A;
+
+  /* Sidebar icons */
+  --sb-icon-primary: #7A7066;
+  --sb-icon-secondary: rgba(122,112,102,0.25);
+  --sb-icon-active-primary: #1C1A17;
+  --sb-icon-active-secondary: rgba(28,26,23,0.20);
+
+  /* Topbar */
+  --tb-bg: #FAFAF8;
+  --tb-border: #E6E4DE;
+  --tb-title: #1C1A17;
+  --tb-search-bg: #F5F4F0;
+
+  /* Text */
+  --text-heading: #1C1A17;
+  --text-body: #5C5850;
+  --text-secondary: #7A7066;
+  --text-muted: #AAA59A;
+  --text-placeholder: #C5C0B9;
+  --text-link: #1E3D6B;
+
+  /* Brand — immutable */
+  --amber-400: #F5B91E;
+  --amber-hover: #E8AE0E;
+  --amber-600: #C4900A;
+  --amber-800: #7A5804;
+  --amber-200: #FDDB8C;
+  --amber-100: #FEECC0;
+  --amber-50: #FFF8E7;
+  --spark: #E8D800;
+  --cta-text: #070E1C;
+
+  /* Inputs */
+  --input-bg: #FEFEFE;
+  --input-border: #E6E4DE;
+  --input-border-hover: #D8D5CC;
+  --input-border-focus: #4A6B93;
+  --input-focus-border: #4A6B93;
+  --input-ring-focus: rgba(74,107,147,0.12);
+  --input-focus-ring: rgba(74,107,147,0.12);
+  --input-placeholder: #C5C0B9;
+  --divider: #E6E4DE;
+
+  /* Semantic */
+  --success-bg: #F0F4EE;
+  --success-border: #B8CCAF;
+  --success-text: #2E5425;
+  --warning-bg: #FFF8E7;
+  --warning-border: #FDDB8C;
+  --warning-text: #7A5804;
+  --error-bg: #F5EEEE;
+  --error-border: #C9A5A5;
+  --error-text: #6B1E1E;
+  --info-bg: #EEF1F7;
+  --info-border: #9EB0C9;
+  --info-text: #1E3D6B;
+
+  /* Signature */
+  --wm-zap: #F5B91E;
+  --wm-okay: #1C1A17;
+
+  /* Toggle */
+  --toggle-off-bg: #E6E4DE;
+  --toggle-on-bg: #070E1C;
+  --toggle-knob-on: #FFFFFF;
+
+  /* Onboarding */
+  --ob-track-bg: #E6E4DE;
+  --ob-circle-todo-bg: #E6E4DE;
+  --ob-circle-todo-text: #AAA59A;
+  --ob-check-color: #FFFFFF;
+  --ob-circle-number-color: #FFFFFF;
+  --ob-label-done: #AAA59A;
+  --ob-label-active: #1C1A17;
+  --ob-step-label: #C4900A;
+  --ob-icon-bg: #FFF8E7;
+  --ob-icon-border: #FDDB8C;
+  --ob-icon-primary: #070E1C;
+  --ob-icon-secondary: #FDDB8C;
+  --ob-step-active: #F5B91E;
+  --ob-step-done: #0F1E38;
+  --ob-step-todo: #E6E4DE;
+  --ob-bg: #F5F4F0;
+  --ob-radio-sel-title: #070E1C;
+  --ob-radio-sel-desc: #1E3D6B;
+
+  /* Gauge */
+  --gauge-fill-start: #4A6B93;
+  --gauge-fill-end: #1E3D6B;
+  --progress-bg: #E6E4DE;
+  --progress-fill: #1E3D6B;
+
+  /* Auth */
+  --auth-left-bg: #121212;
+  --auth-left-text: rgba(255,255,255,0.70);
+  --auth-left-heading: #FFFFFF;
+  --auth-card-bg: #FEFEFE;
+
+  /* Main content */
+  --main-bg: #F5F4F0;
+
+  /* Backward-compat aliases for Sprint 7B components */
+  --sb-logo-bd: #E6E4DE;
+  --sb-item-hover: #F2F0EA;
+  --sb-item-active: #EBE8DF;
+  --sb-icon-default: #7A7066;
+  --sb-icon-active: #1C1A17;
+  --sb-label-default: #7A7066;
+  --sb-label-active: #1C1A17;
+  --sb-wordmark: #1C1A17;
+  --sb-co-bg: #F2F0EA;
+  --sb-co-border: #E6E4DE;
+  --sb-co-name: #1C1A17;
+  --sb-co-label: #AAA59A;
+  --sb-footer-border: #E6E4DE;
+  --sb-user-name: #1C1A17;
+  --sb-user-role: #AAA59A;
+  --sb-user-avatar-bg: #F5B91E;
+  --sb-user-avatar-bd: #E8AE0E;
+  --sb-user-avatar-text: #1C1A17;
+  --sb-co-icon-bg: #F5B91E;
+  --sb-co-icon-text: #1C1A17;
+  --tb-title: #1C1A17;
 }
 
+/* ─── Aria v2 DARK — Charbon Neutre ─── */
 [data-theme="dark"] {
-  --page-bg:#0C1527; --card-bg:#0F1E38; --card-border:rgba(255,255,255,.07);
-  --text-heading:rgba(255,255,255,.90); --text-body:rgba(255,255,255,.55);
-  --text-muted:rgba(255,255,255,.30); --text-link:var(--amber-400);
-  --input-bg:rgba(255,255,255,.04); --input-border:rgba(255,255,255,.10);
-  --input-border-hover:rgba(255,255,255,.18); --input-border-focus:var(--navy-200);
-  --input-ring-focus:rgba(78,107,147,.20); --input-placeholder:rgba(255,255,255,.28);
-  --divider:rgba(255,255,255,.07);
-  --logo-sq:var(--neutral-0); --logo-z:var(--navy-900); --logo-dot:var(--amber-400);
-  --wordmark-color:rgba(255,255,255,.90);
-  --sb-bg:#040810; --sb-item-hover:rgba(255,255,255,.05);
-  --sb-item-active:rgba(255,255,255,.09); --sb-icon-default:rgba(255,255,255,.35);
-  --sb-icon-active:var(--amber-400); --sb-label-default:rgba(255,255,255,.55);
-  --sb-label-active:#FFFFFF; --sb-wordmark:rgba(255,255,255,.90);
-  --sb-co-bg:rgba(255,255,255,.04); --sb-co-border:rgba(255,255,255,.07);
-  --sb-co-name:rgba(255,255,255,.90); --sb-co-label:rgba(255,255,255,.30);
-  --sb-group-label:rgba(255,255,255,.20); --sb-footer-border:rgba(255,255,255,.05);
-  --sb-user-name:#FFFFFF; --sb-user-role:rgba(255,255,255,.30);
-  --sb-user-avatar-bg:#2A3D5E; --sb-user-avatar-bd:rgba(255,255,255,.10);
-  --tb-bg:#0A1120; --tb-border:rgba(255,255,255,.07);
-  --tb-title:rgba(255,255,255,.90); --tb-search-bg:rgba(255,255,255,.04);
-  --main-bg:#0C1527;
-  --auth-left-bg:#040810; --auth-left-text:rgba(255,255,255,.55);
-  --auth-left-heading:#FFFFFF; --auth-card-bg:#0F1E38;
-  --ob-bg:#0C1527; --ob-step-active:var(--amber-400);
-  --ob-step-done:var(--navy-200); --ob-step-todo:rgba(255,255,255,.10);
-  --ob-radio-sel-title:var(--navy-900); --ob-radio-sel-desc:var(--navy-600);
-  --progress-bg:rgba(255,255,255,.07); --progress-fill:var(--amber-400);
-  --info-bg:rgba(74,107,147,.15); --info-border:rgba(74,107,147,.30); --info-text:var(--navy-200);
-  --warning-bg:rgba(196,144,10,.12); --warning-border:rgba(196,144,10,.25); --warning-text:var(--amber-200);
-  --success-bg:rgba(74,122,64,.15); --success-border:rgba(74,122,64,.30); --success-text:#B8CCAF;
-  --error-bg:rgba(139,51,51,.15); --error-border:rgba(201,165,165,.30); --error-text:#E8BABA;
-  --sb-logo-bd:rgba(255,255,255,0.05);
-  --wm-zap:#F5B91E; --wm-okay:rgba(255,255,255,0.9);
+  /* Page & surfaces */
+  --page-bg: #181818;
+  --surface-bg: #1E1E1E;
+  --card-bg: #242424;
+  --card-border: rgba(255,255,255,0.08);
+  --card-hover-border: rgba(255,255,255,0.15);
+  --hover: rgba(255,255,255,0.06);
+  --active: rgba(255,255,255,0.10);
+
+  /* Sidebar */
+  --sb-bg: #121212;
+  --sb-text: rgba(255,255,255,0.60);
+  --sb-text-active: rgba(255,255,255,0.92);
+  --sb-hover-bg: rgba(255,255,255,0.05);
+  --sb-active-bg: rgba(255,255,255,0.08);
+  --sb-active-indicator: #E8D800;
+  --sb-border: rgba(255,255,255,0.06);
+  --sb-group-label: rgba(255,255,255,0.25);
+
+  /* Sidebar icons */
+  --sb-icon-primary: rgba(255,255,255,0.80);
+  --sb-icon-secondary: rgba(255,255,255,0.25);
+  --sb-icon-active-primary: #F5B91E;
+  --sb-icon-active-secondary: rgba(245,185,30,0.35);
+
+  /* Topbar */
+  --tb-bg: #1E1E1E;
+  --tb-border: rgba(255,255,255,0.08);
+  --tb-title: rgba(255,255,255,0.87);
+  --tb-search-bg: rgba(255,255,255,0.04);
+
+  /* Text */
+  --text-heading: rgba(255,255,255,0.87);
+  --text-body: rgba(255,255,255,0.60);
+  --text-secondary: rgba(255,255,255,0.50);
+  --text-muted: rgba(255,255,255,0.38);
+  --text-placeholder: rgba(255,255,255,0.20);
+  --text-link: rgba(245,185,30,0.65);
+
+  /* Brand */
+  --amber-400: #F5B91E;
+  --amber-hover: #E8AE0E;
+  --amber-600: #C4900A;
+  --amber-800: #7A5804;
+  --amber-200: #FDDB8C;
+  --amber-100: #FEECC0;
+  --amber-50: #FFF8E7;
+  --spark: #E8D800;
+  --cta-text: #070E1C;
+
+  /* Inputs */
+  --input-bg: rgba(255,255,255,0.05);
+  --input-border: rgba(255,255,255,0.10);
+  --input-border-hover: rgba(255,255,255,0.15);
+  --input-border-focus: #F5B91E;
+  --input-focus-border: #F5B91E;
+  --input-ring-focus: rgba(245,185,30,0.25);
+  --input-focus-ring: rgba(245,185,30,0.25);
+  --input-placeholder: rgba(255,255,255,0.20);
+  --divider: rgba(255,255,255,0.08);
+
+  /* Semantic */
+  --success-bg: rgba(140,192,126,0.10);
+  --success-border: rgba(140,192,126,0.16);
+  --success-text: #8CC07E;
+  --warning-bg: rgba(224,184,64,0.12);
+  --warning-border: rgba(224,184,64,0.18);
+  --warning-text: #E0B840;
+  --error-bg: rgba(212,160,160,0.10);
+  --error-border: rgba(212,160,160,0.16);
+  --error-text: #D4A0A0;
+  --info-bg: rgba(148,180,212,0.10);
+  --info-border: rgba(148,180,212,0.16);
+  --info-text: #94B4D4;
+
+  /* Signature */
+  --wm-zap: #F5B91E;
+  --wm-okay: rgba(255,255,255,0.87);
+
+  /* Toggle */
+  --toggle-off-bg: rgba(255,255,255,0.10);
+  --toggle-on-bg: #F5B91E;
+  --toggle-knob-on: #070E1C;
+
+  /* Onboarding */
+  --ob-track-bg: rgba(255,255,255,0.08);
+  --ob-circle-todo-bg: rgba(255,255,255,0.08);
+  --ob-circle-todo-text: rgba(255,255,255,0.38);
+  --ob-check-color: #070E1C;
+  --ob-circle-number-color: #070E1C;
+  --ob-label-done: rgba(255,255,255,0.38);
+  --ob-label-active: rgba(255,255,255,0.87);
+  --ob-step-label: #F5B91E;
+  --ob-icon-bg: rgba(245,185,30,0.08);
+  --ob-icon-border: rgba(245,185,30,0.15);
+  --ob-icon-primary: #F5B91E;
+  --ob-icon-secondary: rgba(245,185,30,0.30);
+  --ob-step-active: #F5B91E;
+  --ob-step-done: #9EB0C9;
+  --ob-step-todo: rgba(255,255,255,0.10);
+  --ob-bg: #181818;
+  --ob-radio-sel-title: #070E1C;
+  --ob-radio-sel-desc: #1E3D6B;
+
+  /* Gauge */
+  --gauge-fill-start: #E8AD1A;
+  --gauge-fill-end: #C4900A;
+  --progress-bg: rgba(255,255,255,0.07);
+  --progress-fill: #F5B91E;
+
+  /* Auth */
+  --auth-left-bg: #121212;
+  --auth-left-text: rgba(255,255,255,0.55);
+  --auth-left-heading: #FFFFFF;
+  --auth-card-bg: #242424;
+
+  /* Main content */
+  --main-bg: #181818;
+
+  /* Backward-compat aliases for Sprint 7B components */
+  --sb-logo-bd: rgba(255,255,255,0.06);
+  --sb-item-hover: rgba(255,255,255,0.05);
+  --sb-item-active: rgba(255,255,255,0.08);
+  --sb-icon-default: rgba(255,255,255,0.80);
+  --sb-icon-active: #F5B91E;
+  --sb-label-default: rgba(255,255,255,0.60);
+  --sb-label-active: rgba(255,255,255,0.92);
+  --sb-wordmark: rgba(255,255,255,0.90);
+  --sb-co-bg: rgba(255,255,255,0.04);
+  --sb-co-border: rgba(255,255,255,0.07);
+  --sb-co-name: rgba(255,255,255,0.90);
+  --sb-co-label: rgba(255,255,255,0.30);
+  --sb-footer-border: rgba(255,255,255,0.06);
+  --sb-user-name: #FFFFFF;
+  --sb-user-role: rgba(255,255,255,0.30);
+  --sb-user-avatar-bg: #2A3D5E;
+  --sb-user-avatar-bd: rgba(255,255,255,0.10);
+  --sb-user-avatar-text: #FFFFFF;
+  --sb-co-icon-bg: #1E3D6B;
+  --sb-co-icon-text: #FFFFFF;
+
+  /* Dark urgent pill */
+}
+[data-theme="dark"] .pill-urgent {
+  border-color: rgba(212,160,160,0.25);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -228,7 +454,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 
 /* ─── Sidebar marque ──────────────────────────────────────────────────────── */
 .sb-brand {
-  height: 56px;
+  height: 60px;
+  min-height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;

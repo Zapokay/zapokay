@@ -1,6 +1,6 @@
 'use client';
 
-import { Zap, Check } from 'lucide-react';
+import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
 import type { OnboardingShareholder } from './StepShareholders';
 import type { OnboardingOfficers } from './StepOfficers';
@@ -29,6 +29,8 @@ export default function StepCelebration({
   onContinue,
 }: StepCelebrationProps) {
 
+  const fr = locale === 'fr';
+
   const validDirectors = directors.filter((d) => d.fullName.trim());
   const validShareholders = shareholders.filter((s) => s.fullName.trim());
   const hasPresident = !!officers.presidentName;
@@ -38,107 +40,96 @@ export default function StepCelebration({
   // Build checklist items
   const items: { label: string; done: boolean }[] = [
     {
-      label: locale === 'fr' ? 'Entreprise enregistrée' : 'Company registered',
+      label: fr ? 'Entreprise enregistrée' : 'Company registered',
       done: true,
     },
     {
-      label:
-        locale === 'fr'
-          ? `${validDirectors.length} administrateur${validDirectors.length > 1 ? 's' : ''}`
-          : `${validDirectors.length} director${validDirectors.length > 1 ? 's' : ''}`,
+      label: fr
+        ? `${validDirectors.length} administrateur${validDirectors.length > 1 ? 's' : ''}`
+        : `${validDirectors.length} director${validDirectors.length > 1 ? 's' : ''}`,
       done: validDirectors.length > 0,
     },
     {
-      label:
-        locale === 'fr'
-          ? `${validShareholders.length} actionnaire${validShareholders.length > 1 ? 's' : ''}`
-          : `${validShareholders.length} shareholder${validShareholders.length > 1 ? 's' : ''}`,
+      label: fr
+        ? `${validShareholders.length} actionnaire${validShareholders.length > 1 ? 's' : ''}`
+        : `${validShareholders.length} shareholder${validShareholders.length > 1 ? 's' : ''}`,
       done: validShareholders.length > 0,
     },
     {
-      label: locale === 'fr' ? 'Président·e nommé·e' : 'President appointed',
+      label: fr ? 'Président·e nommé·e' : 'President appointed',
       done: hasPresident,
     },
     {
-      label: locale === 'fr' ? 'Secrétaire nommé·e' : 'Secretary appointed',
+      label: fr ? 'Secrétaire nommé·e' : 'Secretary appointed',
       done: hasSecretary,
     },
   ];
 
   if (hasTreasurer) {
     items.push({
-      label: locale === 'fr' ? 'Trésorier·ière nommé·e' : 'Treasurer appointed',
+      label: fr ? 'Trésorier·ière nommé·e' : 'Treasurer appointed',
       done: true,
     });
   }
 
-  return (
-    <div className="w-full max-w-md space-y-8 text-center">
-      {/* Icon */}
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/30">
-        <Zap className="h-8 w-8 text-amber-500" />
-      </div>
+  const clipboardIcon = (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
 
-      {/* Title */}
-      <div>
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-          {locale === 'fr'
-            ? '⚡ Votre entreprise est configurée !'
-            : '⚡ Your company is set up!'}
-        </h2>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          {locale === 'fr'
-            ? 'Votre registre corporatif est en place.'
-            : 'Your corporate register is in place.'}
+  return (
+    <OnboardingStepLayout
+      stepLabel={fr ? 'ÉTAPE 7 — SOMMAIRE' : 'STEP 7 — SUMMARY'}
+      icon={clipboardIcon}
+      title={fr ? 'Votre entreprise est prête !' : 'Your company is ready!'}
+      locale={locale}
+      onContinue={onContinue}
+      continueLabel={fr ? 'Terminer' : 'Finish'}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+        {/* Checklist */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: item.done ? '#F5B91E' : 'var(--page-bg)',
+                border: `1px solid ${item.done ? '#F5B91E' : 'var(--card-border)'}`,
+              }}>
+                {item.done ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1C1A17" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>—</span>
+                )}
+              </div>
+              <span style={{
+                fontSize: '14px',
+                fontWeight: item.done ? 500 : 400,
+                color: item.done ? 'var(--text-heading)' : 'var(--text-muted)',
+              }}>
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Subtitle */}
+        <p style={{
+          fontSize: '13px', color: 'var(--text-secondary)',
+          textAlign: 'center', paddingTop: '12px',
+          borderTop: '1px solid var(--card-border)',
+        }}>
+          {fr
+            ? 'Prochaine étape : choisissez vos exercices financiers.'
+            : 'Next step: choose your fiscal years.'}
         </p>
       </div>
-
-      {/* Checklist */}
-      <div className="mx-auto max-w-xs space-y-2.5 text-left">
-        {items.map((item, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <div
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                item.done
-                  ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                  : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'
-              }`}
-            >
-              {item.done ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <span className="text-[10px]">—</span>
-              )}
-            </div>
-            <span
-              className={`text-sm ${
-                item.done
-                  ? 'font-medium text-zinc-700 dark:text-zinc-300'
-                  : 'text-zinc-400 dark:text-zinc-500'
-              }`}
-            >
-              {item.label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Subtitle */}
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        {locale === 'fr'
-          ? 'Prochaine étape : choisissez vos exercices financiers.'
-          : 'Next step: choose your fiscal years.'}
-      </p>
-
-      {/* CTA */}
-      <button
-        type="button"
-        onClick={onContinue}
-        className="rounded-lg bg-amber-500 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600"
-      >
-        {locale === 'fr' ? 'Choisir mes exercices →' : 'Choose my fiscal years →'}
-      </button>
-    </div>
+    </OnboardingStepLayout>
   );
 }
-

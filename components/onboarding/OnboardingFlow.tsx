@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Language, OnboardingData } from '@/lib/types';
@@ -10,7 +10,6 @@ import StepDirectors, { type OnboardingDirector } from './StepDirectors';
 import StepShareholders, { type OnboardingShareholder } from './StepShareholders';
 import StepOfficers, { type OnboardingOfficers } from './StepOfficers';
 import StepCelebration from './StepCelebration';
-import { ZapLogo } from '@/components/ui/ZapLogo';
 
 interface OnboardingFlowProps {
   locale: string;
@@ -269,123 +268,136 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
   }, [userId, data.language, supabase, router]);
 
   return (
-    <div className="min-h-screen bg-[var(--ob-bg)]">
-      <header className="border-b border-[var(--card-border)] bg-[var(--card-bg)] backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <ZapLogo size="sm" />
-          {/* Dot progress — 8 dots, last one (fiscal years) is a separate page */}
-          <div className="flex items-center">
-            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-              <div key={i} className="flex items-center">
-                <div
-                  className={`rounded-full transition-all duration-300 ${
-                    i + 1 < step
-                      ? 'w-2.5 h-2.5 bg-[var(--ob-step-done)]'
-                      : i + 1 === step
-                      ? 'w-4 h-4 bg-[var(--ob-step-active)]'
-                      : 'w-2.5 h-2.5 bg-[var(--ob-step-todo)]'
-                  }`}
-                />
-                {i < TOTAL_STEPS - 1 && (
-                  <div
-                    className={`h-0.5 w-6 transition-all duration-300 ${
-                      i + 1 < step ? 'bg-[var(--ob-step-done)]' : 'bg-[var(--ob-step-todo)]'
-                    }`}
-                  />
-                )}
-              </div>
+    <div style={{ minHeight: '100vh', background: 'var(--page-bg)' }}>
+      {/* ─── Header ─── */}
+      <header style={{
+        height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 32px',
+      }}>
+        {/* Left: Z tag + ZapOkay signature */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Z tag — 28x28 charcoal rounded square with amber Z + amber dot */}
+          <div style={{ position: 'relative', width: '28px', height: '28px', borderRadius: '6px', background: '#1C1A17', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 900, fontSize: '18px', color: '#F5B91E', lineHeight: 1 }}>Z</span>
+            <span style={{ position: 'absolute', top: '-3px', right: '-3px', width: '8px', height: '8px', borderRadius: '50%', background: '#F5B91E', border: '1.5px solid #F5F4F0' }} />
+          </div>
+          {/* Signature */}
+          <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 900, fontSize: '14px', letterSpacing: '-0.02em' }}>
+            <span style={{ color: '#F5B91E' }}>Zap</span>
+            <span style={{ color: '#1C1A17' }}>Okay</span>
+          </span>
+        </div>
+
+        {/* Right: Aide link + FR/EN toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <a href="#" style={{ fontSize: '12px', color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {fr ? 'Aide' : 'Help'}
+          </a>
+          {/* Lang toggle */}
+          <div style={{ display: 'flex', gap: '2px' }}>
+            {(['fr', 'en'] as const).map(lang => (
+              <button
+                key={lang}
+                onClick={() => setData(d => ({ ...d, language: lang }))}
+                style={{
+                  padding: '3px 8px', fontSize: '10px', fontWeight: 600,
+                  borderRadius: '5px', border: '1px solid #E6E4DE',
+                  cursor: 'pointer', transition: 'all 120ms',
+                  background: activeLocale === lang ? '#1C1A17' : 'white',
+                  color: activeLocale === lang ? 'white' : '#7A7066',
+                }}
+              >
+                {lang.toUpperCase()}
+              </button>
             ))}
           </div>
-          <span className="text-sm text-[var(--text-muted)]">
-            {step} / {TOTAL_STEPS}
-          </span>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-6 py-12">
-        <div className="animate-fade-up">
-          {/* Step 1: Language */}
-          {step === 1 && (
-            <StepLanguage
-              data={data}
-              setData={setData}
-              onNext={() => setStep(2)}
-              onBack={() => {}}
-              locale={activeLocale}
-            />
-          )}
+      {/* ─── Progress Stepper ─── */}
+      <div style={{ padding: '24px 32px 0', maxWidth: '700px', margin: '0 auto' }}>
+        {(() => {
+          const stepConfig = [
+            { labelFr: 'Langue',   labelEn: 'Language' },
+            { labelFr: 'Société',  labelEn: 'Company' },
+            { labelFr: 'Province', labelEn: 'Province' },
+            { labelFr: 'Admin.',   labelEn: 'Directors' },
+            { labelFr: 'Action.',  labelEn: 'Shares' },
+            { labelFr: 'Dirig.',   labelEn: 'Officers' },
+            { labelFr: 'Sommaire', labelEn: 'Summary' },
+            { labelFr: 'Fiscal',   labelEn: 'Fiscal' },
+          ];
+          const AMBER = '#F5B91E';
+          const GREY = '#E6E4DE';
+          const PAGE = 'var(--page-bg)';
+          return (
+            <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
+              {stepConfig.map((sc, i) => {
+                const sNum = i + 1;
+                const done = sNum < step;
+                const current = sNum === step;
+                const isLast = i === stepConfig.length - 1;
+                return (
+                  <React.Fragment key={i}>
+                    {/* Circle + label — fixed 56px width so labels never shift circles */}
+                    <div style={{ width: '56px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        background: done || current ? AMBER : GREY,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        outline: `3px solid ${PAGE}`,
+                        outlineOffset: '0px',
+                        flexShrink: 0,
+                        zIndex: 1, position: 'relative',
+                      }}>
+                        {done ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <span style={{
+                            fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '11px',
+                            color: current ? 'white' : '#AAA59A',
+                          }}>{sNum}</span>
+                        )}
+                      </div>
+                      <span style={{
+                        fontSize: '9px', fontWeight: current ? 700 : 400,
+                        color: current ? '#1C1A17' : '#AAA59A',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                        maxWidth: '56px', textAlign: 'center',
+                      }}>
+                        {fr ? sc.labelFr : sc.labelEn}
+                      </span>
+                    </div>
+                    {/* Connecting line — vertically centered at circle midpoint (16px from top) */}
+                    {!isLast && (
+                      <div style={{
+                        flex: 1, height: '4px', flexShrink: 1,
+                        marginTop: '14px',
+                        zIndex: 0,
+                        background: done ? AMBER : GREY,
+                        transition: 'background 300ms',
+                      }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </div>
 
-          {/* Step 2: Company info (no Province) */}
-          {step === 2 && (
-            <StepCompany
-              data={data}
-              setData={setData}
-              onNext={() => setStep(3)}
-              onBack={() => setStep(1)}
-              locale={activeLocale}
-            />
-          )}
-
-          {/* Step 3: Province — also triggers company save to DB */}
-          {step === 3 && (
-            <StepProvince
-              data={data}
-              setData={setData}
-              onNext={handleProvinceContinue}
-              onBack={() => setStep(2)}
-              locale={activeLocale}
-              saving={saving}
-              saveError={saveError}
-            />
-          )}
-
-          {/* Step 4: Directors */}
-          {step === 4 && (
-            <StepDirectors
-              locale={activeLocale}
-              incorporationDate={incorporationDate}
-              initialDirectors={directors.length > 0 ? directors : undefined}
-              onContinue={handleDirectorsContinue}
-              onSkip={() => setStep(5)}
-            />
-          )}
-
-          {/* Step 5: Shareholders */}
-          {step === 5 && (
-            <StepShareholders
-              locale={activeLocale}
-              directors={directors}
-              incorporationDate={incorporationDate}
-              initialShareholders={shareholders.length > 0 ? shareholders : undefined}
-              onContinue={handleShareholdersContinue}
-              onSkip={() => setStep(6)}
-            />
-          )}
-
-          {/* Step 6: Officers */}
-          {step === 6 && (
-            <StepOfficers
-              locale={activeLocale}
-              directors={directors}
-              shareholders={shareholders}
-              incorporationDate={incorporationDate}
-              initialOfficers={officers.presidentName ? officers : undefined}
-              onContinue={handleOfficersContinue}
-              onSkip={() => setStep(7)}
-            />
-          )}
-
-          {/* Step 7: Celebration */}
-          {step === 7 && (
-            <StepCelebration
-              locale={activeLocale}
-              directors={directors}
-              shareholders={shareholders}
-              officers={officers}
-              onContinue={handleCelebrationContinue}
-            />
-          )}
-        </div>
+      {/* ─── Main content ─── */}
+      <main style={{ maxWidth: '560px', margin: '0 auto', padding: '32px 24px 40px' }}>
+        {step === 1 && <StepLanguage data={data} setData={setData} onNext={() => setStep(2)} onBack={() => {}} locale={activeLocale} />}
+        {step === 2 && <StepCompany data={data} setData={setData} onNext={() => setStep(3)} onBack={() => setStep(1)} locale={activeLocale} />}
+        {step === 3 && <StepProvince data={data} setData={setData} onNext={handleProvinceContinue} onBack={() => setStep(2)} locale={activeLocale} saving={saving} saveError={saveError} />}
+        {step === 4 && <StepDirectors locale={activeLocale} incorporationDate={incorporationDate} initialDirectors={directors.length > 0 ? directors : undefined} onContinue={handleDirectorsContinue} onSkip={() => setStep(5)} />}
+        {step === 5 && <StepShareholders locale={activeLocale} directors={directors} incorporationDate={incorporationDate} initialShareholders={shareholders.length > 0 ? shareholders : undefined} onContinue={handleShareholdersContinue} onSkip={() => setStep(6)} />}
+        {step === 6 && <StepOfficers locale={activeLocale} directors={directors} shareholders={shareholders} incorporationDate={incorporationDate} initialOfficers={officers.presidentName ? officers : undefined} onContinue={handleOfficersContinue} onSkip={() => setStep(7)} />}
+        {step === 7 && <StepCelebration locale={activeLocale} directors={directors} shareholders={shareholders} officers={officers} onContinue={handleCelebrationContinue} />}
       </main>
     </div>
   );

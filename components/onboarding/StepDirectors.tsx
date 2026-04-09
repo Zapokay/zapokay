@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, Info, UserCheck } from 'lucide-react';
+import { OnboardingStepLayout } from './OnboardingStepLayout';
 
 // =============================================================================
 // Types
@@ -23,6 +23,24 @@ interface StepDirectorsProps {
 }
 
 // =============================================================================
+// Shared styles
+// =============================================================================
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px',
+  border: '1px solid var(--input-border)',
+  borderRadius: '10px',
+  background: 'var(--input-bg)',
+  fontSize: '14px', color: 'var(--text-heading)',
+  outline: 'none', boxSizing: 'border-box',
+};
+
+const fieldLabelStyle: React.CSSProperties = {
+  display: 'block', fontSize: '12px', fontWeight: 500,
+  color: 'var(--text-secondary)', marginBottom: '5px',
+};
+
+// =============================================================================
 // Component
 // =============================================================================
 
@@ -35,6 +53,7 @@ export default function StepDirectors({
   onSkip,
 }: StepDirectorsProps) {
 
+  const fr = locale === 'fr';
   const defaultDate = incorporationDate || new Date().toISOString().split('T')[0];
 
   const [directors, setDirectors] = useState<OnboardingDirector[]>(
@@ -48,8 +67,6 @@ export default function StepDirectors({
           },
         ]
   );
-
-  const [showTooltip, setShowTooltip] = useState(false);
 
   // ---- Handlers -------------------------------------------------------------
   function updateDirector(index: number, field: keyof OnboardingDirector, value: any) {
@@ -70,150 +87,156 @@ export default function StepDirectors({
   }
 
   function handleContinue() {
-    // Filter out empty entries
     const valid = directors.filter((d) => d.fullName.trim());
     onContinue(valid.length > 0 ? valid : directors);
   }
 
+  const usersIcon = (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+
   // ---- Render ---------------------------------------------------------------
   return (
-    <div className="w-full max-w-lg space-y-6">
-      {/* Title */}
-      <div className="text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-          <UserCheck className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-        </div>
-        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          {locale === 'fr'
-            ? 'Qui sont les administrateurs de votre entreprise ?'
-            : 'Who are the directors of your company?'}
-        </h2>
-
-        {/* Tooltip */}
-        <div className="relative mx-auto mt-2 inline-block">
-          <button
-            type="button"
-            onMouseEnter={() => setShowTooltip(true)}
-            onMouseLeave={() => setShowTooltip(false)}
-            onClick={() => setShowTooltip((v) => !v)}
-            className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-          >
-            <Info className="h-3.5 w-3.5" />
-            {locale === 'fr' ? "Qu'est-ce qu'un administrateur ?" : 'What is a director?'}
-          </button>
-          {showTooltip && (
-            <div className="absolute left-1/2 top-full z-30 mt-1.5 w-72 -translate-x-1/2 rounded-lg border border-zinc-200 bg-white p-3 text-left text-xs text-zinc-600 shadow-lg dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
-              {locale === 'fr'
-                ? "Les administrateurs supervisent la gestion de l'entreprise. Dans la plupart des petites entreprises, le fondateur est le seul administrateur."
-                : 'Directors oversee company management. In most small businesses, the founder is the sole director.'}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Director entries */}
-      <div className="space-y-3">
+    <OnboardingStepLayout
+      stepLabel={fr ? 'ÉTAPE 4 — ADMINISTRATEURS' : 'STEP 4 — DIRECTORS'}
+      icon={usersIcon}
+      title={fr ? (
+        <>Qui sont les administrateurs<br />de votre entreprise ?</>
+      ) : (
+        <>Who are the directors<br />of your company?</>
+      )}
+      tooltip={fr ? "Qu'est-ce qu'un administrateur ?" : 'What is a director?'}
+      tooltipContent={fr
+        ? "Les administrateurs supervisent la gestion de l'entreprise. Dans la plupart des petites entreprises, le fondateur est le seul administrateur."
+        : 'Directors oversee company management. In most small businesses, the founder is the sole director.'}
+      locale={locale}
+      onSkip={onSkip}
+      onContinue={handleContinue}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {directors.map((director, index) => (
           <div
             key={index}
-            className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800/60"
+            style={{
+              borderRadius: '10px',
+              border: '1px solid var(--card-border)',
+              background: 'var(--page-bg)',
+              padding: '14px',
+            }}
           >
             {/* Header */}
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                {locale === 'fr' ? `Administrateur ${index + 1}` : `Director ${index + 1}`}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                {fr ? `Administrateur ${index + 1}` : `Director ${index + 1}`}
               </p>
               {directors.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removeDirector(index)}
-                  className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                  style={{
+                    padding: '4px', borderRadius: '6px',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                  }}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                  </svg>
                 </button>
               )}
             </div>
 
             {/* Full name */}
-            <div className="mb-3">
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                {locale === 'fr' ? 'Nom complet' : 'Full name'}{' '}
-                <span className="text-red-500">*</span>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabelStyle}>
+                {fr ? 'Nom complet' : 'Full name'}{' '}
+                <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
                 value={director.fullName}
                 onChange={(e) => updateDirector(index, 'fullName', e.target.value)}
                 placeholder="Jean-Philippe Roussy"
-                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                style={inputStyle}
               />
             </div>
 
             {/* Date + Resident row */}
-            <div className="grid grid-cols-2 gap-3">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {locale === 'fr' ? 'Date de nomination' : 'Appointment date'}
+                <label style={fieldLabelStyle}>
+                  {fr ? 'Date de nomination' : 'Appointment date'}
                 </label>
                 <input
                   type="date"
                   value={director.appointmentDate}
                   onChange={(e) => updateDirector(index, 'appointmentDate', e.target.value)}
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  style={inputStyle}
                 />
               </div>
-              <div className="flex items-end pb-1">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <div className="relative">
+              <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '4px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
                     <input
                       type="checkbox"
                       checked={director.isCanadianResident}
-                      onChange={(e) =>
-                        updateDirector(index, 'isCanadianResident', e.target.checked)
-                      }
-                      className="peer sr-only"
+                      onChange={(e) => updateDirector(index, 'isCanadianResident', e.target.checked)}
+                      style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
                     />
-                    <div className="h-5 w-9 rounded-full bg-zinc-300 transition-colors peer-checked:bg-amber-500 dark:bg-zinc-600" />
-                    <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                    <div
+                      style={{
+                        width: '36px', height: '20px', borderRadius: '10px',
+                        background: director.isCanadianResident ? '#F5B91E' : 'var(--card-border)',
+                        transition: 'background 200ms', cursor: 'pointer',
+                      }}
+                      onClick={() => updateDirector(index, 'isCanadianResident', !director.isCanadianResident)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute', top: '2px',
+                        left: director.isCanadianResident ? '18px' : '2px',
+                        width: '16px', height: '16px', borderRadius: '50%',
+                        background: 'white',
+                        transition: 'left 200ms',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                        pointerEvents: 'none',
+                      }}
+                    />
                   </div>
-                  <span className="text-xs text-zinc-600 dark:text-zinc-400">
-                    {locale === 'fr' ? 'Résident canadien' : 'Canadian resident'}
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    {fr ? 'Résident canadien' : 'Canadian resident'}
                   </span>
                 </label>
               </div>
             </div>
           </div>
         ))}
-      </div>
 
-      {/* Add another */}
-      <button
-        type="button"
-        onClick={addDirector}
-        className="flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-zinc-200 py-2.5 text-sm font-medium text-zinc-500 transition-colors hover:border-amber-300 hover:text-amber-600 dark:border-zinc-700 dark:hover:border-amber-700 dark:hover:text-amber-400"
-      >
-        <Plus className="h-4 w-4" />
-        {locale === 'fr' ? 'Ajouter un administrateur' : 'Add a director'}
-      </button>
-
-      {/* Actions */}
-      <div className="flex items-center justify-between pt-2">
+        {/* Add director button */}
         <button
           type="button"
-          onClick={onSkip}
-          className="rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
+          onClick={addDirector}
+          style={{
+            width: '100%', padding: '14px',
+            border: '1.5px dashed var(--card-border)',
+            borderRadius: '12px',
+            background: 'transparent',
+            cursor: 'pointer',
+            fontSize: '14px', fontWeight: 500,
+            color: 'var(--text-secondary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            marginTop: '4px',
+          }}
         >
-          {locale === 'fr' ? 'Passer' : 'Skip'}
-        </button>
-        <button
-          type="button"
-          onClick={handleContinue}
-          className="rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600"
-        >
-          {locale === 'fr' ? 'Continuer →' : 'Continue →'}
+          <span style={{ color: '#F5B91E', fontSize: '18px', lineHeight: 1 }}>+</span>
+          {fr ? 'Ajouter un administrateur' : 'Add a director'}
         </button>
       </div>
-    </div>
+    </OnboardingStepLayout>
   );
 }
-

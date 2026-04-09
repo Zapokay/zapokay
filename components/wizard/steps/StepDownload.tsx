@@ -186,7 +186,7 @@ export function StepDownload({ files, locale, onRestart }: StepDownloadProps) {
             fontFamily: 'Sora, sans-serif',
             fontSize: '13px',
             fontWeight: 700,
-            color: '#070E1C',
+            color: '#1C1A17',
             marginBottom: '6px',
           }}
         >

@@ -225,7 +225,7 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
                       padding: '10px 20px', borderRadius: '10px',
                       background: '#F5B91E', border: 'none',
                       fontWeight: 600, fontSize: '14px',
-                      color: '#070E1C', cursor: 'pointer',
+                      color: '#1C1A17', cursor: 'pointer',
                     }}
                   >
                     {fr ? 'Générer le résumé' : 'Generate summary'}
@@ -454,7 +454,7 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
                         padding: '8px 16px', borderRadius: '8px',
                         background: '#F5B91E', border: 'none',
                         fontWeight: 600, fontSize: '13px',
-                        color: '#070E1C', cursor: 'pointer',
+                        color: '#1C1A17', cursor: 'pointer',
                         textDecoration: 'none',
                       }}
                     >

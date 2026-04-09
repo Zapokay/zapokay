@@ -501,7 +501,7 @@ export default async function DashboardPage({
                             className="text-xs font-bold truncate"
                             style={{
                               fontFamily: 'Sora, sans-serif',
-                              color: isRequired ? '#6B1E1E' : '#070E1C',
+                              color: isRequired ? '#6B1E1E' : '#1C1A17',
                             }}
                           >
                             {title}
@@ -558,7 +558,7 @@ export default async function DashboardPage({
                 <div className="h-2 rounded-full mb-4" style={{ backgroundColor: '#E2E8F0' }}>
                   <div
                     className="h-2 rounded-full transition-all"
-                    style={{ width: `${percentage}%`, backgroundColor: '#070E1C' }}
+                    style={{ width: `${percentage}%`, backgroundColor: '#1C1A17' }}
                   />
                 </div>
 

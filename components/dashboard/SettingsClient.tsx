@@ -278,7 +278,7 @@ export function SettingsClient({
               onClick={saveProfile}
               disabled={savingProfile}
               className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-              style={{ backgroundColor: '#070E1C', color: 'white' }}
+              style={{ backgroundColor: '#F5B91E', color: '#1C1A17' }}
             >
               {savingProfile ? (fr ? 'Enregistrement...' : 'Saving...') : (fr ? 'Enregistrer' : 'Save')}
             </button>
@@ -476,7 +476,7 @@ export function SettingsClient({
               onClick={saveCompany}
               disabled={savingCompany}
               className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-              style={{ backgroundColor: '#070E1C', color: 'white' }}
+              style={{ backgroundColor: '#F5B91E', color: '#1C1A17' }}
             >
               {savingCompany
                 ? (fr ? 'Enregistrement...' : 'Saving...')
@@ -606,7 +606,7 @@ export function SettingsClient({
                   setPendingUnlock(null)
                 }}
                 className="px-4 py-2 rounded-lg text-sm font-semibold"
-                style={{ backgroundColor: '#070E1C', color: 'white' }}
+                style={{ backgroundColor: '#1C1A17', color: 'white' }}
               >
                 {fr ? 'Déverrouiller' : 'Unlock'}
               </button>
