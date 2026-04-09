@@ -14,10 +14,10 @@ interface ComplianceItemCardProps {
 function IconCheck() {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-      <circle cx="11" cy="11" r="11" fill="#B8CCAF" />
+      <circle cx="11" cy="11" r="11" style={{ fill: 'var(--success-border)' }} />
       <path
         d="M6.5 11.2l3.2 3.2 5.8-6.4"
-        stroke="#2E5425"
+        style={{ stroke: 'var(--success-text)' }}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -29,10 +29,10 @@ function IconCheck() {
 function IconClock() {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-      <circle cx="11" cy="11" r="10.5" stroke="#FDDB8C" strokeWidth="1.5" fill="#FFF8E7" />
+      <circle cx="11" cy="11" r="10.5" style={{ stroke: 'var(--warning-border)', fill: 'var(--warning-bg)' }} strokeWidth="1.5" />
       <path
         d="M11 6.5V11l3 2"
-        stroke="#7A5804"
+        style={{ stroke: 'var(--warning-text)' }}
         strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -68,7 +68,7 @@ export default function ComplianceItemCard({
   if (item.status === 'compliant') {
     return (
       <div
-        style={{ borderLeft: '3px solid #B8CCAF', backgroundColor: '#F0F4EE' }}
+        style={{ borderLeft: '3px solid var(--success-border)', backgroundColor: 'var(--success-bg)' }}
         className="rounded-xl px-5 py-4 flex items-start gap-3"
       >
         <div className="flex-shrink-0 mt-0.5">
@@ -77,11 +77,11 @@ export default function ComplianceItemCard({
         <div className="min-w-0">
           <p
             className="text-sm font-semibold"
-            style={{ fontFamily: "'Sora', sans-serif", color: '#2E5425' }}
+            style={{ fontFamily: "'Sora', sans-serif", color: 'var(--success-text)' }}
           >
             {title}
           </p>
-          <p className="text-xs mt-0.5" style={{ color: '#2E5425', fontFamily: "'DM Sans', sans-serif" }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--success-text)', fontFamily: "'DM Sans', sans-serif" }}>
             {t('cardCompliant')} {formatDate(item.lastDocumentDate, locale)}
           </p>
         </div>
@@ -98,7 +98,7 @@ export default function ComplianceItemCard({
 
     return (
       <div
-        style={{ borderLeft: '3px solid #FDDB8C', backgroundColor: '#FFF8E7' }}
+        style={{ borderLeft: '3px solid var(--warning-border)', backgroundColor: 'var(--warning-bg)' }}
         className="rounded-xl px-5 py-4 flex items-start gap-3"
       >
         <div className="flex-shrink-0 mt-0.5">
@@ -107,11 +107,11 @@ export default function ComplianceItemCard({
         <div className="min-w-0">
           <p
             className="text-sm font-semibold"
-            style={{ fontFamily: "'Sora', sans-serif", color: '#1C1A17' }}
+            style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-heading)' }}
           >
             {title}
           </p>
-          <p className="text-xs mt-0.5" style={{ color: '#7A5804', fontFamily: "'DM Sans', sans-serif" }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--warning-text)', fontFamily: "'DM Sans', sans-serif" }}>
             {pendingLabel}
           </p>
         </div>
@@ -122,13 +122,13 @@ export default function ComplianceItemCard({
   // ── Required (urgent) ──────────────────────────────────────────────────────
   return (
     <div
-      style={{ borderLeft: '3px solid #C9A5A5', backgroundColor: '#F5EEEE' }}
+      style={{ borderLeft: '3px solid var(--error-border)', backgroundColor: 'var(--error-bg)' }}
       className="rounded-xl px-5 py-4"
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <p
           className="text-sm font-bold"
-          style={{ fontFamily: "'Sora', sans-serif", color: '#6B1E1E' }}
+          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--error-text)' }}
         >
           {title}
         </p>
@@ -145,7 +145,7 @@ export default function ComplianceItemCard({
         </span>
       </div>
 
-      <p className="text-xs mb-3" style={{ color: '#6B1E1E', fontFamily: "'DM Sans', sans-serif" }}>
+      <p className="text-xs mb-3" style={{ color: 'var(--error-text)', fontFamily: "'DM Sans', sans-serif" }}>
         {t('cardRequired', { date: dueDateFormatted })}
       </p>
 
@@ -153,14 +153,14 @@ export default function ComplianceItemCard({
         onClick={onUploadClick}
         className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
         style={{
-          borderColor: '#C9A5A5',
-          color: '#6B1E1E',
+          borderColor: 'var(--error-border)',
+          color: 'var(--error-text)',
           backgroundColor: 'transparent',
           fontFamily: "'DM Sans', sans-serif",
           cursor: onUploadClick ? 'pointer' : 'default',
         }}
         onMouseEnter={e => {
-          ;(e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F5EEEE'
+          ;(e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--error-bg)'
         }}
         onMouseLeave={e => {
           ;(e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'

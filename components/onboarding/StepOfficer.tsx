@@ -35,10 +35,10 @@ export function StepOfficer({ data, setData, onNext, onBack, locale }: StepProps
 
   return (
     <div>
-      <h1 className="font-sora text-3xl font-semibold text-navy-900 mb-2">
+      <h1 className="font-sora text-3xl font-semibold text-[var(--text-heading)] mb-2">
         {fr ? "Ajoutez votre premier dirigeant" : "Add your first officer"}
       </h1>
-      <p className="text-navy-400 text-sm mb-8">
+      <p className="text-[var(--text-muted)] text-sm mb-8">
         {fr ? "Qui sont les personnes clés de cette entreprise?" : "Who are the key people in this company?"}
       </p>
 

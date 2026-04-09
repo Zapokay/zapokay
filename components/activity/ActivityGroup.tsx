@@ -22,8 +22,8 @@ export default function ActivityGroup({ label, events }: ActivityGroupProps) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-2">
-        <h3 className="text-sm font-semibold text-neutral-600">{label}</h3>
-        <div className="flex-1 h-px bg-neutral-200" />
+        <h3 className="text-sm font-semibold text-[var(--text-muted)]">{label}</h3>
+        <div className="flex-1 h-px bg-[var(--card-border)]" />
       </div>
       <div className="space-y-0.5">
         {events.map((event) => (

@@ -20,21 +20,21 @@ export default function CompletenessBar({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-baseline gap-2">
           <span
-            className={`font-sora font-extrabold text-navy ${
+            className={`font-sora font-extrabold text-[var(--text-heading)] ${
               size === 'lg' ? 'text-3xl' : 'text-xl'
             }`}
           >
             {score}%
           </span>
           {size === 'lg' && (
-            <span className="text-sm text-neutral-500">
+            <span className="text-sm text-[var(--text-muted)]">
               · {totalSatisfied} / {totalRequired} complets
             </span>
           )}
         </div>
       </div>
       <div
-        className={`w-full ${barHeight} bg-neutral-200 rounded-full overflow-hidden`}
+        className={`w-full ${barHeight} bg-[var(--card-border)] rounded-full overflow-hidden`}
       >
         <div
           className={`${barHeight} rounded-full transition-all duration-700 ease-out`}

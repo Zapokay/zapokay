@@ -98,14 +98,14 @@ export function SignupForm({ locale, title, subtitle }: SignupFormProps) {
         minLength={8}
         autoComplete="new-password"
       />
-      <p className="text-xs text-navy-400 -mt-2">{t('passwordHint')}</p>
-      {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      <p className="text-xs text-[var(--text-muted)] -mt-2">{t('passwordHint')}</p>
+      {error && <p className="text-sm text-[var(--error-text)] bg-[var(--error-bg)] rounded-lg px-3 py-2">{error}</p>}
       <Button type="submit" loading={loading} className="w-full" size="lg" variant="secondary">
         {t('submit')}
       </Button>
-      <p className="text-center text-sm text-navy-400 mt-4">
+      <p className="text-center text-sm text-[var(--text-muted)] mt-4">
         {t('hasAccount')}{' '}
-        <Link href={`/${locale}/login`} className="text-navy-700 font-medium hover:text-navy-900 underline underline-offset-2">
+        <Link href={`/${locale}/login`} className="text-[var(--text-body)] font-medium hover:text-[var(--text-heading)] underline underline-offset-2">
           {t('signIn')}
         </Link>
       </p>

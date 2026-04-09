@@ -51,7 +51,7 @@ export function OnboardingStepLayout({
       {/* Main title */}
       <h1 style={{
         fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '28px',
-        color: '#1C1A17', textAlign: 'center', lineHeight: 1.25,
+        color: 'var(--text-heading)', textAlign: 'center', lineHeight: 1.25,
         marginBottom: tooltip ? '10px' : '24px',
       }}>
         {title}

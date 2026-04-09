@@ -95,6 +95,8 @@ body {
   --sb-active-indicator: #E8D800;
   --sb-border: #E6E4DE;
   --sb-group-label: #AAA59A;
+  --person-avatar-bg: #FDE68A;
+  --person-avatar-text: #92400E;
 
   /* Sidebar icons */
   --sb-icon-primary: #7A7066;
@@ -177,6 +179,7 @@ body {
   --ob-step-active: #F5B91E;
   --ob-step-done: #0F1E38;
   --ob-step-todo: #E6E4DE;
+  --ob-incomplete-border: #E6E4DE;
   --ob-bg: #F5F4F0;
   --ob-radio-sel-title: #070E1C;
   --ob-radio-sel-desc: #1E3D6B;
@@ -239,7 +242,9 @@ body {
   --sb-active-bg: rgba(255,255,255,0.08);
   --sb-active-indicator: #E8D800;
   --sb-border: rgba(255,255,255,0.06);
-  --sb-group-label: rgba(255,255,255,0.25);
+  --sb-group-label: rgba(255,255,255,0.22);
+  --person-avatar-bg: rgba(245,185,30,0.15);
+  --person-avatar-text: rgba(245,185,30,0.80);
 
   /* Sidebar icons */
   --sb-icon-primary: rgba(255,255,255,0.80);
@@ -250,11 +255,11 @@ body {
   /* Topbar */
   --tb-bg: #1E1E1E;
   --tb-border: rgba(255,255,255,0.08);
-  --tb-title: rgba(255,255,255,0.87);
+  --tb-title: rgba(255,255,255,0.80);
   --tb-search-bg: rgba(255,255,255,0.04);
 
   /* Text */
-  --text-heading: rgba(255,255,255,0.87);
+  --text-heading: rgba(255,255,255,0.80);
   --text-body: rgba(255,255,255,0.60);
   --text-secondary: rgba(255,255,255,0.50);
   --text-muted: rgba(255,255,255,0.38);
@@ -322,6 +327,7 @@ body {
   --ob-step-active: #F5B91E;
   --ob-step-done: #9EB0C9;
   --ob-step-todo: rgba(255,255,255,0.10);
+  --ob-incomplete-border: rgba(255,255,255,0.30);
   --ob-bg: #181818;
   --ob-radio-sel-title: #070E1C;
   --ob-radio-sel-desc: #1E3D6B;

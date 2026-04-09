@@ -284,7 +284,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
           {/* Signature */}
           <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 900, fontSize: '14px', letterSpacing: '-0.02em' }}>
             <span style={{ color: '#F5B91E' }}>Zap</span>
-            <span style={{ color: '#1C1A17' }}>Okay</span>
+            <span style={{ color: 'var(--wm-okay)' }}>Okay</span>
           </span>
         </div>
 
@@ -328,7 +328,6 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
             { labelFr: 'Fiscal',   labelEn: 'Fiscal' },
           ];
           const AMBER = '#F5B91E';
-          const GREY = '#E6E4DE';
           const PAGE = 'var(--page-bg)';
           return (
             <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
@@ -343,7 +342,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
                     <div style={{ width: '56px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                       <div style={{
                         width: '32px', height: '32px', borderRadius: '50%',
-                        background: done || current ? AMBER : GREY,
+                        background: done || current ? AMBER : 'var(--ob-circle-todo-bg)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         outline: `3px solid ${PAGE}`,
                         outlineOffset: '0px',
@@ -357,13 +356,13 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
                         ) : (
                           <span style={{
                             fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '11px',
-                            color: current ? 'white' : '#AAA59A',
+                            color: current ? 'white' : 'var(--ob-circle-todo-text)',
                           }}>{sNum}</span>
                         )}
                       </div>
                       <span style={{
                         fontSize: '9px', fontWeight: current ? 700 : 400,
-                        color: current ? '#1C1A17' : '#AAA59A',
+                        color: current ? 'var(--ob-label-active)' : 'var(--ob-label-done)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden', textOverflow: 'ellipsis',
                         maxWidth: '56px', textAlign: 'center',
@@ -377,7 +376,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
                         flex: 1, height: '4px', flexShrink: 1,
                         marginTop: '14px',
                         zIndex: 0,
-                        background: done ? AMBER : GREY,
+                        background: done ? AMBER : 'var(--ob-track-bg)',
                         transition: 'background 300ms',
                       }} />
                     )}

@@ -14,12 +14,12 @@ export default function RegisterCard({
   emptyMessage = 'Aucune donnée enregistrée',
 }: RegisterCardProps) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-      <div className="px-5 py-3 border-b border-neutral-100">
-        <h4 className="font-semibold text-neutral-800 text-sm">{title}</h4>
+    <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] overflow-hidden">
+      <div className="px-5 py-3 border-b border-[var(--card-border)]">
+        <h4 className="font-semibold text-[var(--text-body)] text-sm">{title}</h4>
       </div>
       {rows.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-neutral-400 italic text-center">
+        <p className="px-5 py-6 text-sm text-[var(--text-muted)] italic text-center">
           {emptyMessage}
         </p>
       ) : (
@@ -30,7 +30,7 @@ export default function RegisterCard({
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className="text-left px-5 py-2 text-[11px] uppercase tracking-wider text-neutral-400 font-medium"
+                    className="text-left px-5 py-2 text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-medium"
                   >
                     {col.label}
                   </th>
@@ -39,9 +39,9 @@ export default function RegisterCard({
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={i} className="border-b border-neutral-100 last:border-0">
+                <tr key={i} className="border-b border-[var(--card-border)] last:border-0">
                   {columns.map((col) => (
-                    <td key={col.key} className="px-5 py-2.5 text-neutral-700">
+                    <td key={col.key} className="px-5 py-2.5 text-[var(--text-body)]">
                       {row[col.key]}
                     </td>
                   ))}

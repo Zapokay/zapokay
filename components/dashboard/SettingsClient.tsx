@@ -40,6 +40,8 @@ interface SettingsClientProps {
   savedFiscalYears: FiscalYearEntry[]
   documentYears: number[]
   allYears: number[]
+  // Appearance
+  initialPreferredTheme: 'light' | 'dark' | null
 }
 
 export function SettingsClient({
@@ -59,6 +61,7 @@ export function SettingsClient({
   savedFiscalYears,
   documentYears,
   allYears,
+  initialPreferredTheme,
 }: SettingsClientProps) {
   const supabase = createClient()
   const router = useRouter()
@@ -84,6 +87,12 @@ export function SettingsClient({
   const [editIncorpDate, setEditIncorpDate] = useState(incorporationDate ?? '')
   const [unlockedFields, setUnlockedFields] = useState<Set<string>>(new Set())
   const [pendingUnlock, setPendingUnlock] = useState<string | null>(null)
+
+  // ── Apparence state ────────────────────────────────────────────────────────
+  const [themeUnlocked, setThemeUnlocked] = useState(initialPreferredTheme !== null)
+  const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark' | null>(initialPreferredTheme)
+  const [themeMsg, setThemeMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [savingTheme, setSavingTheme] = useState(false)
 
   // ── Fiscal years state ─────────────────────────────────────────────────────
   const initialActive = new Set<number>(
@@ -176,6 +185,33 @@ export function SettingsClient({
         'Settings updated: company information',
         { changed_fields: Object.keys(updates) }
       )
+      router.refresh()
+    }
+  }
+
+  // ── Save theme ─────────────────────────────────────────────────────────────
+  async function saveTheme(value: 'light' | 'dark' | null) {
+    setSavingTheme(true)
+    const { error } = await supabase
+      .from('users')
+      .update({ preferred_theme: value })
+      .eq('id', userId)
+    setSavingTheme(false)
+    if (error) {
+      flash(setThemeMsg, false, fr ? 'Erreur lors de la sauvegarde.' : 'Error saving.')
+    } else {
+      if (value) {
+        document.documentElement.setAttribute('data-theme', value)
+      } else {
+        const osTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', osTheme)
+      }
+      await logActivity(supabase, companyId, userId, 'settings_updated',
+        'Paramètres modifiés : thème',
+        'Settings updated: theme',
+        { preferred_theme: value }
+      )
+      flash(setThemeMsg, true, fr ? 'Thème enregistré ✓' : 'Theme saved ✓')
       router.refresh()
     }
   }
@@ -491,6 +527,93 @@ export function SettingsClient({
         </div>
       </div>
 
+      {/* ── Apparence ─────────────────────────────────────────────────────── */}
+      <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-6 shadow-sm">
+        <h2 style={sectionTitle}>{fr ? 'Apparence' : 'Appearance'}</h2>
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <label className="block text-xs font-medium text-[var(--text-muted)]">
+              {fr ? 'Thème' : 'Theme'}
+            </label>
+            {!themeUnlocked && (
+              <button
+                onClick={() => setThemeUnlocked(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}
+                title={fr ? 'Cliquer pour choisir un thème' : 'Click to choose a theme'}
+              >
+                <Lock size={12} style={{ color: 'var(--text-muted)' }} />
+              </button>
+            )}
+          </div>
+          {!themeUnlocked ? (
+            <div
+              className="px-3 py-2 rounded-lg text-sm border"
+              style={{
+                borderColor: 'var(--card-border)',
+                backgroundColor: 'var(--page-bg)',
+                color: 'var(--text-muted)',
+              }}
+            >
+              {fr ? 'Automatique (suit votre système)' : 'Automatic (follows your system)'}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {(['light', 'dark'] as const).map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={async () => {
+                    if (selectedTheme === val || savingTheme) return
+                    setSelectedTheme(val)
+                    await saveTheme(val)
+                  }}
+                  disabled={savingTheme}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm transition-colors"
+                  style={{
+                    borderColor: selectedTheme === val ? '#F5B91E' : 'var(--card-border)',
+                    backgroundColor: selectedTheme === val ? '#FFF8E7' : 'var(--page-bg)',
+                    color: selectedTheme === val ? '#1C1A17' : 'var(--text-body)',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
+                      border: selectedTheme === val ? '5px solid #F5B91E' : '2px solid var(--card-border)',
+                      backgroundColor: 'var(--card-bg)',
+                      transition: 'border 150ms',
+                    }}
+                  />
+                  <span style={{ fontWeight: selectedTheme === val ? 600 : 400 }}>
+                    {val === 'light'
+                      ? (fr ? 'Lin Naturel (clair)' : 'Natural Linen (light)')
+                      : (fr ? 'Charbon Neutre (sombre)' : 'Neutral Charcoal (dark)')}
+                  </span>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={async () => {
+                  setThemeUnlocked(false)
+                  setSelectedTheme(null)
+                  await saveTheme(null)
+                }}
+                disabled={savingTheme}
+                className="text-xs underline"
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                {fr ? 'Réinitialiser (automatique)' : 'Reset (automatic)'}
+              </button>
+            </div>
+          )}
+          {themeMsg && (
+            <p className="mt-2 text-xs font-medium" style={{ color: themeMsg.ok ? '#2E5425' : '#6B1E1E' }}>
+              {themeMsg.text}
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* ── Exercices financiers ───────────────────────────────────────────── */}
       <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-6 shadow-sm">
         <h2 style={sectionTitle}>{fr ? 'Exercices financiers suivis' : 'Tracked fiscal years'}</h2>
@@ -527,7 +650,7 @@ export function SettingsClient({
                   <div className="flex items-center gap-3">
                     <span
                       className="text-sm font-semibold"
-                      style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text-heading)' }}
+                      style={{ fontFamily: 'Sora, sans-serif', color: isActive ? '#1C1A17' : 'var(--text-heading)' }}
                     >
                       {fr ? `Exercice ${year}` : `Fiscal year ${year}`}
                     </span>

@@ -106,7 +106,6 @@ export function FiscalYearsSetup({
   ]
   const STEP = 8
   const AMBER = '#F5B91E'
-  const GREY = '#E6E4DE'
   const PAGE = 'var(--page-bg)'
 
   return (
@@ -125,7 +124,7 @@ export function FiscalYearsSetup({
           </div>
           <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 900, fontSize: '14px', letterSpacing: '-0.02em' }}>
             <span style={{ color: '#F5B91E' }}>Zap</span>
-            <span style={{ color: '#1C1A17' }}>Okay</span>
+            <span style={{ color: 'var(--wm-okay)' }}>Okay</span>
           </span>
         </div>
 
@@ -168,7 +167,7 @@ export function FiscalYearsSetup({
                 <div style={{ width: '56px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                   <div style={{
                     width: '32px', height: '32px', borderRadius: '50%',
-                    background: done || current ? AMBER : GREY,
+                    background: done || current ? AMBER : 'var(--ob-circle-todo-bg)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     outline: `3px solid ${PAGE}`,
                     outlineOffset: '0px',
@@ -182,13 +181,13 @@ export function FiscalYearsSetup({
                     ) : (
                       <span style={{
                         fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '11px',
-                        color: current ? 'white' : '#AAA59A',
+                        color: current ? 'white' : 'var(--ob-circle-todo-text)',
                       }}>{sNum}</span>
                     )}
                   </div>
                   <span style={{
                     fontSize: '9px', fontWeight: current ? 700 : 400,
-                    color: current ? '#1C1A17' : '#AAA59A',
+                    color: current ? 'var(--ob-label-active)' : 'var(--ob-label-done)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden', textOverflow: 'ellipsis',
                     maxWidth: '56px', textAlign: 'center',
@@ -201,7 +200,7 @@ export function FiscalYearsSetup({
                     flex: 1, height: '4px', flexShrink: 1,
                     marginTop: '14px',
                     zIndex: 0,
-                    background: done ? AMBER : GREY,
+                    background: done ? AMBER : 'var(--ob-track-bg)',
                     transition: 'background 300ms',
                   }} />
                 )}
@@ -243,7 +242,7 @@ export function FiscalYearsSetup({
           {/* Title */}
           <h1 style={{
             fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '28px',
-            color: '#1C1A17', textAlign: 'center', lineHeight: 1.25,
+            color: 'var(--text-heading)', textAlign: 'center', lineHeight: 1.25,
             marginBottom: '24px',
           }}>
             {fr
@@ -317,12 +316,12 @@ export function FiscalYearsSetup({
                             </svg>
                           )}
                         </div>
-                        <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '14px', color: 'var(--text-heading)' }}>
+                        <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '14px', color: isActive ? '#1C1A17' : 'var(--text-heading)' }}>
                           {fr ? `Exercice ${year}` : `Fiscal year ${year}`}
                         </span>
                         {isCurrent && (
                           <span style={{
-                            background: '#F5B91E', color: '#070E1C',
+                            background: '#F5B91E', color: '#1C1A17',
                             fontSize: '10px', fontWeight: 800,
                             letterSpacing: '.06em', textTransform: 'uppercase',
                             padding: '2px 8px', borderRadius: '20px',

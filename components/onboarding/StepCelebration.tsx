@@ -98,7 +98,7 @@ export default function StepCelebration({
                 width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: item.done ? '#F5B91E' : 'var(--page-bg)',
-                border: `1px solid ${item.done ? '#F5B91E' : 'var(--card-border)'}`,
+                border: `1px solid ${item.done ? '#F5B91E' : 'var(--ob-incomplete-border)'}`,
               }}>
                 {item.done ? (
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1C1A17" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

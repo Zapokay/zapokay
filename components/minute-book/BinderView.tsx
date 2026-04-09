@@ -76,7 +76,7 @@ export default function BinderView() {
                   status: e.is_active ? (
                     <span className="text-green-600">✓</span>
                   ) : (
-                    <span className="text-neutral-400">✗</span>
+                    <span className="text-[var(--text-muted)]">✗</span>
                   ),
                 }))}
               />
@@ -96,7 +96,7 @@ export default function BinderView() {
                   status: e.is_active ? (
                     <span className="text-green-600">✓</span>
                   ) : (
-                    <span className="text-neutral-400">✗</span>
+                    <span className="text-[var(--text-muted)]">✗</span>
                   ),
                 }))}
               />

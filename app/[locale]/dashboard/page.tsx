@@ -291,7 +291,7 @@ export default async function DashboardPage({
                               {entry.year}
                             </span>
                             {isCurrent ? (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: '#EEF1F7', color: '#4A6B93' }}>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: 'var(--info-bg)', color: 'var(--info-text)' }}>
                                 {fr ? 'En cours' : 'In progress'}
                               </span>
                             ) : (
@@ -299,10 +299,10 @@ export default async function DashboardPage({
                                 className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                                 style={
                                   entry.status === 'complete'
-                                    ? { backgroundColor: '#F0F4EE', color: '#2E5425' }
+                                    ? { backgroundColor: 'var(--success-bg)', color: 'var(--success-text)' }
                                     : entry.status === 'partial'
-                                    ? { backgroundColor: '#FFF8E7', color: '#7A5804' }
-                                    : { backgroundColor: '#F5EEEE', color: '#6B1E1E' }
+                                    ? { backgroundColor: 'var(--warning-bg)', color: 'var(--warning-text)' }
+                                    : { backgroundColor: 'var(--error-bg)', color: 'var(--error-text)' }
                                 }
                               >
                                 {entry.status === 'complete'
@@ -468,7 +468,7 @@ export default async function DashboardPage({
               </div>
 
               {actionCount === 0 && percentage === 100 ? (
-                <p className="text-sm font-medium" style={{ color: '#2E5425' }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--success-text)' }}>
                   {fr ? 'Tout est en ordre ✓' : 'Everything is in order ✓'}
                 </p>
               ) : (
@@ -482,8 +482,8 @@ export default async function DashboardPage({
                         key={item.id}
                         className="rounded-lg p-3"
                         style={{
-                          backgroundColor: isRequired ? '#F5EEEE' : '#FFF8E7',
-                          borderLeft: `3px solid ${isRequired ? '#6B1E1E' : '#FDDB8C'}`,
+                          backgroundColor: isRequired ? 'var(--error-bg)' : 'var(--warning-bg)',
+                          borderLeft: `3px solid ${isRequired ? 'var(--error-border)' : 'var(--warning-border)'}`,
                         }}
                       >
                         <div className="flex items-center gap-2 mb-1">
@@ -491,8 +491,8 @@ export default async function DashboardPage({
                             className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
                             style={
                               isRequired
-                                ? { backgroundColor: '#6B1E1E', color: '#FAF8F7' }
-                                : { backgroundColor: '#FDDB8C', color: '#7A5804' }
+                                ? { backgroundColor: 'var(--error-border)', color: 'var(--error-text)' }
+                                : { backgroundColor: 'var(--warning-border)', color: 'var(--warning-text)' }
                             }
                           >
                             {isRequired ? 'URGENT' : (fr ? 'À VENIR' : 'UPCOMING')}
@@ -501,7 +501,7 @@ export default async function DashboardPage({
                             className="text-xs font-bold truncate"
                             style={{
                               fontFamily: 'Sora, sans-serif',
-                              color: isRequired ? '#6B1E1E' : '#1C1A17',
+                              color: isRequired ? 'var(--error-text)' : 'var(--text-heading)',
                             }}
                           >
                             {title}
@@ -509,7 +509,7 @@ export default async function DashboardPage({
                         </div>
                         <p
                           className="text-xs font-medium"
-                          style={{ color: isRequired ? '#C0392B' : '#7A5804' }}
+                          style={{ color: isRequired ? 'var(--error-text)' : 'var(--warning-text)' }}
                         >
                           {fr ? `Dû le ${dueFormatted}` : `Due ${dueFormatted}`}
                         </p>
@@ -554,37 +554,37 @@ export default async function DashboardPage({
                   {fr ? `Exercice ${fyLabel}` : `Fiscal year ${fyLabel}`}
                 </p>
 
-                {/* Navy progress bar */}
-                <div className="h-2 rounded-full mb-4" style={{ backgroundColor: '#E2E8F0' }}>
+                {/* Progress bar */}
+                <div className="h-2 rounded-full mb-4" style={{ backgroundColor: 'var(--card-border)' }}>
                   <div
                     className="h-2 rounded-full transition-all"
-                    style={{ width: `${percentage}%`, backgroundColor: '#1C1A17' }}
+                    style={{ width: `${percentage}%`, backgroundColor: 'var(--amber-400)' }}
                   />
                 </div>
 
-                {/* Stats — couleurs sémantiques explicites */}
+                {/* Stats */}
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: '#2E5425' /* vert succès */ }}>
+                    <span className="text-xs" style={{ color: 'var(--success-text)' }}>
                       {fr ? 'Complétés' : 'Completed'}
                     </span>
-                    <span className="text-xs font-semibold" style={{ color: '#2E5425' }}>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--success-text)' }}>
                       {compliantCount}/{total}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: '#7A5804' /* amber */ }}>
+                    <span className="text-xs" style={{ color: 'var(--warning-text)' }}>
                       {fr ? 'En attente' : 'Pending'}
                     </span>
-                    <span className="text-xs font-semibold" style={{ color: '#7A5804' }}>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--warning-text)' }}>
                       {pendingCount}/{total}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: '#6B1E1E' /* bordeaux */ }}>
+                    <span className="text-xs" style={{ color: 'var(--error-text)' }}>
                       {fr ? 'À corriger' : 'To fix'}
                     </span>
-                    <span className="text-xs font-semibold" style={{ color: '#6B1E1E' }}>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--error-text)' }}>
                       {urgentCount}/{total}
                     </span>
                   </div>

@@ -21,9 +21,7 @@ function SkeletonLine({ width = '100%' }: { width?: string }) {
   return (
     <div style={{
       height: '14px', borderRadius: '6px',
-      background: 'linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%)',
-      backgroundSize: '200% 100%',
-      animation: 'shimmer 1.5s infinite',
+      background: 'var(--card-border)',
       width,
     }} />
   );
@@ -31,7 +29,11 @@ function SkeletonLine({ width = '100%' }: { width?: string }) {
 
 function YearRow({ gap, fr }: { gap: GapYear; fr: boolean }) {
   const icon = gap.status === 'complete' ? '✅' : gap.status === 'partial' ? '⚠️' : '❌';
-  const color = gap.status === 'complete' ? '#2E5425' : gap.status === 'partial' ? '#7A5804' : '#6B1E1E';
+  const color = gap.status === 'complete'
+    ? 'var(--success-text)'
+    : gap.status === 'partial'
+    ? 'var(--warning-text)'
+    : 'var(--error-text)';
   const label = gap.status === 'complete'
     ? (fr ? 'Complet' : 'Complete')
     : gap.missingDocuments.join(' · ');
@@ -108,15 +110,11 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
   return (
     <div style={{
       background: 'var(--card-bg)',
-      border: '1px solid #E0D9CE',
+      border: '1px solid var(--card-border)',
       borderRadius: '12px',
       overflow: 'hidden',
     }}>
       <style>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
         @keyframes pulse-text {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
@@ -127,7 +125,7 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '16px 20px',
-        borderBottom: panelState === 'idle' ? 'none' : '1px solid #E0D9CE',
+        borderBottom: panelState === 'idle' ? 'none' : '1px solid var(--card-border)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
@@ -135,7 +133,7 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
           </span>
           <span style={{
             fontSize: '11px', fontWeight: 600,
-            color: '#1E3D6B', background: '#EEF1F7',
+            color: 'var(--info-text)', background: 'var(--info-bg)',
             borderRadius: '999px', padding: '3px 8px',
           }}>
             {fr ? 'Propulsé par Claude' : 'Powered by Claude'}
@@ -162,7 +160,7 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
       {panelState === 'loading' && (
         <div style={{ padding: '20px' }}>
           <p style={{
-            fontSize: '13px', color: '#1E3D6B',
+            fontSize: '13px', color: 'var(--text-muted)',
             marginBottom: '16px', textAlign: 'center',
             animation: 'pulse-text 1.5s ease-in-out infinite',
           }}>
@@ -183,8 +181,8 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
           <div style={{ fontSize: '32px', marginBottom: '8px' }}>🎉</div>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
-            background: '#F0FDF4', color: '#2E5425',
-            border: '1px solid #BBF7D0',
+            background: 'var(--success-bg)', color: 'var(--success-text)',
+            border: '1px solid var(--success-border)',
             borderRadius: '999px', padding: '6px 14px',
             fontSize: '14px', fontWeight: 600, marginBottom: '12px',
           }}>
@@ -192,10 +190,10 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
           </div>
           {summary && (
             <div style={{
-              background: '#EEF1F7', borderRadius: '8px', padding: '14px 16px',
+              background: 'var(--info-bg)', borderRadius: '8px', padding: '14px 16px',
               textAlign: 'left',
             }}>
-              <p style={{ fontSize: '14px', color: '#1E3D6B', fontStyle: 'italic', lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: '14px', color: 'var(--info-text)', fontStyle: 'italic', lineHeight: 1.6, margin: 0 }}>
                 {summary}
               </p>
             </div>
@@ -208,7 +206,7 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
         <div style={{ padding: '20px' }}>
           {/* Timeline */}
           <div style={{
-            borderLeft: '2px solid #E0D9CE',
+            borderLeft: '2px solid var(--card-border)',
             marginLeft: '8px',
             paddingLeft: '16px',
             marginBottom: '16px',
@@ -221,10 +219,10 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
           {/* Claude summary */}
           {summary && (
             <div style={{
-              background: '#EEF1F7', borderRadius: '8px', padding: '14px 16px',
+              background: 'var(--info-bg)', borderRadius: '8px', padding: '14px 16px',
               marginBottom: '16px',
             }}>
-              <p style={{ fontSize: '14px', color: '#1E3D6B', fontStyle: 'italic', lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: '14px', color: 'var(--info-text)', fontStyle: 'italic', lineHeight: 1.6, margin: 0 }}>
                 {summary}
               </p>
             </div>
@@ -236,8 +234,8 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
             style={{
               display: 'block', textAlign: 'center',
               padding: '10px 16px', borderRadius: '8px',
-              background: '#F5EEEE', color: '#6B1E1E',
-              border: '1px solid #C9A5A5',
+              background: 'var(--error-bg)', color: 'var(--error-text)',
+              border: '1px solid var(--error-border)',
               fontSize: '14px', fontWeight: 600,
               textDecoration: 'none',
             }}
@@ -274,14 +272,14 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
       {/* Error state */}
       {panelState === 'error' && (
         <div style={{ padding: '20px', textAlign: 'center' }}>
-          <p style={{ fontSize: '14px', color: '#6B1E1E', margin: 0 }}>
+          <p style={{ fontSize: '14px', color: 'var(--error-text)', margin: 0 }}>
             {fr ? 'Analyse temporairement indisponible.' : 'Analysis temporarily unavailable.'}
           </p>
           <button
             onClick={handleAnalyze}
             style={{
               marginTop: '12px', padding: '8px 16px', borderRadius: '8px',
-              background: 'transparent', border: '1px solid #E0D9CE',
+              background: 'transparent', border: '1px solid var(--card-border)',
               fontSize: '13px', color: 'var(--text-muted)',
               cursor: 'pointer',
             }}

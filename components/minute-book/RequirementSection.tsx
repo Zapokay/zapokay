@@ -21,25 +21,25 @@ export default function RequirementSection({
   const totalCount = items.length;
 
   return (
-    <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+    <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)] overflow-hidden">
       {/* Section header */}
-      <div className="px-5 py-4 border-b border-neutral-100">
+      <div className="px-5 py-4 border-b border-[var(--card-border)]">
         <div className="flex items-center justify-between">
-          <h3 className="font-sora font-semibold text-navy text-base">
+          <h3 className="font-sora font-semibold text-[var(--text-heading)] text-base">
             {title}
           </h3>
-          <span className="text-sm text-neutral-500">
+          <span className="text-sm text-[var(--text-muted)]">
             {satisfiedCount} / {totalCount} complets
           </span>
         </div>
       </div>
 
       {/* Items */}
-      <div className="divide-y divide-neutral-50 relative">
+      <div className="divide-y divide-[var(--card-border)] relative">
         {totalCount > 0 && satisfiedCount === 0 && (
-          <div className="mx-4 my-3 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-amber-800">
+          <div className="mx-4 my-3 flex items-start gap-3 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3">
+            <AlertTriangle className="h-5 w-5 text-[var(--warning-text)] flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-[var(--warning-text)]">
               Aucun document pour cet exercice. Utilisez l&apos;assistant de
               rattrapage pour générer les résolutions manquantes.
             </p>

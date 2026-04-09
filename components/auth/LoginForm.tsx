@@ -53,13 +53,13 @@ export function LoginForm({ locale }: LoginFormProps) {
   if (magicSent) {
     return (
       <div className="text-center py-6">
-        <div className="w-14 h-14 bg-navy-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-7 h-7 text-navy-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="w-14 h-14 bg-[var(--card-bg)] rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-7 h-7 text-[var(--amber-400)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
-        <p className="font-sora font-medium text-navy-900 mb-1">{t('magicLinkSent')}</p>
-        <p className="text-sm text-navy-400">{email}</p>
+        <p className="font-sora font-medium text-[var(--text-heading)] mb-1">{t('magicLinkSent')}</p>
+        <p className="text-sm text-[var(--text-muted)]">{email}</p>
       </div>
     );
   }
@@ -87,7 +87,7 @@ export function LoginForm({ locale }: LoginFormProps) {
             required
             autoComplete="current-password"
           />
-          {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-sm text-[var(--error-text)] bg-[var(--error-bg)] rounded-lg px-3 py-2">{error}</p>}
           <Button type="submit" loading={loading} className="w-full" size="lg" variant="secondary">
             {t('submit')}
           </Button>
@@ -103,7 +103,7 @@ export function LoginForm({ locale }: LoginFormProps) {
             placeholder="you@example.com"
             required
           />
-          {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-sm text-[var(--error-text)] bg-[var(--error-bg)] rounded-lg px-3 py-2">{error}</p>}
           <Button type="submit" loading={loading} className="w-full" size="lg" variant="secondary">
             {t('magicLink')}
           </Button>
@@ -122,14 +122,14 @@ export function LoginForm({ locale }: LoginFormProps) {
       <button
         type="button"
         onClick={() => setMode(mode === 'password' ? 'magic' : 'password')}
-        className="w-full px-5 py-2.5 rounded-lg border border-[var(--navy-200)] text-[var(--text-body)] bg-transparent hover:bg-[var(--navy-50)] transition-colors text-sm font-medium"
+        className="w-full px-5 py-2.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] bg-transparent hover:bg-[var(--card-bg)] transition-colors text-sm font-medium"
       >
         {mode === 'password' ? t('magicLink') : t('submit')}
       </button>
 
-      <p className="text-center text-sm text-navy-400 mt-6">
+      <p className="text-center text-sm text-[var(--text-muted)] mt-6">
         {t('noAccount')}{' '}
-        <Link href={`/${locale}/signup`} className="text-navy-700 font-medium hover:text-navy-900 underline underline-offset-2">
+        <Link href={`/${locale}/signup`} className="text-[var(--text-body)] font-medium hover:text-[var(--text-heading)] underline underline-offset-2">
           {t('signUp')}
         </Link>
       </p>

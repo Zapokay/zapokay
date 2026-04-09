@@ -115,7 +115,7 @@ export default function ActivityPage() {
       </div>
 
       {events.length === 0 ? (
-        <p className="text-center text-neutral-400 italic py-12">
+        <p className="text-center text-[var(--text-muted)] italic py-12">
           Aucun événement enregistré pour le moment.
         </p>
       ) : (
@@ -135,7 +135,7 @@ export default function ActivityPage() {
           <button
             onClick={handleLoadMore}
             disabled={loadingMore}
-            className="px-5 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-[#1e293b] hover:bg-neutral-50 transition-colors disabled:opacity-50"
+            className="px-5 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--text-body)] hover:bg-[var(--card-bg)] transition-colors disabled:opacity-50"
           >
             {loadingMore ? 'Chargement…' : 'Charger plus ↓'}
           </button>

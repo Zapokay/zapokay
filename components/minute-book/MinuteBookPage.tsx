@@ -144,8 +144,8 @@ export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
           <div>
             {loading ? (
               <div className="animate-pulse space-y-6">
-                <div className="h-3 w-full bg-neutral-200 rounded-full" />
-                <div className="h-48 bg-neutral-100 rounded-xl" />
+                <div className="h-3 w-full bg-[var(--card-border)] rounded-full" />
+                <div className="h-48 bg-[var(--card-bg)] rounded-xl" />
               </div>
             ) : data ? (
               <div className="mt-0">

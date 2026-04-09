@@ -31,7 +31,7 @@ export default function RequirementRow({
   const [showDescription, setShowDescription] = useState(false);
 
   return (
-    <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-neutral-50 transition-colors">
+    <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
       {/* Left side: icon + title */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {satisfied ? (
@@ -42,7 +42,7 @@ export default function RequirementRow({
         <div className="flex items-center gap-2 min-w-0">
           <span
             className={`text-sm ${
-              satisfied ? 'text-neutral-700' : 'text-neutral-900 font-medium'
+              satisfied ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'
             }`}
           >
             {titleFr}
@@ -71,8 +71,8 @@ export default function RequirementRow({
           <span
             className={`text-xs font-medium px-2.5 py-1 rounded-full ${
               source === 'generated'
-                ? 'bg-amber-100 text-amber-800'
-                : 'bg-neutral-100 text-neutral-600'
+                ? 'bg-[var(--warning-bg)] text-[var(--warning-text)]'
+                : 'bg-[var(--card-border)] text-[var(--text-muted)]'
             }`}
           >
             {source === 'generated' ? 'Généré' : 'Téléversé'}
@@ -82,7 +82,7 @@ export default function RequirementRow({
             {canUpload && (
               <button
                 onClick={() => onUpload?.(requirementKey, year)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-navy text-navy hover:bg-navy hover:text-white transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
               >
                 <Upload className="h-3.5 w-3.5" />
                 Téléverser
@@ -91,14 +91,14 @@ export default function RequirementRow({
             {canGenerate ? (
               <button
                 onClick={() => onGenerate?.(requirementKey, year)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-navy text-navy hover:bg-navy hover:text-white transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 Générer
               </button>
             ) : null}
             {!canUpload && !canGenerate && (
-              <span className="text-xs text-neutral-400">
+              <span className="text-xs text-[var(--text-muted)]">
                 Bientôt disponible
               </span>
             )}

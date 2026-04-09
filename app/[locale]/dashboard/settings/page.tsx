@@ -69,6 +69,10 @@ export default async function SettingsPage({
 
   const allYears = computeAllYears(company.incorporation_date, fyEndMonth, fyEndDay)
 
+  const rawTheme = (profile as Record<string, unknown>).preferred_theme as string | null
+  const initialPreferredTheme: 'light' | 'dark' | null =
+    rawTheme === 'light' || rawTheme === 'dark' ? rawTheme : null
+
   const fr = locale === 'fr'
 
   return (
@@ -110,6 +114,7 @@ export default async function SettingsPage({
           savedFiscalYears={(fiscalYears ?? []) as { year: number; status: string }[]}
           documentYears={documentYears}
           allYears={allYears}
+          initialPreferredTheme={initialPreferredTheme}
         />
       </div>
     </DashboardShell>
