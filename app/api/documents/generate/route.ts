@@ -7,11 +7,7 @@ import { shareholderResolutionHTML } from '@/lib/pdf-templates/resolution-shareh
 import { annualRegisterHTML } from '@/lib/pdf-templates/annual-register';
 
 export const runtime = 'nodejs';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = 'force-dynamic';
 
 type DocumentType = 'board-resolution' | 'shareholder-resolution' | 'annual-register';
 
@@ -55,6 +51,11 @@ function buildHTML(type: DocumentType, data: Record<string, unknown>): string {
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   try {
     const body = await req.json() as {
       type: DocumentType;
