@@ -65,7 +65,7 @@ export default function MinuteBookCard() {
               {data.totalSatisfied} / {data.totalRequired} documents requis
             </p>
             {data.totalMissing > 0 && (
-              <span className="text-xs font-medium" style={{ color: '#6B1E1E' }}>
+              <span className="text-xs font-medium" style={{ color: 'var(--error-text)' }}>
                 {data.totalMissing} manquants
               </span>
             )}

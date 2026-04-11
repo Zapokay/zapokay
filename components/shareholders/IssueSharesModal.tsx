@@ -171,9 +171,9 @@ export default function IssueSharesModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl dark:bg-zinc-900">
+      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface">
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="sticky top-0 z-10 flex items-center justify-between modal-header modal-surface px-6 py-4">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             <Zap className="mr-1.5 inline h-4 w-4 text-amber-500" />
             {t('issueShares')}
@@ -302,7 +302,7 @@ export default function IssueSharesModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-zinc-100 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="sticky bottom-0 flex items-center justify-end gap-3 modal-footer modal-surface px-6 py-4">
           <button
             type="button"
             onClick={onClose}

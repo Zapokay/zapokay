@@ -129,7 +129,7 @@ function StatCard({
         <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           {label}
         </span>
-        <div className="w-8 h-8 rounded-lg bg-[var(--info-bg)] flex items-center justify-center text-[var(--info-text)]">
+        <div className="w-8 h-8 rounded-lg bg-[var(--hover)] flex items-center justify-center text-[var(--text-muted)]">
           {icon}
         </div>
       </div>
@@ -257,7 +257,7 @@ export default async function DashboardPage({
               <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                 {fr ? 'Historique' : 'History'}
               </span>
-              <div className="w-8 h-8 rounded-lg bg-[var(--info-bg)] flex items-center justify-center text-[var(--info-text)]">
+              <div className="w-8 h-8 rounded-lg bg-[var(--hover)] flex items-center justify-center text-[var(--text-muted)]">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -347,7 +347,7 @@ export default async function DashboardPage({
               <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                 {fr ? 'Prochaine échéance' : 'Next deadline'}
               </span>
-              <div className="w-8 h-8 rounded-lg bg-[var(--info-bg)] flex items-center justify-center text-[var(--info-text)]">
+              <div className="w-8 h-8 rounded-lg bg-[var(--hover)] flex items-center justify-center text-[var(--text-muted)]">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

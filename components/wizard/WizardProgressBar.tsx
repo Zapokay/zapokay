@@ -46,7 +46,7 @@ export function WizardProgressBar({ currentStep, locale }: WizardProgressBarProp
                 ) : (
                   <span style={{
                     fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '11px',
-                    color: isActive ? 'white' : 'var(--text-muted)',
+                    color: isActive ? 'var(--cta-text)' : 'var(--text-muted)',
                   }}>
                     {step}
                   </span>

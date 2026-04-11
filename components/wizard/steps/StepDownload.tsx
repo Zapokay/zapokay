@@ -105,7 +105,7 @@ export function StepDownload({ files, locale, onRestart }: StepDownloadProps) {
             {/* Icon */}
             <div
               className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: '#FFF8E7' }}
+              style={{ backgroundColor: 'var(--warning-bg)' }}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#F5B91E">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}

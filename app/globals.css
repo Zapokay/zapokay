@@ -292,8 +292,8 @@ body {
   --success-bg: rgba(140,192,126,0.10);
   --success-border: rgba(140,192,126,0.16);
   --success-text: #8CC07E;
-  --warning-bg: rgba(224,184,64,0.12);
-  --warning-border: rgba(224,184,64,0.18);
+  --warning-bg: rgba(245,185,30,0.06);
+  --warning-border: rgba(245,185,30,0.15);
   --warning-text: #E0B840;
   --error-bg: rgba(212,160,160,0.10);
   --error-border: rgba(212,160,160,0.16);
@@ -374,6 +374,11 @@ body {
 [data-theme="dark"] .pill-urgent {
   border-color: rgba(212,160,160,0.25);
 }
+
+/* ── Modal surface tokens ────────────────────────────────────────────────── */
+.modal-surface { background-color: var(--card-bg); }
+.modal-header  { border-bottom: 1px solid var(--card-border); }
+.modal-footer  { border-top:    1px solid var(--card-border); }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Sora', system-ui, sans-serif;

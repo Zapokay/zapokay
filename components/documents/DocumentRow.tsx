@@ -137,9 +137,9 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false 
                   fontWeight: 700,
                   letterSpacing: '.06em',
                   textTransform: 'uppercase' as const,
-                  background: '#FFF8E7',
-                  color: '#7A5804',
-                  border: '1px solid #FDDB8C',
+                  background: 'var(--warning-bg)',
+                  color: 'var(--warning-text)',
+                  border: '1px solid var(--warning-border)',
                   borderRadius: '20px',
                   padding: '2px 8px',
                 }}

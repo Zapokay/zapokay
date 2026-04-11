@@ -61,7 +61,7 @@ export default function ComplianceGauge({ percentage, size = 120 }: ComplianceGa
         cy={center}
         r={radius}
         fill="none"
-        stroke="#E0D9CE"
+        stroke="var(--card-border)"
         strokeWidth={strokeWidth}
       />
 
@@ -87,7 +87,7 @@ export default function ComplianceGauge({ percentage, size = 120 }: ComplianceGa
         y={center - sublabelFontSize * 0.6}
         textAnchor="middle"
         dominantBaseline="middle"
-        fill="#1C1A17"
+        style={{ fill: 'var(--text-heading)' }}
         fontFamily="'Sora', sans-serif"
         fontWeight="700"
         fontSize={labelFontSize}
@@ -101,7 +101,7 @@ export default function ComplianceGauge({ percentage, size = 120 }: ComplianceGa
         y={center + labelFontSize * 0.55}
         textAnchor="middle"
         dominantBaseline="middle"
-        fill="#7A7066"
+        style={{ fill: 'var(--text-muted)' }}
         fontFamily="'DM Sans', sans-serif"
         fontWeight="400"
         fontSize={sublabelFontSize}

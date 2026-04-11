@@ -54,6 +54,8 @@ interface CatchUpWizardProps {
   initialSelectedYear?: number
   noFiscalYearsConfigured?: boolean
   settingsUrl: string
+  directors?: string[]
+  officers?: Array<{ name: string; role: string }>
 }
 
 type WizardStep = 1 | 2 | 3 | 4 | 5
@@ -69,6 +71,8 @@ export function CatchUpWizard({
   initialSelectedYear,
   noFiscalYearsConfigured = false,
   settingsUrl,
+  directors = [],
+  officers = [],
 }: CatchUpWizardProps) {
   const fr = locale === 'fr'
 
@@ -233,6 +237,8 @@ export function CatchUpWizard({
               onNext={goToStep4}
               onBack={() => setStep(2)}
               locale={locale}
+              directors={directors}
+              officers={officers}
             />
           )}
 

@@ -134,17 +134,17 @@ export default function AddDirectorModal({
       />
 
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-lg rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl dark:bg-zinc-900">
+      <div className="relative z-10 w-full max-w-lg rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            <Zap className="mr-1.5 inline h-4 w-4 text-amber-500" />
+        <div className="flex items-center justify-between modal-header px-6 py-4">
+          <h2 className="text-lg font-semibold text-[var(--text-heading)]">
+            <Zap className="mr-1.5 inline h-4 w-4 text-[var(--amber-400)]" />
             {t('addDirector')}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+            className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-body)]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -164,32 +164,32 @@ export default function AddDirectorModal({
 
           {/* Appointment date */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              {t('appointmentDate')} <span className="text-red-500">*</span>
+            <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">
+              {t('appointmentDate')} <span style={{ color: 'var(--error-text)' }}>*</span>
             </label>
             <input
               type="date"
               value={appointmentDate}
               onChange={(e) => setAppointmentDate(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-body)] focus:border-[var(--input-border-focus)] focus:outline-none transition-colors"
             />
           </div>
 
           {/* Error */}
           {error && (
-            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+            <div className="rounded-lg px-4 py-3 text-sm" style={{ background: 'var(--error-bg)', color: 'var(--error-text)', border: '1px solid var(--error-border)' }}>
               {error}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-zinc-100 px-6 py-4 dark:border-zinc-800">
+        <div className="flex items-center justify-end gap-3 modal-footer px-6 py-4">
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--hover)]"
           >
             {t('cancel')}
           </button>

@@ -170,7 +170,7 @@ export default function ShareholdersClient() {
               <button
                 type="button"
                 onClick={() => { setEditingShareClass(null); setShowShareClassModal(true); }}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-[var(--card-border)] px-4 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:border-amber-400 hover:text-amber-600"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-[var(--card-border)] px-4 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--amber-400)] hover:bg-[rgba(245,185,30,0.06)] hover:text-[var(--text-body)]"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {locale === 'fr' ? 'Ajouter une classe' : 'Add a class'}

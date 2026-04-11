@@ -90,9 +90,9 @@ export default function RemoveDirectorModal({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-md rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl dark:bg-zinc-900">
+      <div className="relative z-10 w-full max-w-md rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
+        <div className="flex items-center justify-between modal-header px-6 py-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             <AlertTriangle className="h-5 w-5 text-red-500" />
             {t('removeDirector')}
@@ -159,7 +159,7 @@ export default function RemoveDirectorModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-zinc-100 px-6 py-4 dark:border-zinc-800">
+        <div className="flex items-center justify-end gap-3 modal-footer px-6 py-4">
           <button
             type="button"
             onClick={onClose}

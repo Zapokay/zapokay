@@ -222,11 +222,11 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
         className={`border-2 border-dashed rounded-xl px-6 py-8 flex flex-col items-center gap-3 cursor-pointer transition-colors ${
           isDragging
             ? 'border-[var(--amber-400)] bg-[var(--warning-bg)]'
-            : 'border-[var(--card-border)] bg-[var(--card-bg)] hover:border-[var(--navy-400)]'
+            : 'border-[var(--card-border)] bg-[var(--card-bg)] hover:border-[var(--input-border-hover)]'
         }`}
       >
-        <div className="w-10 h-10 rounded-xl bg-[var(--info-bg)] flex items-center justify-center">
-          <svg className="w-5 h-5 text-[var(--info-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="w-10 h-10 rounded-xl bg-[var(--hover)] flex items-center justify-center">
+          <svg className="w-5 h-5 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>

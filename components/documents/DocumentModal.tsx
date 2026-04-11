@@ -248,10 +248,10 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
 
               {summaryState === 'unavailable' && (
                 <div style={{
-                  background: '#FFF8E7', border: '1px solid #FDDB8C',
+                  background: 'var(--warning-bg)', border: '1px solid var(--warning-border)',
                   borderRadius: '8px', padding: '14px 16px', textAlign: 'center',
                 }}>
-                  <p style={{ fontSize: '14px', color: '#7A5804', margin: '0 0 12px' }}>
+                  <p style={{ fontSize: '14px', color: 'var(--warning-text)', margin: '0 0 12px' }}>
                     {fr
                       ? 'Le résumé n\'est pas disponible pour ce document. Vérifiez que le fichier est un PDF lisible et réessayez.'
                       : 'Summary not available for this document. Make sure the file is a readable PDF and try again.'}
@@ -260,9 +260,9 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
                     onClick={handleGenerateSummary}
                     style={{
                       padding: '8px 16px', borderRadius: '8px',
-                      border: '1px solid #FDDB8C',
+                      border: '1px solid var(--warning-border)',
                       background: 'transparent', fontSize: '13px',
-                      color: '#7A5804', cursor: 'pointer',
+                      color: 'var(--warning-text)', cursor: 'pointer',
                     }}
                   >
                     {fr ? 'Réessayer' : 'Retry'}
@@ -391,8 +391,8 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
                           <span
                             key={idx}
                             style={{
-                              background: '#FFF8E7', color: '#7A5804',
-                              border: '1px solid #FDDB8C',
+                              background: 'var(--warning-bg)', color: 'var(--warning-text)',
+                              border: '1px solid var(--warning-border)',
                               borderRadius: '6px', padding: '4px 10px',
                               fontSize: '12px', fontWeight: 500,
                             }}

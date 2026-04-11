@@ -61,7 +61,7 @@ export function StepGapAnalysis({
             {/* Year header */}
             <div
               className="px-4 py-3 border-b border-[var(--card-border)]"
-              style={{ backgroundColor: 'var(--neutral-50)' }}
+              style={{ backgroundColor: 'var(--surface-bg)' }}
             >
               <span
                 className="text-sm font-bold"
@@ -152,23 +152,23 @@ function PresentDoc({ label, fr }: { label: string; fr: boolean }) {
     <div
       className="flex items-center gap-3 p-3 rounded-lg"
       style={{
-        border: '1px solid #B8CCAF',
-        backgroundColor: '#F0F4EE',
+        border: '1px solid var(--success-border)',
+        backgroundColor: 'var(--success-bg)',
       }}
     >
       <div
         className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: '#2E5425' }}
+        style={{ backgroundColor: 'var(--success-text)' }}
       >
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="white">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
         </svg>
       </div>
       <div className="flex-1">
-        <div className="text-sm font-medium" style={{ color: '#2E5425' }}>
+        <div className="text-sm font-medium" style={{ color: 'var(--success-text)' }}>
           {label}
         </div>
-        <div className="text-xs mt-0.5" style={{ color: '#2E5425', opacity: 0.7 }}>
+        <div className="text-xs mt-0.5" style={{ color: 'var(--success-text)', opacity: 0.7 }}>
           {fr ? 'Document déjà présent dans le coffre-fort' : 'Document already present in the vault'}
         </div>
       </div>
@@ -195,8 +195,8 @@ function DocCheckbox({
       className="w-full text-left flex items-start gap-3 p-3 rounded-lg transition-colors"
       style={{
         border: '1px solid',
-        borderColor: checked ? '#F5B91E' : 'var(--neutral-200)',
-        backgroundColor: checked ? '#FFF8E7' : 'transparent',
+        borderColor: checked ? 'var(--warning-border)' : 'var(--neutral-200)',
+        backgroundColor: checked ? 'var(--warning-bg)' : 'transparent',
       }}
     >
       <div

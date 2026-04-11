@@ -55,9 +55,9 @@ export function StepYearSelection({
       {/* Warning banner */}
       <div
         className="rounded-lg p-4 flex gap-3"
-        style={{ backgroundColor: '#FFF8E7', border: '1px solid #FDDB8C' }}
+        style={{ backgroundColor: 'var(--warning-bg)', border: '1px solid var(--warning-border)' }}
       >
-        <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="#7A5804">
+        <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--warning-text)' }}>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -65,7 +65,7 @@ export function StepYearSelection({
             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p className="text-sm" style={{ color: '#7A5804' }}>
+        <p className="text-sm" style={{ color: 'var(--warning-text)' }}>
           {fr
             ? 'Seuls les exercices présentant des lacunes documentaires sont affichés. Sélectionnez ceux pour lesquels vous souhaitez générer des résolutions.'
             : 'Only fiscal years with documentation gaps are shown. Select the ones for which you want to generate resolutions.'}
@@ -93,8 +93,8 @@ export function StepYearSelection({
               onClick={() => onToggle(fy.year)}
               className="w-full text-left rounded-xl p-4 border transition-all"
               style={{
-                borderColor: isSelected ? '#F5B91E' : 'var(--card-border)',
-                backgroundColor: isSelected ? '#FFF8E7' : 'var(--card-bg)',
+                borderColor: isSelected ? 'var(--warning-border)' : 'var(--card-border)',
+                backgroundColor: isSelected ? 'var(--warning-bg)' : 'var(--card-bg)',
               }}
             >
               <div className="flex items-center justify-between">
@@ -132,7 +132,7 @@ export function StepYearSelection({
                   {!fy.hasBoard && (
                     <span
                       className="text-xs px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: '#F5EEEE', color: '#6B1E1E' }}
+                      style={{ backgroundColor: 'var(--error-bg)', color: 'var(--error-text)' }}
                     >
                       {fr ? '✗ Résolution conseil' : '✗ Board resolution'}
                     </span>
@@ -140,7 +140,7 @@ export function StepYearSelection({
                   {!fy.hasShareholder && (
                     <span
                       className="text-xs px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: '#F5EEEE', color: '#6B1E1E' }}
+                      style={{ backgroundColor: 'var(--error-bg)', color: 'var(--error-text)' }}
                     >
                       {fr ? '✗ PV actionnaires' : '✗ Shareholder minutes'}
                     </span>
@@ -181,7 +181,7 @@ function StatusBadge({
     return (
       <span
         className="text-xs px-2 py-0.5 rounded-full font-medium"
-        style={{ backgroundColor: '#F0F4EE', color: '#2E5425' }}
+        style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success-text)' }}
       >
         {fr ? 'Complet' : 'Complete'}
       </span>
@@ -191,7 +191,7 @@ function StatusBadge({
     return (
       <span
         className="text-xs px-2 py-0.5 rounded-full font-medium"
-        style={{ backgroundColor: '#FFF8E7', color: '#7A5804' }}
+        style={{ backgroundColor: 'var(--warning-bg)', color: 'var(--warning-text)' }}
       >
         {fr ? 'Incomplet' : 'Incomplete'}
       </span>
@@ -200,7 +200,7 @@ function StatusBadge({
   return (
     <span
       className="text-xs px-2 py-0.5 rounded-full font-medium"
-      style={{ backgroundColor: '#F5EEEE', color: '#6B1E1E' }}
+      style={{ backgroundColor: 'var(--error-bg)', color: 'var(--error-text)' }}
     >
       {fr ? 'Manquant' : 'Missing'}
     </span>

@@ -167,16 +167,31 @@ export default async function WizardPage({
     .eq('company_id', company.id)
     .eq('is_active', true)
 
-  // Determine director
-  const rawDirectorPeople = (directorMandates ?? [])[0]?.company_people
-  const directorPerson = Array.isArray(rawDirectorPeople)
-    ? (rawDirectorPeople[0] as { full_name: string } | undefined) ?? null
-    : (rawDirectorPeople as { full_name: string } | null) ?? null
-  const director: Officer | null = directorPerson
-    ? { full_name: directorPerson.full_name, role: 'director' }
+  // Extract all active directors
+  const allDirectors = (directorMandates ?? [])
+    .map(m => {
+      const p = Array.isArray(m.company_people) ? m.company_people[0] : m.company_people
+      return (p as { full_name: string } | null)?.full_name ?? null
+    })
+    .filter(Boolean) as string[]
+
+  // Determine first director for initial info
+  const firstDirectorName = allDirectors[0] ?? null
+  const director: Officer | null = firstDirectorName
+    ? { full_name: firstDirectorName, role: 'director' }
     : null
 
-  // Determine officer (first active officer appointment, fallback to director)
+  // Extract all active officers
+  const allOfficers = (officerAppointments ?? [])
+    .map(a => {
+      const p = Array.isArray(a.company_people) ? a.company_people[0] : a.company_people
+      return (p as { full_name: string } | null)
+        ? { name: (p as { full_name: string }).full_name, role: a.custom_title ?? a.title }
+        : null
+    })
+    .filter(Boolean) as Array<{ name: string; role: string }>
+
+  // Determine first officer for initial info (fallback to director)
   const firstOfficer = (officerAppointments ?? [])[0]
   const rawOfficerPeople = firstOfficer?.company_people
   const officerPerson = Array.isArray(rawOfficerPeople)
@@ -247,6 +262,8 @@ export default async function WizardPage({
         initialSelectedYear={initialSelectedYear}
         noFiscalYearsConfigured={noFiscalYearsConfigured}
         settingsUrl={`/${locale}/dashboard/settings`}
+        directors={allDirectors}
+        officers={allOfficers}
       />
     </DashboardShell>
   )

@@ -319,7 +319,7 @@ export function SettingsClient({
               {savingProfile ? (fr ? 'Enregistrement...' : 'Saving...') : (fr ? 'Enregistrer' : 'Save')}
             </button>
             {profileMsg && (
-              <span className="text-xs font-medium" style={{ color: profileMsg.ok ? '#2E5425' : '#6B1E1E' }}>
+              <span className="text-xs font-medium" style={{ color: profileMsg.ok ? 'var(--success-text)' : 'var(--error-text)' }}>
                 {profileMsg.text}
               </span>
             )}
@@ -500,7 +500,7 @@ export function SettingsClient({
             </div>
             <p
               className="text-xs mt-2 px-3 py-2 rounded-lg"
-              style={{ backgroundColor: '#FFF8E7', color: '#7A5804', border: '1px solid #FDDB8C' }}
+              style={{ backgroundColor: 'var(--warning-bg)', color: 'var(--warning-text)', border: '1px solid var(--warning-border)' }}
             >
               ⚠️ {fr
                 ? "La modification de la fin d'exercice recalcule votre conformité."
@@ -519,7 +519,7 @@ export function SettingsClient({
                 : (fr ? 'Enregistrer les modifications' : 'Save changes')}
             </button>
             {companyMsg && (
-              <span className="text-xs font-medium" style={{ color: companyMsg.ok ? '#2E5425' : '#6B1E1E' }}>
+              <span className="text-xs font-medium" style={{ color: companyMsg.ok ? 'var(--success-text)' : 'var(--error-text)' }}>
                 {companyMsg.text}
               </span>
             )}
@@ -570,9 +570,9 @@ export function SettingsClient({
                   disabled={savingTheme}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm transition-colors"
                   style={{
-                    borderColor: selectedTheme === val ? '#F5B91E' : 'var(--card-border)',
-                    backgroundColor: selectedTheme === val ? '#FFF8E7' : 'var(--page-bg)',
-                    color: selectedTheme === val ? '#1C1A17' : 'var(--text-body)',
+                    borderColor: selectedTheme === val ? 'var(--warning-border)' : 'var(--card-border)',
+                    backgroundColor: selectedTheme === val ? 'var(--warning-bg)' : 'var(--page-bg)',
+                    color: 'var(--text-heading)',
                     textAlign: 'left',
                   }}
                 >
@@ -607,7 +607,7 @@ export function SettingsClient({
             </div>
           )}
           {themeMsg && (
-            <p className="mt-2 text-xs font-medium" style={{ color: themeMsg.ok ? '#2E5425' : '#6B1E1E' }}>
+            <p className="mt-2 text-xs font-medium" style={{ color: themeMsg.ok ? 'var(--success-text)' : 'var(--error-text)' }}>
               {themeMsg.text}
             </p>
           )}
@@ -618,7 +618,7 @@ export function SettingsClient({
       <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-6 shadow-sm">
         <h2 style={sectionTitle}>{fr ? 'Exercices financiers suivis' : 'Tracked fiscal years'}</h2>
         {toggleError && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-xs font-medium" style={{ backgroundColor: '#F5EEEE', color: '#6B1E1E', border: '1px solid #C9A5A5' }}>
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs font-medium" style={{ backgroundColor: 'var(--error-bg)', color: 'var(--error-text)', border: '1px solid var(--error-border)' }}>
             {toggleError}
           </div>
         )}
@@ -643,14 +643,14 @@ export function SettingsClient({
                   key={year}
                   className="flex items-center justify-between p-3 rounded-lg border transition-colors"
                   style={{
-                    borderColor: isActive ? '#F5B91E' : 'var(--card-border)',
-                    backgroundColor: isActive ? '#FFF8E7' : 'transparent',
+                    borderColor: isActive ? 'var(--warning-border)' : 'var(--card-border)',
+                    backgroundColor: isActive ? 'var(--warning-bg)' : 'transparent',
                   }}
                 >
                   <div className="flex items-center gap-3">
                     <span
                       className="text-sm font-semibold"
-                      style={{ fontFamily: 'Sora, sans-serif', color: isActive ? '#1C1A17' : 'var(--text-heading)' }}
+                      style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text-heading)' }}
                     >
                       {fr ? `Exercice ${year}` : `Fiscal year ${year}`}
                     </span>
@@ -660,9 +660,9 @@ export function SettingsClient({
                         fontWeight: 700,
                         letterSpacing: '.06em',
                         textTransform: 'uppercase',
-                        background: '#EEF1F7',
-                        color: '#1E3D6B',
-                        border: '1px solid #9EB0C9',
+                        background: 'var(--info-bg)',
+                        color: 'var(--info-text)',
+                        border: '1px solid var(--info-border)',
                         borderRadius: '20px',
                         padding: '2px 8px',
                       }}>

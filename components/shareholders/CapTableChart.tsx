@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type {
   ShareholdingWithDetails,
@@ -24,12 +24,12 @@ interface OwnerSlice {
 }
 
 // =============================================================================
-// Color palette (amber-centric, works on light + dark)
+// Color palette — muted in dark mode
 // =============================================================================
 
-const SLICE_COLORS = [
+const SLICE_COLORS_LIGHT = [
   '#f59e0b', // amber-500
-  '#3b82f6', // blue-500
+  '#6B8FAD', // muted steel-blue
   '#10b981', // emerald-500
   '#8b5cf6', // violet-500
   '#f43f5e', // rose-500
@@ -37,6 +37,29 @@ const SLICE_COLORS = [
   '#ec4899', // pink-500
   '#84cc16', // lime-500
 ];
+
+const SLICE_COLORS_DARK = [
+  '#D4A020', // muted amber
+  '#6B8FAD', // muted steel-blue
+  '#3A9E75', // muted emerald
+  '#7B5FBF', // muted violet
+  '#C44060', // muted rose
+  '#1A9BB0', // muted cyan
+  '#B83F8A', // muted pink
+  '#6B9C12', // muted lime
+];
+
+function useIsDark() {
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+  return isDark;
+}
 
 // =============================================================================
 // Component
@@ -48,6 +71,8 @@ export default function CapTableChart({
 }: CapTableChartProps) {
   const t = useTranslations('shareholders');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
+  const isDark = useIsDark();
+  const SLICE_COLORS = isDark ? SLICE_COLORS_DARK : SLICE_COLORS_LIGHT;
 
   // ---- Aggregate by person --------------------------------------------------
   const slices: OwnerSlice[] = useMemo(() => {
@@ -81,7 +106,8 @@ export default function CapTableChart({
     // Sort descending by quantity
     result.sort((a, b) => b.quantity - a.quantity);
     return result;
-  }, [shareholdings, totalIssued]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareholdings, totalIssued, isDark]);
 
   // ---- SVG donut math -------------------------------------------------------
   const SIZE = 140;
@@ -108,9 +134,9 @@ export default function CapTableChart({
   if (slices.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700/80 dark:bg-zinc-800/60">
+    <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5">
       {/* Header */}
-      <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+      <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
         {locale === 'fr' ? 'Tableau de capitalisation' : 'Cap Table'}
       </h3>
 
@@ -129,9 +155,8 @@ export default function CapTableChart({
               cy={SIZE / 2}
               r={RADIUS}
               fill="none"
-              stroke="currentColor"
+              stroke="var(--card-border)"
               strokeWidth={STROKE}
-              className="text-zinc-100 dark:text-zinc-700"
             />
             {/* Slices */}
             {arcs.map((arc, i) => (
@@ -152,10 +177,10 @@ export default function CapTableChart({
           </svg>
           {/* Center label */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+            <span className="text-lg font-bold text-[var(--text-heading)]">
               {totalIssued.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA')}
             </span>
-            <span className="text-[10px] text-zinc-400">
+            <span className="text-[10px] text-[var(--text-muted)]">
               {locale === 'fr' ? 'actions' : 'shares'}
             </span>
           </div>
@@ -170,15 +195,15 @@ export default function CapTableChart({
                 style={{ backgroundColor: slice.color }}
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <p className="truncate text-sm font-medium text-[var(--text-heading)]">
                   {slice.name}
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs text-[var(--text-muted)]">
                   {slice.quantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA')}{' '}
                   {locale === 'fr' ? 'actions' : 'shares'} · {slice.pct}%
                 </p>
               </div>
-              <span className="shrink-0 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+              <span className="shrink-0 text-sm font-semibold text-[var(--text-body)]">
                 {slice.pct}%
               </span>
             </div>
@@ -188,16 +213,16 @@ export default function CapTableChart({
 
       {/* Total + class summary */}
       {shareholdings.length > 0 && (
-        <div className="mt-4 border-t border-zinc-100 pt-3 dark:border-zinc-700/60">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="mt-4 border-t border-[var(--card-border)] pt-3">
+          <p className="text-xs text-[var(--text-muted)]">
             {locale === 'fr' ? 'Total émis' : 'Total issued'} :{' '}
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="font-medium text-[var(--text-body)]">
               {totalIssued.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA')}{' '}
               {locale === 'fr' ? 'actions' : 'shares'}
             </span>
             {' · '}
             {locale === 'fr' ? 'Classe' : 'Class'} :{' '}
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="font-medium text-[var(--text-body)]">
               {shareholdings[0].share_class.name}
               {shareholdings[0].share_class.voting_rights
                 ? locale === 'fr' ? ' (votantes)' : ' (voting)'

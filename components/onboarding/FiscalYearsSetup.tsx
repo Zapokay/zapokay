@@ -294,8 +294,8 @@ export function FiscalYearsSetup({
                     style={{
                       width: '100%', textAlign: 'left',
                       borderRadius: '10px', padding: '12px 14px',
-                      border: `1px solid ${isActive ? '#F5B91E' : 'var(--card-border)'}`,
-                      backgroundColor: isActive ? '#FFF8E7' : 'var(--page-bg)',
+                      border: `1px solid ${isActive ? 'var(--warning-border)' : 'var(--card-border)'}`,
+                      backgroundColor: isActive ? 'var(--warning-bg)' : 'var(--page-bg)',
                       opacity: hasDoc ? 0.6 : 1,
                       cursor: hasDoc ? 'not-allowed' : 'pointer',
                       transition: 'border-color 150ms, background-color 150ms',
