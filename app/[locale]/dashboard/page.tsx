@@ -9,7 +9,8 @@ import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
 import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
-import MinuteBookCard from '@/components/dashboard/MinuteBookCard';
+import MinuteBookCard from '@/components/dashboard/MinuteBookCard'
+import { LegalTerm } from '@/components/ui/LegalTerm';
 
 // ─── Fiscal year history helper ───────────────────────────────────────────────
 
@@ -528,7 +529,9 @@ export default async function DashboardPage({
                     className="text-sm font-bold text-[var(--text-heading)]"
                     style={{ fontFamily: 'Sora, sans-serif' }}
                   >
-                    {fr ? `Conformité ${frameworkLabel}` : `${frameworkLabel} Compliance`}
+                    {fr
+                      ? <>Conformité <LegalTerm termKey={frameworkLabel === 'CBCA' ? 'cbca' : 'lsaq'} lang="fr" /></>
+                      : <><LegalTerm termKey={frameworkLabel === 'CBCA' ? 'cbca' : 'lsaq'} lang="en" /> Compliance</>}
                   </h2>
                   <Link
                     href={`/${locale}/dashboard/compliance`}

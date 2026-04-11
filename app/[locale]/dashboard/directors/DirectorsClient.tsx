@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import DirectorCard from '@/components/directors/DirectorCard';
+import { LegalTerm } from '@/components/ui/LegalTerm';
 import AddDirectorModal from '@/components/directors/AddDirectorModal';
 import RemoveDirectorModal from '@/components/directors/RemoveDirectorModal';
 import type {
@@ -154,7 +155,9 @@ export default function DirectorsClient() {
           {isCBCA && (
             <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${residencyOk ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
               {residencyOk ? <ShieldCheck className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
-              {locale === 'fr' ? `Résidence canadienne : ${residencyPct}%` : `Canadian residency: ${residencyPct}%`}
+              {locale === 'fr'
+                ? <><LegalTerm termKey="resident_canadien" lang="fr" /> : {residencyPct}%</>
+                : <><LegalTerm termKey="resident_canadien" lang="en" />: {residencyPct}%</>}
               {residencyOk ? ' ✔' : locale === 'fr' ? ' — minimum 25% requis' : ' — 25% minimum required'}
             </div>
           )}
@@ -181,7 +184,9 @@ export default function DirectorsClient() {
             <UserCheck className="h-7 w-7 text-[var(--amber-400)]" />
           </div>
           <h3 className="text-lg font-semibold text-[var(--text-heading)]">
-            {locale === 'fr' ? 'Aucun administrateur enregistré' : 'No directors registered'}
+            {locale === 'fr'
+              ? <>Aucun <LegalTerm termKey="administrateur" lang="fr" /> enregistré</>
+              : <>No <LegalTerm termKey="administrateur" lang="en" /> registered</>}
           </h3>
           <p className="mt-2 max-w-sm text-sm text-[var(--text-muted)]">
             {locale === 'fr'

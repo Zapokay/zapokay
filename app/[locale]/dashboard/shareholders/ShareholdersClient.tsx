@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { Zap, PieChart, Info, Loader2, Plus } from 'lucide-react';
 import CapTableChart from '@/components/shareholders/CapTableChart';
+import { LegalTerm } from '@/components/ui/LegalTerm';
 import ShareClassCard from '@/components/shareholders/ShareClassCard';
 import ShareholderCard from '@/components/shareholders/ShareholderCard';
 import IssueSharesModal from '@/components/shareholders/IssueSharesModal';
@@ -202,7 +203,9 @@ export default function ShareholdersClient() {
             <PieChart className="h-7 w-7 text-[var(--amber-400)]" />
           </div>
           <h3 className="text-lg font-semibold text-[var(--text-heading)]">
-            {locale === 'fr' ? 'Aucun actionnaire enregistré' : 'No shareholders registered'}
+            {locale === 'fr'
+              ? <>Aucun <LegalTerm termKey="actionnaire" lang="fr" /> enregistré</>
+              : <>No <LegalTerm termKey="actionnaire" lang="en" /> registered</>}
           </h3>
           <p className="mt-2 max-w-sm text-sm text-[var(--text-muted)]">
             {locale === 'fr'

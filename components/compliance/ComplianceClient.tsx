@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useLocale } from 'next-intl'
+import { LegalTerm } from '@/components/ui/LegalTerm'
 import ComplianceGauge from './ComplianceGauge'
 import ComplianceItemCard from './ComplianceItemCard'
 import ComplianceUploadRedirect from './ComplianceUploadRedirect'
@@ -192,7 +193,9 @@ export function ComplianceClient({
           }}>
             <ComplianceGauge percentage={percentage} size={120} />
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              {fr ? `Exercice ${fyLabel}` : `Fiscal year ${fyLabel}`}
+              {fr
+                ? <><LegalTerm termKey="exercice_financier" lang="fr" /> {fyLabel}</>
+                : <>Fiscal year {fyLabel}</>}
             </p>
           </div>
 

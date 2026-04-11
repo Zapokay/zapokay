@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { Zap, Briefcase, Info, Loader2 } from 'lucide-react';
 import OfficerCard from '@/components/officers/OfficerCard';
+import { LegalTerm } from '@/components/ui/LegalTerm';
 import AddOfficerModal from '@/components/officers/AddOfficerModal';
 import ReplaceOfficerModal from '@/components/officers/ReplaceOfficerModal';
 import RemoveOfficerModal from '@/components/officers/RemoveOfficerModal';
@@ -156,7 +157,9 @@ export default function OfficersClient() {
             <Briefcase className="h-7 w-7 text-[var(--amber-400)]" />
           </div>
           <h3 className="text-lg font-semibold text-[var(--text-heading)]">
-            {locale === 'fr' ? 'Aucun dirigeant nommé' : 'No officers appointed'}
+            {locale === 'fr'
+              ? <>Aucun <LegalTerm termKey="dirigeant" lang="fr" /> nommé</>
+              : <>No <LegalTerm termKey="dirigeant" lang="en" /> appointed</>}
           </h3>
           <p className="mt-2 max-w-sm text-sm text-[var(--text-muted)]">
             {locale === 'fr'

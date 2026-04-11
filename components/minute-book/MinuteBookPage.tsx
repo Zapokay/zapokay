@@ -6,6 +6,7 @@ import { Info } from 'lucide-react';
 import CompletenessBar from '@/components/minute-book/CompletenessBar';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import BinderView from '@/components/minute-book/BinderView';
+import { LegalTerm } from '@/components/ui/LegalTerm';
 import type {
   CompletenessResponse,
   ChecklistItem,
@@ -93,7 +94,7 @@ export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
       <div className="mb-6">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
-            {fr ? 'Livre de minutes' : 'Minute Book'}
+            <LegalTerm termKey="livre_minutes" lang={fr ? 'fr' : 'en'} />
           </h1>
           <button
             type="button"
