@@ -5,19 +5,19 @@ import { createClient } from '@supabase/supabase-js';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   try {
     const { data: doc, error } = await supabase
       .from('documents')
-      .select('file_name, storage_path, content_type')
+      .select('id, title, file_url, file_name, status')
       .eq('id', params.id)
       .single();
 
@@ -27,7 +27,7 @@ export async function GET(
 
     const { data: fileData, error: dlError } = await supabase.storage
       .from('documents')
-      .download(doc.storage_path);
+      .download(doc.file_url);
 
     if (dlError || !fileData) {
       return NextResponse.json({ error: 'File not found in storage' }, { status: 404 });
