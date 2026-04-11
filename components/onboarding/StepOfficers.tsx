@@ -181,9 +181,13 @@ export default function StepOfficers({
 
         {/* Note */}
         <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '4px' }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{display:'inline',verticalAlign:'middle',color:'var(--color-nt-400)',marginRight:'4px'}}>
+            <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M8 7v5M8 5.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
           {fr
-            ? "ℹ️ Une même personne peut occuper plusieurs postes. C'est très courant dans les petites entreprises."
-            : 'ℹ️ The same person can hold multiple positions. This is very common in small businesses.'}
+            ? "Une même personne peut occuper plusieurs postes. C'est très courant dans les petites entreprises."
+            : 'The same person can hold multiple positions. This is very common in small businesses.'}
         </p>
       </div>
     </OnboardingStepLayout>
