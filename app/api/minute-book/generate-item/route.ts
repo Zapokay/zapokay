@@ -4,7 +4,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 /* ------------------------------------------------------------------ */
-/*  Résolutions par requirementKey                                     */
+/*  Mapping requirementKey → document type + resolutionType           */
+/* ------------------------------------------------------------------ */
+
+interface DocMapping {
+  type: string;
+  resolutionType: string;
+}
+
+const REQUIREMENT_MAP: Record<string, DocMapping> = {
+  // LSAQ
+  lsaq_premiere_resolution_ca:               { type: 'board-resolution',        resolutionType: 'founding_board' },
+  lsaq_premiere_resolution_actionnaires:     { type: 'shareholder-resolution',  resolutionType: 'founding_shareholder' },
+  lsaq_souscription_actions:                 { type: 'board-resolution',        resolutionType: 'share_subscription' },
+  lsaq_annual_board_resolution:              { type: 'board-resolution',        resolutionType: 'annual_board' },
+  lsaq_annual_shareholder_resolution:        { type: 'shareholder-resolution',  resolutionType: 'annual_shareholder' },
+  lsaq_auditor_waiver:                       { type: 'shareholder-resolution',  resolutionType: 'auditor_waiver' },
+  // CBCA
+  cbca_first_board_resolution:               { type: 'board-resolution',        resolutionType: 'founding_board' },
+  cbca_first_shareholder_resolution:         { type: 'shareholder-resolution',  resolutionType: 'founding_shareholder' },
+  cbca_share_subscription:                   { type: 'board-resolution',        resolutionType: 'share_subscription' },
+  // Non générables — exclues explicitement
+  // lsaq_acceptation_mandat, cbca_director_acceptance → canGenerate: false
+};
+
+function getDocumentType(
+  requirementKey: string
+): { type: string; resolutionType: string; canGenerate: true } | { canGenerate: false } {
+  const entry = REQUIREMENT_MAP[requirementKey];
+  if (!entry) return { canGenerate: false };
+  return { ...entry, canGenerate: true };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Résolutions par resolutionType                                     */
 /* ------------------------------------------------------------------ */
 
 interface Resolution {
@@ -13,9 +46,9 @@ interface Resolution {
   body: string;
 }
 
-function getResolutionsForKey(key: string): Resolution[] {
+function getResolutionsForType(resolutionType: string): Resolution[] {
   const map: Record<string, Resolution[]> = {
-    founding_board_resolution: [
+    founding_board: [
       {
         number: 1,
         title: 'Adoption des statuts',
@@ -32,7 +65,7 @@ function getResolutionsForKey(key: string): Resolution[] {
         body: "L'exercice financier de la société est fixé conformément aux statuts déposés.",
       },
     ],
-    founding_shareholder_resolution: [
+    founding_shareholder: [
       {
         number: 1,
         title: 'Ratification du règlement intérieur',
@@ -49,27 +82,42 @@ function getResolutionsForKey(key: string): Resolution[] {
         body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours.",
       },
     ],
+    share_subscription: [
+      {
+        number: 1,
+        title: 'Souscription et émission des actions',
+        body: "Le conseil autorise l'émission et la souscription des actions conformément aux résolutions initiales.",
+      },
+    ],
+    annual_board: [
+      {
+        number: 1,
+        title: 'Approbation des états financiers',
+        body: "Les états financiers de l'exercice sont approuvés par le conseil d'administration.",
+      },
+    ],
+    annual_shareholder: [
+      {
+        number: 1,
+        title: 'Approbation des états financiers',
+        body: "Les états financiers de l'exercice sont approuvés par les actionnaires.",
+      },
+      {
+        number: 2,
+        title: 'Dispense de vérificateur',
+        body: "Les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours.",
+      },
+    ],
+    auditor_waiver: [
+      {
+        number: 1,
+        title: 'Dispense de vérificateur',
+        body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur.",
+      },
+    ],
   };
 
-  return map[key] ?? [{ number: 1, title: 'Résolution', body: 'La résolution est adoptée.' }];
-}
-
-/* ------------------------------------------------------------------ */
-/*  Mapping requirementKey → document type                             */
-/* ------------------------------------------------------------------ */
-
-function getDocumentType(
-  requirementKey: string
-): { type: string; canGenerate: true } | { canGenerate: false } {
-  const mapping: Record<string, string> = {
-    founding_board_resolution: 'board-resolution',
-    founding_shareholder_resolution: 'shareholder-resolution',
-    share_subscription_letter: 'board-resolution',
-  };
-
-  const type = mapping[requirementKey];
-  if (!type) return { canGenerate: false };
-  return { type, canGenerate: true };
+  return map[resolutionType] ?? [{ number: 1, title: 'Résolution', body: 'La résolution est adoptée.' }];
 }
 
 /* ------------------------------------------------------------------ */
@@ -167,7 +215,7 @@ export async function POST(request: NextRequest) {
       framework: company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
       directors: activeDirectors,
       shareholders: activeShareholders,
-      resolutions: getResolutionsForKey(requirementKey),
+      resolutions: getResolutionsForType(docTypeResult.resolutionType),
     };
 
     /* ---------- Générer le PDF ---------- */
@@ -212,7 +260,7 @@ export async function POST(request: NextRequest) {
       .insert({
         company_id: companyId,
         document_type: docTypeResult.type,
-        title: getResolutionsForKey(requirementKey)[0]?.title ?? requirementKey,
+        title: getResolutionsForType(docTypeResult.resolutionType)[0]?.title ?? requirementKey,
         file_name: fileName,
         storage_path: storagePath,
         status: 'active',
