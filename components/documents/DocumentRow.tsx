@@ -41,28 +41,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false 
     { year: 'numeric', month: 'short', day: 'numeric' }
   );
 
-  async function getSignedUrl(): Promise<string | null> {
-    if (!doc.file_url) return null;
-
-    const idx = doc.file_url.indexOf(BUCKET_MARKER);
-    if (idx === -1) {
-      console.error('[DocumentRow] Cannot parse storage path from file_url:', doc.file_url);
-      return null;
-    }
-    const storagePath = doc.file_url.slice(idx + BUCKET_MARKER.length);
-
-    const supabase = createClient();
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .createSignedUrl(storagePath, 60);
-
-    if (error || !data?.signedUrl) {
-      console.error('[DocumentRow] createSignedUrl failed:', error);
-      return null;
-    }
-
-    return data.signedUrl;
-  }
+  const downloadUrl = `/api/documents/${doc.id}/download`;
 
   async function handleView() {
     // If AI summaries enabled, open modal with tabs
@@ -70,22 +49,13 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false 
       setShowDocModal(true);
       return;
     }
-    setLoading('view');
-    try {
-      const signedUrl = await getSignedUrl();
-      if (!signedUrl) return;
-      window.open(signedUrl, '_blank', 'noopener,noreferrer');
-    } finally {
-      setLoading(null);
-    }
+    window.open(downloadUrl, '_blank', 'noopener,noreferrer');
   }
 
   async function handleDownload() {
     setLoading('download');
     try {
-      const signedUrl = await getSignedUrl();
-      if (!signedUrl) return;
-      const response = await fetch(signedUrl);
+      const response = await fetch(downloadUrl);
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');

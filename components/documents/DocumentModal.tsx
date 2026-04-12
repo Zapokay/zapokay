@@ -445,22 +445,20 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
                   <p style={{ fontSize: '14px', marginBottom: '12px' }}>
                     {fr ? 'Aperçu non disponible.' : 'Preview not available.'}
                   </p>
-                  {doc.file_url && (
-                    <a
-                      href={doc.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        padding: '8px 16px', borderRadius: '8px',
-                        background: '#F5B91E', border: 'none',
-                        fontWeight: 600, fontSize: '13px',
-                        color: '#1C1A17', cursor: 'pointer',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      {fr ? 'Ouvrir dans un nouvel onglet' : 'Open in new tab'}
-                    </a>
-                  )}
+                  <a
+                    href={`/api/documents/${doc.id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: '8px 16px', borderRadius: '8px',
+                      background: '#F5B91E', border: 'none',
+                      fontWeight: 600, fontSize: '13px',
+                      color: '#1C1A17', cursor: 'pointer',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {fr ? 'Ouvrir dans un nouvel onglet' : 'Open in new tab'}
+                  </a>
                 </div>
               )}
             </div>

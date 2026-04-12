@@ -86,17 +86,15 @@ export default function BinderSection({
                 >
                   <Eye className="w-4 h-4" />
                 </button>
-                {doc.file_url && (
-                  <a
-                    href={doc.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors"
-                    title="Télécharger"
-                  >
-                    <Download className="w-4 h-4" />
-                  </a>
-                )}
+                <a
+                  href={`/api/documents/${doc.id}/download`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors"
+                  title="Télécharger"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
               </div>
             </div>
           ))}
