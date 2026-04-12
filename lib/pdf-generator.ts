@@ -3,7 +3,7 @@ import type { Browser } from 'puppeteer-core';
 
 let _browser: Browser | null = null;
 
-function getLocalExecutablePath(): string {
+function getLocalChromePath(): string {
   if (process.env.CHROME_EXECUTABLE_PATH) {
     return process.env.CHROME_EXECUTABLE_PATH;
   }
@@ -30,7 +30,7 @@ async function getBrowser(): Promise<Browser> {
   const puppeteer = await import('puppeteer-core');
 
   const isVercel =
-    !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.VERCEL;
+    !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 
   let executablePath: string;
   let args: string[];
@@ -40,7 +40,7 @@ async function getBrowser(): Promise<Browser> {
     executablePath = await chromium.default.executablePath();
     args = chromium.default.args;
   } else {
-    executablePath = getLocalExecutablePath();
+    executablePath = getLocalChromePath();
     args = [
       '--no-sandbox',
       '--disable-setuid-sandbox',
