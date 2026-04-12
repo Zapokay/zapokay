@@ -7,6 +7,7 @@ import { AlertTriangle } from 'lucide-react';
 interface RequirementSectionProps {
   title: string;
   items: ChecklistItem[];
+  generatingKey?: string | null;
   onUpload?: (requirementKey: string, year: number | null) => void;
   onGenerate?: (requirementKey: string, year: number | null) => void;
 }
@@ -14,6 +15,7 @@ interface RequirementSectionProps {
 export default function RequirementSection({
   title,
   items,
+  generatingKey,
   onUpload,
   onGenerate,
 }: RequirementSectionProps) {
@@ -56,6 +58,7 @@ export default function RequirementSection({
             canUpload={item.can_upload}
             canGenerate={item.can_generate}
             year={item.year}
+            isGenerating={generatingKey === item.requirement_key}
             onUpload={onUpload}
             onGenerate={onGenerate}
           />

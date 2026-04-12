@@ -68,6 +68,7 @@ export default function OfficersClient() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const sortedOfficers = [...officers].sort((a, b) => ROLE_ORDER.indexOf(a.title) - ROLE_ORDER.indexOf(b.title));
+  const uniqueOfficerCount = new Set(officers.map(o => o.person_id)).size;
 
   function getDirectorMandatesForPerson(personId: string) { return directorMandates.filter((dm) => dm.person_id === personId); }
   function getShareholdingsForPerson(personId: string) { return shareholdings.filter((sh) => sh.person_id === personId); }
@@ -108,10 +109,10 @@ export default function OfficersClient() {
           </button>
         </div>
         <p className="text-sm text-[var(--text-muted)] mt-1">
-          {sortedOfficers.length > 0
+          {uniqueOfficerCount > 0
             ? locale === 'fr'
-              ? `${sortedOfficers.length} dirigeant${sortedOfficers.length > 1 ? 's' : ''} nommé${sortedOfficers.length > 1 ? 's' : ''}`
-              : `${sortedOfficers.length} officer${sortedOfficers.length > 1 ? 's' : ''} appointed`
+              ? `${uniqueOfficerCount} dirigeant${uniqueOfficerCount > 1 ? 's' : ''} nommé${uniqueOfficerCount > 1 ? 's' : ''}`
+              : `${uniqueOfficerCount} officer${uniqueOfficerCount > 1 ? 's' : ''} appointed`
             : locale === 'fr' ? 'Aucun dirigeant nommé' : 'No officers appointed'}
         </p>
       </div>

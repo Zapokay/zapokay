@@ -6,6 +6,7 @@ import { Info } from 'lucide-react';
 import CompletenessBar from '@/components/minute-book/CompletenessBar';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import BinderView from '@/components/minute-book/BinderView';
+import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
 import type {
   CompletenessResponse,
   ChecklistItem,
@@ -20,15 +21,19 @@ type TabKey = (typeof TABS)[number]['key']
 
 interface MinuteBookPageProps {
   locale: string;
+  companyId: string;
 }
 
-export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
+export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProps) {
   const router = useRouter();
   const fr = locale === 'fr';
   const [activeTab, setActiveTab] = useState<TabKey>('completude');
   const [data, setData] = useState<CompletenessResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [generating, setGenerating] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -56,11 +61,31 @@ export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
     router.push(`/${locale}/dashboard/documents?upload=true&${params.toString()}`);
   };
 
-  const handleGenerate = (requirementKey: string, year: number | null) => {
+  const handleGenerate = useCallback(async (requirementKey: string, year: number | null) => {
     if (year !== null) {
       router.push(`/${locale}/dashboard/wizard?year=${year}`);
+      return;
     }
-  };
+    setGenerating(requirementKey);
+    setGenerateError(null);
+    try {
+      const res = await fetch('/api/minute-book/generate-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, requirementKey }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        fetchData();
+      } else {
+        setGenerateError(json.error ?? 'Impossible de générer ce document.');
+      }
+    } catch {
+      setGenerateError('Erreur réseau. Veuillez réessayer.');
+    } finally {
+      setGenerating(null);
+    }
+  }, [companyId, locale, router, fetchData]);
 
   const foundationalItems: ChecklistItem[] =
     data?.checklist.filter((i) => i.category === 'foundational') || [];
@@ -91,30 +116,43 @@ export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
     <div>
       {/* Page heading — always visible above tabs */}
       <div className="mb-6">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
-            {fr ? 'Livre de minutes' : 'Minute Book'}
-          </h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
+              {fr ? 'Livre de minutes' : 'Minute Book'}
+            </h1>
+            <button
+              type="button"
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+              className="relative rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-body)]"
+            >
+              <Info className="h-4 w-4" />
+              {showTooltip && (
+                <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs text-[var(--text-body)] shadow-lg">
+                  {fr
+                    ? 'Le livre de minutes est le registre officiel de votre société. Il contient tous les documents juridiques fondateurs et les résolutions adoptées chaque année.'
+                    : 'The minute book is the official record of your company. It contains all founding legal documents and resolutions adopted each year.'}
+                </div>
+              )}
+            </button>
+          </div>
           <button
             type="button"
-            onMouseEnter={() => setShowTooltip(true)}
-            onMouseLeave={() => setShowTooltip(false)}
-            className="relative rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-body)]"
+            onClick={() => setShowDueDiligenceModal(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border-[1.5px] border-[var(--color-navy-600,#1e3a5f)] text-[var(--color-navy-600,#1e3a5f)] bg-transparent transition-colors hover:bg-[var(--color-navy-600,#1e3a5f)] hover:text-white"
+            style={{ fontFamily: 'DM Sans, sans-serif' }}
           >
-            <Info className="h-4 w-4" />
-            {showTooltip && (
-              <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs text-[var(--text-body)] shadow-lg">
-                {fr
-                  ? 'Le livre de minutes est le registre officiel de votre société. Il contient tous les documents juridiques fondateurs et les résolutions adoptées chaque année.'
-                  : 'The minute book is the official record of your company. It contains all founding legal documents and resolutions adopted each year.'}
-              </div>
-            )}
+            ↓ {fr ? 'Exporter le livre' : 'Export book'}
           </button>
         </div>
         {!loading && data && (
           <p className="text-sm text-[var(--text-muted)] mt-1">
             {data.score}% {fr ? 'complet' : 'complete'} · {data.totalMissing} {fr ? 'documents manquants' : 'missing documents'}
           </p>
+        )}
+        {generateError && (
+          <p className="mt-2 text-sm text-red-600">{generateError}</p>
         )}
       </div>
 
@@ -169,6 +207,7 @@ export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
                 <RequirementSection
                   title={fr ? 'Documents fondateurs' : 'Founding documents'}
                   items={foundationalItems}
+                  generatingKey={generating}
                   onUpload={handleUpload}
                   onGenerate={handleGenerate}
                 />
@@ -179,6 +218,7 @@ export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
                   key={year}
                   title={getFiscalYearLabel(year)}
                   items={annualItemsByYear[year]}
+                  generatingKey={generating}
                   onUpload={handleUpload}
                   onGenerate={handleGenerate}
                 />
@@ -190,6 +230,13 @@ export default function MinuteBookPage({ locale }: MinuteBookPageProps) {
 
       {/* Livre tab */}
       {activeTab === 'livre' && <BinderView />}
+
+      {/* Due Diligence Modal */}
+      <DueDiligenceModal
+        companyId={companyId}
+        isOpen={showDueDiligenceModal}
+        onClose={() => setShowDueDiligenceModal(false)}
+      />
     </div>
   );
 }

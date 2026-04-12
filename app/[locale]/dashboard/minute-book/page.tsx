@@ -36,7 +36,7 @@ export default async function MinuteBookRoute({
 
   return (
     <DashboardShell locale={locale} profile={profile} company={company} urgentCount={0}>
-      <MinuteBookPage locale={locale} />
+      <MinuteBookPage locale={locale} companyId={company.id} />
     </DashboardShell>
   )
 }

@@ -12,6 +12,7 @@ interface RequirementRowProps {
   canUpload: boolean;
   canGenerate: boolean;
   year: number | null;
+  isGenerating?: boolean;
   onUpload?: (requirementKey: string, year: number | null) => void;
   onGenerate?: (requirementKey: string, year: number | null) => void;
 }
@@ -25,6 +26,7 @@ export default function RequirementRow({
   canUpload,
   canGenerate,
   year,
+  isGenerating = false,
   onUpload,
   onGenerate,
 }: RequirementRowProps) {
@@ -91,10 +93,17 @@ export default function RequirementRow({
             {canGenerate ? (
               <button
                 onClick={() => onGenerate?.(requirementKey, year)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
+                disabled={isGenerating}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Sparkles className="h-3.5 w-3.5" />
-                Générer
+                {isGenerating ? (
+                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 14 14" fill="none">
+                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="24" strokeDashoffset="6" />
+                  </svg>
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {isGenerating ? 'Génération…' : 'Générer'}
               </button>
             ) : null}
             {!canUpload && !canGenerate && (
