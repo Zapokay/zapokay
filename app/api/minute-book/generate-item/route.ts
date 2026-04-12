@@ -180,6 +180,16 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    /* ---------- Charger le titre depuis minute_book_requirements ---------- */
+
+    const { data: requirement } = await supabase
+      .from('minute_book_requirements')
+      .select('title_fr, title_en')
+      .eq('requirement_key', requirementKey)
+      .single();
+
+    const documentTitle = requirement?.title_fr ?? requirementKey;
+
     /* ---------- Charger les données de l'entreprise ---------- */
 
     const { data: company, error: companyError } = await supabase
@@ -279,7 +289,7 @@ export async function POST(request: NextRequest) {
       .insert({
         company_id:      companyId,
         document_type:   mapToDocumentType(docTypeResult.type),
-        title:           getResolutionsForType(docTypeResult.resolutionType)[0]?.title ?? requirementKey,
+        title:           documentTitle,
         file_name:       fileName,
         file_url:        storagePath,
         file_size:       pdfBuffer.length,
