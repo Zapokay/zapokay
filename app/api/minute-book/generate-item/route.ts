@@ -121,6 +121,20 @@ function getResolutionsForType(resolutionType: string): Resolution[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Mapping vers les valeurs acceptées par la colonne document_type    */
+/* ------------------------------------------------------------------ */
+
+function mapToDocumentType(type: string): string {
+  const map: Record<string, string> = {
+    'board-resolution':        'resolution',
+    'shareholder-resolution':  'resolution',
+    'annual-register':         'registre',
+    'cover-page':              'autre',
+  };
+  return map[type] ?? 'autre';
+}
+
+/* ------------------------------------------------------------------ */
 /*  POST handler                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -263,14 +277,17 @@ export async function POST(request: NextRequest) {
     const { data: document, error: docInsertError } = await supabase
       .from('documents')
       .insert({
-        company_id: companyId,
-        document_type: docTypeResult.type,
-        title: getResolutionsForType(docTypeResult.resolutionType)[0]?.title ?? requirementKey,
-        file_name: fileName,
-        storage_path: storagePath,
-        status: 'active',
-        source: 'generated',
-        generated_at: now.toISOString(),
+        company_id:      companyId,
+        document_type:   mapToDocumentType(docTypeResult.type),
+        title:           getResolutionsForType(docTypeResult.resolutionType)[0]?.title ?? requirementKey,
+        file_name:       fileName,
+        file_url:        storagePath,
+        file_size:       pdfBuffer.length,
+        language:        'fr',
+        status:          'active',
+        source:          'generated',
+        framework:       company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
+        document_year:   now.getFullYear(),
         requirement_key: requirementKey,
       })
       .select('id')
