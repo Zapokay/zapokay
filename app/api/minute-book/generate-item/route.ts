@@ -131,6 +131,11 @@ export async function POST(request: NextRequest) {
       requirementKey: string;
     };
 
+    console.log('[generate-item] env check:', {
+      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    });
+
     if (!companyId || !requirementKey) {
       return NextResponse.json(
         { success: false, error: 'companyId et requirementKey sont requis.' },
@@ -296,7 +301,7 @@ export async function POST(request: NextRequest) {
       fileName,
     });
   } catch (error) {
-    console.error('generate-item error:', error);
+    console.error('[generate-item] Full error:', error);
     return NextResponse.json(
       { success: false, error: 'Erreur interne du serveur.' },
       { status: 500 }

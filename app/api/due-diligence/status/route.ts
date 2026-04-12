@@ -19,6 +19,11 @@ const GENERATABLE_KEYS = new Set([
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('[due-diligence/status] env check:', {
+      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    });
+
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('companyId');
 
@@ -104,7 +109,7 @@ export async function GET(request: NextRequest) {
       missingDocuments,
     });
   } catch (error) {
-    console.error('due-diligence/status error:', error);
+    console.error('[due-diligence/status] Full error:', error);
     return NextResponse.json(
       { error: 'Erreur interne du serveur.' },
       { status: 500 }
