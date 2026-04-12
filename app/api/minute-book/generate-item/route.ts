@@ -269,6 +269,7 @@ export async function POST(request: NextRequest) {
         file_name: fileName,
         storage_path: storagePath,
         status: 'active',
+        source: 'generated',
         generated_at: now.toISOString(),
         requirement_key: requirementKey,
       })
@@ -282,18 +283,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    /* ---------- Marquer comme complété dans minute_book_requirements ---------- */
-
-    await supabase
-      .from('minute_book_requirements')
-      .update({
-        status: 'completed',
-        document_id: document.id,
-        completed_at: now.toISOString(),
-      })
-      .eq('company_id', companyId)
-      .eq('requirement_key', requirementKey);
 
     return NextResponse.json({
       success: true,
