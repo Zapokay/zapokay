@@ -50,21 +50,12 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
-  const BUCKET_MARKER = '/object/public/documents/';
+  const previewUrl = `/api/documents/${doc.id}/download?preview=true`;
 
-  const loadSignedUrl = useCallback(async () => {
-    if (!doc.file_url || pdfUrl) return;
-    setPdfLoading(true);
-    try {
-      const idx = doc.file_url.indexOf(BUCKET_MARKER);
-      if (idx === -1) return;
-      const storagePath = doc.file_url.slice(idx + BUCKET_MARKER.length);
-      const { data } = await supabase.storage.from('documents').createSignedUrl(storagePath, 300);
-      if (data?.signedUrl) setPdfUrl(data.signedUrl);
-    } finally {
-      setPdfLoading(false);
-    }
-  }, [doc.file_url, pdfUrl, supabase]);
+  const loadSignedUrl = useCallback(() => {
+    if (pdfUrl) return;
+    setPdfUrl(previewUrl);
+  }, [pdfUrl, previewUrl]);
 
   // Check cached summary on mount if AI enabled
   useEffect(() => {
@@ -446,7 +437,7 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
                     {fr ? 'Aperçu non disponible.' : 'Preview not available.'}
                   </p>
                   <a
-                    href={`/api/documents/${doc.id}/download`}
+                    href={`/api/documents/${doc.id}/download?preview=true`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{

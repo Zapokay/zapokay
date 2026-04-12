@@ -6,9 +6,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const isPreview = request.nextUrl.searchParams.get('preview') === 'true';
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -40,7 +41,9 @@ export async function GET(
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${doc.file_name}"`,
+        'Content-Disposition': isPreview
+          ? `inline; filename="${doc.file_name}"`
+          : `attachment; filename="${doc.file_name}"`,
         'Content-Length': String(buffer.length),
       },
     });
