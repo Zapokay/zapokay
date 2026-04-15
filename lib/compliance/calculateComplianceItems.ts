@@ -44,9 +44,7 @@ function calculateDueDate(
   incorporationDate: string | null,
   today: Date
 ): Date | null {
-  const fyStart = currentFiscalYearStart(fyEndMonth, fyEndDay, today)
-  // Fiscal year end = fyStart + 12 months
-  const fyEnd = addMonths(fyStart, 12)
+  const fyEnd = currentFiscalYearStart(fyEndMonth, fyEndDay, today)
 
   switch (ruleKey) {
     case 'annual_board_resolution':
@@ -150,7 +148,8 @@ export async function calculateComplianceItems(
   const today = referenceDate ?? new Date()
 
   // Début de l'exercice fiscal courant (pour filtrer les documents)
-  const fyStart = currentFiscalYearStart(fyEndMonth, fyEndDay, today)
+  const fyEnd    = currentFiscalYearStart(fyEndMonth, fyEndDay, today)
+  const fyStart  = addMonths(fyEnd, -12)
   const fyStartStr = toISODateString(fyStart)
 
   // Indexer les documents par document_type → date la plus récente (après fyStart)

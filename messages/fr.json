@@ -46,7 +46,35 @@
     "emailVerification": "Vérifiez votre courriel pour confirmer votre compte.",
     "invalidCredentials": "Courriel ou mot de passe incorrect.",
     "emailRequired": "Le courriel est requis.",
-    "passwordMin": "Le mot de passe doit contenir au moins 8 caractères."
+    "passwordMin": "Le mot de passe doit contenir au moins 8 caractères.",
+    "forgotPassword": {
+      "title": "Mot de passe oublié",
+      "subtitle": "Entrez votre courriel pour recevoir un lien de réinitialisation.",
+      "email": "Adresse courriel",
+      "submit": "Envoyer le lien de réinitialisation",
+      "successMessage": "Un courriel a été envoyé à {email} avec les instructions.",
+      "backToLogin": "Retour à la connexion",
+      "leftSubtagline": "Votre conformité d'entreprise, simplifiée.",
+      "leftFeature1": "Livre des minutes numérique",
+      "leftFeature2": "Documents légaux générés en secondes",
+      "leftFeature3": "Conformité toujours à jour"
+    },
+    "resetPassword": {
+      "title": "Nouveau mot de passe",
+      "subtitle": "Choisissez un nouveau mot de passe pour votre compte.",
+      "newPassword": "Nouveau mot de passe",
+      "confirmPassword": "Confirmer le mot de passe",
+      "submit": "Réinitialiser mon mot de passe",
+      "passwordMin": "Le mot de passe doit contenir au moins 8 caractères.",
+      "passwordMismatch": "Les mots de passe ne correspondent pas.",
+      "successMessage": "Votre mot de passe a été réinitialisé. Redirection en cours…",
+      "backToLogin": "Retour à la connexion",
+      "leftSubtagline": "Votre conformité d'entreprise, simplifiée.",
+      "leftFeature1": "Livre des minutes numérique",
+      "leftFeature2": "Documents légaux générés en secondes",
+      "leftFeature3": "Conformité toujours à jour"
+    },
+    "forgotPasswordLink": "Mot de passe oublié ?"
   },
   "onboarding": {
     "step1Title": "Choisissez votre langue",

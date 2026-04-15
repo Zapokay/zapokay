@@ -13,6 +13,7 @@ interface LoginFormProps {
 
 export function LoginForm({ locale }: LoginFormProps) {
   const t = useTranslations('auth.login');
+  const tAuth = useTranslations('auth');
   const router = useRouter();
   const supabase = createClient();
 
@@ -91,6 +92,14 @@ export function LoginForm({ locale }: LoginFormProps) {
           <Button type="submit" loading={loading} className="w-full" size="lg" variant="secondary">
             {t('submit')}
           </Button>
+          <p className="text-right">
+            <Link
+              href={`/${locale}/forgot-password`}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors"
+            >
+              {tAuth('forgotPasswordLink')}
+            </Link>
+          </p>
         </form>
       ) : (
         <form onSubmit={handleMagicLink} className="space-y-4">

@@ -80,7 +80,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.checklist) {
-          setRequirements(data.checklist.filter((i: ChecklistItem) => !i.satisfied));
+          setRequirements(data.checklist);
         }
       })
       .catch(() => {/* non-fatal */});

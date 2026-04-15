@@ -72,6 +72,8 @@ const isFr = (locale: string) => locale === 'fr';
 export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps) {
   const fr = isFr(locale);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [neqDuplicate, setNeqDuplicate] = useState(false);
+  const [declared, setDeclared] = useState(false);
 
   function update(field: keyof typeof data.company, value: string) {
     setData(d => ({ ...d, company: { ...d.company, [field]: value } }));
@@ -82,14 +84,45 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     setData(d => ({ ...d, company: { ...d.company, [field]: value } }));
   }
 
+  async function checkNeqDuplicate(neq: string): Promise<boolean> {
+    if (!neq.trim()) { setNeqDuplicate(false); return false; }
+    try {
+      const res = await fetch('/api/onboarding/check-neq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ neq }),
+      });
+      const json = await res.json();
+      const isDuplicate = json.exists === true;
+      setNeqDuplicate(isDuplicate);
+      return isDuplicate;
+    } catch {
+      // non-fatal — don't block the form on network error
+      return false;
+    }
+  }
+
   function validate() {
     const e: Record<string, string> = {};
     if (!data.company.legalName.trim()) e.legalName = fr ? 'Champ requis' : 'Required field';
+    if (neqDuplicate) e.incorporationNumber = fr
+      ? 'Une entreprise avec ce NEQ existe déjà sur ZapOkay. Si vous êtes autorisé(e) à y accéder, demandez à l\'administrateur de vous inviter.'
+      : 'A company with this NEQ already exists on ZapOkay. If you are authorized to access it, ask the administrator to invite you.';
+    if (!declared) e.declared = fr
+      ? 'Vous devez cocher cette case pour continuer.'
+      : 'You must check this box to continue.';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
-  function handleNext() {
+  async function handleNext() {
+    // Re-run duplicate check on submit in case onBlur was skipped.
+    // Use the returned boolean directly — don't rely on neqDuplicate state,
+    // which won't reflect setNeqDuplicate's update until the next render.
+    if (data.company.incorporationNumber.trim()) {
+      const isDuplicate = await checkNeqDuplicate(data.company.incorporationNumber);
+      if (isDuplicate) return;
+    }
     if (validate()) onNext();
   }
 
@@ -210,7 +243,9 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             onChange={e => {
               const val = e.target.value.replace(/\D/g, '').slice(0, 10);
               update('incorporationNumber', val);
+              setNeqDuplicate(false);
             }}
+            onBlur={e => checkNeqDuplicate(e.target.value)}
             placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
             maxLength={10}
             style={inputStyle}
@@ -219,6 +254,16 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             <p style={{ marginTop: '4px', fontSize: '12px', color: '#d97706' }}>
               {fr ? `${10 - data.company.incorporationNumber.length} chiffres manquants` : `${10 - data.company.incorporationNumber.length} digits missing`}
             </p>
+          )}
+          {neqDuplicate && (
+            <p style={{ marginTop: '4px', fontSize: '12px', color: '#ef4444' }}>
+              {fr
+                ? "Une entreprise avec ce NEQ existe déjà sur ZapOkay. Si vous êtes autorisé(e) à y accéder, demandez à l'administrateur de vous inviter."
+                : 'A company with this NEQ already exists on ZapOkay. If you are authorized to access it, ask the administrator to invite you.'}
+            </p>
+          )}
+          {errors.incorporationNumber && !neqDuplicate && (
+            <p style={{ marginTop: '4px', fontSize: '12px', color: '#ef4444' }}>{errors.incorporationNumber}</p>
           )}
         </div>
 
@@ -266,6 +311,38 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
               ))}
             </select>
           </div>
+        </div>
+        {/* Declaration checkbox */}
+        <div>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={declared}
+              onChange={e => {
+                setDeclared(e.target.checked);
+                if (e.target.checked && errors.declared) setErrors(prev => ({ ...prev, declared: '' }));
+              }}
+              style={{
+                marginTop: '2px', flexShrink: 0,
+                width: '16px', height: '16px', cursor: 'pointer',
+                accentColor: '#F5B91E',
+              }}
+            />
+            <span style={{
+              fontSize: '13px',
+              color: errors.declared ? '#ef4444' : 'var(--text-body)',
+              lineHeight: 1.5,
+            }}>
+              {fr
+                ? 'Je déclare être autorisé(e) à gérer le livre de minutes de cette entreprise.'
+                : 'I declare that I am authorized to manage this company\'s minute book.'}
+            </span>
+          </label>
+          {errors.declared && (
+            <p style={{ marginTop: '4px', fontSize: '12px', color: '#ef4444', paddingLeft: '26px' }}>
+              {errors.declared}
+            </p>
+          )}
         </div>
       </div>
     </OnboardingStepLayout>

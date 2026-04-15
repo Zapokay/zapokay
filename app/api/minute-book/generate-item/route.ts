@@ -24,6 +24,9 @@ const REQUIREMENT_MAP: Record<string, DocMapping> = {
   cbca_first_board_resolution:               { type: 'board-resolution',        resolutionType: 'founding_board' },
   cbca_first_shareholder_resolution:         { type: 'shareholder-resolution',  resolutionType: 'founding_shareholder' },
   cbca_share_subscription:                   { type: 'board-resolution',        resolutionType: 'share_subscription' },
+  cbca_annual_board_resolution:              { type: 'board-resolution',        resolutionType: 'annual_board' },
+  cbca_annual_shareholder_resolution:        { type: 'shareholder-resolution',  resolutionType: 'annual_shareholder' },
+  cbca_auditor_waiver:                       { type: 'shareholder-resolution',  resolutionType: 'auditor_waiver' },
   // Non générables — exclues explicitement
   // lsaq_acceptation_mandat, cbca_director_acceptance → canGenerate: false
 };
@@ -184,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     const { data: requirement } = await supabase
       .from('minute_book_requirements')
-      .select('title_fr, title_en')
+      .select('title_fr, title_en, section')
       .eq('requirement_key', requirementKey)
       .single();
 
@@ -211,7 +214,7 @@ export async function POST(request: NextRequest) {
       .from('director_mandates')
       .select('id, company_people(id, full_name)')
       .eq('company_id', companyId)
-      .eq('status', 'active');
+      .eq('is_active', true);
 
     const activeDirectors = (directorMandates ?? []).map((d) => ({
       name: (d.company_people as unknown as { full_name: string }).full_name,
@@ -223,8 +226,7 @@ export async function POST(request: NextRequest) {
     const { data: shareholdings } = await supabase
       .from('shareholdings')
       .select('id, quantity, company_people(id, full_name), share_classes(name)')
-      .eq('company_id', companyId)
-      .eq('status', 'active');
+      .eq('company_id', companyId);
 
     const activeShareholders = (shareholdings ?? []).map((s) => ({
       name: (s.company_people as unknown as { full_name: string }).full_name,
@@ -297,8 +299,9 @@ export async function POST(request: NextRequest) {
         status:          'active',
         source:          'generated',
         framework:       company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
-        document_year:   now.getFullYear(),
-        requirement_key: requirementKey,
+        document_year:        now.getFullYear(),
+        requirement_key:      requirementKey,
+        minute_book_section:  requirement?.section ?? null,
       })
       .select('id')
       .single();

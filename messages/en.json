@@ -46,7 +46,35 @@
     "emailVerification": "Check your email to confirm your account.",
     "invalidCredentials": "Invalid email or password.",
     "emailRequired": "Email is required.",
-    "passwordMin": "Password must be at least 8 characters."
+    "passwordMin": "Password must be at least 8 characters.",
+    "forgotPassword": {
+      "title": "Forgot your password?",
+      "subtitle": "Enter your email and we'll send you a reset link.",
+      "email": "Email address",
+      "submit": "Send reset link",
+      "successMessage": "An email has been sent to {email} with instructions.",
+      "backToLogin": "Back to sign in",
+      "leftSubtagline": "Corporate compliance, simplified.",
+      "leftFeature1": "Digital minute book",
+      "leftFeature2": "Legal documents generated in seconds",
+      "leftFeature3": "Always up-to-date compliance"
+    },
+    "resetPassword": {
+      "title": "Reset your password",
+      "subtitle": "Choose a new password for your account.",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm password",
+      "submit": "Reset my password",
+      "passwordMin": "Password must be at least 8 characters.",
+      "passwordMismatch": "Passwords do not match.",
+      "successMessage": "Your password has been reset. Redirecting…",
+      "backToLogin": "Back to sign in",
+      "leftSubtagline": "Corporate compliance, simplified.",
+      "leftFeature1": "Digital minute book",
+      "leftFeature2": "Legal documents generated in seconds",
+      "leftFeature3": "Always up-to-date compliance"
+    },
+    "forgotPasswordLink": "Forgot password?"
   },
   "onboarding": {
     "step1Title": "Choose your language",
