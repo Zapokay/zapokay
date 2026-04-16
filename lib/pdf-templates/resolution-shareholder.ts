@@ -1,4 +1,6 @@
 import { baseLayoutHTML, escapeHtml } from './base-layout';
+import { signatureBlocksHTML } from './signature-blocks';
+import type { Signatory } from './signature-blocks';
 
 export interface ShareholderResolutionData {
   companyName: string;
@@ -8,6 +10,7 @@ export interface ShareholderResolutionData {
   shareholders: { name: string; shares: number; class?: string }[];
   resolutions: { number: number; title: string; body: string }[];
   language: 'fr' | 'en' | 'bilingual';
+  signatories?: Signatory[];
 }
 
 const LABELS = {
@@ -51,27 +54,25 @@ export function shareholderResolutionHTML(data: ShareholderResolutionData): stri
     )
     .join('');
 
-  const signaturesHtml = data.shareholders
-    .map(
-      (s) => `
-      <div class="sig-entry">
-        <div class="sig-line"></div>
-        <div class="sig-name">${escapeHtml(s.name)}</div>
-        <div class="sig-title">${s.shares} ${l.sharesLabel}${s.class ? ` (${escapeHtml(s.class)})` : ''}</div>
-        <div class="sig-date">${l.date}: _______________</div>
-      </div>`
-    )
-    .join('');
+  const signaturesHtml = data.signatories && data.signatories.length > 0
+    ? signatureBlocksHTML(data.signatories, data.language)
+    : `<div class="signatures">
+        <div class="sig-col">
+          <div class="sig-label">${l.sigLabel}</div>
+          ${data.shareholders.map((s) => `
+          <div class="sig-entry">
+            <div class="sig-line"></div>
+            <div class="sig-name">${escapeHtml(s.name)}</div>
+            <div class="sig-title">${s.shares} ${l.sharesLabel}${s.class ? ` (${escapeHtml(s.class)})` : ''}</div>
+            <div class="sig-date">${l.date}: _______________</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
 
   const bodyContent = `
     <div class="resolved">${l.resolved}</div>
     ${resolutionsHtml}
-    <div class="signatures">
-      <div class="sig-col">
-        <div class="sig-label">${l.sigLabel}</div>
-        ${signaturesHtml}
-      </div>
-    </div>
+    ${signaturesHtml}
   `;
 
   return baseLayoutHTML({

@@ -50,8 +50,8 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
   .page {
     position: relative;
     width: 8.5in;
-    min-height: 11in;
-    padding: 3cm 2.5cm;
+    min-height: 9in;
+    padding: 0 2.5cm;
     page-break-after: always;
   }
 
@@ -125,7 +125,7 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
   }
 
   /* ── Title block ── */
-  .title-block { text-align: center; margin-bottom: 1.5em; }
+  .title-block { text-align: center; margin-top: 16px; margin-bottom: 1.5em; }
   .title-block h1 {
     font-family: 'Sora', sans-serif;
     font-weight: 700;

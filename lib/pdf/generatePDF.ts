@@ -19,6 +19,7 @@ interface BoardResolutionInput {
   language?: 'fr' | 'en' | 'bilingual';
   directors?: { name: string; title: string }[];
   resolutions?: { number: number; title: string; body: string }[];
+  signatories?: { id: string; name: string; role: string }[];
 }
 
 interface ShareholderResolutionInput {
@@ -29,6 +30,7 @@ interface ShareholderResolutionInput {
   language?: 'fr' | 'en' | 'bilingual';
   shareholders?: { name: string; shares: number; shareClass?: string; class?: string }[];
   resolutions?: { number: number; title: string; body: string }[];
+  signatories?: { id: string; name: string; role: string }[];
 }
 
 interface CoverPageInput {
@@ -60,6 +62,7 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
         language: d.language ?? 'fr',
         directors: d.directors ?? [],
         resolutions: d.resolutions ?? [],
+        signatories: d.signatories,
       };
       html = boardResolutionHTML(tmplData);
       break;
@@ -80,6 +83,7 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
         language: d.language ?? 'fr',
         shareholders,
         resolutions: (data as ShareholderResolutionInput).resolutions ?? [],
+        signatories: d.signatories,
       };
       html = shareholderResolutionHTML(tmplData);
       break;

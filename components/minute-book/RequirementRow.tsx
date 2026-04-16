@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCircle2, XCircle, Info, Upload, Sparkles } from 'lucide-react';
+import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 
 interface RequirementRowProps {
   requirementKey: string;
@@ -12,9 +13,11 @@ interface RequirementRowProps {
   canUpload: boolean;
   canGenerate: boolean;
   year: number | null;
+  companyId?: string;
   isGenerating?: boolean;
   onUpload?: (requirementKey: string, year: number | null) => void;
   onGenerate?: (requirementKey: string, year: number | null) => void;
+  onGenerated?: () => void;
 }
 
 export default function RequirementRow({
@@ -26,9 +29,11 @@ export default function RequirementRow({
   canUpload,
   canGenerate,
   year,
+  companyId,
   isGenerating = false,
   onUpload,
   onGenerate,
+  onGenerated,
 }: RequirementRowProps) {
   const [showDescription, setShowDescription] = useState(false);
 
@@ -90,7 +95,15 @@ export default function RequirementRow({
                 Téléverser
               </button>
             )}
-            {canGenerate ? (
+            {canGenerate && year === null && companyId ? (
+              <GenerateDocumentButton
+                companyId={companyId}
+                requirementKey={requirementKey}
+                onSuccess={onGenerated}
+                locale="fr"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            ) : canGenerate && year !== null ? (
               <button
                 onClick={() => onGenerate?.(requirementKey, year)}
                 disabled={isGenerating}

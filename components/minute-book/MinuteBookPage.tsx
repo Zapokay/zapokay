@@ -61,31 +61,11 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
     router.push(`/${locale}/dashboard/documents?upload=true&${params.toString()}`);
   };
 
-  const handleGenerate = useCallback(async (requirementKey: string, year: number | null) => {
+  const handleGenerate = useCallback((requirementKey: string, year: number | null) => {
     if (year !== null) {
       router.push(`/${locale}/dashboard/wizard?year=${year}`);
-      return;
     }
-    setGenerating(requirementKey);
-    setGenerateError(null);
-    try {
-      const res = await fetch('/api/minute-book/generate-item', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, requirementKey }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        fetchData();
-      } else {
-        setGenerateError(json.error ?? 'Impossible de générer ce document.');
-      }
-    } catch {
-      setGenerateError('Erreur réseau. Veuillez réessayer.');
-    } finally {
-      setGenerating(null);
-    }
-  }, [companyId, locale, router, fetchData]);
+  }, [locale, router]);
 
   const foundationalItems: ChecklistItem[] =
     data?.checklist.filter((i) => i.category === 'foundational') || [];
@@ -207,9 +187,11 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
                 <RequirementSection
                   title={fr ? 'Documents fondateurs' : 'Founding documents'}
                   items={foundationalItems}
+                  companyId={companyId}
                   generatingKey={generating}
                   onUpload={handleUpload}
                   onGenerate={handleGenerate}
+                  onGenerated={fetchData}
                 />
               )}
 

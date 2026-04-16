@@ -143,9 +143,10 @@ function mapToDocumentType(type: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { companyId, requirementKey } = (await request.json()) as {
+    const { companyId, requirementKey, signatories } = (await request.json()) as {
       companyId: string;
       requirementKey: string;
+      signatories?: Array<{ id: string; name: string; role: string }>;
     };
 
     console.log('[generate-item] env check:', {
@@ -247,6 +248,7 @@ export async function POST(request: NextRequest) {
       directors: activeDirectors,
       shareholders: activeShareholders,
       resolutions: getResolutionsForType(docTypeResult.resolutionType),
+      signatories: signatories && signatories.length > 0 ? signatories : undefined,
     };
 
     /* ---------- Générer le PDF ---------- */
@@ -302,6 +304,9 @@ export async function POST(request: NextRequest) {
         document_year:        now.getFullYear(),
         requirement_key:      requirementKey,
         minute_book_section:  requirement?.section ?? null,
+        ...(signatories && signatories.length > 0
+          ? { signatories_confirmed: signatories, signature_status: 'pending_signature' }
+          : {}),
       })
       .select('id')
       .single();

@@ -73,7 +73,7 @@ export async function generatePDF(html: string): Promise<Buffer> {
       format: 'Letter',
       printBackground: true,
       displayHeaderFooter: false,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      margin: { top: '3.5cm', right: '0', bottom: '2cm', left: '0' },
     });
 
     return Buffer.from(pdf);
