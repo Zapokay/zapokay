@@ -89,9 +89,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Deduplicate person_ids
-    const personIds = [...new Set(
+    const personIds = Array.from(new Set(
       (shareholdings ?? []).map((r) => r.person_id as string).filter(Boolean)
-    )];
+    ));
 
     if (personIds.length === 0) {
       return NextResponse.json({ signatories: [], all_required: isAllSignatoriesRequired(requirementKey), signatory_type: signatoryType });
