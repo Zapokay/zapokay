@@ -2,6 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { seedDefaultActiveYears } from '@/lib/active-years';
 import type { Language, OnboardingData } from '@/lib/types';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
@@ -94,6 +95,21 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
         .single();
 
       if (error) throw error;
+
+      // Seed default active years (last 8 fiscal years, capped at incorporation).
+      // Do not block onboarding if this fails — user can fix via Paramètres later.
+      try {
+        await seedDefaultActiveYears(
+          company.id,
+          data.company.incorporationDate,
+          data.company.fiscalYearEndMonth,
+          data.company.fiscalYearEndDay,
+          supabase
+        );
+      } catch (err) {
+        console.error('[onboarding] Failed to seed active years:', err);
+        // Do not rethrow — onboarding continues.
+      }
 
       setCompanyId(company.id);
       setIncorporationDate(company.incorporation_date || today);
