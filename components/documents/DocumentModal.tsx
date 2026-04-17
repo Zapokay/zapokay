@@ -266,7 +266,7 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
                   background: '#F5EEEE', border: '1px solid #C9A5A5',
                   borderRadius: '8px', padding: '14px 16px', textAlign: 'center',
                 }}>
-                  <p style={{ fontSize: '14px', color: '#6B1E1E', margin: '0 0 12px' }}>
+                  <p style={{ fontSize: '14px', color: 'var(--error-text)', margin: '0 0 12px' }}>
                     {fr ? 'Erreur lors de la génération.' : 'Error generating summary.'}
                   </p>
                   <button
@@ -275,7 +275,7 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
                       padding: '8px 16px', borderRadius: '8px',
                       border: '1px solid #C9A5A5',
                       background: 'transparent', fontSize: '13px',
-                      color: '#6B1E1E', cursor: 'pointer',
+                      color: 'var(--error-text)', cursor: 'pointer',
                     }}
                   >
                     {fr ? 'Réessayer' : 'Retry'}

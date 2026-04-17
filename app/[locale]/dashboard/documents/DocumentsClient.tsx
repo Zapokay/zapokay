@@ -41,7 +41,9 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
   const router = useRouter();
   const searchParams = useSearchParams();
   const yearParam = searchParams.get('year');
-  const activeYear = yearParam ? parseInt(yearParam, 10) : null;
+  const activeYear = yearParam
+    ? parseInt(yearParam, 10)
+    : (activeFiscalYears[0] ?? null);
   const initialRequirementKey = searchParams.get('requirement_key');
   const initialRequirementYearRaw = searchParams.get('requirement_year');
   const initialRequirementYear = initialRequirementYearRaw ? parseInt(initialRequirementYearRaw, 10) : null;
@@ -163,10 +165,10 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '18px' }}>⚠️</span>
             <div>
-              <div style={{ fontFamily: 'Sora', fontSize: '14px', fontWeight: 700, color: '#6B1E1E', marginBottom: '2px' }}>
+              <div style={{ fontFamily: 'Sora', fontSize: '14px', fontWeight: 700, color: 'var(--error-text)', marginBottom: '2px' }}>
                 {fr ? 'Exercices financiers non configurés' : 'Fiscal years not configured'}
               </div>
-              <div style={{ fontSize: '13px', color: '#6B1E1E', opacity: 0.8 }}>
+              <div style={{ fontSize: '13px', color: 'var(--error-text)', opacity: 0.8 }}>
                 {fr
                   ? 'Configurez vos exercices pour activer le filtre par année.'
                   : 'Configure your fiscal years to enable year filtering.'}

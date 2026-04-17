@@ -72,7 +72,9 @@ export default async function CompliancePage({ params, searchParams }: PageProps
     companyAny.fiscal_year_end_month !== undefined
 
   // Active year from URL param — use fiscal year end date as reference
-  const selectedYear = searchParams.year ? parseInt(searchParams.year, 10) : null
+  const selectedYear = searchParams.year
+    ? parseInt(searchParams.year, 10)
+    : (fiscalYears[0] ?? null)
   const fyEndMonthNum = (companyAny.fiscal_year_end_month as number | null) ?? 12
   const fyEndDayNum   = (companyAny.fiscal_year_end_day as number | null) ?? 31
   const referenceDate = selectedYear

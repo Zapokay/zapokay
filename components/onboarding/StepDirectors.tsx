@@ -194,7 +194,6 @@ export default function StepDirectors({
                         background: director.isCanadianResident ? '#F5B91E' : 'var(--card-border)',
                         transition: 'background 200ms', cursor: 'pointer',
                       }}
-                      onClick={() => updateDirector(index, 'isCanadianResident', !director.isCanadianResident)}
                     />
                     <div
                       style={{

@@ -363,11 +363,11 @@ body {
   --sb-footer-border: rgba(255,255,255,0.06);
   --sb-user-name: #FFFFFF;
   --sb-user-role: rgba(255,255,255,0.30);
-  --sb-user-avatar-bg: #2A3D5E;
-  --sb-user-avatar-bd: rgba(255,255,255,0.10);
-  --sb-user-avatar-text: #FFFFFF;
-  --sb-co-icon-bg: #1E3D6B;
-  --sb-co-icon-text: #FFFFFF;
+  --sb-user-avatar-bg: #F5B91E;
+  --sb-user-avatar-bd: #E8AE0E;
+  --sb-user-avatar-text: #1C1A17;
+  --sb-co-icon-bg: #F5B91E;
+  --sb-co-icon-text: #1C1A17;
 
   /* Dark urgent pill */
 }

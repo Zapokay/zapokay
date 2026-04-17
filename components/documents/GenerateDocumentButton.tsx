@@ -128,7 +128,7 @@ export function GenerateDocumentButton({
       </button>
 
       {displayError && (
-        <p style={{ fontSize: '12px', color: '#6B1E1E', margin: '6px 0 0', maxWidth: '280px' }}>
+        <p style={{ fontSize: '12px', color: 'var(--error-text)', margin: '6px 0 0', maxWidth: '280px' }}>
           {displayError}
         </p>
       )}

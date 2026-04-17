@@ -44,7 +44,7 @@ export default function RequirementRow({
         {satisfied ? (
           <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
         ) : (
-          <XCircle className="h-5 w-5 text-red-800 flex-shrink-0" />
+          <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
         )}
         <div className="flex items-center gap-2 min-w-0">
           <span

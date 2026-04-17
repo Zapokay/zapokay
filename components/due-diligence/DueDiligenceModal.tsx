@@ -40,10 +40,10 @@ function ScoreGauge({ score }: { score: number }) {
 
   const gaugeColor =
     score >= 80
-      ? 'var(--color-green-500, #22c55e)'
+      ? '#22C55E'
       : score >= 50
-        ? 'var(--color-amber-400, #fbbf24)'
-        : 'var(--color-amber-400, #fbbf24)';
+        ? 'var(--amber-400)'
+        : 'var(--amber-400)';
 
   return (
     <div className="dd-gauge">
@@ -54,7 +54,7 @@ function ScoreGauge({ score }: { score: number }) {
           cy="66"
           r={radius}
           fill="none"
-          stroke="var(--color-nt-100, #e5e7eb)"
+          stroke="var(--card-border)"
           strokeWidth="10"
         />
         {/* Progress */}
@@ -385,7 +385,7 @@ export default function DueDiligenceModal({
         }
 
         .dd-modal {
-          background: var(--color-nt-0, #ffffff);
+          background: var(--card-bg);
           border-radius: 16px;
           padding: 28px;
           width: 100%;
@@ -394,7 +394,7 @@ export default function DueDiligenceModal({
           overflow-y: auto;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
           animation: dd-slideUp 0.2s ease-out;
-          color: var(--color-nt-900, #111827);
+          color: var(--text-body);
         }
 
         @keyframes dd-slideUp {
@@ -414,7 +414,7 @@ export default function DueDiligenceModal({
           font-size: 1.125rem;
           font-weight: 600;
           margin: 0;
-          color: var(--color-nt-900, #111827);
+          color: var(--text-heading);
         }
 
         .dd-modal__close {
@@ -423,15 +423,15 @@ export default function DueDiligenceModal({
           font-size: 1.5rem;
           line-height: 1;
           cursor: pointer;
-          color: var(--color-nt-400, #9ca3af);
+          color: var(--text-muted);
           padding: 4px;
           border-radius: 6px;
           transition: color 0.15s, background 0.15s;
         }
 
         .dd-modal__close:hover {
-          color: var(--color-nt-700, #374151);
-          background: var(--color-nt-50, #f9fafb);
+          color: var(--text-heading);
+          background: var(--hover);
         }
 
         .dd-modal__body {
@@ -446,17 +446,17 @@ export default function DueDiligenceModal({
           align-items: center;
           gap: 12px;
           padding: 32px 0;
-          color: var(--color-nt-500, #6b7280);
+          color: var(--text-muted);
         }
 
         .dd-modal__error {
           text-align: center;
           padding: 24px 0;
-          color: var(--color-red-500, #ef4444);
+          color: var(--error-text);
         }
 
         .dd-modal__inline-error {
-          color: var(--color-red-500, #ef4444);
+          color: var(--error-text);
           font-size: 0.875rem;
           margin: 0;
         }
@@ -482,7 +482,7 @@ export default function DueDiligenceModal({
           font-family: var(--font-sora, 'Sora', sans-serif);
           font-size: 1.5rem;
           font-weight: 700;
-          color: var(--color-nt-900, #111827);
+          color: var(--text-heading);
         }
 
         .dd-score__text {
@@ -495,12 +495,12 @@ export default function DueDiligenceModal({
 
         .dd-score__text strong {
           font-size: 1rem;
-          color: var(--color-nt-900, #111827);
+          color: var(--text-heading);
         }
 
         .dd-score__detail {
           font-size: 0.875rem;
-          color: var(--color-nt-500, #6b7280);
+          color: var(--text-muted);
         }
 
         /* Warning */
@@ -509,13 +509,8 @@ export default function DueDiligenceModal({
           gap: 10px;
           padding: 14px 16px;
           border-radius: 10px;
-          background: var(--color-amber-50, #fffbeb);
-          border: 1px solid var(--color-amber-200, #fde68a);
-        }
-
-        [data-theme="dark"] .dd-warning {
-          background: rgba(251, 191, 36, 0.08);
-          border-color: rgba(251, 191, 36, 0.2);
+          background: var(--warning-bg);
+          border: 1px solid var(--warning-border);
         }
 
         .dd-warning__icon {
@@ -528,7 +523,7 @@ export default function DueDiligenceModal({
           margin: 0;
           font-size: 0.8125rem;
           line-height: 1.5;
-          color: var(--color-nt-700, #374151);
+          color: var(--warning-text);
         }
 
         /* Missing documents */
@@ -538,7 +533,7 @@ export default function DueDiligenceModal({
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.04em;
-          color: var(--color-nt-500, #6b7280);
+          color: var(--text-muted);
           margin: 0 0 10px;
         }
 
@@ -562,16 +557,12 @@ export default function DueDiligenceModal({
         }
 
         .dd-missing__item:hover {
-          background: var(--color-nt-50, #f9fafb);
-        }
-
-        [data-theme="dark"] .dd-missing__item:hover {
-          background: var(--color-nt-800, #1f2937);
+          background: var(--hover);
         }
 
         .dd-missing__name {
           font-size: 0.875rem;
-          color: var(--color-nt-800, #1f2937);
+          color: var(--text-body);
         }
 
         .dd-missing__goto {
@@ -579,15 +570,15 @@ export default function DueDiligenceModal({
           border: none;
           cursor: pointer;
           font-size: 1rem;
-          color: var(--color-nt-400, #9ca3af);
+          color: var(--text-muted);
           padding: 2px 6px;
           border-radius: 4px;
           transition: color 0.15s, background 0.15s;
         }
 
         .dd-missing__goto:hover {
-          color: var(--color-amber-400, #fbbf24);
-          background: var(--color-nt-50, #f9fafb);
+          color: var(--amber-400);
+          background: var(--hover);
         }
 
         .dd-missing__toggle {
@@ -595,7 +586,7 @@ export default function DueDiligenceModal({
           border: none;
           cursor: pointer;
           font-size: 0.8125rem;
-          color: var(--color-amber-400, #fbbf24);
+          color: var(--amber-400);
           padding: 8px 12px;
           margin-top: 4px;
           font-weight: 500;
@@ -643,19 +634,19 @@ export default function DueDiligenceModal({
         }
 
         .dd-btn--amber {
-          background: var(--color-amber-400, #fbbf24);
-          color: var(--color-nt-900, #111827);
+          background: var(--amber-400);
+          color: var(--cta-text);
         }
 
         .dd-btn--ghost {
           background: transparent;
-          color: var(--color-nt-500, #6b7280);
+          color: var(--text-muted);
           font-weight: 500;
           font-size: 0.875rem;
         }
 
         .dd-btn--ghost:hover:not(:disabled) {
-          color: var(--color-nt-700, #374151);
+          color: var(--text-heading);
           opacity: 1;
         }
 

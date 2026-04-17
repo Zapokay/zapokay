@@ -342,19 +342,44 @@ export function SettingsClient({
               <label className="block text-xs font-medium text-[var(--text-muted)]">
                 {fr ? "NEQ (Numéro d'entreprise du Québec)" : "NEQ (Québec Enterprise Number)"}
               </label>
+              <button
+                onClick={() => !unlockedFields.has('neq') && setPendingUnlock('neq')}
+                style={{ background: 'none', border: 'none', cursor: unlockedFields.has('neq') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
+                title={unlockedFields.has('neq')
+                  ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
+                  : (fr ? 'Non-modifiable — identifiant gouvernemental permanent' : 'Not editable — permanent government identifier')}
+              >
+                <Lock size={12} style={{ color: unlockedFields.has('neq') ? '#2E5425' : 'var(--text-muted)' }} />
+              </button>
             </div>
-            <input
-              value={neq}
-              onChange={e => setNeq(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
-              inputMode="numeric"
-              maxLength={10}
-              className={inputClass}
-            />
-            {neq.length > 0 && neq.length < 10 && (
-              <p className="mt-1 text-xs text-amber-600">
-                {fr ? `${10 - neq.length} chiffres manquants` : `${10 - neq.length} digits missing`}
-              </p>
+            {unlockedFields.has('neq') ? (
+              <>
+                <input
+                  value={neq}
+                  onChange={e => setNeq(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
+                  inputMode="numeric"
+                  maxLength={10}
+                  className={inputClass}
+                />
+                {neq.length > 0 && neq.length < 10 && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    {fr ? `${10 - neq.length} chiffres manquants` : `${10 - neq.length} digits missing`}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div
+                className="px-3 py-2 rounded-lg text-sm border"
+                style={{
+                  borderColor: 'var(--card-border)',
+                  backgroundColor: 'var(--page-bg)',
+                  color: 'var(--text-body)',
+                  opacity: 0.7,
+                }}
+              >
+                {neq || '—'}
+              </div>
             )}
           </div>
           {/* Protected fields — Type, Province, Date de constitution */}

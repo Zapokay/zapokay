@@ -78,7 +78,7 @@ export function StepConfirmation({ data, onFinish, saving, locale, error }: Step
       {/* Error */}
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
-          <p className="text-sm text-red-600 text-center">{error}</p>
+          <p className="text-sm text-center" style={{ color: 'var(--error-text)' }}>{error}</p>
         </div>
       )}
 

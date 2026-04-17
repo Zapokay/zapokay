@@ -13,18 +13,12 @@ function YearPickerInner({ locale, years }: YearPickerProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const selectedYear = searchParams.get('year') ?? ''
-  const fr = locale === 'fr'
+  const selectedYear = searchParams.get('year') ?? (years.length > 0 ? String(years[0]) : '')
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString())
-    if (value) {
-      params.set('year', value)
-    } else {
-      params.delete('year')
-    }
-    const qs = params.toString()
-    router.replace(qs ? `${pathname}?${qs}` : pathname)
+    params.set('year', value)
+    router.replace(`${pathname}?${params.toString()}`)
   }
 
   return (
@@ -38,7 +32,6 @@ function YearPickerInner({ locale, years }: YearPickerProps) {
         borderColor: 'var(--tb-border)',
       }}
     >
-      <option value="">{fr ? 'Toutes les années' : 'All years'}</option>
       {years.map(y => (
         <option key={y} value={String(y)}>
           {y}

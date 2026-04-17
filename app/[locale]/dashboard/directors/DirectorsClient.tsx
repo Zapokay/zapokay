@@ -153,7 +153,10 @@ export default function DirectorsClient() {
               : `${totalDirectors} active director${totalDirectors > 1 ? 's' : ''}`}
           </div>
           {isCBCA && (
-            <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${residencyOk ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+            <div
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${residencyOk ? 'bg-emerald-100 text-emerald-700' : 'border'}`}
+              style={residencyOk ? undefined : { backgroundColor: 'var(--error-bg)', color: 'var(--error-text)', borderColor: 'var(--error-border)' }}
+            >
               {residencyOk ? <ShieldCheck className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
               {locale === 'fr'
                 ? <><LegalTerm termKey="resident_canadien" lang="fr" /> : {residencyPct}%</>

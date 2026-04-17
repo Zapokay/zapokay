@@ -120,7 +120,7 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
           <button
             type="button"
             onClick={() => setShowDueDiligenceModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border-[1.5px] border-[var(--color-navy-600,#1e3a5f)] text-[var(--color-navy-600,#1e3a5f)] bg-transparent transition-colors hover:bg-[var(--color-navy-600,#1e3a5f)] hover:text-white"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border-[1.5px] border-[var(--card-hover-border)] text-[var(--text-heading)] bg-transparent transition-colors hover:bg-[var(--hover)]"
             style={{ fontFamily: 'DM Sans, sans-serif' }}
           >
             ↓ {fr ? 'Exporter le livre' : 'Export book'}
@@ -132,7 +132,7 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
           </p>
         )}
         {generateError && (
-          <p className="mt-2 text-sm text-red-600">{generateError}</p>
+          <p className="mt-2 text-sm" style={{ color: 'var(--error-text)' }}>{generateError}</p>
         )}
       </div>
 

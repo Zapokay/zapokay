@@ -200,10 +200,17 @@ export default function IssueSharesModal({
           {/* Share class */}
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              {t('shareClass')} <span className="text-red-500">*</span>
+              {t('shareClass')} <span style={{ color: 'var(--error-text)' }}>*</span>
             </label>
             {shareClasses.length === 0 ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+              <div
+                className="rounded-lg border px-4 py-3 text-sm"
+                style={{
+                  backgroundColor: 'var(--warning-bg)',
+                  borderColor: 'var(--warning-border)',
+                  color: 'var(--warning-text)',
+                }}
+              >
                 {locale === 'fr'
                   ? "Aucune classe d'actions configurée. Fermez cette fenêtre et ajoutez une classe d'actions d'abord."
                   : 'No share classes configured. Close this window and add a share class first.'}
@@ -227,7 +234,7 @@ export default function IssueSharesModal({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                {t('numberOfShares')} <span className="text-red-500">*</span>
+                {t('numberOfShares')} <span style={{ color: 'var(--error-text)' }}>*</span>
               </label>
               <input
                 type="number"
@@ -267,7 +274,7 @@ export default function IssueSharesModal({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                {t('issueDate')} <span className="text-red-500">*</span>
+                {t('issueDate')} <span style={{ color: 'var(--error-text)' }}>*</span>
               </label>
               <input
                 type="date"
@@ -295,7 +302,14 @@ export default function IssueSharesModal({
 
           {/* Error */}
           {error && (
-            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+            <div
+              className="rounded-lg border px-4 py-3 text-sm"
+              style={{
+                backgroundColor: 'var(--error-bg)',
+                borderColor: 'var(--error-border)',
+                color: 'var(--error-text)',
+              }}
+            >
               {error}
             </div>
           )}
@@ -307,7 +321,7 @@ export default function IssueSharesModal({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-[var(--hover)] dark:text-zinc-400"
           >
             {t('cancel')}
           </button>

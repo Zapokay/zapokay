@@ -128,8 +128,8 @@ export function SignatoriesModal({
                 fill="none" viewBox="0 0 24 24"
               >
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                <circle cx="12" cy="12" r="10" stroke="#E0D9CE" strokeWidth="4" />
-                <path fill="#1E3D6B" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                <circle cx="12" cy="12" r="10" stroke="var(--card-border)" strokeWidth="4" />
+                <path fill="var(--amber-400)" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               {fr ? 'Chargement…' : 'Loading…'}
             </div>
@@ -137,9 +137,9 @@ export function SignatoriesModal({
 
           {fetchError && (
             <div style={{
-              background: '#F5EEEE', border: '1px solid #C9A5A5',
+              background: 'var(--error-bg)', border: '1px solid var(--error-border)',
               borderRadius: '8px', padding: '12px 14px',
-              fontSize: '13px', color: '#6B1E1E',
+              fontSize: '13px', color: 'var(--error-text)',
             }}>
               {fetchError}
             </div>
@@ -159,7 +159,7 @@ export function SignatoriesModal({
                 padding: '10px 12px', borderRadius: '8px', marginBottom: '6px',
                 border: '1px solid var(--card-border)',
                 cursor: allRequired ? 'default' : 'pointer',
-                background: person.selected ? '#EEF1F7' : 'transparent',
+                background: person.selected ? 'var(--info-bg)' : 'transparent',
                 transition: 'background 120ms',
               }}
             >
@@ -168,7 +168,7 @@ export function SignatoriesModal({
                 checked={person.selected}
                 disabled={allRequired}
                 onChange={() => toggle(person.id)}
-                style={{ width: '16px', height: '16px', accentColor: '#1E3D6B', cursor: allRequired ? 'default' : 'pointer' }}
+                style={{ width: '16px', height: '16px', accentColor: 'var(--text-heading)', cursor: allRequired ? 'default' : 'pointer' }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-heading)' }}>
@@ -210,10 +210,10 @@ export function SignatoriesModal({
               style={{
                 padding: '8px 18px', borderRadius: '8px',
                 border: 'none',
-                background: loading || selectedCount === 0 ? '#E0D9CE' : '#F5B91E',
+                background: loading || selectedCount === 0 ? 'var(--card-border)' : 'var(--amber-400)',
                 cursor: loading || selectedCount === 0 ? 'not-allowed' : 'pointer',
                 fontSize: '13px', fontWeight: 700,
-                color: '#1C1A17',
+                color: 'var(--cta-text)',
                 transition: 'background 150ms',
               }}
             >
