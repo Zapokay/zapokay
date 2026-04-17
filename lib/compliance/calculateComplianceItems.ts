@@ -81,7 +81,8 @@ function calculateDueDate(
 export async function calculateComplianceItems(
   companyId: string,
   supabaseClient: SupabaseClient,
-  referenceDate?: Date
+  referenceDate?: Date,
+  activeYears?: number[]
 ): Promise<ComplianceResult & { needsFiscalYear?: boolean }> {
 
   const emptyResult: ComplianceResult & { needsFiscalYear?: boolean } = {
@@ -234,21 +235,31 @@ export async function calculateComplianceItems(
       ignoreDuplicates: false,
     })
 
-  // ── 6. Calculer les statistiques ─────────────────────────────────────────
-  const compliantCount = enrichedItems.filter(i => i.status === 'compliant').length
-  const pendingCount   = enrichedItems.filter(i => i.status === 'pending').length
-  const urgentCount    = enrichedItems.filter(i => i.status === 'required').length
-  const total          = enrichedItems.length
+  // ── 6. Filtrer selon les années actives ──────────────────────────────────
+  // Every item produced here belongs to the fiscal year ending at fyEnd
+  // (convention: fiscal year is identified by its END year).
+  // If activeYears is provided and this fiscal year isn't active, exclude all items.
+  const itemFiscalYear = fyEnd.getFullYear()
+  const filteredItems =
+    activeYears === undefined || activeYears.includes(itemFiscalYear)
+      ? enrichedItems
+      : []
+
+  // ── 7. Calculer les statistiques ─────────────────────────────────────────
+  const compliantCount = filteredItems.filter(i => i.status === 'compliant').length
+  const pendingCount   = filteredItems.filter(i => i.status === 'pending').length
+  const urgentCount    = filteredItems.filter(i => i.status === 'required').length
+  const total          = filteredItems.length
   const percentage     = total > 0 ? Math.round((compliantCount / total) * 100) : 0
 
   // Trier : required en premier, pending, compliant en dernier
-  enrichedItems.sort((a, b) => {
+  filteredItems.sort((a, b) => {
     const order = { required: 0, pending: 1, compliant: 2 }
     return order[a.status] - order[b.status]
   })
 
   return {
-    items: enrichedItems,
+    items: filteredItems,
     percentage,
     urgentCount,
     pendingCount,

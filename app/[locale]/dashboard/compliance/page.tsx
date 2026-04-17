@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { ComplianceClient } from '@/components/compliance/ComplianceClient'
 import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems'
+import { getActiveYears } from '@/lib/active-years'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -81,7 +82,8 @@ export default async function CompliancePage({ params, searchParams }: PageProps
     ? new Date(selectedYear, fyEndMonthNum - 1, fyEndDayNum)
     : undefined
 
-  const result = await calculateComplianceItems(company.id, supabase, referenceDate)
+  const activeYears = await getActiveYears(company.id, supabase)
+  const result = await calculateComplianceItems(company.id, supabase, referenceDate, activeYears)
 
   const frameworkLabel = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSAQ'
   const fyLabel        = fiscalYearLabel(company)

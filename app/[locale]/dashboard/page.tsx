@@ -8,6 +8,7 @@ import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
 import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems';
+import { getActiveYears } from '@/lib/active-years';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
 import MinuteBookCard from '@/components/dashboard/MinuteBookCard'
 import { LegalTerm } from '@/components/ui/LegalTerm';
@@ -173,8 +174,9 @@ export default async function DashboardPage({
     .eq('status', 'active')
     .single();
 
+  const activeYears = company ? await getActiveYears(company.id, supabase) : [];
   const complianceResult = company
-    ? await calculateComplianceItems(company.id, supabase)
+    ? await calculateComplianceItems(company.id, supabase, undefined, activeYears)
     : null;
 
   const { data: documents } = await supabase
