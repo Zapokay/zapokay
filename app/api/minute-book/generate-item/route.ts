@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { toStorageSafeName } from '@/lib/storage-key';
 
 /* ------------------------------------------------------------------ */
 /*  Mapping requirementKey → document type + resolutionType           */
@@ -263,10 +264,7 @@ export async function POST(request: NextRequest) {
 
     /* ---------- Upload vers Supabase Storage ---------- */
 
-    const sanitizedName = company.legal_name_fr
-      .replace(/[^a-zA-Z0-9À-ÿ\s-]/g, '')
-      .replace(/\s+/g, '_')
-      .substring(0, 60);
+    const sanitizedName = toStorageSafeName(company.legal_name_fr, 60);
 
     const fileName = `${requirementKey}_${sanitizedName}_${now.toISOString().split('T')[0]}.pdf`;
     const storagePath = `${companyId}/${fileName}`;

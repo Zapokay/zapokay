@@ -3,6 +3,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import { logActivity } from '@/lib/activity-log';
+import { toStorageSafeName } from '@/lib/storage-key';
 
 function getMinuteBookSection(
   reqKey: string | null,
@@ -124,7 +125,8 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
     setProgress(15);
 
     const supabase = createClient();
-    const storagePath = `${companyId}/${Date.now()}-${file.name}`;
+    const safeName = toStorageSafeName(file.name);
+    const storagePath = `${companyId}/${Date.now()}-${safeName}`;
 
     const { error: storageError } = await supabase.storage
       .from('documents')

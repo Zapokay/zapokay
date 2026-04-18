@@ -9,6 +9,7 @@ import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
 import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems';
 import { getActiveYears } from '@/lib/active-years';
+import { getOldestGap } from '@/lib/priority';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
 import MinuteBookCard from '@/components/dashboard/MinuteBookCard'
 import { LegalTerm } from '@/components/ui/LegalTerm';
@@ -233,10 +234,8 @@ export default async function DashboardPage({
   const frameworkLabel = company?.incorporation_type === 'CBCA' ? 'CBCA' : 'LSAQ';
   const fyLabel        = fiscalYearLabel(company);
 
-  // Prochaine échéance : item pending ou required avec la date la plus proche
-  const nextDueItem = complianceResult?.items
-    .filter(i => (i.status === 'pending' || i.status === 'required') && i.due_date !== null)
-    .sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1))[0] ?? null;
+  // Prochaine échéance — fed by getOldestGap (foundational first, then oldest active year)
+  const nextGap = company ? await getOldestGap(company.id, supabase) : null;
 
   return (
     <DashboardShell locale={locale} profile={profile} company={company} urgentCount={urgentCount}>
@@ -344,36 +343,107 @@ export default async function DashboardPage({
               </svg>
             }
           />
-          {/* Prochaine échéance — stat card */}
-          <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                {fr ? 'Prochaine échéance' : 'Next deadline'}
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-[var(--hover)] flex items-center justify-center text-[var(--text-muted)]">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </div>
-            <div
-              className="text-2xl font-bold text-[var(--text-heading)]"
-              style={{ fontFamily: 'Sora, sans-serif' }}
-            >
-              {nextDueItem?.due_date
-                ? new Date(nextDueItem.due_date + 'T00:00:00').toLocaleDateString(
-                    fr ? 'fr-CA' : 'en-CA',
-                    { month: 'short', day: 'numeric', year: 'numeric' }
-                  )
-                : '—'}
-            </div>
-            <div className="text-xs text-[var(--text-muted)] mt-1 truncate">
-              {nextDueItem
-                ? (fr ? nextDueItem.rule.title_fr : nextDueItem.rule.title_en)
-                : (fr ? 'Aucune échéance à venir' : 'No upcoming deadlines')}
-            </div>
-          </div>
+          {/* Prochaine échéance — stat card (fed by getOldestGap) */}
+          {(() => {
+            // Derive state-specific content
+            const isFoundational = nextGap?.type === 'foundational';
+            const isAnnual = nextGap?.type === 'annual';
+            const isComplete = nextGap === null;
+
+            const eyebrow = isFoundational
+              ? (fr ? 'Document fondateur' : 'Foundational document')
+              : isComplete
+              ? (fr ? 'Conformité' : 'Compliance')
+              : (fr ? 'Prochaine échéance' : 'Next deadline');
+
+            const iconWrapperStyle = isFoundational
+              ? { backgroundColor: 'var(--amber-400)', color: 'var(--navy-900)' }
+              : isComplete
+              ? { backgroundColor: 'var(--success-bg)', color: 'var(--success-text)' }
+              : undefined;
+
+            // Big value
+            let bigValueNode: React.ReactNode;
+            let bigValueClass = 'text-2xl font-bold text-[var(--text-heading)]';
+            let bigValueStyle: React.CSSProperties = { fontFamily: 'Sora, sans-serif' };
+
+            if (isFoundational && nextGap) {
+              bigValueNode = fr ? nextGap.titleFr : nextGap.titleEn;
+              bigValueClass = 'text-lg font-bold text-[var(--text-heading)] leading-snug';
+            } else if (isAnnual && nextGap) {
+              if (nextGap.dueDate) {
+                bigValueNode = new Date(nextGap.dueDate + 'T00:00:00').toLocaleDateString(
+                  fr ? 'fr-CA' : 'en-CA',
+                  { month: 'short', day: 'numeric', year: 'numeric' }
+                );
+              } else {
+                bigValueNode = fr ? `Exercice ${nextGap.year}` : `FY ${nextGap.year}`;
+              }
+            } else if (isComplete) {
+              bigValueNode = '✓';
+              bigValueStyle = { ...bigValueStyle, color: 'var(--success-text)' };
+            } else {
+              bigValueNode = '—';
+            }
+
+            // Subtitle
+            let subtitle: string;
+            if (isFoundational) {
+              subtitle = fr ? 'À corriger en priorité' : 'Priority action';
+            } else if (isAnnual && nextGap) {
+              subtitle = fr ? nextGap.titleFr : nextGap.titleEn;
+            } else if (isComplete) {
+              subtitle = fr ? 'Tout est en ordre' : 'All in order';
+            } else {
+              subtitle = fr ? 'Aucune échéance à venir' : 'No upcoming deadlines';
+            }
+
+            return (
+              <Link
+                href={`/${locale}/dashboard/minute-book`}
+                className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md hover:bg-[var(--hover)] hover:border-[var(--card-hover-border)] transition-colors block"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    {eyebrow}
+                  </span>
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={
+                      iconWrapperStyle ?? {
+                        backgroundColor: 'var(--hover)',
+                        color: 'var(--text-muted)',
+                      }
+                    }
+                  >
+                    {isComplete ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2}
+                          d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : isFoundational ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                          d="M12 9v2m0 4h.01M4.93 19h14.14a2 2 0 001.74-3L13.74 5a2 2 0 00-3.48 0L3.19 16a2 2 0 001.74 3z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <div className={bigValueClass} style={bigValueStyle}>
+                  {bigValueNode}
+                </div>
+                <div className="text-xs text-[var(--text-muted)] mt-1 truncate">
+                  {subtitle}
+                </div>
+              </Link>
+            );
+          })()}
         </div>
 
         {/* MinuteBook card */}
