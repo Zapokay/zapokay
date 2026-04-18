@@ -17,6 +17,8 @@ export interface VaultDocument {
   uploaded_at: string | null;
   created_at: string;
   source?: string | null;
+  requirement_key?: string | null;
+  minute_book_section?: string | null;
 }
 
 interface DocumentRowProps {

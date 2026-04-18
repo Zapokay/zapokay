@@ -445,7 +445,8 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Get public URL
+      // Public URL for the UI response (file_url in the DB stores the relative
+      // storage key — see lib/storage-path.ts).
       const { data: urlData } = supabaseAdmin.storage
         .from('documents')
         .getPublicUrl(storagePath)
@@ -478,7 +479,7 @@ export async function POST(req: NextRequest) {
           title,
           document_type: selection.type === 'board' ? 'resolution' : 'pv',
           document_year: selection.year,
-          file_url: fileUrl,
+          file_url: storagePath,
           language: locale,
           framework: incorporationType === 'CBCA' ? 'CBCA' : 'LSA',
           uploaded_at: new Date().toISOString(),

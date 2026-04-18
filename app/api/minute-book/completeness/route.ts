@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirementToDocType, type VaultDocType } from '@/lib/requirement-doctype'
 
 export interface ChecklistItem {
   id: string
@@ -16,6 +17,8 @@ export interface ChecklistItem {
   year: number | null
   satisfied: boolean
   source?: 'uploaded' | 'generated' | null
+  /** Derived server-side via `requirementToDocType` — see lib/requirement-doctype.ts. */
+  document_type: VaultDocType
 }
 
 export interface CompletenessResponse {
@@ -122,6 +125,7 @@ export async function GET() {
         year: null,
         satisfied,
         source: (matchingDoc?.source as 'uploaded' | 'generated' | null) || null,
+        document_type: requirementToDocType(req.requirement_key, req.section),
       })
       totalRequired++
       if (satisfied) totalSatisfied++
@@ -139,6 +143,7 @@ export async function GET() {
           year: fy.year,
           satisfied,
           source: (matchingDoc?.source as 'uploaded' | 'generated' | null) || null,
+          document_type: requirementToDocType(req.requirement_key, req.section),
         })
         totalRequired++
         if (satisfied) totalSatisfied++

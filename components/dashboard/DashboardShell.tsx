@@ -21,6 +21,8 @@ interface DashboardShellProps {
   urgentCount?: number;
   topbarSubtitle?: string;
   fiscalYears?: number[];
+  yearPickerIncludeFoundational?: boolean;
+  yearPickerIncludeUnclassified?: boolean;
 }
 
 type NavItem = {
@@ -69,7 +71,7 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-export function DashboardShell({ locale, profile, company, children, urgentCount = 0, topbarSubtitle, fiscalYears }: DashboardShellProps) {
+export function DashboardShell({ locale, profile, company, children, urgentCount = 0, topbarSubtitle, fiscalYears, yearPickerIncludeFoundational, yearPickerIncludeUnclassified }: DashboardShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -283,7 +285,12 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
             />
 
             {fiscalYears !== undefined && fiscalYears.length > 0 && (
-              <YearPicker locale={locale} years={fiscalYears} />
+              <YearPicker
+                locale={locale}
+                years={fiscalYears}
+                includeFoundationalOption={yearPickerIncludeFoundational}
+                includeUnclassifiedOption={yearPickerIncludeUnclassified}
+              />
             )}
 
             {!pathname.includes('/compliance') && !pathname.includes('/wizard') && !pathname.includes('/settings') && !pathname.includes('/directors') && !pathname.includes('/officers') && !pathname.includes('/shareholders') && !pathname.includes('/minute-book') && (

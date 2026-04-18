@@ -46,14 +46,36 @@ export default async function DocumentsPage({
     : { data: [] };
   const fiscalYears = (fiscalYearsData ?? []).map((fy: { year: number }) => fy.year);
 
+  // Foundational requirement keys for this company's framework.
+  // Mirrors the framework filter used in /api/minute-book/completeness.
+  const framework = company?.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
+  const { data: foundationalReqs } = company
+    ? await supabase
+        .from('minute_book_requirements')
+        .select('requirement_key')
+        .eq('category', 'foundational')
+        .or(`framework.eq.${framework},framework.eq.ALL`)
+    : { data: [] };
+  const foundationalRequirementKeys = (foundationalReqs ?? []).map(
+    (r: { requirement_key: string }) => r.requirement_key
+  );
+
   return (
-    <DashboardShell locale={locale} profile={profile} company={company} fiscalYears={fiscalYears}>
+    <DashboardShell
+      locale={locale}
+      profile={profile}
+      company={company}
+      fiscalYears={fiscalYears}
+      yearPickerIncludeFoundational={true}
+      yearPickerIncludeUnclassified={true}
+    >
       <DocumentsClient
         locale={locale}
         company={company}
         initialDocuments={(documents ?? []) as VaultDocument[]}
         fiscalYearsConfigured={fiscalYears.length > 0}
         activeFiscalYears={fiscalYears}
+        foundationalRequirementKeys={foundationalRequirementKeys}
       />
     </DashboardShell>
   );

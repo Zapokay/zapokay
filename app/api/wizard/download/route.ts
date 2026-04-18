@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { filePathFromFileUrl } from '@/lib/storage-path'
 
 export const dynamic = 'force-dynamic'
-
-const BUCKET_MARKER = '/object/public/documents/'
 
 export async function POST(req: NextRequest) {
   try {
@@ -63,12 +62,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
 
-      // Extract storage path from public URL
-      const idx = doc.file_url.indexOf(BUCKET_MARKER)
-      if (idx === -1) {
+      // Extract storage path from file_url (tolerates full URL or relative key).
+      const resolved = filePathFromFileUrl(doc.file_url)
+      if (!resolved) {
         return NextResponse.json({ error: 'Invalid file URL format' }, { status: 400 })
       }
-      storagePath = doc.file_url.slice(idx + BUCKET_MARKER.length)
+      storagePath = resolved
     } else {
       return NextResponse.json({ error: 'documentId or storagePath required' }, { status: 400 })
     }

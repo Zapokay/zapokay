@@ -2,28 +2,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
-import { logActivity } from '@/lib/activity-log';
-import { toStorageSafeName } from '@/lib/storage-key';
-
-function getMinuteBookSection(
-  reqKey: string | null,
-  documentType: string,
-  requirements: ChecklistItem[]
-): string | null {
-  if (reqKey) {
-    const req = requirements.find((r: any) => r.requirement_key === reqKey)
-    if ((req as any)?.section) return (req as any).section
-  }
-  const fallback: Record<string, string> = {
-    statuts: 'statuts',
-    resolution: 'resolutions',
-    pv: 'resolutions',
-    registre: 'registres',
-    rapport: 'avis',
-    autre: 'statuts',
-  }
-  return fallback[documentType] || null
-}
+import { uploadDocument } from '@/lib/upload-document';
 
 interface UploadZoneProps {
   companyId: string;
@@ -125,67 +104,41 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
     setProgress(15);
 
     const supabase = createClient();
-    const safeName = toStorageSafeName(file.name);
-    const storagePath = `${companyId}/${Date.now()}-${safeName}`;
-
-    const { error: storageError } = await supabase.storage
-      .from('documents')
-      .upload(storagePath, file, { contentType: 'application/pdf', upsert: false });
-
-    if (storageError) {
-      console.error('[UploadZone] Storage upload failed:', storageError);
-      const msg = fr ? "Erreur lors de l'envoi du fichier." : 'Error uploading file.';
-      setError(msg);
-      onError?.(msg);
-      setStep('selected');
-      return;
-    }
-
-    setProgress(65);
-
-    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(storagePath);
-
-    setProgress(80);
-
-    const minuteBookSection = getMinuteBookSection(requirementKey, docType, requirements)
-
-    const { data: insertedDoc, error: dbError } = await supabase.from('documents').insert({
-      company_id: companyId,
-      title: title.trim(),
-      document_type: docType,
-      document_year: docYear !== '' ? docYear : null,
-      file_url: urlData?.publicUrl ?? null,
-      language,
-      framework,
-      uploaded_at: new Date().toISOString(),
-      source: 'uploaded',
-      ...(requirementKey ? { requirement_key: requirementKey } : {}),
-      ...(requirementYear !== null ? { requirement_year: requirementYear } : {}),
-      ...(minuteBookSection ? { minute_book_section: minuteBookSection } : {}),
-    }).select('id').single();
-
-    if (dbError) {
-      console.error('[UploadZone] DB insert failed:', dbError.code, dbError.message, dbError.details);
-      const msg = fr ? "Erreur lors de l'enregistrement." : 'Error saving document.';
-      setError(msg);
-      onError?.(msg);
-      // Clean up orphaned storage object
-      await supabase.storage.from('documents').remove([storagePath]);
-      setStep('selected');
-      return;
-    }
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user && insertedDoc) {
-      await logActivity(
-        supabase,
-        companyId,
-        user.id,
-        'document_uploaded',
-        `Document téléversé : ${title.trim()}`,
-        `Document uploaded: ${title.trim()}`,
-        { document_id: insertedDoc.id, document_type: docType }
-      );
+    if (!user) {
+      const msg = fr ? "Session expirée." : 'Session expired.';
+      setError(msg);
+      onError?.(msg);
+      setStep('selected');
+      return;
+    }
+
+    setProgress(40);
+
+    const result = await uploadDocument({
+      file,
+      companyId,
+      userId: user.id,
+      supabaseClient: supabase,
+      title,
+      docType,
+      language,
+      docYear: docYear !== '' ? docYear : null,
+      requirementKey,
+      requirementYear,
+      framework: framework === 'CBCA' ? 'CBCA' : 'LSA',
+      requirements,
+    });
+
+    if (!result.ok) {
+      const msg = fr
+        ? "Erreur lors de l'envoi du fichier."
+        : 'Error uploading file.';
+      setError(msg);
+      onError?.(msg);
+      setStep('selected');
+      return;
     }
 
     setProgress(100);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { filePathFromFileUrl } from '@/lib/storage-path';
 
 interface SummaryKeyPoint {
   title: string;
@@ -14,9 +15,6 @@ interface DocumentSummary {
   importantDates: string[];
   disclaimer: string;
 }
-
-const PUBLIC_MARKER = '/object/public/documents/';
-const SIGNED_MARKER = '/object/sign/documents/';
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,14 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract storage path from file_url
-    let storagePath: string | null = null;
-    const publicIdx = (document.file_url as string).indexOf(PUBLIC_MARKER);
-    const signedIdx = (document.file_url as string).indexOf(SIGNED_MARKER);
-    if (publicIdx !== -1) {
-      storagePath = (document.file_url as string).slice(publicIdx + PUBLIC_MARKER.length);
-    } else if (signedIdx !== -1) {
-      storagePath = (document.file_url as string).slice(signedIdx + SIGNED_MARKER.length);
-    }
+    const storagePath = filePathFromFileUrl(document.file_url);
 
     if (!storagePath) {
       return NextResponse.json({ error: 'summary_unavailable' }, { status: 422 });

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { DocumentRow, type VaultDocument } from '@/components/documents/DocumentRow';
 import { UploadZone } from '@/components/documents/UploadZone';
+import { useToasts } from '@/components/ui/Toasts';
+import { filePathFromFileUrl } from '@/lib/storage-path';
 import type { Company } from '@/lib/types';
 
 interface DocumentsClientProps {
@@ -13,10 +15,9 @@ interface DocumentsClientProps {
   initialDocuments: VaultDocument[];
   fiscalYearsConfigured?: boolean;
   activeFiscalYears?: number[];
+  /** Requirement keys (for this company's framework) whose category is 'foundational'. */
+  foundationalRequirementKeys?: string[];
 }
-
-type ToastType = 'success' | 'error';
-interface ToastItem { id: number; message: string; type: ToastType }
 
 const TYPE_OPTIONS = [
   { value: '',           labelFr: 'Tous les types',  labelEn: 'All types' },
@@ -35,15 +36,23 @@ const LANG_OPTIONS = [
   { value: 'bilingual', labelFr: 'Bilingue',           labelEn: 'Bilingual' },
 ];
 
-function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsConfigured = true, activeFiscalYears = [] }: DocumentsClientProps) {
+function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsConfigured = true, activeFiscalYears = [], foundationalRequirementKeys = [] }: DocumentsClientProps) {
   const fr = locale === 'fr';
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const yearParam = searchParams.get('year');
-  const activeYear = yearParam
-    ? parseInt(yearParam, 10)
-    : (activeFiscalYears[0] ?? null);
+  // Three-way filter mode: 'foundational' sentinel, 'unclassified' sentinel, or a numeric year.
+  const yearMode: 'foundational' | 'unclassified' | 'numeric' =
+    yearParam === 'foundational'
+      ? 'foundational'
+      : yearParam === 'unclassified'
+        ? 'unclassified'
+        : 'numeric';
+  const activeYear =
+    yearMode === 'numeric'
+      ? (yearParam ? parseInt(yearParam, 10) : (activeFiscalYears[0] ?? null))
+      : null;
   const initialRequirementKey = searchParams.get('requirement_key');
   const initialRequirementYearRaw = searchParams.get('requirement_year');
   const initialRequirementYear = initialRequirementYearRaw ? parseInt(initialRequirementYearRaw, 10) : null;
@@ -58,7 +67,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [typeFilter, setTypeFilter] = useState('');
   const [langFilter, setLangFilter] = useState('');
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const { addToast, ToastStack } = useToasts();
   const [aiSummariesEnabled, setAiSummariesEnabled] = useState(false);
 
   useEffect(() => {
@@ -72,12 +81,6 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
 
   // Map incorporation_type → framework required by the documents table
   const framework = company?.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
-
-  function addToast(message: string, type: ToastType) {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
-  }
 
   const fetchDocuments = useCallback(async () => {
     if (!company?.id) return;
@@ -106,17 +109,12 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
     const doc = documents.find(d => d.id === id);
 
     // Remove from storage if we can extract the path
-    if (doc?.file_url) {
+    const storagePath = filePathFromFileUrl(doc?.file_url);
+    if (storagePath) {
       try {
-        const url = new URL(doc.file_url);
-        const marker = '/object/public/documents/';
-        const idx = url.pathname.indexOf(marker);
-        if (idx !== -1) {
-          const storagePath = url.pathname.slice(idx + marker.length);
-          await supabase.storage.from('documents').remove([storagePath]);
-        }
+        await supabase.storage.from('documents').remove([storagePath]);
       } catch {
-        // URL parse failed — proceed with DB delete anyway
+        // Storage remove failed — proceed with DB delete anyway
       }
     }
 
@@ -132,12 +130,24 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
     }
   }
 
+  const foundationalKeySet = new Set(foundationalRequirementKeys);
   const filtered = documents
     .filter(doc => {
       const matchSearch = !search || doc.title.toLowerCase().includes(search.toLowerCase());
       const matchType   = !typeFilter || doc.document_type === typeFilter;
       const matchLang   = !langFilter || doc.language === langFilter;
-      const matchYear   = !activeYear || doc.document_year === activeYear;
+
+      let matchYear: boolean;
+      if (yearMode === 'foundational') {
+        // Authoritative signal: requirement_key is in the foundational set.
+        // Tolerate stray document_year values (pre-4b.3 data).
+        matchYear = !!doc.requirement_key && foundationalKeySet.has(doc.requirement_key);
+      } else if (yearMode === 'unclassified') {
+        matchYear = doc.document_year === null && !doc.requirement_key;
+      } else {
+        matchYear = !activeYear || doc.document_year === activeYear;
+      }
+
       return matchSearch && matchType && matchLang && matchYear;
     })
     .sort((a, b) => {
@@ -195,7 +205,13 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
         <p className="text-sm text-[var(--text-muted)] mt-1">
           {documents.length === 0
             ? (fr ? 'Aucun document' : 'No documents')
-            : `${filtered.length} document${filtered.length !== 1 ? 's' : ''}${activeYear ? ` · ${activeYear}` : ''}`}
+            : `${filtered.length} document${filtered.length !== 1 ? 's' : ''}${
+                yearMode === 'foundational'
+                  ? ` · ${fr ? 'Documents fondateurs' : 'Foundational documents'}`
+                  : yearMode === 'unclassified'
+                    ? ` · ${fr ? 'Non classé' : 'Unclassified'}`
+                    : activeYear ? ` · ${activeYear}` : ''
+              }`}
         </p>
       </div>
 
@@ -280,20 +296,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
       )}
 
       {/* Toast stack */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            className={`px-4 py-3 rounded-xl shadow-md text-sm font-medium border animate-fade-in pointer-events-auto ${
-              toast.type === 'success'
-                ? 'bg-[var(--success-bg)] text-[var(--success-text)] border-[var(--success-border)]'
-                : 'bg-[var(--error-bg)] text-[var(--error-text)] border-[var(--error-border)]'
-            }`}
-          >
-            {toast.message}
-          </div>
-        ))}
-      </div>
+      {ToastStack}
     </div>
   );
 }

@@ -6,14 +6,26 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 interface YearPickerProps {
   locale: string
   years: number[]
+  /** When true, prepend "Documents fondateurs" / "Foundational documents" (value = 'foundational'). */
+  includeFoundationalOption?: boolean
+  /** When true, append "Non classé" / "Unclassified" (value = 'unclassified'). */
+  includeUnclassifiedOption?: boolean
 }
 
-function YearPickerInner({ locale, years }: YearPickerProps) {
+function YearPickerInner({
+  locale,
+  years,
+  includeFoundationalOption = false,
+  includeUnclassifiedOption = false,
+}: YearPickerProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const selectedYear = searchParams.get('year') ?? (years.length > 0 ? String(years[0]) : '')
+  const fr = locale === 'fr'
+
+  const selectedYear =
+    searchParams.get('year') ?? (years.length > 0 ? String(years[0]) : '')
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -32,19 +44,29 @@ function YearPickerInner({ locale, years }: YearPickerProps) {
         borderColor: 'var(--tb-border)',
       }}
     >
+      {includeFoundationalOption && (
+        <option value="foundational">
+          {fr ? 'Documents fondateurs' : 'Foundational documents'}
+        </option>
+      )}
       {years.map(y => (
         <option key={y} value={String(y)}>
           {y}
         </option>
       ))}
+      {includeUnclassifiedOption && (
+        <option value="unclassified">
+          {fr ? 'Non classé' : 'Unclassified'}
+        </option>
+      )}
     </select>
   )
 }
 
-export function YearPicker({ locale, years }: YearPickerProps) {
+export function YearPicker(props: YearPickerProps) {
   return (
     <Suspense fallback={null}>
-      <YearPickerInner locale={locale} years={years} />
+      <YearPickerInner {...props} />
     </Suspense>
   )
 }
