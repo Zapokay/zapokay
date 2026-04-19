@@ -14,6 +14,8 @@ interface UploadZoneProps {
   /** Pre-filled from URL params (when navigating from minute-book page) */
   initialRequirementKey?: string | null;
   initialRequirementYear?: number | null;
+  /** Seeds the Language field on open; user can still change it. */
+  preferredLanguage?: 'fr' | 'en';
 }
 
 type UploadStep = 'idle' | 'selected' | 'uploading' | 'done';
@@ -35,7 +37,7 @@ const LANGUAGES = [
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 
-export function UploadZone({ companyId, framework, locale, activeFiscalYears = [], onUploadComplete, onError, initialRequirementKey, initialRequirementYear }: UploadZoneProps) {
+export function UploadZone({ companyId, framework, locale, activeFiscalYears = [], onUploadComplete, onError, initialRequirementKey, initialRequirementYear, preferredLanguage = 'fr' }: UploadZoneProps) {
   const fr = locale === 'fr';
   const currentYear = new Date().getFullYear();
   const [step, setStep] = useState<UploadStep>('idle');
@@ -44,8 +46,11 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
   const [title, setTitle] = useState('');
+  // True once the user has manually edited the title — protects against
+  // cascade overwrites (e.g. annual fiscal-year tweaks re-generating the suffix).
+  const [titleDirty, setTitleDirty] = useState(false);
   const [docType, setDocType] = useState('autre');
-  const [language, setLanguage] = useState('fr');
+  const [language, setLanguage] = useState<string>(preferredLanguage);
   const [docYear, setDocYear] = useState<number | ''>(
     activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? ''
   );
@@ -53,6 +58,65 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
   const [requirementYear, setRequirementYear] = useState<number | null>(initialRequirementYear ?? null);
   const [requirements, setRequirements] = useState<ChecklistItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Resolve the currently selected ChecklistItem (null until requirements fetch lands
+  // or when the dropdown is cleared). Matches on both key AND year since annual
+  // requirements are keyed per fiscal year in the checklist.
+  const selectedReq = requirementKey
+    ? requirements.find(
+        r =>
+          r.requirement_key === requirementKey &&
+          (r.year ?? null) === (requirementYear ?? null),
+      ) ?? null
+    : null;
+  const isFoundational = selectedReq?.category === 'foundational';
+
+  // Cascade effect — fires on requirement change (or once `requirements` loads).
+  // Sets document_type, title (for foundational), and docYear based on category.
+  // Title suffix for annual is handled in the docYear-dependent effect below.
+  useEffect(() => {
+    // If a key is set but its ChecklistItem hasn't been fetched/matched yet,
+    // wait — don't wipe state prematurely.
+    if (requirementKey && !selectedReq) return;
+
+    setTitleDirty(false);
+
+    if (!selectedReq) {
+      // Cleared: lift locks; restore docYear default if currently empty.
+      setDocYear(prev =>
+        prev === '' ? (activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? '') : prev,
+      );
+      return;
+    }
+
+    setDocType(selectedReq.document_type);
+
+    if (selectedReq.category === 'foundational') {
+      setDocYear('');
+      setTitle(fr ? selectedReq.title_fr : selectedReq.title_en);
+    } else {
+      // Annual: snap docYear to the requirement's own year. The requirement is year-scoped
+      // — picking "Annual Board Resolution (2023)" means this is THE 2023 doc.
+      if (typeof selectedReq.year === 'number') {
+        setDocYear(selectedReq.year);
+      }
+      // Title is written by the docYear effect below (needs the freshly-set year).
+    }
+    // selectedReq is derived from (requirementKey, requirementYear, requirements);
+    // depending on those is equivalent and avoids re-running on unrelated renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requirementKey, requirementYear, requirements]);
+
+  // Annual-only title regeneration when docYear changes (and on requirement switch
+  // into annual). Respects titleDirty so manual edits are not clobbered.
+  useEffect(() => {
+    if (!selectedReq || selectedReq.category !== 'annual') return;
+    if (titleDirty) return;
+    const base = fr ? selectedReq.title_fr : selectedReq.title_en;
+    const suffix = docYear !== '' ? ` — ${docYear}` : '';
+    setTitle(base + suffix);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requirementKey, requirementYear, requirements, docYear, titleDirty]);
 
   // Fetch unsatisfied requirements for the optional dropdown
   useEffect(() => {
@@ -148,8 +212,9 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
       setStep('idle');
       setFile(null);
       setTitle('');
+      setTitleDirty(false);
       setDocType('autre');
-      setLanguage('fr');
+      setLanguage(preferredLanguage);
       setDocYear(activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? '');
       setProgress(0);
       if (inputRef.current) inputRef.current.value = '';
@@ -161,6 +226,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
     setStep('idle');
     setFile(null);
     setTitle('');
+    setTitleDirty(false);
     setError('');
     setProgress(0);
     if (inputRef.current) inputRef.current.value = '';
@@ -244,7 +310,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
             </label>
             <input
               value={title}
-              onChange={e => setTitle(e.target.value)}
+              onChange={e => { setTitle(e.target.value); setTitleDirty(true); }}
               placeholder={fr ? 'Ex. Résolution 2024-01' : 'E.g. Resolution 2024-01'}
               className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
             />
@@ -257,7 +323,8 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
               <select
                 value={docType}
                 onChange={e => setDocType(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+                disabled={!!requirementKey}
+                className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {DOC_TYPES.map(t => (
                   <option key={t.value} value={t.value}>
@@ -284,7 +351,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
             </div>
           </div>
 
-          {activeFiscalYears.length > 0 && (
+          {activeFiscalYears.length > 0 && !isFoundational && (
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
                 {fr ? 'Exercice fiscal' : 'Fiscal year'}
@@ -292,7 +359,8 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
               <select
                 value={docYear}
                 onChange={e => setDocYear(e.target.value === '' ? '' : parseInt(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+                disabled={!!requirementKey}
+                className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="">{fr ? '— Aucun exercice —' : '— No fiscal year —'}</option>
                 {activeFiscalYears.map(y => (
@@ -311,9 +379,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
                 {fr ? 'Ce document correspond à :' : 'This document corresponds to:'}
               </label>
               <select
-                value={requirementKey && requirementYear !== null
-                  ? `${requirementKey}|${requirementYear}`
-                  : requirementKey ?? ''}
+                value={requirementKey ? `${requirementKey}|${requirementYear ?? ''}` : ''}
                 onChange={e => {
                   const val = e.target.value;
                   if (val) {
@@ -335,7 +401,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
                     key={`${req.requirement_key}-${req.year ?? 'f'}`}
                     value={`${req.requirement_key}|${req.year ?? ''}`}
                   >
-                    {req.title_fr}{req.year ? ` (${req.year})` : ''}
+                    {fr ? req.title_fr : req.title_en}{req.year ? ` (${req.year})` : ''}
                   </option>
                 ))}
               </select>

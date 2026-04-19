@@ -17,6 +17,8 @@ interface DocumentsClientProps {
   activeFiscalYears?: number[];
   /** Requirement keys (for this company's framework) whose category is 'foundational'. */
   foundationalRequirementKeys?: string[];
+  /** User's preferred language from users.preferred_language — seeds the upload form's Language field. */
+  preferredLanguage?: 'fr' | 'en';
 }
 
 const TYPE_OPTIONS = [
@@ -36,7 +38,7 @@ const LANG_OPTIONS = [
   { value: 'bilingual', labelFr: 'Bilingue',           labelEn: 'Bilingual' },
 ];
 
-function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsConfigured = true, activeFiscalYears = [], foundationalRequirementKeys = [] }: DocumentsClientProps) {
+function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsConfigured = true, activeFiscalYears = [], foundationalRequirementKeys = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
   const fr = locale === 'fr';
   const supabase = createClient();
   const router = useRouter();
@@ -226,6 +228,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
           onError={handleUploadError}
           initialRequirementKey={initialRequirementKey}
           initialRequirementYear={initialRequirementYear}
+          preferredLanguage={preferredLanguage}
         />
       )}
 

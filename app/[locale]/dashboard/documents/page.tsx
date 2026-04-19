@@ -76,6 +76,7 @@ export default async function DocumentsPage({
         fiscalYearsConfigured={fiscalYears.length > 0}
         activeFiscalYears={fiscalYears}
         foundationalRequirementKeys={foundationalRequirementKeys}
+        preferredLanguage={(profile?.preferred_language as 'fr' | 'en') ?? 'fr'}
       />
     </DashboardShell>
   );
