@@ -50,9 +50,9 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
   .page {
     position: relative;
     width: 8.5in;
-    min-height: 9in;
-    padding: 0 2.5cm;
-    page-break-after: always;
+    /* Top padding reserves space for the fixed header (~2cm + buffer);
+       bottom padding reserves space for the fixed footer (~1.3cm + buffer). */
+    padding: 3cm 2.5cm 2cm;
   }
 
   /* ── Header ── */
