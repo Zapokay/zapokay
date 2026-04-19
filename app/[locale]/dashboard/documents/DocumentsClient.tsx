@@ -55,10 +55,6 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
     yearMode === 'numeric'
       ? (yearParam ? parseInt(yearParam, 10) : (activeFiscalYears[0] ?? null))
       : null;
-  const initialRequirementKey = searchParams.get('requirement_key');
-  const initialRequirementYearRaw = searchParams.get('requirement_year');
-  const initialRequirementYear = initialRequirementYearRaw ? parseInt(initialRequirementYearRaw, 10) : null;
-
   const [documents, setDocuments] = useState<VaultDocument[]>(initialDocuments);
 
   // Sync local state when server re-renders with fresh data (after router.refresh())
@@ -226,8 +222,6 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
           activeFiscalYears={activeFiscalYears}
           onUploadComplete={handleUploadComplete}
           onError={handleUploadError}
-          initialRequirementKey={initialRequirementKey}
-          initialRequirementYear={initialRequirementYear}
           preferredLanguage={preferredLanguage}
         />
       )}

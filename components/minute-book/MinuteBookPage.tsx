@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { Info } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { uploadDocument } from '@/lib/upload-document';
+import { useToasts } from '@/components/ui/Toasts';
 import CompletenessBar from '@/components/minute-book/CompletenessBar';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import BinderView from '@/components/minute-book/BinderView';
@@ -22,16 +24,18 @@ type TabKey = (typeof TABS)[number]['key']
 interface MinuteBookPageProps {
   locale: string;
   companyId: string;
+  framework: 'LSA' | 'CBCA';
+  preferredLanguage: 'fr' | 'en';
 }
 
-export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProps) {
-  const router = useRouter();
+export default function MinuteBookPage({ locale, companyId, framework, preferredLanguage }: MinuteBookPageProps) {
   const fr = locale === 'fr';
   const [activeTab, setActiveTab] = useState<TabKey>('completude');
   const [data, setData] = useState<CompletenessResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [showTooltip, setShowTooltip] = useState(false);
   const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
+  const { addToast, ToastStack } = useToasts();
 
   const fetchData = useCallback(async () => {
     try {
@@ -51,13 +55,71 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
     fetchData();
   }, [fetchData]);
 
-  const handleUpload = (requirementKey: string, year: number | null) => {
-    const params = new URLSearchParams({
-      requirement_key: requirementKey,
-      ...(year !== null && { requirement_year: String(year) }),
-    });
-    router.push(`/${locale}/dashboard/documents?upload=true&${params.toString()}`);
-  };
+  const MAX_SIZE = 20 * 1024 * 1024; // 20 MB — matches UploadZone cap
+
+  // Row-driven silent upload. Returns true on success, false on any validation
+  // or pipeline failure. All user feedback (toast + row refresh) is owned here;
+  // the row just awaits the boolean to clear its local isUploading state.
+  const handleFileSelected = useCallback(
+    async (file: File, requirementKey: string, year: number | null): Promise<boolean> => {
+      if (file.type !== 'application/pdf') {
+        addToast(fr ? 'Seuls les fichiers PDF sont acceptés.' : 'Only PDF files are accepted.', 'error');
+        return false;
+      }
+      if (file.size > MAX_SIZE) {
+        addToast(fr ? 'Le fichier dépasse 20 Mo.' : 'File exceeds 20 MB.', 'error');
+        return false;
+      }
+
+      const item = data?.checklist.find(
+        i => i.requirement_key === requirementKey && (i.year ?? null) === (year ?? null),
+      );
+      if (!item) {
+        addToast(fr ? 'Exigence introuvable.' : 'Requirement not found.', 'error');
+        return false;
+      }
+
+      const base = fr ? item.title_fr : item.title_en;
+      const title = item.category === 'annual' && year !== null ? `${base} — ${year}` : base;
+
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        addToast(fr ? 'Session expirée.' : 'Session expired.', 'error');
+        return false;
+      }
+
+      const result = await uploadDocument({
+        file,
+        companyId,
+        userId: user.id,
+        supabaseClient: supabase,
+        title,
+        docType: item.document_type,
+        language: preferredLanguage,
+        docYear: item.category === 'annual' ? year : null,
+        requirementKey,
+        requirementYear: year,
+        framework,
+        requirements: data?.checklist ?? [],
+      });
+
+      if (!result.ok) {
+        addToast(fr ? "Erreur lors de l'envoi du fichier." : 'Error uploading file.', 'error');
+        return false;
+      }
+
+      const yearSuffix = item.category === 'annual' && year !== null ? ` ${year}` : '';
+      addToast(
+        fr ? `Document ajouté à « ${base} »${yearSuffix}.` : `Document added to "${base}"${yearSuffix}.`,
+        'success',
+      );
+      await fetchData();
+      return true;
+    },
+    [addToast, companyId, data, fetchData, fr, framework, preferredLanguage],
+  );
+
   // Sprint 9H: single-row generation lives inline via GenerateDocumentButton
   // (hits /api/minute-book/generate-item). The multi-year catch-up wizard is
   // still reachable from /dashboard/wizard for bulk scenarios.
@@ -180,7 +242,7 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
                   title={fr ? 'Documents fondateurs' : 'Founding documents'}
                   items={foundationalItems}
                   companyId={companyId}
-                  onUpload={handleUpload}
+                  onFileSelected={handleFileSelected}
                   onGenerated={fetchData}
                 />
               )}
@@ -191,7 +253,7 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
                   title={getFiscalYearLabel(year)}
                   items={annualItemsByYear[year]}
                   companyId={companyId}
-                  onUpload={handleUpload}
+                  onFileSelected={handleFileSelected}
                   onGenerated={fetchData}
                 />
               ))}
@@ -209,6 +271,9 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
         isOpen={showDueDiligenceModal}
         onClose={() => setShowDueDiligenceModal(false)}
       />
+
+      {/* Toast stack */}
+      {ToastStack}
     </div>
   );
 }

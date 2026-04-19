@@ -36,7 +36,12 @@ export default async function MinuteBookRoute({
 
   return (
     <DashboardShell locale={locale} profile={profile} company={company} urgentCount={0}>
-      <MinuteBookPage locale={locale} companyId={company.id} />
+      <MinuteBookPage
+        locale={locale}
+        companyId={company.id}
+        framework={company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA'}
+        preferredLanguage={(profile?.preferred_language as 'fr' | 'en') ?? 'fr'}
+      />
     </DashboardShell>
   )
 }

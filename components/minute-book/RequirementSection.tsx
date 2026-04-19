@@ -8,7 +8,7 @@ interface RequirementSectionProps {
   title: string;
   items: ChecklistItem[];
   companyId?: string;
-  onUpload?: (requirementKey: string, year: number | null) => void;
+  onFileSelected?: (file: File, requirementKey: string, year: number | null) => Promise<boolean>;
   onGenerated?: () => void;
 }
 
@@ -16,7 +16,7 @@ export default function RequirementSection({
   title,
   items,
   companyId,
-  onUpload,
+  onFileSelected,
   onGenerated,
 }: RequirementSectionProps) {
   const satisfiedCount = items.filter((i) => i.satisfied).length;
@@ -59,7 +59,7 @@ export default function RequirementSection({
             canGenerate={item.can_generate}
             year={item.year}
             companyId={companyId}
-            onUpload={onUpload}
+            onFileSelected={onFileSelected}
             onGenerated={onGenerated}
           />
         ))}

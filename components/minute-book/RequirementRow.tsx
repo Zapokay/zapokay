@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CheckCircle2, XCircle, Info, Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 
@@ -14,7 +14,7 @@ interface RequirementRowProps {
   canGenerate: boolean;
   year: number | null;
   companyId?: string;
-  onUpload?: (requirementKey: string, year: number | null) => void;
+  onFileSelected?: (file: File, requirementKey: string, year: number | null) => Promise<boolean>;
   onGenerated?: () => void;
 }
 
@@ -28,10 +28,26 @@ export default function RequirementRow({
   canGenerate,
   year,
   companyId,
-  onUpload,
+  onFileSelected,
   onGenerated,
 }: RequirementRowProps) {
   const [showDescription, setShowDescription] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    // Reset the input value so the SAME file can be re-selected after an error
+    // (browsers suppress onChange for identical filenames otherwise).
+    e.target.value = '';
+    if (!f || !onFileSelected) return;
+    setIsUploading(true);
+    try {
+      await onFileSelected(f, requirementKey, year);
+    } finally {
+      setIsUploading(false);
+    }
+  }
 
   return (
     <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
@@ -83,13 +99,23 @@ export default function RequirementRow({
         ) : (
           <>
             {canUpload && (
-              <button
-                onClick={() => onUpload?.(requirementKey, year)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
-              >
-                <Upload className="h-3.5 w-3.5" />
-                Téléverser
-              </button>
+              <>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {isUploading ? 'Téléversement…' : 'Téléverser'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
+              </>
             )}
             {canGenerate && companyId && (
               <GenerateDocumentButton

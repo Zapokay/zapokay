@@ -11,9 +11,6 @@ interface UploadZoneProps {
   activeFiscalYears?: number[];
   onUploadComplete: () => void;
   onError?: (message: string) => void;
-  /** Pre-filled from URL params (when navigating from minute-book page) */
-  initialRequirementKey?: string | null;
-  initialRequirementYear?: number | null;
   /** Seeds the Language field on open; user can still change it. */
   preferredLanguage?: 'fr' | 'en';
 }
@@ -37,7 +34,7 @@ const LANGUAGES = [
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 
-export function UploadZone({ companyId, framework, locale, activeFiscalYears = [], onUploadComplete, onError, initialRequirementKey, initialRequirementYear, preferredLanguage = 'fr' }: UploadZoneProps) {
+export function UploadZone({ companyId, framework, locale, activeFiscalYears = [], onUploadComplete, onError, preferredLanguage = 'fr' }: UploadZoneProps) {
   const fr = locale === 'fr';
   const currentYear = new Date().getFullYear();
   const [step, setStep] = useState<UploadStep>('idle');
@@ -54,8 +51,8 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
   const [docYear, setDocYear] = useState<number | ''>(
     activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? ''
   );
-  const [requirementKey, setRequirementKey] = useState<string | null>(initialRequirementKey ?? null);
-  const [requirementYear, setRequirementYear] = useState<number | null>(initialRequirementYear ?? null);
+  const [requirementKey, setRequirementKey] = useState<string | null>(null);
+  const [requirementYear, setRequirementYear] = useState<number | null>(null);
   const [requirements, setRequirements] = useState<ChecklistItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
