@@ -8,9 +8,7 @@ interface RequirementSectionProps {
   title: string;
   items: ChecklistItem[];
   companyId?: string;
-  generatingKey?: string | null;
   onUpload?: (requirementKey: string, year: number | null) => void;
-  onGenerate?: (requirementKey: string, year: number | null) => void;
   onGenerated?: () => void;
 }
 
@@ -18,9 +16,7 @@ export default function RequirementSection({
   title,
   items,
   companyId,
-  generatingKey,
   onUpload,
-  onGenerate,
   onGenerated,
 }: RequirementSectionProps) {
   const satisfiedCount = items.filter((i) => i.satisfied).length;
@@ -63,9 +59,7 @@ export default function RequirementSection({
             canGenerate={item.can_generate}
             year={item.year}
             companyId={companyId}
-            isGenerating={generatingKey === item.requirement_key}
             onUpload={onUpload}
-            onGenerate={onGenerate}
             onGenerated={onGenerated}
           />
         ))}

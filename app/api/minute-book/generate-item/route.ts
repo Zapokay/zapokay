@@ -144,11 +144,14 @@ function mapToDocumentType(type: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { companyId, requirementKey, signatories } = (await request.json()) as {
-      companyId: string;
-      requirementKey: string;
-      signatories?: Array<{ id: string; name: string; role: string }>;
-    };
+    const { companyId, requirementKey, signatories, year: requestedYear } =
+      (await request.json()) as {
+        companyId: string;
+        requirementKey: string;
+        signatories?: Array<{ id: string; name: string; role: string }>;
+        /** Optional — fiscal year for annual requirements. Omitted for foundational. */
+        year?: number;
+      };
 
     console.log('[generate-item] env check:', {
       hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -239,11 +242,15 @@ export async function POST(request: NextRequest) {
     /* ---------- Données pour le template ---------- */
 
     const now = new Date();
+    // Use the requested fiscal year when the caller provided one (annual rows),
+    // otherwise fall back to the current year (foundational + backward compat).
+    const hasYear = typeof requestedYear === 'number' && Number.isFinite(requestedYear);
+    const effectiveYear = hasYear ? (requestedYear as number) : now.getFullYear();
     const templateData = {
       companyName: company.legal_name_fr,
       neq: company.neq,
       resolutionDate: now.toISOString().split('T')[0],
-      fiscalYear: String(now.getFullYear()),
+      fiscalYear: String(effectiveYear),
       language: 'fr' as const,
       framework: company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
       directors: activeDirectors,
@@ -299,8 +306,11 @@ export async function POST(request: NextRequest) {
         status:          'active',
         source:          'generated',
         framework:       company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
-        document_year:        now.getFullYear(),
+        document_year:        effectiveYear,
         requirement_key:      requirementKey,
+        // requirement_year is only meaningful for annual rows (the caller passed a year).
+        // Foundational generations preserve existing behavior: requirement_year is not set.
+        ...(hasYear ? { requirement_year: effectiveYear } : {}),
         minute_book_section:  requirement?.section ?? null,
         ...(signatories && signatories.length > 0
           ? { signatories_confirmed: signatories, signature_status: 'pending_signature' }

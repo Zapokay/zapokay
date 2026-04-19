@@ -31,8 +31,6 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
   const [data, setData] = useState<CompletenessResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [showTooltip, setShowTooltip] = useState(false);
-  const [generating, setGenerating] = useState<string | null>(null);
-  const [generateError, setGenerateError] = useState<string | null>(null);
   const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -60,12 +58,9 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
     });
     router.push(`/${locale}/dashboard/documents?upload=true&${params.toString()}`);
   };
-
-  const handleGenerate = useCallback((requirementKey: string, year: number | null) => {
-    if (year !== null) {
-      router.push(`/${locale}/dashboard/wizard?year=${year}`);
-    }
-  }, [locale, router]);
+  // Sprint 9H: single-row generation lives inline via GenerateDocumentButton
+  // (hits /api/minute-book/generate-item). The multi-year catch-up wizard is
+  // still reachable from /dashboard/wizard for bulk scenarios.
 
   const foundationalItems: ChecklistItem[] =
     data?.checklist.filter((i) => i.category === 'foundational') || [];
@@ -131,9 +126,6 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
             {data.score}% {fr ? 'complet' : 'complete'} · {data.totalMissing} {fr ? 'documents manquants' : 'missing documents'}
           </p>
         )}
-        {generateError && (
-          <p className="mt-2 text-sm" style={{ color: 'var(--error-text)' }}>{generateError}</p>
-        )}
       </div>
 
       {/* Tab navigation */}
@@ -188,9 +180,7 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
                   title={fr ? 'Documents fondateurs' : 'Founding documents'}
                   items={foundationalItems}
                   companyId={companyId}
-                  generatingKey={generating}
                   onUpload={handleUpload}
-                  onGenerate={handleGenerate}
                   onGenerated={fetchData}
                 />
               )}
@@ -200,9 +190,9 @@ export default function MinuteBookPage({ locale, companyId }: MinuteBookPageProp
                   key={year}
                   title={getFiscalYearLabel(year)}
                   items={annualItemsByYear[year]}
-                  generatingKey={generating}
+                  companyId={companyId}
                   onUpload={handleUpload}
-                  onGenerate={handleGenerate}
+                  onGenerated={fetchData}
                 />
               ))}
             </>

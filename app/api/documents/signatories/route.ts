@@ -1,5 +1,13 @@
 export const dynamic = 'force-dynamic';
 
+// TODO (Sprint 10+): accept a `year` query param and filter director_mandates /
+// shareholdings to those active in that fiscal year. Today the data model only
+// tracks current-state (`director_mandates.is_active`, no effective dates on
+// `shareholdings`), so annual generations for older years receive the
+// currently-active signatories rather than the historically-correct ones.
+// Unblocking this requires adding `active_from` / `active_until` (or a
+// per-fiscal-year join) to the mandates + shareholdings tables.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSignatoryType, isAllSignatoriesRequired } from '@/lib/requirement-map';

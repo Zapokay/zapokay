@@ -1,3 +1,8 @@
+// Sprint 9H — this endpoint is only for the multi-year catch-up wizard flow.
+// Single-document generation from Livre de minutes rows goes through
+// /api/minute-book/generate-item (which now accepts an optional `year` param
+// for annual requirements).
+
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'

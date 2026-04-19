@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, XCircle, Info, Upload, Sparkles } from 'lucide-react';
+import { CheckCircle2, XCircle, Info, Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 
 interface RequirementRowProps {
@@ -14,9 +14,7 @@ interface RequirementRowProps {
   canGenerate: boolean;
   year: number | null;
   companyId?: string;
-  isGenerating?: boolean;
   onUpload?: (requirementKey: string, year: number | null) => void;
-  onGenerate?: (requirementKey: string, year: number | null) => void;
   onGenerated?: () => void;
 }
 
@@ -30,9 +28,7 @@ export default function RequirementRow({
   canGenerate,
   year,
   companyId,
-  isGenerating = false,
   onUpload,
-  onGenerate,
   onGenerated,
 }: RequirementRowProps) {
   const [showDescription, setShowDescription] = useState(false);
@@ -95,30 +91,16 @@ export default function RequirementRow({
                 Téléverser
               </button>
             )}
-            {canGenerate && year === null && companyId ? (
+            {canGenerate && companyId && (
               <GenerateDocumentButton
                 companyId={companyId}
                 requirementKey={requirementKey}
+                year={year}
                 onSuccess={onGenerated}
                 locale="fr"
                 className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               />
-            ) : canGenerate && year !== null ? (
-              <button
-                onClick={() => onGenerate?.(requirementKey, year)}
-                disabled={isGenerating}
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isGenerating ? (
-                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 14 14" fill="none">
-                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="24" strokeDashoffset="6" />
-                  </svg>
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5" />
-                )}
-                {isGenerating ? 'Génération…' : 'Générer'}
-              </button>
-            ) : null}
+            )}
             {!canUpload && !canGenerate && (
               <span className="text-xs text-[var(--text-muted)]">
                 Bientôt disponible

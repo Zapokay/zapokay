@@ -1,4 +1,11 @@
 'use client';
+// TODO (Sprint 10+ polish): when the caller is generating a document for a
+// historical fiscal year (year < current fiscal year), surface a disclaimer
+// in this modal — e.g. "Les signataires actuels sont affichés. Si les
+// administrateurs / actionnaires étaient différents pour cet exercice,
+// ajustez la sélection ou modifiez le PDF après génération." Requires
+// plumbing the `year` prop through (GenerateDocumentButton → SignatoriesModal).
+// See also /api/documents/signatories/route.ts for the matching backend TODO.
 import { useState, useEffect } from 'react';
 import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
 

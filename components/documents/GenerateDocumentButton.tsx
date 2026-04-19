@@ -9,6 +9,8 @@ import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
 interface GenerateDocumentButtonProps {
   companyId: string;
   requirementKey: string;
+  /** Fiscal year for annual requirements. Null/undefined for foundational. */
+  year?: number | null;
   onSuccess?: (documentId: string, fileName: string) => void;
   locale?: string;
   /** Optional label override */
@@ -25,6 +27,7 @@ const NO_SIGNATORIES_ERROR: Record<string, string> = {
 export function GenerateDocumentButton({
   companyId,
   requirementKey,
+  year,
   onSuccess,
   locale = 'fr',
   label,
@@ -60,7 +63,7 @@ export function GenerateDocumentButton({
         }
         if (fetched.length === 1) {
           // Single signatory — no need for selection, generate immediately
-          const result = await generate({ companyId, requirementKey, signatories: fetched });
+          const result = await generate({ companyId, requirementKey, year, signatories: fetched });
           if (result) onSuccess?.(result.documentId, result.fileName);
           return;
         }
@@ -71,14 +74,14 @@ export function GenerateDocumentButton({
         setIsFetching(false);
       }
     } else {
-      const result = await generate({ companyId, requirementKey });
+      const result = await generate({ companyId, requirementKey, year });
       if (result) onSuccess?.(result.documentId, result.fileName);
     }
   }
 
   async function handleConfirm(signatories: Signatory[]) {
     setShowModal(false);
-    const result = await generate({ companyId, requirementKey, signatories });
+    const result = await generate({ companyId, requirementKey, year, signatories });
     if (result) onSuccess?.(result.documentId, result.fileName);
   }
 

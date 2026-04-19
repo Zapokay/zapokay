@@ -5,6 +5,8 @@ import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
 interface GenerateParams {
   companyId: string;
   requirementKey: string;
+  /** Fiscal year for annual requirements. Null/undefined for foundational. */
+  year?: number | null;
   signatories?: Signatory[];
 }
 
@@ -21,10 +23,16 @@ export function useGenerateWithSignatories() {
     setIsGenerating(true);
     setError(null);
     try {
+      // Drop `year` from the wire payload when it's null/undefined — the
+      // API treats "no year" as "use current year" (foundational / backward compat).
+      const { year, ...rest } = params;
+      const payload =
+        typeof year === 'number' ? { ...rest, year } : rest;
+
       const res = await fetch('/api/minute-book/generate-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!data.success) {

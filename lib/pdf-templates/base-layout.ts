@@ -3,6 +3,11 @@ export interface BaseLayoutData {
   neq?: string;
   documentTitle: string;
   documentSubtitle?: string;
+  /**
+   * Generation date (YYYY-MM-DD), displayed in the right-hand footer slot as
+   * "Généré le {date}" / "Generated on {date}". The actual signature date is
+   * captured on the "Date: _______" line beside each signatory, not here.
+   */
   effectiveDate?: string;
   bodyContent: string;
   footerDocName: string;
@@ -23,6 +28,9 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     data.language === 'en'
       ? 'Confidential — Internal Use'
       : 'Confidentiel — Usage interne';
+
+  const generatedOnLabel =
+    data.language === 'en' ? 'Generated on' : 'Généré le';
 
   return /* html */ `<!DOCTYPE html>
 <html lang="${data.language === 'en' ? 'en' : 'fr'}">
@@ -138,10 +146,6 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     color: ${COLORS.gray};
     margin-bottom: 0.2em;
   }
-  .title-block .date {
-    font-size: 12px;
-    color: ${COLORS.lightGray};
-  }
   .title-block .sep {
     width: 60px;
     height: 1px;
@@ -194,7 +198,7 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: ${COLORS.gray};
-    margin-bottom: 1.5em;
+    margin-bottom: 36px;
   }
   .sig-entry { margin-bottom: 2em; }
   .sig-line {
@@ -245,7 +249,6 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     <div class="title-block">
       <h1>${escapeHtml(data.documentTitle)}</h1>
       ${data.documentSubtitle ? `<div class="subtitle">${escapeHtml(data.documentSubtitle)}</div>` : ''}
-      ${data.effectiveDate ? `<div class="date">${escapeHtml(data.effectiveDate)}</div>` : ''}
       <div class="sep"></div>
     </div>
 
@@ -256,7 +259,7 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
   <div class="footer">
     <span>${escapeHtml(data.footerDocName)}</span>
     <span>${escapeHtml(data.companyName)} — ${confidential}</span>
-    <span></span>
+    <span>${data.effectiveDate ? `${generatedOnLabel} ${escapeHtml(data.effectiveDate)}` : ''}</span>
   </div>
 </body>
 </html>`;
