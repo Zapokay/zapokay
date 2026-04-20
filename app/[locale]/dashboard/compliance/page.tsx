@@ -66,6 +66,10 @@ export default async function CompliancePage({ params, searchParams }: PageProps
     .order('year', { ascending: false })
   const fiscalYears = (fiscalYearsData ?? []).map((fy: { year: number }) => fy.year)
 
+  const activeYears = await getActiveYears(company.id, supabase)
+  const activeSet = new Set(activeYears)
+  const activeFiscalYears = fiscalYears.filter(y => activeSet.has(y))
+
   // Detect missing fiscal year config
   const companyAny = company as Record<string, unknown>
   const hasFiscalYearConfig =
@@ -75,14 +79,13 @@ export default async function CompliancePage({ params, searchParams }: PageProps
   // Active year from URL param — use fiscal year end date as reference
   const selectedYear = searchParams.year
     ? parseInt(searchParams.year, 10)
-    : (fiscalYears[0] ?? null)
+    : (activeFiscalYears[0] ?? fiscalYears[0] ?? null)
   const fyEndMonthNum = (companyAny.fiscal_year_end_month as number | null) ?? 12
   const fyEndDayNum   = (companyAny.fiscal_year_end_day as number | null) ?? 31
   const referenceDate = selectedYear
     ? new Date(selectedYear, fyEndMonthNum - 1, fyEndDayNum)
     : undefined
 
-  const activeYears = await getActiveYears(company.id, supabase)
   const result = await calculateComplianceItems(company.id, supabase, referenceDate, activeYears)
 
   const frameworkLabel = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSAQ'
@@ -101,7 +104,7 @@ export default async function CompliancePage({ params, searchParams }: PageProps
       profile={profile}
       company={company}
       urgentCount={result.urgentCount}
-      fiscalYears={fiscalYears}
+      fiscalYears={activeFiscalYears}
     >
       <ComplianceClient
         locale={locale}

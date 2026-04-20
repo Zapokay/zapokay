@@ -533,7 +533,7 @@ export default async function DashboardPage({
                   {fr ? `Actions requises (${actionCount})` : `Required actions (${actionCount})`}
                 </h2>
                 <Link
-                  href={`/${locale}/dashboard/compliance`}
+                  href={`/${locale}/dashboard/minute-book`}
                   className="text-xs font-medium text-[var(--text-link)] hover:underline"
                 >
                   {fr ? 'Voir tout →' : 'View all →'}
@@ -606,7 +606,7 @@ export default async function DashboardPage({
                       : <><LegalTerm termKey={frameworkLabel === 'CBCA' ? 'cbca' : 'lsaq'} lang="en" /> Compliance</>}
                   </h2>
                   <Link
-                    href={`/${locale}/dashboard/compliance`}
+                    href={`/${locale}/dashboard/minute-book`}
                     className="text-xs font-medium text-[var(--text-link)] hover:underline"
                   >
                     {fr ? 'Détails →' : 'Details →'}

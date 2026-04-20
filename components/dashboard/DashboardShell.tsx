@@ -61,10 +61,9 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    groupKeyFr: 'CONFORMITÉ',
-    groupKeyEn: 'COMPLIANCE',
+    groupKeyFr: 'COMPTE',
+    groupKeyEn: 'ACCOUNT',
     items: [
-      { key: 'compliance',  icon: <DuotoneClipboardCheck />, labelFr: 'Suivi',       labelEn: 'Tracking', href: 'compliance' },
       { key: 'activity',    icon: <DuotoneClock />,          labelFr: 'Historique',  labelEn: 'History',  href: 'activity' },
       { key: 'settings',    icon: <DuotoneSettings />,       labelFr: 'Paramètres',  labelEn: 'Settings', href: 'settings' },
     ],
@@ -88,7 +87,6 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
   function getPageTitle() {
     if (pathname.includes('/dashboard/documents')) return fr ? 'Documents' : 'Documents';
     if (pathname.includes('/dashboard/minute-book')) return fr ? 'Livre de minutes' : 'Minute Book';
-    if (pathname.includes('/dashboard/compliance')) return fr ? 'Suivi' : 'Tracking';
     if (pathname.includes('/dashboard/wizard')) return fr ? 'Résolutions' : 'Resolutions';
     if (pathname.includes('/dashboard/resolutions')) return fr ? 'Résolutions' : 'Resolutions';
     if (pathname.includes('/dashboard/settings')) return fr ? 'Paramètres' : 'Settings';
@@ -172,7 +170,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
                           {item.icon}
                         </span>
                         <span className="flex-1">{fr ? item.labelFr : item.labelEn}</span>
-                        {item.key === 'compliance' && urgentCount > 0 && (
+                        {item.key === 'minute-book' && urgentCount > 0 && (
                           <span
                             className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
                             style={{ backgroundColor: '#C9A5A5', color: '#6B1E1E' }}
