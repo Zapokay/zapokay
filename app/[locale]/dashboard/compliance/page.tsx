@@ -67,8 +67,7 @@ export default async function CompliancePage({ params, searchParams }: PageProps
   const fiscalYears = (fiscalYearsData ?? []).map((fy: { year: number }) => fy.year)
 
   const activeYears = await getActiveYears(company.id, supabase)
-  const activeSet = new Set(activeYears)
-  const activeFiscalYears = fiscalYears.filter(y => activeSet.has(y))
+  const activeFiscalYears = fiscalYears  // same data, same filter (status='active'), already sorted descending
 
   // Detect missing fiscal year config
   const companyAny = company as Record<string, unknown>

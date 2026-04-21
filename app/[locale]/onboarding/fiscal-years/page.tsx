@@ -16,7 +16,7 @@ export default async function FiscalYearsPage({
 
   const { data: company } = await supabase
     .from('companies')
-    .select('id, incorporation_date')
+    .select('id, incorporation_date, fiscal_year_end_month, fiscal_year_end_day')
     .eq('user_id', user.id)
     .eq('status', 'active')
     .single()
@@ -37,6 +37,10 @@ export default async function FiscalYearsPage({
     .map((d: { document_year: number | null }) => d.document_year)
     .filter((y): y is number => y !== null)
 
+  const companyAny = company as Record<string, unknown>
+  const fyEndMonth = (companyAny.fiscal_year_end_month as number | null) ?? 12
+  const fyEndDay = (companyAny.fiscal_year_end_day as number | null) ?? 31
+
   return (
     <FiscalYearsSetup
       locale={locale}
@@ -44,6 +48,8 @@ export default async function FiscalYearsPage({
       savedFiscalYears={(fiscalYears ?? []) as { year: number; status: string }[]}
       documentYears={documentYears}
       incorporationDate={(company as { id: string; incorporation_date: string | null }).incorporation_date}
+      fyEndMonth={fyEndMonth}
+      fyEndDay={fyEndDay}
     />
   )
 }

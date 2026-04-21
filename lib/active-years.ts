@@ -5,9 +5,10 @@ export async function getActiveYears(
   supabase: SupabaseClient
 ): Promise<number[]> {
   const { data, error } = await supabase
-    .from('company_active_years')
+    .from('company_fiscal_years')
     .select('year')
     .eq('company_id', companyId)
+    .eq('status', 'active')
     .order('year', { ascending: true })
 
   if (error) throw error
@@ -69,29 +70,4 @@ export function computeDefaultActiveYears(
     years.push(y)
   }
   return years
-}
-
-export async function seedDefaultActiveYears(
-  companyId: string,
-  incorporationDate: string | Date | null,
-  fiscalYearEndMonth: number,
-  fiscalYearEndDay: number,
-  supabase: SupabaseClient
-): Promise<void> {
-  const years = computeDefaultActiveYears(
-    incorporationDate,
-    fiscalYearEndMonth,
-    fiscalYearEndDay
-  )
-
-  const rows = years.map((year) => ({
-    company_id: companyId,
-    year,
-  }))
-
-  const { error } = await supabase
-    .from('company_active_years')
-    .upsert(rows, { onConflict: 'company_id,year' })
-
-  if (error) throw error
 }

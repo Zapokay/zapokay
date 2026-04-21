@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { computeDefaultActiveYears } from '@/lib/active-years'
 
 interface FiscalYearsSetupProps {
   locale: string
@@ -10,6 +11,8 @@ interface FiscalYearsSetupProps {
   savedFiscalYears: { year: number; status: string }[]
   documentYears: number[]
   incorporationDate?: string | null
+  fyEndMonth: number
+  fyEndDay: number
 }
 
 export function FiscalYearsSetup({
@@ -18,19 +21,24 @@ export function FiscalYearsSetup({
   savedFiscalYears,
   documentYears,
   incorporationDate,
+  fyEndMonth,
+  fyEndDay,
 }: FiscalYearsSetupProps) {
   const router = useRouter()
   const supabase = createClient()
   const fr = locale === 'fr'
 
-  const currentYear = new Date().getFullYear()
-  const incorpYear = incorporationDate
-    ? new Date(incorporationDate).getFullYear()
-    : currentYear - 7
-  const startYear = Math.max(incorpYear, currentYear - 7)
-  const years = Array.from({ length: currentYear - startYear + 1 }, (_, i) => startYear + i).reverse()
+  // Current fiscal year = the year in which the current fiscal year ENDS
+  const now = new Date()
+  const fyEndDateThisYear = new Date(now.getFullYear(), fyEndMonth - 1, fyEndDay)
+  const currentFiscalYear = now <= fyEndDateThisYear ? now.getFullYear() : now.getFullYear() + 1
 
-  const defaultSelected = new Set<number>([currentYear, currentYear - 1])
+  // Rendered list: up to 8 fiscal years capped at incorporation, descending for UI.
+  const years = computeDefaultActiveYears(incorporationDate ?? null, fyEndMonth, fyEndDay)
+    .slice()
+    .reverse()
+
+  const defaultSelected = new Set<number>(years)
   const initialActive = new Set<number>(
     savedFiscalYears.filter(fy => fy.status === 'active').map(fy => fy.year)
   )
@@ -280,7 +288,7 @@ export function FiscalYearsSetup({
               {years.map(year => {
                 const isActive = activeYears.has(year)
                 const hasDoc = docYearSet.has(year)
-                const isCurrent = year === currentYear
+                const isCurrent = year === currentFiscalYear
                 return (
                   <button
                     key={year}
