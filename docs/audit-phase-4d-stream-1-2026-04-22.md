@@ -295,4 +295,4 @@ Once those six decisions are made, the per-edit execution sequence in brief Sect
 | 2026-04-23 | Edits 4 + 5 typecheck clean + lint clean (same 4 pre-existing warnings; zero new) | Complete |
 | 2026-04-23 | Livre tab diagnosis — DB query confirms Stream 1 writes correct values; empty binder view is pre-existing UI/API bug outside Stream 1 scope | Diagnosis complete |
 | 2026-04-23 | Local test pass — Path 1 steps 1-8 ✓, Path 2 ✓ end-to-end, Path 1 step 9 (Livre tab) confirmed pre-existing bug out of scope | Complete |
-| TBD | Production deploy | Pending approval |
+| 2026-04-23 | Production deploy — commit 36515e7 live on zapokay.vercel.app. Env var misconfiguration encountered (shared-team vars not linked to project scope); resolved by adding NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY at project-level. Path 1 + Path 2 verified on production. | Complete |
