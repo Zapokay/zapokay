@@ -52,7 +52,7 @@ export function StepDownload({ files, locale, onRestart }: StepDownloadProps) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = file.title + '.txt'
+      a.download = file.title + '.pdf'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -124,7 +124,7 @@ export function StepDownload({ files, locale, onRestart }: StepDownloadProps) {
                 {file.type === 'board'
                   ? fr ? 'Résolution conseil' : 'Board resolution'
                   : fr ? 'PV actionnaires' : 'Shareholder minutes'}
-                {' · .txt'}
+                {' · .pdf'}
               </p>
             </div>
 

@@ -1,342 +1,97 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { toStorageSafeName } from '@/lib/storage-key';
-
-/* ------------------------------------------------------------------ */
-/*  Mapping requirementKey → document type + resolutionType           */
-/* ------------------------------------------------------------------ */
-
-interface DocMapping {
-  type: string;
-  resolutionType: string;
-}
-
-const REQUIREMENT_MAP: Record<string, DocMapping> = {
-  // LSAQ
-  lsaq_premiere_resolution_ca:               { type: 'board-resolution',        resolutionType: 'founding_board' },
-  lsaq_premiere_resolution_actionnaires:     { type: 'shareholder-resolution',  resolutionType: 'founding_shareholder' },
-  lsaq_souscription_actions:                 { type: 'board-resolution',        resolutionType: 'share_subscription' },
-  lsaq_annual_board_resolution:              { type: 'board-resolution',        resolutionType: 'annual_board' },
-  lsaq_annual_shareholder_resolution:        { type: 'shareholder-resolution',  resolutionType: 'annual_shareholder' },
-  lsaq_auditor_waiver:                       { type: 'shareholder-resolution',  resolutionType: 'auditor_waiver' },
-  // CBCA
-  cbca_first_board_resolution:               { type: 'board-resolution',        resolutionType: 'founding_board' },
-  cbca_first_shareholder_resolution:         { type: 'shareholder-resolution',  resolutionType: 'founding_shareholder' },
-  cbca_share_subscription:                   { type: 'board-resolution',        resolutionType: 'share_subscription' },
-  cbca_annual_board_resolution:              { type: 'board-resolution',        resolutionType: 'annual_board' },
-  cbca_annual_shareholder_resolution:        { type: 'shareholder-resolution',  resolutionType: 'annual_shareholder' },
-  cbca_auditor_waiver:                       { type: 'shareholder-resolution',  resolutionType: 'auditor_waiver' },
-  // Non générables — exclues explicitement
-  // lsaq_acceptation_mandat, cbca_director_acceptance → canGenerate: false
-};
-
-function getDocumentType(
-  requirementKey: string
-): { type: string; resolutionType: string; canGenerate: true } | { canGenerate: false } {
-  const entry = REQUIREMENT_MAP[requirementKey];
-  if (!entry) return { canGenerate: false };
-  return { ...entry, canGenerate: true };
-}
-
-/* ------------------------------------------------------------------ */
-/*  Résolutions par resolutionType                                     */
-/* ------------------------------------------------------------------ */
-
-interface Resolution {
-  number: number;
-  title: string;
-  body: string;
-}
-
-function getResolutionsForType(resolutionType: string): Resolution[] {
-  const map: Record<string, Resolution[]> = {
-    founding_board: [
-      {
-        number: 1,
-        title: 'Adoption des statuts',
-        body: 'Les statuts de constitution de la société sont pris en note et versés au registre.',
-      },
-      {
-        number: 2,
-        title: 'Adoption du règlement intérieur',
-        body: "Le règlement intérieur n° 1 régissant les affaires internes de la société est adopté et versé au registre.",
-      },
-      {
-        number: 3,
-        title: "Fixation de l'exercice financier",
-        body: "L'exercice financier de la société est fixé conformément aux statuts déposés.",
-      },
-    ],
-    founding_shareholder: [
-      {
-        number: 1,
-        title: 'Ratification du règlement intérieur',
-        body: "Le règlement intérieur n° 1 adopté par le conseil d'administration est ratifié.",
-      },
-      {
-        number: 2,
-        title: "Élection du conseil d'administration",
-        body: "Les administrateurs nommés sont élus jusqu'à la prochaine assemblée annuelle des actionnaires.",
-      },
-      {
-        number: 3,
-        title: 'Dispense de vérificateur',
-        body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours.",
-      },
-    ],
-    share_subscription: [
-      {
-        number: 1,
-        title: 'Souscription et émission des actions',
-        body: "Le conseil autorise l'émission et la souscription des actions conformément aux résolutions initiales.",
-      },
-    ],
-    annual_board: [
-      {
-        number: 1,
-        title: 'Approbation des états financiers',
-        body: "Les états financiers de l'exercice sont approuvés par le conseil d'administration.",
-      },
-    ],
-    annual_shareholder: [
-      {
-        number: 1,
-        title: 'Approbation des états financiers',
-        body: "Les états financiers de l'exercice sont approuvés par les actionnaires.",
-      },
-      {
-        number: 2,
-        title: 'Dispense de vérificateur',
-        body: "Les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours.",
-      },
-    ],
-    auditor_waiver: [
-      {
-        number: 1,
-        title: 'Dispense de vérificateur',
-        body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur.",
-      },
-    ],
-  };
-
-  return map[resolutionType] ?? [{ number: 1, title: 'Résolution', body: 'La résolution est adoptée.' }];
-}
-
-/* ------------------------------------------------------------------ */
-/*  Mapping vers les valeurs acceptées par la colonne document_type    */
-/* ------------------------------------------------------------------ */
-
-function mapToDocumentType(type: string): string {
-  const map: Record<string, string> = {
-    'board-resolution':        'resolution',
-    'shareholder-resolution':  'resolution',
-    'annual-register':         'registre',
-    'cover-page':              'autre',
-  };
-  return map[type] ?? 'autre';
-}
-
-/* ------------------------------------------------------------------ */
-/*  POST handler                                                       */
-/* ------------------------------------------------------------------ */
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
+import { generatePdfDocument } from '@/lib/pdf/generatePdfDocument';
+import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
 
 export async function POST(request: NextRequest) {
   try {
-    const { companyId, requirementKey, signatories, year: requestedYear } =
+    const { companyId, requirementKey, signatories, year, resolutionDate } =
       (await request.json()) as {
         companyId: string;
         requirementKey: string;
-        signatories?: Array<{ id: string; name: string; role: string }>;
+        signatories?: Signatory[];
         /** Optional — fiscal year for annual requirements. Omitted for foundational. */
         year?: number;
+        /** Optional — ISO date (YYYY-MM-DD) to stamp on the document. */
+        resolutionDate?: string;
       };
-
-    console.log('[generate-item] env check:', {
-      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    });
 
     if (!companyId || !requirementKey) {
       return NextResponse.json(
         { success: false, error: 'companyId et requirementKey sont requis.' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    /* ---------- Vérifier que le type est générable ---------- */
+    /* ---------- Auth (Sprint 9H Phase 4d Stream 1 — newly enforced) ---------- */
 
-    const docTypeResult = getDocumentType(requirementKey);
-    if (!docTypeResult.canGenerate) {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
       return NextResponse.json(
-        { success: false, canGenerate: false, error: 'Ce document ne peut pas être généré automatiquement.' },
-        { status: 400 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 },
       );
     }
 
-    /* ---------- Client Supabase (service role) ---------- */
+    /* ---------- Service-role admin client for storage + DB writes ---------- */
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json(
         { success: false, error: 'Configuration Supabase manquante.' },
-        { status: 500 }
+        { status: 500 },
       );
     }
+    const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    /* ---------- Delegate to the unified generation pipeline ---------- */
 
-    /* ---------- Charger le titre depuis minute_book_requirements ---------- */
-
-    const { data: requirement } = await supabase
-      .from('minute_book_requirements')
-      .select('title_fr, title_en, section')
-      .eq('requirement_key', requirementKey)
-      .single();
-
-    const documentTitle = requirement?.title_fr ?? requirementKey;
-
-    /* ---------- Charger les données de l'entreprise ---------- */
-
-    const { data: company, error: companyError } = await supabase
-      .from('companies')
-      .select('id, legal_name_fr, neq, incorporation_type')
-      .eq('id', companyId)
-      .single();
-
-    if (companyError || !company) {
-      return NextResponse.json(
-        { success: false, error: 'Entreprise introuvable.' },
-        { status: 404 }
-      );
-    }
-
-    /* --- Administrateurs actifs --- */
-
-    const { data: directorMandates } = await supabase
-      .from('director_mandates')
-      .select('id, company_people(id, full_name)')
-      .eq('company_id', companyId)
-      .eq('is_active', true);
-
-    const activeDirectors = (directorMandates ?? []).map((d) => ({
-      name: (d.company_people as unknown as { full_name: string }).full_name,
-      title: 'Administrateur' as const,
-    }));
-
-    /* --- Actionnaires actifs --- */
-
-    const { data: shareholdings } = await supabase
-      .from('shareholdings')
-      .select('id, quantity, company_people(id, full_name), share_classes(name)')
-      .eq('company_id', companyId);
-
-    const activeShareholders = (shareholdings ?? []).map((s) => ({
-      name: (s.company_people as unknown as { full_name: string }).full_name,
-      shares: s.quantity as number,
-      shareClass: (s.share_classes as unknown as { name: string } | null)?.name ?? 'A',
-    }));
-
-    /* ---------- Données pour le template ---------- */
-
-    const now = new Date();
-    // Use the requested fiscal year when the caller provided one (annual rows),
-    // otherwise fall back to the current year (foundational + backward compat).
-    const hasYear = typeof requestedYear === 'number' && Number.isFinite(requestedYear);
-    const effectiveYear = hasYear ? (requestedYear as number) : now.getFullYear();
-    const templateData = {
-      companyName: company.legal_name_fr,
-      neq: company.neq,
-      resolutionDate: now.toISOString().split('T')[0],
-      fiscalYear: String(effectiveYear),
-      language: 'fr' as const,
-      framework: company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
-      directors: activeDirectors,
-      shareholders: activeShareholders,
-      resolutions: getResolutionsForType(docTypeResult.resolutionType),
-      signatories: signatories && signatories.length > 0 ? signatories : undefined,
-    };
-
-    /* ---------- Générer le PDF ---------- */
-
-    // generatePDF est une fonction interne du projet (voir /lib/pdf/generatePDF.ts)
-    const { generatePDF } = await import('@/lib/pdf/generatePDF');
-
-    const pdfBuffer = await generatePDF({
-      type: docTypeResult.type,
-      data: templateData,
+    const result = await generatePdfDocument({
+      supabaseAdmin,
+      userId: user.id,
+      companyId,
+      requirementKey,
+      year,
+      resolutionDate,
+      signatories,
     });
 
-    /* ---------- Upload vers Supabase Storage ---------- */
-
-    const sanitizedName = toStorageSafeName(company.legal_name_fr, 60);
-
-    const fileName = `${requirementKey}_${sanitizedName}_${now.toISOString().split('T')[0]}.pdf`;
-    const storagePath = `${companyId}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(storagePath, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
+    if (!result.ok) {
+      if (result.canGenerate === false) {
+        return NextResponse.json(
+          { success: false, canGenerate: false, error: result.error },
+          { status: 400 },
+        );
+      }
+      if (result.notFound) {
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: 404 },
+        );
+      }
       return NextResponse.json(
-        { success: false, error: 'Erreur lors du téléversement du document.' },
-        { status: 500 }
-      );
-    }
-
-    /* ---------- Insérer dans la table documents ---------- */
-
-    const { data: document, error: docInsertError } = await supabase
-      .from('documents')
-      .insert({
-        company_id:      companyId,
-        document_type:   mapToDocumentType(docTypeResult.type),
-        title:           documentTitle,
-        file_name:       fileName,
-        file_url:        storagePath,
-        file_size:       pdfBuffer.length,
-        language:        'fr',
-        status:          'active',
-        source:          'generated',
-        framework:       company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
-        document_year:        effectiveYear,
-        requirement_key:      requirementKey,
-        // requirement_year is only meaningful for annual rows (the caller passed a year).
-        // Foundational generations preserve existing behavior: requirement_year is not set.
-        ...(hasYear ? { requirement_year: effectiveYear } : {}),
-        minute_book_section:  requirement?.section ?? null,
-        ...(signatories && signatories.length > 0
-          ? { signatories_confirmed: signatories, signature_status: 'pending_signature' }
-          : {}),
-      })
-      .select('id')
-      .single();
-
-    if (docInsertError || !document) {
-      console.error('Insert error:', docInsertError);
-      return NextResponse.json(
-        { success: false, error: "Erreur lors de l'enregistrement du document." },
-        { status: 500 }
+        { success: false, error: result.error },
+        { status: 500 },
       );
     }
 
     return NextResponse.json({
       success: true,
-      documentId: document.id,
-      fileName,
+      documentId: result.documentId,
+      fileName: result.fileName,
     });
   } catch (error) {
     console.error('[generate-item] Full error:', error);
     return NextResponse.json(
       { success: false, error: 'Erreur interne du serveur.' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

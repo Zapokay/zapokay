@@ -1,3 +1,6 @@
+// Post Sprint 9H Phase 4d Stream 1: wizard now produces PDFs exclusively via
+// generatePdfDocument. Content-Type is PDF. Stream 3 retires this route entirely.
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
@@ -100,10 +103,10 @@ export async function POST(req: NextRequest) {
     if (qs.get('stream') === '1') {
       const fileResponse = await fetch(signedData.signedUrl)
       const fileBuffer = await fileResponse.arrayBuffer()
-      const fileName = storagePath.split('/').pop() ?? 'document.txt'
+      const fileName = storagePath.split('/').pop() ?? 'document.pdf'
       return new Response(fileBuffer, {
         headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
+          'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="${fileName}"`,
         },
       })
