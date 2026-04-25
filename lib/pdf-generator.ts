@@ -2,6 +2,7 @@ import { execSync } from 'child_process';
 import type { Browser } from 'puppeteer-core';
 
 let _browser: Browser | null = null;
+let _launchInFlight: Promise<Browser> | null = null;
 
 function getLocalChromePath(): string {
   if (process.env.CHROME_EXECUTABLE_PATH) {
@@ -26,36 +27,45 @@ function getLocalChromePath(): string {
 
 async function getBrowser(): Promise<Browser> {
   if (_browser && _browser.connected) return _browser;
+  if (_launchInFlight) return _launchInFlight;
 
-  const puppeteer = await import('puppeteer-core');
+  _launchInFlight = (async () => {
+    try {
+      const puppeteer = await import('puppeteer-core');
 
-  const isVercel =
-    !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+      const isVercel =
+        !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-  let executablePath: string;
-  let args: string[];
+      let executablePath: string;
+      let args: string[];
 
-  if (isVercel) {
-    const chromium = await import('@sparticuz/chromium');
-    executablePath = await chromium.default.executablePath();
-    args = chromium.default.args;
-  } else {
-    executablePath = getLocalChromePath();
-    args = [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-    ];
-  }
+      if (isVercel) {
+        const chromium = await import('@sparticuz/chromium');
+        executablePath = await chromium.default.executablePath();
+        args = chromium.default.args;
+      } else {
+        executablePath = getLocalChromePath();
+        args = [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+        ];
+      }
 
-  _browser = await puppeteer.default.launch({
-    executablePath,
-    args,
-    headless: true,
-    defaultViewport: { width: 1200, height: 800 },
-  });
+      const browser = await puppeteer.default.launch({
+        executablePath,
+        args,
+        headless: true,
+        defaultViewport: { width: 1200, height: 800 },
+      });
+      _browser = browser;
+      return browser;
+    } finally {
+      _launchInFlight = null;
+    }
+  })();
 
-  return _browser;
+  return _launchInFlight;
 }
 
 /**
