@@ -27,7 +27,7 @@ export interface CompletenessResponse {
   totalSatisfied: number
   totalMissing: number
   checklist: ChecklistItem[]
-  fiscalYears: { year: number; start_year: number; end_year: number }[]
+  fiscalYears: { year: number; start_year: number; end_year: number; endDate: string }[]
 }
 
 export async function GET() {
@@ -57,6 +57,8 @@ export async function GET() {
 
     const framework = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA'
     const fyEndMonth = (company.fiscal_year_end_month as number | null) ?? 12
+    const fyEndDay   = (company.fiscal_year_end_day   as number | null) ?? 31
+    const pad2 = (n: number) => String(n).padStart(2, '0')
 
     // 1. Get all applicable requirements
     const { data: requirements, error: reqError } = await supabase
@@ -99,6 +101,7 @@ export async function GET() {
       year: fy.year,
       start_year: fy.year - 1,
       end_year: fy.year,
+      endDate: `${fy.year}-${pad2(fyEndMonth)}-${pad2(fyEndDay)}`,
     }))
 
     type RawReq = {

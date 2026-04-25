@@ -351,6 +351,64 @@
       },
       "residentYes": "Oui",
       "residentNo": "Non"
+    },
+    "bulkCatchUp": {
+      "button": {
+        "label": "⚡ Rattrapage groupé · {count}",
+        "overCapTooltip": "Le rattrapage groupé traite jusqu'à 10 documents par session. Vous pourrez réouvrir le rattrapage pour les documents restants."
+      },
+      "modal": {
+        "title": "Rattrapage groupé",
+        "subtitle": "{docCount, plural, =1 {1 document manquant} other {# documents manquants}} sur {yearCount, plural, =1 {1 exercice} other {# exercices}}",
+        "closeAriaLabel": "Fermer la fenêtre",
+        "disclaimer": {
+          "heading": "Signataires actuels uniquement",
+          "body": "Les signataires affichés correspondent aux administrateurs et actionnaires actuels. Vérifiez qu'ils étaient bien en poste à la date de chaque résolution avant signature."
+        },
+        "yearGroup": {
+          "title": "Exercice {startYear}–{endYear}",
+          "missingCount": "{count, plural, =1 {1 document manquant} other {# documents manquants}}",
+          "dateLabel": "Date résolution :"
+        },
+        "confirmCheckbox": "J'ai vérifié que les signataires affichés étaient bien en poste à la date de chaque résolution.",
+        "emptyState": {
+          "heading": "Aucun document sélectionné",
+          "body": "Cochez au moins un document dans la liste ci-dessus pour continuer."
+        },
+        "cta": {
+          "cancel": "Annuler",
+          "submit": "Générer {count, plural, =1 {1 document} other {# documents}}",
+          "submitDisabledAria": "Générer {count} documents, bouton désactivé. Cochez la case de confirmation des signataires pour activer."
+        },
+        "ctaEnabledAnnouncement": "Bouton Générer activé",
+        "escConfirm": {
+          "title": "Annuler les modifications ?",
+          "continue": "Continuer l'édition",
+          "discard": "Annuler"
+        },
+        "scopeError": {
+          "title": "Échec de la génération",
+          "body": "La requête n'a pas abouti. Vérifiez votre connexion et réessayez.",
+          "dismissAriaLabel": "Masquer le message d'erreur"
+        },
+        "loading": {
+          "counter": "Génération de {current} sur {total}…",
+          "body": "Cela peut prendre jusqu'à 30 secondes."
+        },
+        "success": {
+          "title": "Rattrapage terminé",
+          "partialTitle": "Rattrapage partiellement terminé",
+          "failureTitle": "Échec de la génération",
+          "count": "{count, plural, =1 {1 document généré} other {# documents générés}}",
+          "partialCount": "{ok} sur {total} documents générés",
+          "yearCount": "Sur {count, plural, =1 {1 exercice fiscal} other {# exercices fiscaux}}",
+          "nextStep": "Prochaine étape : téléchargez chaque document, signez-le manuellement, puis re-téléversez la version signée dans le Livre de minutes.",
+          "partialRetryHelper": "Les documents non générés apparaissent toujours comme manquants. Réouvrez Rattrapage groupé pour réessayer.",
+          "viewBookCta": "Voir dans le Livre de minutes →",
+          "closeCta": "Fermer",
+          "failureBody": "Aucun document n'a pu être généré. Les documents restent marqués comme manquants — vous pouvez réessayer le rattrapage groupé ou générer chaque document individuellement."
+        }
+      }
     }
   },
   "activity": {

@@ -351,6 +351,64 @@
       },
       "residentYes": "Yes",
       "residentNo": "No"
+    },
+    "bulkCatchUp": {
+      "button": {
+        "label": "⚡ Bulk catch-up · {count}",
+        "overCapTooltip": "Bulk catch-up handles up to 10 documents per session. You can reopen it for the remaining documents."
+      },
+      "modal": {
+        "title": "Bulk catch-up",
+        "subtitle": "{docCount, plural, =1 {1 missing document} other {# missing documents}} across {yearCount, plural, =1 {1 fiscal year} other {# fiscal years}}",
+        "closeAriaLabel": "Close dialog",
+        "disclaimer": {
+          "heading": "Current signatories only",
+          "body": "The signatories shown reflect current directors and shareholders. For documents dated to past fiscal years, verify that the listed signatories were actually in office on the resolution date."
+        },
+        "yearGroup": {
+          "title": "Fiscal year {startYear}–{endYear}",
+          "missingCount": "{count, plural, =1 {1 missing document} other {# missing documents}}",
+          "dateLabel": "Resolution date:"
+        },
+        "confirmCheckbox": "I have verified that the listed signatories were in office on the date of each resolution.",
+        "emptyState": {
+          "heading": "No documents selected",
+          "body": "Check at least one document in the list above to continue."
+        },
+        "cta": {
+          "cancel": "Cancel",
+          "submit": "Generate {count, plural, =1 {1 document} other {# documents}}",
+          "submitDisabledAria": "Generate {count} documents, button disabled. Check the signatories confirmation box to enable."
+        },
+        "ctaEnabledAnnouncement": "Generate button enabled",
+        "escConfirm": {
+          "title": "Discard changes?",
+          "continue": "Continue editing",
+          "discard": "Discard"
+        },
+        "scopeError": {
+          "title": "Generation failed",
+          "body": "The request didn't go through. Check your connection and try again.",
+          "dismissAriaLabel": "Dismiss error message"
+        },
+        "loading": {
+          "counter": "Generating {current} of {total}…",
+          "body": "This can take up to 30 seconds."
+        },
+        "success": {
+          "title": "Catch-up complete",
+          "partialTitle": "Catch-up partially complete",
+          "failureTitle": "Generation failed",
+          "count": "{count, plural, =1 {1 document generated} other {# documents generated}}",
+          "partialCount": "{ok} of {total} documents generated",
+          "yearCount": "Across {count, plural, =1 {1 fiscal year} other {# fiscal years}}",
+          "nextStep": "Next step: download each document, sign it manually, then re-upload the signed version to the Minute Book.",
+          "partialRetryHelper": "Documents that failed to generate still appear as missing. Reopen Bulk catch-up to retry them.",
+          "viewBookCta": "View in Minute Book →",
+          "closeCta": "Close",
+          "failureBody": "No documents could be generated. The documents remain marked as missing — you can retry bulk catch-up or generate each document individually."
+        }
+      }
     }
   },
   "activity": {

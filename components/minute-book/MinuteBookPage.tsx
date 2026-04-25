@@ -9,6 +9,11 @@ import CompletenessBar from '@/components/minute-book/CompletenessBar';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import BinderView from '@/components/minute-book/BinderView';
 import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
+import BulkCatchUpButton from '@/components/minute-book/BulkCatchUpButton';
+import BulkCatchUpModal, {
+  type BulkMissingByYear,
+  type BulkMissingItem,
+} from '@/components/minute-book/BulkCatchUpModal';
 import type {
   CompletenessResponse,
   ChecklistItem,
@@ -35,6 +40,7 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
   const [loading, setLoading] = useState(true);
   const [showTooltip, setShowTooltip] = useState(false);
   const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const { addToast, ToastStack } = useToasts();
 
   const fetchData = useCallback(async () => {
@@ -141,6 +147,37 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
     .map(Number)
     .sort((a, b) => b - a);
 
+  // Bulk Catch-Up: build per-year groups of annual missing items
+  // (filters out foundational; modal owns canGenerate-driven checkbox state).
+  const bulkMissingByYear: BulkMissingByYear = {};
+  let bulkMissingCount = 0;
+  if (data) {
+    for (const fy of data.fiscalYears) {
+      const items: BulkMissingItem[] = data.checklist
+        .filter(
+          (i) =>
+            i.category === 'annual' &&
+            i.year === fy.year &&
+            !i.satisfied &&
+            i.can_generate,
+        )
+        .map((i) => ({
+          requirementKey: i.requirement_key,
+          title: fr ? i.title_fr : i.title_en,
+          canGenerate: i.can_generate,
+        }));
+      if (items.length > 0) {
+        bulkMissingByYear[fy.year] = {
+          startYear: fy.start_year,
+          endYear: fy.end_year,
+          resolutionDate: fy.endDate,
+          items,
+        };
+        bulkMissingCount += items.length;
+      }
+    }
+  }
+
   const getFiscalYearLabel = (year: number): string => {
     const fy = data?.fiscalYears.find((f) => f.year === year);
     if (fy) {
@@ -174,14 +211,22 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
               )}
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowDueDiligenceModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border-[1.5px] border-[var(--card-hover-border)] text-[var(--text-heading)] bg-transparent transition-colors hover:bg-[var(--hover)]"
-            style={{ fontFamily: 'DM Sans, sans-serif' }}
-          >
-            ↓ {fr ? 'Exporter le livre' : 'Export book'}
-          </button>
+          <div className="flex items-center gap-3">
+            {activeTab === 'completude' && (
+              <BulkCatchUpButton
+                missingCount={bulkMissingCount}
+                onOpen={() => setIsBulkModalOpen(true)}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setShowDueDiligenceModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border-[1.5px] border-[var(--card-hover-border)] text-[var(--text-heading)] bg-transparent transition-colors hover:bg-[var(--hover)]"
+              style={{ fontFamily: 'DM Sans, sans-serif' }}
+            >
+              ↓ {fr ? 'Exporter le livre' : 'Export book'}
+            </button>
+          </div>
         </div>
         {!loading && data && (
           <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -270,6 +315,16 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
         companyId={companyId}
         isOpen={showDueDiligenceModal}
         onClose={() => setShowDueDiligenceModal(false)}
+      />
+
+      {/* Bulk Catch-Up Modal */}
+      <BulkCatchUpModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        missingByYear={bulkMissingByYear}
+        onComplete={() => {
+          void fetchData();
+        }}
       />
 
       {/* Toast stack */}
