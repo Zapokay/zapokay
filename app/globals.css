@@ -399,7 +399,10 @@ a:hover { text-decoration: underline; }
 ::selection { background: var(--amber-200); color: var(--navy-900); }
 
 :focus-visible { outline: 2px solid var(--amber-400); outline-offset: 2px; border-radius: 4px; }
-input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--amber-400);
+  outline-offset: 1px;
+}
 
 /* ─── App Layout ──────────────────────────────────────────────────────────── */
 .app-layout {
