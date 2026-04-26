@@ -317,7 +317,7 @@ export default async function DashboardPage({
                           </div>
                           {!isCurrent && entry.status !== 'complete' && (
                             <Link
-                              href={`/${locale}/dashboard/wizard?year=${entry.year}`}
+                              href={`/${locale}/dashboard/minute-book`}
                               className="text-[10px] font-semibold no-underline px-2 py-0.5 rounded"
                               style={{ backgroundColor: 'var(--amber-400)', color: 'var(--navy-900)' }}
                             >

@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import {
   DuotoneHome, DuotoneUsers, DuotoneBriefcase, DuotonePieChart,
-  DuotoneFileText, DuotoneBookOpen, DuotoneFilePen,
+  DuotoneFileText, DuotoneBookOpen,
   DuotoneClipboardCheck, DuotoneClock, DuotoneSettings,
 } from '@/components/icons/DuotoneIcons';
 
@@ -57,7 +57,6 @@ const navGroups: NavGroup[] = [
     items: [
       { key: 'documents',   icon: <DuotoneFileText />,      labelFr: 'Documents',        labelEn: 'Documents',    href: 'documents' },
       { key: 'minute-book', icon: <DuotoneBookOpen />,      labelFr: 'Livre de minutes', labelEn: 'Minute Book',  href: 'minute-book' },
-      { key: 'resolutions', icon: <DuotoneFilePen />,       labelFr: 'Résolutions',      labelEn: 'Resolutions',  href: 'wizard' },
     ],
   },
   {
@@ -87,8 +86,6 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
   function getPageTitle() {
     if (pathname.includes('/dashboard/documents')) return fr ? 'Documents' : 'Documents';
     if (pathname.includes('/dashboard/minute-book')) return fr ? 'Livre de minutes' : 'Minute Book';
-    if (pathname.includes('/dashboard/wizard')) return fr ? 'Résolutions' : 'Resolutions';
-    if (pathname.includes('/dashboard/resolutions')) return fr ? 'Résolutions' : 'Resolutions';
     if (pathname.includes('/dashboard/settings')) return fr ? 'Paramètres' : 'Settings';
     if (pathname.includes('/dashboard/directors')) return fr ? 'Administrateurs' : 'Directors';
     if (pathname.includes('/dashboard/officers')) return fr ? 'Dirigeants' : 'Officers';
@@ -291,7 +288,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
               />
             )}
 
-            {!pathname.includes('/compliance') && !pathname.includes('/wizard') && !pathname.includes('/settings') && !pathname.includes('/directors') && !pathname.includes('/officers') && !pathname.includes('/shareholders') && !pathname.includes('/minute-book') && (
+            {!pathname.includes('/compliance') && !pathname.includes('/settings') && !pathname.includes('/directors') && !pathname.includes('/officers') && !pathname.includes('/shareholders') && !pathname.includes('/minute-book') && (
               <button className="bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold text-sm px-4 py-2 rounded-lg hover:bg-[var(--spark-400)] transition-colors whitespace-nowrap">
                 {pathname.includes('/documents')
                   ? `⚡ ${fr ? 'Ajouter' : 'Add'}`

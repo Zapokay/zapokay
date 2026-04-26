@@ -126,10 +126,6 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
     [addToast, companyId, data, fetchData, fr, framework, preferredLanguage],
   );
 
-  // Sprint 9H: single-row generation lives inline via GenerateDocumentButton
-  // (hits /api/minute-book/generate-item). The multi-year catch-up wizard is
-  // still reachable from /dashboard/wizard for bulk scenarios.
-
   const foundationalItems: ChecklistItem[] =
     data?.checklist.filter((i) => i.category === 'foundational') || [];
 
