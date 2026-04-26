@@ -486,7 +486,6 @@ export default function BulkCatchUpModal({
                       {group.items.map((it) => {
                         const id = `bulk-item-${year}-${it.requirementKey}`;
                         const fadeItem = !allUnchecked && !it.selected;
-                        const strike = !it.selected;
                         return (
                           <li key={it.requirementKey} className="flex items-center gap-2">
                             <input
@@ -513,7 +512,7 @@ export default function BulkCatchUpModal({
                               htmlFor={id}
                               className={`cursor-pointer text-sm ${
                                 fadeItem ? 'opacity-[0.45]' : ''
-                              } ${strike ? 'line-through' : ''}`}
+                              }`}
                             >
                               {it.title}
                             </label>
