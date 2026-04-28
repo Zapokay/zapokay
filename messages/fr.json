@@ -329,7 +329,6 @@
         "registres": "Registres corporatifs"
       },
       "emptySection": "Aucun document dans cette section",
-      "documents": "{count} document | {count} documents",
       "registres": "3 registres"
     },
     "registers": {
@@ -359,7 +358,7 @@
       },
       "modal": {
         "title": "Rattrapage groupé",
-        "subtitle": "{docCount, plural, =1 {1 document manquant} other {# documents manquants}} sur {yearCount, plural, =1 {1 exercice} other {# exercices}}",
+        "subtitle": "{docCount, plural, =0 {0 document manquant} =1 {1 document manquant} other {# documents manquants}} sur {yearCount, plural, =0 {0 exercice} =1 {1 exercice} other {# exercices}}",
         "closeAriaLabel": "Fermer la fenêtre",
         "disclaimer": {
           "heading": "Signataires actuels uniquement",
@@ -367,7 +366,7 @@
         },
         "yearGroup": {
           "title": "Exercice {startYear}–{endYear}",
-          "missingCount": "{count, plural, =1 {1 document manquant} other {# documents manquants}}",
+          "missingCount": "{count, plural, =0 {Aucun document manquant} =1 {1 document manquant} other {# documents manquants}}",
           "dateLabel": "Date résolution :"
         },
         "confirmCheckbox": "J'ai vérifié que les signataires affichés étaient bien en poste à la date de chaque résolution.",
@@ -377,7 +376,7 @@
         },
         "cta": {
           "cancel": "Annuler",
-          "submit": "Générer {count, plural, =1 {1 document} other {# documents}}",
+          "submit": "Générer {count, plural, =0 {} =1 {1 document} other {# documents}}",
           "submitDisabledAria": "Générer {count} documents, bouton désactivé. Cochez la case de confirmation des signataires pour activer."
         },
         "ctaEnabledAnnouncement": "Bouton Générer activé",
@@ -399,9 +398,9 @@
           "title": "Rattrapage terminé",
           "partialTitle": "Rattrapage partiellement terminé",
           "failureTitle": "Échec de la génération",
-          "count": "{count, plural, =1 {1 document généré} other {# documents générés}}",
+          "count": "{count, plural, =0 {0 document généré} =1 {1 document généré} other {# documents générés}}",
           "partialCount": "{ok} sur {total} documents générés",
-          "yearCount": "Sur {count, plural, =1 {1 exercice fiscal} other {# exercices fiscaux}}",
+          "yearCount": "Sur {count, plural, =0 {0 exercice fiscal} =1 {1 exercice fiscal} other {# exercices fiscaux}}",
           "nextStep": "Prochaine étape : téléchargez chaque document, signez-le manuellement, puis re-téléversez la version signée dans le Livre de minutes.",
           "partialRetryHelper": "Les documents non générés apparaissent toujours comme manquants. Réouvrez Rattrapage groupé pour réessayer.",
           "viewBookCta": "Voir dans le Livre de minutes →",
@@ -414,7 +413,6 @@
   "activity": {
     "pageTitle": "Historique des activités",
     "tooltip": "Journal chronologique de toutes les actions effectuées sur votre société. Ce registre est immuable et ne peut être modifié.",
-    "eventCount": "{count} événement enregistré | {count} événements enregistrés",
     "empty": "Aucun événement enregistré pour le moment.",
     "loadMore": "Charger plus ↓",
     "loading": "Chargement…",

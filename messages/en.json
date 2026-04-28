@@ -329,7 +329,6 @@
         "registres": "Corporate Registers"
       },
       "emptySection": "No documents in this section",
-      "documents": "{count} document | {count} documents",
       "registres": "3 registers"
     },
     "registers": {
@@ -359,7 +358,7 @@
       },
       "modal": {
         "title": "Bulk catch-up",
-        "subtitle": "{docCount, plural, =1 {1 missing document} other {# missing documents}} across {yearCount, plural, =1 {1 fiscal year} other {# fiscal years}}",
+        "subtitle": "{docCount, plural, =0 {No missing documents} =1 {1 missing document} other {# missing documents}} across {yearCount, plural, =0 {0 fiscal years} =1 {1 fiscal year} other {# fiscal years}}",
         "closeAriaLabel": "Close dialog",
         "disclaimer": {
           "heading": "Current signatories only",
@@ -367,7 +366,7 @@
         },
         "yearGroup": {
           "title": "Fiscal year {startYear}–{endYear}",
-          "missingCount": "{count, plural, =1 {1 missing document} other {# missing documents}}",
+          "missingCount": "{count, plural, =0 {No missing documents} =1 {1 missing document} other {# missing documents}}",
           "dateLabel": "Resolution date:"
         },
         "confirmCheckbox": "I have verified that the listed signatories were in office on the date of each resolution.",
@@ -377,7 +376,7 @@
         },
         "cta": {
           "cancel": "Cancel",
-          "submit": "Generate {count, plural, =1 {1 document} other {# documents}}",
+          "submit": "Generate {count, plural, =0 {} =1 {1 document} other {# documents}}",
           "submitDisabledAria": "Generate {count} documents, button disabled. Check the signatories confirmation box to enable."
         },
         "ctaEnabledAnnouncement": "Generate button enabled",
@@ -399,9 +398,9 @@
           "title": "Catch-up complete",
           "partialTitle": "Catch-up partially complete",
           "failureTitle": "Generation failed",
-          "count": "{count, plural, =1 {1 document generated} other {# documents generated}}",
+          "count": "{count, plural, =0 {0 documents generated} =1 {1 document generated} other {# documents generated}}",
           "partialCount": "{ok} of {total} documents generated",
-          "yearCount": "Across {count, plural, =1 {1 fiscal year} other {# fiscal years}}",
+          "yearCount": "Across {count, plural, =0 {0 fiscal years} =1 {1 fiscal year} other {# fiscal years}}",
           "nextStep": "Next step: download each document, sign it manually, then re-upload the signed version to the Minute Book.",
           "partialRetryHelper": "Documents that failed to generate still appear as missing. Reopen Bulk catch-up to retry them.",
           "viewBookCta": "View in Minute Book →",
@@ -414,7 +413,6 @@
   "activity": {
     "pageTitle": "Activity History",
     "tooltip": "Chronological log of all actions performed on your company. This log is immutable and cannot be modified.",
-    "eventCount": "{count} event recorded | {count} events recorded",
     "empty": "No events recorded yet.",
     "loadMore": "Load more ↓",
     "loading": "Loading…",
