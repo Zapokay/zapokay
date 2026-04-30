@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 import type { OnboardingData, Language } from '@/lib/types';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 
@@ -12,6 +13,7 @@ interface StepProps {
 
 export function StepLanguage({ data, setData, onNext, locale }: StepProps) {
   const fr = data.language === 'fr' || locale === 'fr';
+  const t = useTranslations('onboarding');
 
   function select(lang: Language) {
     setData(d => ({ ...d, language: lang }));
@@ -78,6 +80,12 @@ export function StepLanguage({ data, setData, onNext, locale }: StepProps) {
           );
         })}
       </div>
+      <p style={{
+        fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5,
+        marginTop: '14px', marginBottom: 0, textAlign: 'left',
+      }}>
+        {t('languageNote')}
+      </p>
     </OnboardingStepLayout>
   );
 }

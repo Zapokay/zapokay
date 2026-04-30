@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { computeDefaultActiveYears } from '@/lib/active-years'
 
@@ -27,6 +28,7 @@ export function FiscalYearsSetup({
   const router = useRouter()
   const supabase = createClient()
   const fr = locale === 'fr'
+  const t = useTranslations('onboarding')
 
   // Current fiscal year = the year in which the current fiscal year ENDS
   const now = new Date()
@@ -364,9 +366,7 @@ export function FiscalYearsSetup({
                 <path d="M12 16v-4M12 8h.01" />
               </svg>
               <p style={{ fontSize: '12px', color: 'var(--info-text)', lineHeight: 1.6 }}>
-                {fr
-                  ? 'Le Wizard de rattrapage vous permettra de générer les résolutions manquantes pour chaque exercice sélectionné.'
-                  : 'The Catch-Up Wizard will let you generate missing resolutions for each selected fiscal year.'}
+                {t('fiscalYearsCatchUpHint')}
               </p>
             </div>
           </div>

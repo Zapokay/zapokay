@@ -12,6 +12,7 @@ interface OnboardingStepLayoutProps {
   continueLabel?: string;
   skipLabel?: string;
   saving?: boolean;
+  continueDisabled?: boolean;
   children: React.ReactNode;
   locale: string;
   extraAboveCard?: React.ReactNode;
@@ -19,7 +20,7 @@ interface OnboardingStepLayoutProps {
 
 export function OnboardingStepLayout({
   stepLabel, icon, title, tooltip, tooltipContent, onSkip, onContinue, continueLabel, skipLabel,
-  saving, children, locale, extraAboveCard,
+  saving, continueDisabled, children, locale, extraAboveCard,
 }: OnboardingStepLayoutProps) {
   const fr = locale === 'fr';
   const [showTooltip, setShowTooltip] = useState(false);
@@ -133,14 +134,16 @@ export function OnboardingStepLayout({
         <button
           type="button"
           onClick={onContinue}
-          disabled={saving}
+          disabled={saving || continueDisabled}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             background: '#F5B91E', color: '#1C1A17',
             fontSize: '15px', fontWeight: 700,
             padding: '13px 32px', borderRadius: '10px',
-            border: 'none', cursor: saving ? 'not-allowed' : 'pointer',
-            opacity: saving ? 0.7 : 1, transition: 'opacity 150ms',
+            border: 'none',
+            cursor: (saving || continueDisabled) ? 'not-allowed' : 'pointer',
+            opacity: (saving || continueDisabled) ? 0.5 : 1,
+            transition: 'opacity 150ms',
           }}
         >
           {continueLabel ?? (fr ? 'Continuer' : 'Continue')}

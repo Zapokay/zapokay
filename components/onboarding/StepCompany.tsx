@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { OnboardingData, IncorporationType, Province } from '@/lib/types';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 
@@ -71,9 +72,15 @@ const isFr = (locale: string) => locale === 'fr';
 
 export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps) {
   const fr = isFr(locale);
+  const t = useTranslations('onboarding');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [neqDuplicate, setNeqDuplicate] = useState(false);
   const [declared, setDeclared] = useState(false);
+
+  // Today as YYYY-MM-DD (local time) — used to reject future incorporation dates.
+  const todayStr = new Date().toISOString().split('T')[0];
+  const incorpDateValid =
+    !!data.company.incorporationDate && data.company.incorporationDate <= todayStr;
 
   function update(field: keyof typeof data.company, value: string) {
     setData(d => ({ ...d, company: { ...d.company, [field]: value } }));
@@ -105,6 +112,11 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
   function validate() {
     const e: Record<string, string> = {};
     if (!data.company.legalName.trim()) e.legalName = fr ? 'Champ requis' : 'Required field';
+    if (!data.company.incorporationDate) {
+      e.incorporationDate = t('incorporationDateRequired');
+    } else if (data.company.incorporationDate > todayStr) {
+      e.incorporationDate = t('incorporationDateFuture');
+    }
     if (neqDuplicate) e.incorporationNumber = fr
       ? 'Une entreprise avec ce NEQ existe déjà sur ZapOkay. Si vous êtes autorisé(e) à y accéder, demandez à l\'administrateur de vous inviter.'
       : 'A company with this NEQ already exists on ZapOkay. If you are authorized to access it, ask the administrator to invite you.';
@@ -146,6 +158,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
       onSkip={onBack}
       skipLabel={fr ? 'Retour' : 'Back'}
       onContinue={handleNext}
+      continueDisabled={!incorpDateValid}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         {/* Legal name */}
@@ -271,14 +284,20 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
         <div>
           <label style={labelStyle}>
             {fr ? 'Date de constitution' : 'Incorporation date'}
+            <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
           </label>
           <input
             id="incorporationDate"
             type="date"
             value={data.company.incorporationDate}
             onChange={e => update('incorporationDate', e.target.value)}
+            placeholder={t('incorporationDatePlaceholder')}
+            max={todayStr}
             style={inputStyle}
           />
+          {errors.incorporationDate && (
+            <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>{errors.incorporationDate}</p>
+          )}
         </div>
 
         {/* Fiscal year end */}

@@ -35,7 +35,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
       legalName: '',
       incorporationType: 'LSAQ',
       incorporationNumber: '',
-      incorporationDate: today,
+      incorporationDate: '',
       province: 'QC',
       fiscalYearEndMonth: 12,
       fiscalYearEndDay: 31,

@@ -79,6 +79,11 @@
   "onboarding": {
     "step1Title": "Choisissez votre langue",
     "step1Subtitle": "Vous pourrez changer cela à tout moment.",
+    "languageNote": "Cette langue sera utilisée pour l'interface ET les documents que ZapOkay génère pour vous (résolutions, certificats, etc.). Vous pourrez changer chacune indépendamment plus tard dans Paramètres pour la génération de documents et en haut à droite pour la langue de l'interface.",
+    "incorporationDatePlaceholder": "AAAA-MM-JJ",
+    "incorporationDateRequired": "La date de constitution est requise",
+    "incorporationDateFuture": "La date de constitution ne peut pas être dans le futur",
+    "fiscalYearsCatchUpHint": "Vous pourrez générer les résolutions manquantes pour chaque exercice sélectionné depuis le Livre de minutes.",
     "step2Title": "Votre entreprise",
     "step2Subtitle": "Dites-nous quelques détails sur votre société.",
     "step3Title": "Premier dirigeant",
