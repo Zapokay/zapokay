@@ -77,6 +77,27 @@
     "forgotPasswordLink": "Mot de passe oublié ?"
   },
   "onboarding": {
+    "stepLabels": {
+      "step1": "Langue",
+      "step2": "Société",
+      "step3": "Province",
+      "step4": "Administrateurs",
+      "step5": "Actionnaires",
+      "step6": "Dirigeants",
+      "step7": "Sommaire",
+      "step8": "Fiscal"
+    },
+    "summary": {
+      "company": "{companyName} ({incorporationType})",
+      "directorsCount": "{count, plural, =0 {Aucun administrateur} =1 {1 administrateur} other {# administrateurs}}",
+      "directorsNames": " : {names}",
+      "shareholdersCount": "{count, plural, =0 {Aucun actionnaire} =1 {1 actionnaire} other {# actionnaires}}",
+      "shareholdersNames": " : {names}",
+      "officerPresident": "Président·e : {name}",
+      "officerSecretary": "Secrétaire : {name}",
+      "officerTreasurer": "Trésorier·ière : {name}",
+      "andMore": "{first} et {count, plural, =1 {1 autre} other {# autres}}"
+    },
     "step1Title": "Choisissez votre langue",
     "step1Subtitle": "Vous pourrez changer cela à tout moment.",
     "languageNote": "Cette langue sera utilisée pour l'interface ET les documents que ZapOkay génère pour vous (résolutions, certificats, etc.). Vous pourrez changer chacune indépendamment plus tard dans Paramètres pour la génération de documents et en haut à droite pour la langue de l'interface.",

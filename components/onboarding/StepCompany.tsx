@@ -1,8 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
 import type { OnboardingData, IncorporationType, Province } from '@/lib/types';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
+import frMessages from '@/messages/fr.json';
+import enMessages from '@/messages/en.json';
 
 interface StepProps {
   data: OnboardingData;
@@ -72,7 +73,10 @@ const isFr = (locale: string) => locale === 'fr';
 
 export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps) {
   const fr = isFr(locale);
-  const t = useTranslations('onboarding');
+  // Static-import pattern (see project_onboarding_dual_locale memory):
+  // useTranslations() reads URL locale and would diverge from `fr` boolean above
+  // when user toggles language via the OnboardingFlow header pill.
+  const ob = (fr ? frMessages : enMessages).onboarding;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [neqDuplicate, setNeqDuplicate] = useState(false);
   const [declared, setDeclared] = useState(false);
@@ -113,9 +117,9 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     const e: Record<string, string> = {};
     if (!data.company.legalName.trim()) e.legalName = fr ? 'Champ requis' : 'Required field';
     if (!data.company.incorporationDate) {
-      e.incorporationDate = t('incorporationDateRequired');
+      e.incorporationDate = ob.incorporationDateRequired;
     } else if (data.company.incorporationDate > todayStr) {
-      e.incorporationDate = t('incorporationDateFuture');
+      e.incorporationDate = ob.incorporationDateFuture;
     }
     if (neqDuplicate) e.incorporationNumber = fr
       ? 'Une entreprise avec ce NEQ existe déjà sur ZapOkay. Si vous êtes autorisé(e) à y accéder, demandez à l\'administrateur de vous inviter.'
@@ -291,7 +295,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             type="date"
             value={data.company.incorporationDate}
             onChange={e => update('incorporationDate', e.target.value)}
-            placeholder={t('incorporationDatePlaceholder')}
+            placeholder={ob.incorporationDatePlaceholder}
             max={todayStr}
             style={inputStyle}
           />

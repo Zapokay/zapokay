@@ -10,6 +10,8 @@ import StepDirectors, { type OnboardingDirector } from './StepDirectors';
 import StepShareholders, { type OnboardingShareholder } from './StepShareholders';
 import StepOfficers, { type OnboardingOfficers } from './StepOfficers';
 import StepCelebration from './StepCelebration';
+import frMessages from '@/messages/fr.json';
+import enMessages from '@/messages/en.json';
 
 interface OnboardingFlowProps {
   locale: string;
@@ -57,6 +59,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
   // BUG 2 fix: use user's selected language, not URL locale
   const activeLocale = data.language || (locale as Language);
   const fr = activeLocale === 'fr';
+  const stepLabels = (activeLocale === 'fr' ? frMessages : enMessages).onboarding.stepLabels;
 
   // ── Step 3 → 4: save company + province to DB ────────────────────────────
   async function handleProvinceContinue() {
@@ -315,31 +318,22 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
       </header>
 
       {/* ─── Progress Stepper ─── */}
-      <div style={{ padding: '24px 32px 0', maxWidth: '700px', margin: '0 auto' }}>
+      <div style={{ padding: '24px 32px 0', maxWidth: '820px', margin: '0 auto' }}>
         {(() => {
-          const stepConfig = [
-            { labelFr: 'Langue',   labelEn: 'Language' },
-            { labelFr: 'Société',  labelEn: 'Company' },
-            { labelFr: 'Province', labelEn: 'Province' },
-            { labelFr: 'Admin.',   labelEn: 'Directors' },
-            { labelFr: 'Action.',  labelEn: 'Shares' },
-            { labelFr: 'Dirig.',   labelEn: 'Officers' },
-            { labelFr: 'Sommaire', labelEn: 'Summary' },
-            { labelFr: 'Fiscal',   labelEn: 'Fiscal' },
-          ];
+          const STEP_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
           const AMBER = '#F5B91E';
           const PAGE = 'var(--page-bg)';
           return (
             <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
-              {stepConfig.map((sc, i) => {
-                const sNum = i + 1;
+              {STEP_NUMBERS.map((sNum, i) => {
                 const done = sNum < step;
                 const current = sNum === step;
-                const isLast = i === stepConfig.length - 1;
+                const isLast = i === STEP_NUMBERS.length - 1;
+                const labelKey = `step${sNum}` as keyof typeof stepLabels;
                 return (
                   <React.Fragment key={i}>
-                    {/* Circle + label — fixed 56px width so labels never shift circles */}
-                    <div style={{ width: '56px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    {/* Circle + label — fixed 88px width so labels never shift circles */}
+                    <div style={{ width: '88px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                       <div style={{
                         width: '32px', height: '32px', borderRadius: '50%',
                         background: done || current ? AMBER : 'var(--ob-circle-todo-bg)',
@@ -365,9 +359,9 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
                         color: current ? 'var(--ob-label-active)' : 'var(--ob-label-done)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden', textOverflow: 'ellipsis',
-                        maxWidth: '56px', textAlign: 'center',
+                        maxWidth: '88px', textAlign: 'center',
                       }}>
-                        {fr ? sc.labelFr : sc.labelEn}
+                        {stepLabels[labelKey]}
                       </span>
                     </div>
                     {/* Connecting line — vertically centered at circle midpoint (16px from top) */}
@@ -396,7 +390,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
         {step === 4 && <StepDirectors locale={activeLocale} incorporationDate={incorporationDate} initialDirectors={directors.length > 0 ? directors : undefined} onContinue={handleDirectorsContinue} onSkip={() => setStep(5)} />}
         {step === 5 && <StepShareholders locale={activeLocale} directors={directors} incorporationDate={incorporationDate} initialShareholders={shareholders.length > 0 ? shareholders : undefined} onContinue={handleShareholdersContinue} onSkip={() => setStep(6)} />}
         {step === 6 && <StepOfficers locale={activeLocale} directors={directors} shareholders={shareholders} incorporationDate={incorporationDate} initialOfficers={officers.presidentName ? officers : undefined} onContinue={handleOfficersContinue} onSkip={() => setStep(7)} />}
-        {step === 7 && <StepCelebration locale={activeLocale} directors={directors} shareholders={shareholders} officers={officers} onContinue={handleCelebrationContinue} />}
+        {step === 7 && <StepCelebration locale={activeLocale} companyName={data.company.legalName} incorporationType={data.company.incorporationType} directors={directors} shareholders={shareholders} officers={officers} onContinue={handleCelebrationContinue} />}
       </main>
     </div>
   );

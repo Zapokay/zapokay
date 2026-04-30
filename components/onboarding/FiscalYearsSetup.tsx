@@ -103,17 +103,8 @@ export function FiscalYearsSetup({
     router.refresh()
   }
 
-  // ── Stepper config (same as OnboardingFlow) ───────────────────────────────
-  const stepConfig = [
-    { labelFr: 'Langue',   labelEn: 'Language' },
-    { labelFr: 'Société',  labelEn: 'Company' },
-    { labelFr: 'Province', labelEn: 'Province' },
-    { labelFr: 'Admin.',   labelEn: 'Directors' },
-    { labelFr: 'Action.',  labelEn: 'Shares' },
-    { labelFr: 'Dirig.',   labelEn: 'Officers' },
-    { labelFr: 'Sommaire', labelEn: 'Summary' },
-    { labelFr: 'Fiscal',   labelEn: 'Fiscal' },
-  ]
+  // ── Stepper config (labels live in messages/{fr,en}.json under onboarding.stepLabels) ─
+  const STEP_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8] as const
   const STEP = 8
   const AMBER = '#F5B91E'
   const PAGE = 'var(--page-bg)'
@@ -165,16 +156,15 @@ export function FiscalYearsSetup({
       </header>
 
       {/* ─── Progress Stepper ─── */}
-      <div style={{ padding: '24px 32px 0', maxWidth: '700px', margin: '0 auto' }}>
+      <div style={{ padding: '24px 32px 0', maxWidth: '820px', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
-          {stepConfig.map((sc, i) => {
-            const sNum = i + 1
+          {STEP_NUMBERS.map((sNum, i) => {
             const done = sNum < STEP
             const current = sNum === STEP
-            const isLast = i === stepConfig.length - 1
+            const isLast = i === STEP_NUMBERS.length - 1
             return (
               <React.Fragment key={i}>
-                <div style={{ width: '56px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '88px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                   <div style={{
                     width: '32px', height: '32px', borderRadius: '50%',
                     background: done || current ? AMBER : 'var(--ob-circle-todo-bg)',
@@ -200,9 +190,9 @@ export function FiscalYearsSetup({
                     color: current ? 'var(--ob-label-active)' : 'var(--ob-label-done)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden', textOverflow: 'ellipsis',
-                    maxWidth: '56px', textAlign: 'center',
+                    maxWidth: '88px', textAlign: 'center',
                   }}>
-                    {fr ? sc.labelFr : sc.labelEn}
+                    {t(`stepLabels.step${sNum}`)}
                   </span>
                 </div>
                 {!isLast && (

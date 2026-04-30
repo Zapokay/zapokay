@@ -1,7 +1,8 @@
 'use client';
-import { useTranslations } from 'next-intl';
 import type { OnboardingData, Language } from '@/lib/types';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
+import frMessages from '@/messages/fr.json';
+import enMessages from '@/messages/en.json';
 
 interface StepProps {
   data: OnboardingData;
@@ -13,7 +14,10 @@ interface StepProps {
 
 export function StepLanguage({ data, setData, onNext, locale }: StepProps) {
   const fr = data.language === 'fr' || locale === 'fr';
-  const t = useTranslations('onboarding');
+  // Static-import pattern (see project_onboarding_dual_locale memory):
+  // useTranslations() reads URL locale and would diverge from `fr` boolean above
+  // when user toggles language via the OnboardingFlow header pill.
+  const ob = (fr ? frMessages : enMessages).onboarding;
 
   function select(lang: Language) {
     setData(d => ({ ...d, language: lang }));
@@ -84,7 +88,7 @@ export function StepLanguage({ data, setData, onNext, locale }: StepProps) {
         fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5,
         marginTop: '14px', marginBottom: 0, textAlign: 'left',
       }}>
-        {t('languageNote')}
+        {ob.languageNote}
       </p>
     </OnboardingStepLayout>
   );
