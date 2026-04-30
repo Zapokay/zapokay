@@ -9,7 +9,7 @@
   },
   "auth": {
     "login": {
-      "title": "Bon retour",
+      "title": "Connexion",
       "subtitle": "Connectez-vous à votre livre des minutes",
       "email": "Adresse courriel",
       "password": "Mot de passe",

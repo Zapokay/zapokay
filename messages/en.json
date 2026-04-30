@@ -9,7 +9,7 @@
   },
   "auth": {
     "login": {
-      "title": "Welcome back",
+      "title": "Login",
       "subtitle": "Sign in to your minute book",
       "email": "Email address",
       "password": "Password",
