@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Info } from 'lucide-react';
+import { Info, CheckCircle2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { uploadDocument } from '@/lib/upload-document';
 import { useToasts } from '@/components/ui/Toasts';
-import CompletenessBar from '@/components/minute-book/CompletenessBar';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import BinderView from '@/components/minute-book/BinderView';
 import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
@@ -225,9 +224,44 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
           </div>
         </div>
         {!loading && data && (
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            {data.score}% {fr ? 'complet' : 'complete'} · {data.totalMissing} {fr ? 'documents manquants' : 'missing documents'}
-          </p>
+          <>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
+              {data.score}% {fr ? 'complet' : 'complete'}
+              {' · '}
+              {data.totalUploaded} {fr ? 'téléversés' : 'uploaded'}
+              {' · '}
+              {data.totalGenerated} {fr ? 'générés' : 'generated'}
+              {' · '}
+              {data.totalMissing} {fr ? 'manquants' : 'missing'}
+            </p>
+            <div className="mt-3 max-w-2xl">
+              <div className="h-2 bg-[var(--card-border)] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-600 transition-all"
+                  style={{ width: `${data.score}%` }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] mt-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                {fr ? 'Signé et téléversé' : 'Signed and uploaded'}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
+                  <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
+                </svg>
+                {fr ? 'Généré (à signer)' : 'Generated (to sign)'}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <XCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
+                {fr ? 'À générer ou à téléverser' : 'To generate or upload'}
+              </span>
+            </div>
+          </>
         )}
       </div>
 
@@ -254,27 +288,16 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
       {/* Complétude tab */}
       {activeTab === 'completude' && (
         <div className="space-y-6">
-          <div>
-            {loading ? (
-              <div className="animate-pulse space-y-6">
-                <div className="h-3 w-full bg-[var(--card-border)] rounded-full" />
-                <div className="h-48 bg-[var(--card-bg)] rounded-xl" />
-              </div>
-            ) : data ? (
-              <div className="mt-0">
-                <CompletenessBar
-                  score={data.score}
-                  totalSatisfied={data.totalSatisfied}
-                  totalRequired={data.totalRequired}
-                  size="lg"
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-[var(--text-muted)]">
-                {fr ? 'Impossible de charger le livre de minutes.' : 'Unable to load minute book.'}
-              </p>
-            )}
-          </div>
+          {loading && (
+            <div className="animate-pulse">
+              <div className="h-48 bg-[var(--card-bg)] rounded-xl" />
+            </div>
+          )}
+          {!loading && !data && (
+            <p className="text-sm text-[var(--text-muted)]">
+              {fr ? 'Impossible de charger le livre de minutes.' : 'Unable to load minute book.'}
+            </p>
+          )}
 
           {!loading && data && (
             <>

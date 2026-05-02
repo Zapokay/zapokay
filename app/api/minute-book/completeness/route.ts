@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requirementToDocType, type VaultDocType } from '@/lib/requirement-doctype'
+import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state'
 
 export interface ChecklistItem {
   id: string
@@ -22,10 +23,16 @@ export interface ChecklistItem {
 }
 
 export interface CompletenessResponse {
+  /** Weighted percentage: téléversé=1.0, généré=0.5, missing=0.0. Rounded. */
   score: number
   totalRequired: number
+  /** Raw count of satisfied rows (téléversé + généré). Used by dashboard
+   *  MinuteBookCard for truthful "X / Y documents requis" text. */
   totalSatisfied: number
   totalMissing: number
+  /** NEW (Bundle D-2): per-state counts for three-state header display. */
+  totalUploaded: number
+  totalGenerated: number
   checklist: ChecklistItem[]
   fiscalYears: { year: number; start_year: number; end_year: number; endDate: string }[]
 }
@@ -117,21 +124,25 @@ export async function GET() {
 
     const checklist: ChecklistItem[] = []
     let totalRequired = 0
-    let totalSatisfied = 0
+    let totalUploaded = 0
+    let totalGenerated = 0
 
     // Foundational items
     for (const req of foundationalReqs as RawReq[]) {
       const matchingDoc = (documents || []).find((d: RawDoc) => d.requirement_key === req.requirement_key)
       const satisfied = !!matchingDoc
+      const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null
+      const state = getDocumentState({ satisfied, source })
       checklist.push({
         ...req,
         year: null,
         satisfied,
-        source: (matchingDoc?.source as 'uploaded' | 'generated' | null) || null,
+        source,
         document_type: requirementToDocType(req.requirement_key, req.section),
       })
       totalRequired++
-      if (satisfied) totalSatisfied++
+      if (state === 'téléversé') totalUploaded++
+      else if (state === 'généré') totalGenerated++
     }
 
     // Annual items — one set per active fiscal year
@@ -141,25 +152,35 @@ export async function GET() {
           (d: RawDoc) => d.requirement_key === req.requirement_key && d.requirement_year === fy.year
         )
         const satisfied = !!matchingDoc
+        const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null
+        const state = getDocumentState({ satisfied, source })
         checklist.push({
           ...req,
           year: fy.year,
           satisfied,
-          source: (matchingDoc?.source as 'uploaded' | 'generated' | null) || null,
+          source,
           document_type: requirementToDocType(req.requirement_key, req.section),
         })
         totalRequired++
-        if (satisfied) totalSatisfied++
+        if (state === 'téléversé') totalUploaded++
+        else if (state === 'généré') totalGenerated++
       }
     }
 
-    const score = totalRequired > 0 ? Math.round((totalSatisfied / totalRequired) * 100) : 0
+    const totalSatisfied = totalUploaded + totalGenerated
+    const totalMissing = totalRequired - totalSatisfied
+    const weightedSum =
+      totalUploaded * STATE_WEIGHT['téléversé'] +
+      totalGenerated * STATE_WEIGHT['généré']
+    const score = totalRequired > 0 ? Math.round((weightedSum / totalRequired) * 100) : 0
 
     const response: CompletenessResponse = {
       score,
       totalRequired,
       totalSatisfied,
-      totalMissing: totalRequired - totalSatisfied,
+      totalMissing,
+      totalUploaded,
+      totalGenerated,
       checklist,
       fiscalYears: fyFormatted,
     }

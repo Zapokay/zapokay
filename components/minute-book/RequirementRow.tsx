@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { CheckCircle2, XCircle, Info, Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
+import { getDocumentState } from '@/lib/minute-book/state';
 
 interface RequirementRowProps {
   requirementKey: string;
@@ -34,6 +35,7 @@ export default function RequirementRow({
   const [showDescription, setShowDescription] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const state = getDocumentState({ satisfied, source });
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -53,8 +55,17 @@ export default function RequirementRow({
     <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
       {/* Left side: icon + title */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        {satisfied ? (
+        {state === 'téléversé' ? (
           <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+        ) : state === 'généré' ? (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-5 w-5 flex-shrink-0 text-amber-500"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
+          </svg>
         ) : (
           <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
         )}
