@@ -43,12 +43,16 @@ export async function GET() {
 
   if (!company) return NextResponse.json({ error: 'No company' }, { status: 404 })
 
-  const { data: documents } = await supabase
+  const { data: documents, error: docError } = await supabase
     .from('documents')
-    .select('*, minute_book_requirements!requirement_key(section)')
+    .select('*')
     .eq('company_id', company.id)
     .eq('status', 'active')
     .order('created_at', { ascending: false })
+
+  if (docError) {
+    return NextResponse.json({ error: docError.message }, { status: 500 })
+  }
 
   const grouped: Record<string, any[]> = {}
   for (const s of SECTIONS) grouped[s.key] = []
