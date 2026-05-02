@@ -34,14 +34,14 @@ export default function RequirementSection({
   );
 
   return (
-    <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)] overflow-hidden">
+    <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)]">
       {/* Section header — entire row clickable */}
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
         aria-expanded={expanded}
-        className={`w-full px-5 py-4 text-left transition-colors hover:bg-[var(--page-bg)] ${
-          expanded ? 'border-b border-[var(--card-border)]' : ''
+        className={`w-full px-5 py-4 text-left transition-colors hover:bg-[var(--page-bg)] overflow-hidden ${
+          expanded ? 'rounded-t-xl border-b border-[var(--card-border)]' : 'rounded-xl'
         }`}
       >
         <div className="flex items-center justify-between">
