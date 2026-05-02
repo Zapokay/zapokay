@@ -51,7 +51,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false 
       setShowDocModal(true);
       return;
     }
-    window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    window.open(`${downloadUrl}?preview=true`, '_blank', 'noopener,noreferrer');
   }
 
   async function handleDownload() {

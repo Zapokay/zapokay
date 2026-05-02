@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Eye, Download } from 'lucide-react'
 
 interface Document {
@@ -34,6 +35,13 @@ const TYPE_LABELS: Record<string, string> = {
   autre: 'Document',
 }
 
+const spinnerIcon = (
+  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+  </svg>
+)
+
 export default function BinderSection({
   index,
   title,
@@ -42,6 +50,29 @@ export default function BinderSection({
 }: BinderSectionProps) {
   const sectionNumber = index + 1
   const hasContent = documents.length > 0 || !!children
+  const [loadingId, setLoadingId] = useState<string | null>(null)
+
+  function handleView(doc: Document) {
+    window.open(`/api/documents/${doc.id}/download?preview=true`, '_blank', 'noopener,noreferrer')
+  }
+
+  async function handleDownload(doc: Document) {
+    setLoadingId(doc.id)
+    try {
+      const response = await fetch(`/api/documents/${doc.id}/download`)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = doc.title || 'document'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+    } finally {
+      setLoadingId(null)
+    }
+  }
 
   return (
     <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] overflow-hidden">
@@ -81,20 +112,21 @@ export default function BinderSection({
               <div className="flex items-center gap-4 shrink-0 ml-4">
                 <span className="text-xs text-[var(--text-muted)]">{formatDate(doc.created_at)}</span>
                 <button
-                  className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors"
+                  onClick={() => handleView(doc)}
+                  disabled={loadingId !== null}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors disabled:opacity-50"
                   title="Voir"
                 >
                   <Eye className="w-4 h-4" />
                 </button>
-                <a
-                  href={`/api/documents/${doc.id}/download`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors"
+                <button
+                  onClick={() => handleDownload(doc)}
+                  disabled={loadingId !== null}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors disabled:opacity-50"
                   title="Télécharger"
                 >
-                  <Download className="w-4 h-4" />
-                </a>
+                  {loadingId === doc.id ? spinnerIcon : <Download className="w-4 h-4" />}
+                </button>
               </div>
             </div>
           ))}
