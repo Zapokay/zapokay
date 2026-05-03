@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Eye, Download } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 interface Document {
   id: string
@@ -9,6 +10,7 @@ interface Document {
   document_type?: string
   created_at: string
   file_url?: string
+  document_year?: number | null
 }
 
 interface BinderSectionProps {
@@ -51,6 +53,7 @@ export default function BinderSection({
   const sectionNumber = index + 1
   const hasContent = documents.length > 0 || !!children
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const t = useTranslations('minuteBook.binder')
 
   function handleView(doc: Document) {
     window.open(`/api/documents/${doc.id}/download?preview=true`, '_blank', 'noopener,noreferrer')
@@ -107,7 +110,11 @@ export default function BinderSection({
                 <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--card-border)] text-[var(--text-muted)]">
                   {TYPE_LABELS[doc.document_type || ''] || 'Document'}
                 </span>
-                <span className="text-sm text-[var(--text-body)] truncate">{doc.title}</span>
+                <span className="text-sm text-[var(--text-body)] truncate">
+                  {doc.title}
+                  {doc.document_year != null &&
+                    ` ${t('yearSuffix', { year: doc.document_year })}`}
+                </span>
               </div>
               <div className="flex items-center gap-4 shrink-0 ml-4">
                 <span className="text-xs text-[var(--text-muted)]">{formatDate(doc.created_at)}</span>

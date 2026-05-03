@@ -34,7 +34,7 @@ export interface CompletenessResponse {
   totalUploaded: number
   totalGenerated: number
   checklist: ChecklistItem[]
-  fiscalYears: { year: number; start_year: number; end_year: number; endDate: string }[]
+  fiscalYears: { year: number; endDate: string }[]
 }
 
 export async function GET() {
@@ -102,12 +102,11 @@ export async function GET() {
       return NextResponse.json({ error: docError.message }, { status: 500 })
     }
 
-    // 4. Compute display years for each fiscal year
-    // Convention: "Exercice 2025–2026" = the year starting in 2025 and ending in 2026
+    // 4. Compute endDate per fiscal year (resolution date stamped on PDFs
+    // generated via Bulk Catch-Up). Year labels are now derived from `year`
+    // alone — see getFiscalYearLabel in MinuteBookPage.
     const fyFormatted = (fiscalYears || []).map((fy: { year: number }) => ({
       year: fy.year,
-      start_year: fy.year - 1,
-      end_year: fy.year,
       endDate: `${fy.year}-${pad2(fyEndMonth)}-${pad2(fyEndDay)}`,
     }))
 

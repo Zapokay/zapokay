@@ -48,6 +48,7 @@ export async function GET() {
     .select('*')
     .eq('company_id', company.id)
     .eq('status', 'active')
+    .order('document_year', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
 
   if (docError) {

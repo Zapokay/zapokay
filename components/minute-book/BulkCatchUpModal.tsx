@@ -23,18 +23,16 @@ export interface BulkMissingItem {
 
 /**
  * Scope of missing documents the user may regenerate, grouped by a fiscal-year
- * identifier (the Record key). Each group carries explicit startYear/endYear
- * so the yearGroup.title i18n string ("Exercice {startYear}–{endYear}") renders
- * correctly for both calendar-year and offset fiscal years, plus a per-year
+ * identifier (the Record key — the fiscal year's END year). The label is
+ * derived from this key alone (universal `Exercice ${year}` / `Fiscal Year
+ * ${year}` form, locked in Bundle E). Each group also carries a per-year
  * resolutionDate (the date stamped onto every generated document for that
- * year). These values come from the completeness API's fiscal_years entries
- * and are supplied by the page component in Edit 6.
+ * year), supplied by the page component from the completeness API's
+ * fiscal_years entries.
  */
 export type BulkMissingByYear = Record<
   number,
   {
-    startYear: number;
-    endYear: number;
     resolutionDate: string; // YYYY-MM-DD, per-year, editable in the modal
     items: BulkMissingItem[];
   }
@@ -60,8 +58,6 @@ interface YearItemState extends BulkMissingItem {
 type YearsState = Record<
   number,
   {
-    startYear: number;
-    endYear: number;
     resolutionDate: string;
     items: YearItemState[];
   }
@@ -75,8 +71,6 @@ function initYearsState(src: BulkMissingByYear): YearsState {
   const out: YearsState = {};
   for (const [yearStr, group] of Object.entries(src)) {
     out[Number(yearStr)] = {
-      startYear: group.startYear,
-      endYear: group.endYear,
       resolutionDate: group.resolutionDate,
       items: group.items.map((it) => ({
         ...it,
@@ -90,9 +84,9 @@ function initYearsState(src: BulkMissingByYear): YearsState {
 /**
  * Structural deep-compare of two YearsState trees. Only compares fields that
  * are mutable via the modal's setYears write paths: group.resolutionDate and
- * item.selected. startYear/endYear/title/canGenerate/requirementKey are
- * stable for the lifetime of a given missingByYear prop (the reset effect
- * rebuilds state when the prop changes).
+ * item.selected. title/canGenerate/requirementKey are stable for the lifetime
+ * of a given missingByYear prop (the reset effect rebuilds state when the
+ * prop changes).
  */
 function yearsEqual(a: YearsState, b: YearsState): boolean {
   const ak = Object.keys(a);
@@ -449,8 +443,7 @@ export default function BulkCatchUpModal({
                     <div className="mb-3 flex items-baseline justify-between">
                       <h3 className="font-semibold text-[var(--text-heading)]">
                         {t('modal.yearGroup.title', {
-                          startYear: group.startYear,
-                          endYear: group.endYear,
+                          year,
                         })}
                       </h3>
                       <span className="text-xs text-[var(--text-muted)]">

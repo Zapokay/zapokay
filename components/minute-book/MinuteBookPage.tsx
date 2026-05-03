@@ -163,8 +163,6 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
         }));
       if (items.length > 0) {
         bulkMissingByYear[fy.year] = {
-          startYear: fy.start_year,
-          endYear: fy.end_year,
           resolutionDate: fy.endDate,
           items,
         };
@@ -173,13 +171,8 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
     }
   }
 
-  const getFiscalYearLabel = (year: number): string => {
-    const fy = data?.fiscalYears.find((f) => f.year === year);
-    if (fy) {
-      return `Exercice ${fy.start_year}–${fy.end_year}`;
-    }
-    return `Exercice ${year}`;
-  };
+  const getFiscalYearLabel = (year: number): string =>
+    fr ? `Exercice ${year}` : `Fiscal year ${year}`;
 
   return (
     <div>

@@ -355,7 +355,8 @@
         "registres": "Registres corporatifs"
       },
       "emptySection": "Aucun document dans cette section",
-      "registres": "3 registres"
+      "registres": "3 registres",
+      "yearSuffix": "(Exercice {year})"
     },
     "registers": {
       "directors": "Registre des administrateurs",
@@ -391,7 +392,7 @@
           "body": "Les signataires affichés correspondent aux administrateurs et actionnaires actuels. Vérifiez qu'ils étaient bien en poste à la date de chaque résolution avant signature."
         },
         "yearGroup": {
-          "title": "Exercice {startYear}–{endYear}",
+          "title": "Exercice {year}",
           "missingCount": "{count, plural, =0 {Aucun document manquant} =1 {1 document manquant} other {# documents manquants}}",
           "dateLabel": "Date résolution :"
         },

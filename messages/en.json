@@ -355,7 +355,8 @@
         "registres": "Corporate Registers"
       },
       "emptySection": "No documents in this section",
-      "registres": "3 registers"
+      "registres": "3 registers",
+      "yearSuffix": "(Fiscal Year {year})"
     },
     "registers": {
       "directors": "Director Register",
@@ -391,7 +392,7 @@
           "body": "The signatories shown reflect current directors and shareholders. For documents dated to past fiscal years, verify that the listed signatories were actually in office on the resolution date."
         },
         "yearGroup": {
-          "title": "Fiscal year {startYear}–{endYear}",
+          "title": "Fiscal Year {year}",
           "missingCount": "{count, plural, =0 {No missing documents} =1 {1 missing document} other {# missing documents}}",
           "dateLabel": "Resolution date:"
         },
