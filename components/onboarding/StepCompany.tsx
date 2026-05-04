@@ -307,7 +307,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
         {/* Fiscal year end */}
         <div>
           <label style={labelStyle}>
-            {fr ? "Fin d'exercice financier" : 'Fiscal year end'}
+            {fr ? "Fin d'exercice financier" : 'Fiscal Year end'}
           </label>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', marginTop: '-2px' }}>
             {fr ? 'Requis pour le calcul de conformité' : 'Required for compliance calculation'}

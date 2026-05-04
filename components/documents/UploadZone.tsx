@@ -351,7 +351,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
           {activeFiscalYears.length > 0 && !isFoundational && (
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
-                {fr ? 'Exercice fiscal' : 'Fiscal year'}
+                {fr ? 'Exercice fiscal' : 'Fiscal Year'}
               </label>
               <select
                 value={docYear}
@@ -362,7 +362,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
                 <option value="">{fr ? '— Aucun exercice —' : '— No fiscal year —'}</option>
                 {activeFiscalYears.map(y => (
                   <option key={y} value={y}>
-                    {fr ? `Exercice ${y}` : `Fiscal year ${y}`}
+                    {fr ? `Exercice ${y}` : `Fiscal Year ${y}`}
                   </option>
                 ))}
               </select>

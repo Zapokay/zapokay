@@ -39,3 +39,9 @@ Conventions are added section-by-section as patterns stabilize. Each section is 
 ### Reference
 
 Full audit of remaining bilingual debt + Phase 1/2/3 phasing: `docs/bilingual-i18n-audit-2026-04-28.md`
+
+---
+
+## 2. Fiscal Year capitalization
+
+**Fiscal Year capitalization (locked May 4, 2026):** EN form is always `Fiscal Year` with capital Y when used as a label, identifier, heading, button text, chip, or form field. Lowercase `fiscal year` is acceptable only mid-sentence as a common noun in flowing prose. FR form `Exercice` is unchanged. Applies to JSX, JSON, API responses, PDF templates.

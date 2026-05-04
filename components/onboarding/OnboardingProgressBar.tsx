@@ -35,7 +35,7 @@ const STEP_LABELS_EN = [
   'Shareholders',
   'Officers',
   'Summary',
-  'Fiscal years',
+  'Fiscal Years',
 ];
 
 // =============================================================================

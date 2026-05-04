@@ -317,7 +317,7 @@ export function FiscalYearsSetup({
                           )}
                         </div>
                         <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '14px', color: 'var(--text-heading)' }}>
-                          {fr ? `Exercice ${year}` : `Fiscal year ${year}`}
+                          {fr ? `Exercice ${year}` : `Fiscal Year ${year}`}
                         </span>
                         {isCurrent && (
                           <span style={{

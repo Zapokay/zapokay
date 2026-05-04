@@ -94,7 +94,7 @@ export default async function CompliancePage({ params, searchParams }: PageProps
   const yearLabel      = selectedYear ? `${selectedYear}–${selectedYear + 1}` : fyLabel
 
   const contentSubtitle = hasAnyItems && !result.needsFiscalYear
-    ? `${frameworkLabel} · ${total} obligation${total > 1 ? 's' : ''} · ${fr ? 'Exercice' : 'Fiscal year'} ${yearLabel}`
+    ? `${frameworkLabel} · ${total} obligation${total > 1 ? 's' : ''} · ${fr ? 'Exercice' : 'Fiscal Year'} ${yearLabel}`
     : frameworkLabel
 
   return (

@@ -91,7 +91,7 @@ export const LEGAL_DEFINITIONS: LegalDefinition[] = [
   {
     key: 'exercice_financier',
     term_fr: 'Exercice financier',
-    term_en: 'Fiscal year',
+    term_en: 'Fiscal Year',
     definition_fr:
       "Période de 12 mois utilisée par la société pour ses états financiers et ses obligations fiscales. Ne coïncide pas nécessairement avec l'année civile.",
     definition_en:

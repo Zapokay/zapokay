@@ -172,7 +172,7 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
   }
 
   const getFiscalYearLabel = (year: number): string =>
-    fr ? `Exercice ${year}` : `Fiscal year ${year}`;
+    fr ? `Exercice ${year}` : `Fiscal Year ${year}`;
 
   return (
     <div>

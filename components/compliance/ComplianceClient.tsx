@@ -92,7 +92,7 @@ export function ComplianceClient({
             <span style={{ fontSize: '18px' }}>⚠️</span>
             <div>
               <div style={{ fontFamily: 'Sora', fontSize: '14px', fontWeight: 700, color: 'var(--error-text)', marginBottom: '2px' }}>
-                {fr ? 'Exercices financiers non configurés' : 'Fiscal years not configured'}
+                {fr ? 'Exercices financiers non configurés' : 'Fiscal Years not configured'}
               </div>
               <div style={{ fontSize: '13px', color: 'var(--error-text)', opacity: 0.8 }}>
                 {fr
@@ -195,7 +195,7 @@ export function ComplianceClient({
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
               {fr
                 ? <><LegalTerm termKey="exercice_financier" lang="fr" /> {fyLabel}</>
-                : <>Fiscal year {fyLabel}</>}
+                : <>Fiscal Year {fyLabel}</>}
             </p>
           </div>
 

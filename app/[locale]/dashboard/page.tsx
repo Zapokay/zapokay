@@ -626,7 +626,7 @@ export default async function DashboardPage({
                   {percentage}%
                 </div>
                 <p className="text-xs text-[var(--text-muted)] mt-1 mb-3">
-                  {fr ? `Exercice ${fyLabel}` : `Fiscal year ${fyLabel}`}
+                  {fr ? `Exercice ${fyLabel}` : `Fiscal Year ${fyLabel}`}
                 </p>
 
                 {/* Progress bar */}

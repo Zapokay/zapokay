@@ -499,7 +499,7 @@ export function SettingsClient({
           {/* Fin d'exercice */}
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              {fr ? "Fin d'exercice financier" : 'Fiscal year end'}
+              {fr ? "Fin d'exercice financier" : 'Fiscal Year end'}
             </label>
             <div className="grid grid-cols-2 gap-3">
               <select
@@ -677,7 +677,7 @@ export function SettingsClient({
                       className="text-sm font-semibold"
                       style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text-heading)' }}
                     >
-                      {fr ? `Exercice ${year}` : `Fiscal year ${year}`}
+                      {fr ? `Exercice ${year}` : `Fiscal Year ${year}`}
                     </span>
                     {hasDoc && (
                       <span style={{
