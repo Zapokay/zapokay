@@ -6,7 +6,7 @@ export interface ShareholderResolutionData {
   companyName: string;
   neq?: string;
   resolutionDate: string;
-  fiscalYear: string;
+  fiscalYear: string | null;
   shareholders: { name: string; shares: number; class?: string }[];
   resolutions: { number: number; title: string; body: string }[];
   language: 'fr' | 'en' | 'bilingual';
@@ -79,7 +79,7 @@ export function shareholderResolutionHTML(data: ShareholderResolutionData): stri
     companyName: data.companyName,
     neq: data.neq,
     documentTitle: l.title,
-    documentSubtitle: l.subtitle(data.fiscalYear),
+    documentSubtitle: data.fiscalYear !== null ? l.subtitle(data.fiscalYear) : undefined,
     effectiveDate: data.resolutionDate,
     bodyContent,
     footerDocName: l.title,

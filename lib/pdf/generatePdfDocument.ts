@@ -22,7 +22,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { toStorageSafeName } from '@/lib/storage-key';
+import { randomUUID } from 'node:crypto';
 import { logActivity } from '@/lib/activity-log';
 import { generatePDF } from '@/lib/pdf/generatePDF';
 import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
@@ -144,9 +144,11 @@ export async function generatePdfDocument(
   // 2. Load requirement metadata (title + minute_book section).
   const { data: requirement } = await supabaseAdmin
     .from('minute_book_requirements')
-    .select('title_fr, title_en, section')
+    .select('title_fr, title_en, section, category')
     .eq('requirement_key', requirementKey)
     .single();
+
+  const isFoundational = requirement?.category === 'foundational';
 
   // Defensive title fallback: never expose the code identifier in Coffre-fort.
   const requirementTitle = language === 'en' ? requirement?.title_en : requirement?.title_fr;
@@ -203,7 +205,7 @@ export async function generatePdfDocument(
     companyName: company.legal_name_fr,
     neq: company.neq,
     resolutionDate: effectiveResolutionDate,
-    fiscalYear: String(effectiveYear),
+    fiscalYear: isFoundational ? null : String(effectiveYear),
     language,
     framework: company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
     directors: activeDirectors,
@@ -219,8 +221,8 @@ export async function generatePdfDocument(
   });
 
   // 8. Upload to storage.
-  const sanitizedName = toStorageSafeName(company.legal_name_fr, 60);
-  const fileName = `${requirementKey}_${sanitizedName}_${effectiveResolutionDate}.pdf`;
+  const documentId = randomUUID();
+  const fileName = `${documentId}.pdf`;
   const storagePath = `${companyId}/${fileName}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
@@ -239,6 +241,7 @@ export async function generatePdfDocument(
   const { data: document, error: docInsertError } = await supabaseAdmin
     .from('documents')
     .insert({
+      id:                   documentId,
       company_id:           companyId,
       document_type:        mapToDocumentType(mapping.type),
       title:                documentTitle,
@@ -249,9 +252,9 @@ export async function generatePdfDocument(
       status:               'active',
       source:               'generated',
       framework:            company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
-      document_year:        effectiveYear,
+      document_year:        isFoundational ? null : effectiveYear,
       requirement_key:      requirementKey,
-      ...(hasYear ? { requirement_year: effectiveYear } : {}),
+      ...(hasYear && !isFoundational ? { requirement_year: effectiveYear } : {}),
       minute_book_section:  requirement?.section ?? null,
       ...(signatories && signatories.length > 0
         ? { signatories_confirmed: signatories, signature_status: 'pending_signature' }

@@ -6,7 +6,7 @@ export interface BoardResolutionData {
   companyName: string;
   neq?: string;
   resolutionDate: string;
-  fiscalYear: string;
+  fiscalYear: string | null;
   directors: { name: string; title: string }[];
   resolutions: { number: number; title: string; body: string }[];
   language: 'fr' | 'en' | 'bilingual';
@@ -76,7 +76,7 @@ export function boardResolutionHTML(data: BoardResolutionData): string {
     companyName: data.companyName,
     neq: data.neq,
     documentTitle: l.title,
-    documentSubtitle: l.subtitle(data.fiscalYear),
+    documentSubtitle: data.fiscalYear !== null ? l.subtitle(data.fiscalYear) : undefined,
     effectiveDate: data.resolutionDate,
     bodyContent,
     footerDocName: l.title,

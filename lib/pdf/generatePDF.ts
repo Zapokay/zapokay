@@ -15,7 +15,7 @@ interface BoardResolutionInput {
   companyName: string;
   neq?: string;
   resolutionDate: string;
-  fiscalYear: string;
+  fiscalYear: string | null;
   language?: 'fr' | 'en' | 'bilingual';
   directors?: { name: string; title: string }[];
   resolutions?: { number: number; title: string; body: string }[];
@@ -26,7 +26,7 @@ interface ShareholderResolutionInput {
   companyName: string;
   neq?: string;
   resolutionDate: string;
-  fiscalYear: string;
+  fiscalYear: string | null;
   language?: 'fr' | 'en' | 'bilingual';
   shareholders?: { name: string; shares: number; shareClass?: string; class?: string }[];
   resolutions?: { number: number; title: string; body: string }[];
