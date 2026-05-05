@@ -74,6 +74,7 @@ export function SettingsClient({
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [showLangTooltip, setShowLangTooltip] = useState(false)
+  const [showEmailTooltip, setShowEmailTooltip] = useState(false)
 
   // ── Company state ──────────────────────────────────────────────────────────
   const [legalName, setLegalName] = useState(initialLegalName)
@@ -130,6 +131,10 @@ export function SettingsClient({
   }
 
   // ── Save profile ────────────────────────────────────────────────────────────
+  // IMPORTANT: Profile save updates preferred_language in DB only.
+  // It MUST NOT switch the UI locale. UI locale is controlled exclusively
+  // by the top-right locale toggle. See Two-Layer Language Model in
+  // ZapOkay_Project_Memory_Core.md (locked May 4, 2026).
   async function saveProfile() {
     setSavingProfile(true)
     const { error } = await supabase
@@ -146,11 +151,7 @@ export function SettingsClient({
         'Settings updated: user profile',
         { changed_fields: ['full_name', 'preferred_language'] }
       )
-      if (lang !== locale) {
-        router.push(`/${lang}/dashboard/settings`)
-      } else {
-        router.refresh()
-      }
+      router.refresh()
     }
   }
 
@@ -292,9 +293,27 @@ export function SettingsClient({
             <input value={fullName} onChange={e => setFullName(e.target.value)} className={inputClass} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              {fr ? 'Adresse courriel' : 'Email address'}
-            </label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-muted)]">
+                {fr ? 'Adresse courriel' : 'Email address'}
+              </label>
+              <Lock size={12} style={{ color: 'var(--text-muted)' }} />
+              <button
+                type="button"
+                onMouseEnter={() => setShowEmailTooltip(true)}
+                onMouseLeave={() => setShowEmailTooltip(false)}
+                className="relative rounded-full p-0.5 text-[var(--text-muted)] hover:text-[var(--text-body)] flex-shrink-0"
+              >
+                <Info className="h-3.5 w-3.5" />
+                {showEmailTooltip && (
+                  <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs font-normal text-[var(--text-body)] shadow-lg">
+                    {fr
+                      ? "L'adresse courriel ne peut être modifiée directement. Pour la changer, veuillez contacter notre équipe de support."
+                      : 'The email address cannot be modified directly. To change it, please contact our support team.'}
+                  </div>
+                )}
+              </button>
+            </div>
             <input
               value={initialEmail}
               readOnly
@@ -335,7 +354,7 @@ export function SettingsClient({
               className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
               style={{ backgroundColor: '#F5B91E', color: '#1C1A17' }}
             >
-              {savingProfile ? (fr ? 'Enregistrement...' : 'Saving...') : (fr ? 'Enregistrer' : 'Save')}
+              {savingProfile ? (fr ? 'Enregistrement...' : 'Saving...') : (fr ? 'Enregistrer les modifications' : 'Save changes')}
             </button>
             {profileMsg && (
               <span className="text-xs font-medium" style={{ color: profileMsg.ok ? 'var(--success-text)' : 'var(--error-text)' }}>
