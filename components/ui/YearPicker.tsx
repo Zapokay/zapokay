@@ -2,6 +2,8 @@
 
 import { Suspense } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
 
 interface YearPickerProps {
   locale: string
@@ -21,11 +23,9 @@ function YearPickerInner({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const t = useTranslations('documents')
 
-  const fr = locale === 'fr'
-
-  const selectedYear =
-    searchParams.get('year') ?? (years.length > 0 ? String(years[0]) : '')
+  const selectedYear = searchParams.get('year') ?? 'all'
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -44,19 +44,20 @@ function YearPickerInner({
         borderColor: 'var(--tb-border)',
       }}
     >
+      <option value="all">{t('filterAllYears')}</option>
       {includeFoundationalOption && (
         <option value="foundational">
-          {fr ? 'Documents fondateurs' : 'Foundational documents'}
+          {t('filterFoundational')}
         </option>
       )}
       {years.map(y => (
         <option key={y} value={String(y)}>
-          {y}
+          {getFiscalYearLabel(y, locale)}
         </option>
       ))}
       {includeUnclassifiedOption && (
         <option value="unclassified">
-          {fr ? 'Non classé' : 'Unclassified'}
+          {t('filterUnclassified')}
         </option>
       )}
     </select>

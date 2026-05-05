@@ -44,17 +44,17 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
   const router = useRouter();
   const searchParams = useSearchParams();
   const yearParam = searchParams.get('year');
-  // Three-way filter mode: 'foundational' sentinel, 'unclassified' sentinel, or a numeric year.
-  const yearMode: 'foundational' | 'unclassified' | 'numeric' =
-    yearParam === 'foundational'
-      ? 'foundational'
-      : yearParam === 'unclassified'
-        ? 'unclassified'
-        : 'numeric';
-  const activeYear =
-    yearMode === 'numeric'
-      ? (yearParam ? parseInt(yearParam, 10) : (activeFiscalYears[0] ?? null))
-      : null;
+  // Four-way filter mode: 'all' (no filter, default), 'foundational' sentinel,
+  // 'unclassified' sentinel, or a numeric year.
+  const yearMode: 'all' | 'foundational' | 'unclassified' | 'numeric' =
+    yearParam === null || yearParam === 'all'
+      ? 'all'
+      : yearParam === 'foundational'
+        ? 'foundational'
+        : yearParam === 'unclassified'
+          ? 'unclassified'
+          : 'numeric';
+  const activeYear = yearMode === 'numeric' && yearParam ? parseInt(yearParam, 10) : null;
   const [documents, setDocuments] = useState<VaultDocument[]>(initialDocuments);
 
   // Sync local state when server re-renders with fresh data (after router.refresh())
@@ -136,7 +136,9 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
       const matchLang   = !langFilter || doc.language === langFilter;
 
       let matchYear: boolean;
-      if (yearMode === 'foundational') {
+      if (yearMode === 'all') {
+        matchYear = true;
+      } else if (yearMode === 'foundational') {
         // Authoritative signal: requirement_key is in the foundational set.
         // Tolerate stray document_year values (pre-4b.3 data).
         matchYear = !!doc.requirement_key && foundationalKeySet.has(doc.requirement_key);
@@ -204,11 +206,13 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
           {documents.length === 0
             ? (fr ? 'Aucun document' : 'No documents')
             : `${filtered.length} document${filtered.length !== 1 ? 's' : ''}${
-                yearMode === 'foundational'
-                  ? ` · ${fr ? 'Documents fondateurs' : 'Foundational documents'}`
-                  : yearMode === 'unclassified'
-                    ? ` · ${fr ? 'Non classé' : 'Unclassified'}`
-                    : activeYear ? ` · ${activeYear}` : ''
+                yearMode === 'all'
+                  ? ` · ${fr ? 'Tous les exercices' : 'All fiscal years'}`
+                  : yearMode === 'foundational'
+                    ? ` · ${fr ? 'Documents fondateurs' : 'Foundational documents'}`
+                    : yearMode === 'unclassified'
+                      ? ` · ${fr ? 'Non classé' : 'Unclassified'}`
+                      : activeYear ? ` · ${activeYear}` : ''
               }`}
         </p>
       </div>

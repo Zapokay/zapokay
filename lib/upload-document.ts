@@ -11,8 +11,14 @@
  *   5. On DB failure, roll back the storage object
  *   6. Log 'document_uploaded' activity on success
  *
- * This helper deliberately takes a `SupabaseClient` so it stays runtime-agnostic
- * (works with both browser and server clients).
+ * Runtime: although this helper accepts a generic `SupabaseClient` and could in
+ * principle run on the server, every current caller passes a *browser* client.
+ * The PDF magic-number gate below is therefore client-side defense-in-depth,
+ * NOT server-side enforcement — it catches misnamed files that slip past the
+ * HTML `accept` attribute and the MIME-string check in UploadZone, but a
+ * motivated user can still bypass it. True server-side validation would require
+ * an API-route layer or Supabase Storage RLS / Edge-Function hooks — both out
+ * of scope as of May 2026.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -79,6 +85,18 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     framework,
     requirements,
   } = params;
+
+  // Layer C: PDF magic-number gate (defense-in-depth — see docstring).
+  // PDF files start with the bytes 0x25 0x50 0x44 0x46 ('%PDF').
+  const headBytes = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+  const isPdf =
+    headBytes[0] === 0x25 &&
+    headBytes[1] === 0x50 &&
+    headBytes[2] === 0x44 &&
+    headBytes[3] === 0x46;
+  if (!isPdf) {
+    return { ok: false, error: 'NON_PDF_REJECTED' };
+  }
 
   // 1. Sanitize filename + build storage key.
   const safeName = toStorageSafeName(file.name);

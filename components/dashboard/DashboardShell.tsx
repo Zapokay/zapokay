@@ -270,15 +270,8 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
             </div>
           </div>
 
-          {/* Right: search + YearPicker (compliance/documents only) + CTA conditionnel + lang toggle */}
+          {/* Right: YearPicker (compliance/documents only) + lang toggle */}
           <div className="topbar-right">
-            <input
-              type="text"
-              placeholder={fr ? 'Rechercher...' : 'Search...'}
-              className="hidden md:block w-48 px-3 py-1.5 rounded-lg text-sm text-[var(--text-body)] placeholder:text-[var(--text-muted)] border border-[var(--tb-border)] outline-none focus:border-[var(--input-border-focus)]"
-              style={{ background: 'var(--tb-search-bg)' }}
-            />
-
             {fiscalYears !== undefined && fiscalYears.length > 0 && (
               <YearPicker
                 locale={locale}
@@ -286,14 +279,6 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
                 includeFoundationalOption={yearPickerIncludeFoundational}
                 includeUnclassifiedOption={yearPickerIncludeUnclassified}
               />
-            )}
-
-            {!pathname.includes('/compliance') && !pathname.includes('/settings') && !pathname.includes('/directors') && !pathname.includes('/officers') && !pathname.includes('/shareholders') && !pathname.includes('/minute-book') && (
-              <button className="bg-[var(--amber-400)] text-[var(--navy-900)] font-semibold text-sm px-4 py-2 rounded-lg hover:bg-[var(--spark-400)] transition-colors whitespace-nowrap">
-                {pathname.includes('/documents')
-                  ? `⚡ ${fr ? 'Ajouter' : 'Add'}`
-                  : `⚡ ${fr ? 'Nouvelle résolution' : 'New resolution'}`}
-              </button>
             )}
 
             <button

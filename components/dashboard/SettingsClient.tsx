@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Lock } from 'lucide-react'
+import { Info, Lock } from 'lucide-react'
 import { logActivity } from '@/lib/activity-log'
+import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
 
 const MONTHS_FR = [
   'Janvier','Février','Mars','Avril','Mai','Juin',
@@ -72,6 +73,7 @@ export function SettingsClient({
   const [lang, setLang] = useState(initialLang)
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [showLangTooltip, setShowLangTooltip] = useState(false)
 
   // ── Company state ──────────────────────────────────────────────────────────
   const [legalName, setLegalName] = useState(initialLegalName)
@@ -301,9 +303,26 @@ export function SettingsClient({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              {fr ? 'Langue préférée' : 'Preferred language'}
-            </label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-muted)]">
+                {fr ? 'Langue préférée' : 'Preferred language'}
+              </label>
+              <button
+                type="button"
+                onMouseEnter={() => setShowLangTooltip(true)}
+                onMouseLeave={() => setShowLangTooltip(false)}
+                className="relative rounded-full p-0.5 text-[var(--text-muted)] hover:text-[var(--text-body)] flex-shrink-0"
+              >
+                <Info className="h-3.5 w-3.5" />
+                {showLangTooltip && (
+                  <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs font-normal text-[var(--text-body)] shadow-lg">
+                    {fr
+                      ? "Cette langue est utilisée pour générer les nouveaux documents (PDF). Pour changer la langue de l'interface, utilisez le sélecteur en haut à droite. Les deux paramètres sont indépendants."
+                      : 'This language is used to generate new documents (PDF). To change the interface language, use the selector at the top right. The two settings are independent.'}
+                  </div>
+                )}
+              </button>
+            </div>
             <select value={lang} onChange={e => setLang(e.target.value)} className={selectClass}>
               <option value="fr">Français</option>
               <option value="en">English</option>
@@ -677,7 +696,7 @@ export function SettingsClient({
                       className="text-sm font-semibold"
                       style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text-heading)' }}
                     >
-                      {fr ? `Exercice ${year}` : `Fiscal Year ${year}`}
+                      {getFiscalYearLabel(year, locale)}
                     </span>
                     {hasDoc && (
                       <span style={{

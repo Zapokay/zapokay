@@ -5,6 +5,7 @@ import { Info, CheckCircle2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { uploadDocument } from '@/lib/upload-document';
 import { useToasts } from '@/components/ui/Toasts';
+import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import BinderView from '@/components/minute-book/BinderView';
 import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
@@ -171,9 +172,6 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
     }
   }
 
-  const getFiscalYearLabel = (year: number): string =>
-    fr ? `Exercice ${year}` : `Fiscal Year ${year}`;
-
   return (
     <div>
       {/* Page heading — always visible above tabs */}
@@ -307,7 +305,7 @@ export default function MinuteBookPage({ locale, companyId, framework, preferred
               {sortedYears.map((year) => (
                 <RequirementSection
                   key={year}
-                  title={getFiscalYearLabel(year)}
+                  title={getFiscalYearLabel(year, locale)}
                   items={annualItemsByYear[year]}
                   companyId={companyId}
                   onFileSelected={handleFileSelected}

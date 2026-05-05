@@ -1,8 +1,10 @@
 'use client';
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import { uploadDocument } from '@/lib/upload-document';
+import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 
 interface UploadZoneProps {
   companyId: string;
@@ -36,21 +38,22 @@ const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 
 export function UploadZone({ companyId, framework, locale, activeFiscalYears = [], onUploadComplete, onError, preferredLanguage = 'fr' }: UploadZoneProps) {
   const fr = locale === 'fr';
-  const currentYear = new Date().getFullYear();
   const [step, setStep] = useState<UploadStep>('idle');
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
+  const [showPdfModal, setShowPdfModal] = useState(false);
   const [title, setTitle] = useState('');
   // True once the user has manually edited the title — protects against
   // cascade overwrites (e.g. annual fiscal-year tweaks re-generating the suffix).
   const [titleDirty, setTitleDirty] = useState(false);
   const [docType, setDocType] = useState('autre');
   const [language, setLanguage] = useState<string>(preferredLanguage);
-  const [docYear, setDocYear] = useState<number | ''>(
-    activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? ''
-  );
+  // Default to '' ("— No fiscal year —") so the corresponds-to filter (Item 7)
+  // shows ALL annual reqs across all years until the user explicitly picks a year.
+  // Matches the bundle philosophy of "all by default, filter on action".
+  const [docYear, setDocYear] = useState<number | ''>('');
   const [requirementKey, setRequirementKey] = useState<string | null>(null);
   const [requirementYear, setRequirementYear] = useState<number | null>(null);
   const [requirements, setRequirements] = useState<ChecklistItem[]>([]);
@@ -68,6 +71,15 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
     : null;
   const isFoundational = selectedReq?.category === 'foundational';
 
+  // Item 7: filter corresponds-to options by selected fiscal year.
+  // Foundational requirements are year-agnostic — always shown.
+  // Annual requirements: only when req.year matches docYear, or docYear is empty (no filter).
+  // Note: when requirementKey is set, FY selector is disabled (L360) — so filteredRequirements
+  // can't drop the currently-selected option mid-flow.
+  const filteredRequirements = requirements.filter(
+    req => req.category === 'foundational' || docYear === '' || req.year === docYear,
+  );
+
   // Cascade effect — fires on requirement change (or once `requirements` loads).
   // Sets document_type, title (for foundational), and docYear based on category.
   // Title suffix for annual is handled in the docYear-dependent effect below.
@@ -79,10 +91,8 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
     setTitleDirty(false);
 
     if (!selectedReq) {
-      // Cleared: lift locks; restore docYear default if currently empty.
-      setDocYear(prev =>
-        prev === '' ? (activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? '') : prev,
-      );
+      // Cleared: lift locks. docYear is preserved as-is — fresh-open default is
+      // '' (set in useState init), and a user who picked a year manually keeps it.
       return;
     }
 
@@ -127,10 +137,20 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
       .catch(() => {/* non-fatal */});
   }, []);
 
+  // Close the PDF-only educational modal on Escape — mirrors the affordance
+  // offered by the click-outside backdrop.
+  useEffect(() => {
+    if (!showPdfModal) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowPdfModal(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showPdfModal]);
+
   function validateFile(f: File): string | null {
-    if (f.type !== 'application/pdf') {
-      return fr ? 'Seuls les fichiers PDF sont acceptés.' : 'Only PDF files are accepted.';
-    }
+    // PDF gate is handled in pickFile() so it can route to the educational modal
+    // (setShowPdfModal) instead of the generic inline error.
     if (f.size > MAX_SIZE) {
       return fr ? 'Le fichier dépasse 20 Mo.' : 'File exceeds 20 MB.';
     }
@@ -138,6 +158,11 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
   }
 
   function pickFile(f: File) {
+    // Layer A/B PDF gate — open the educational modal instead of inline error.
+    if (f.type !== 'application/pdf') {
+      setShowPdfModal(true);
+      return;
+    }
     const err = validateFile(f);
     if (err) { setError(err); return; }
     setError('');
@@ -193,6 +218,13 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
     });
 
     if (!result.ok) {
+      // Layer C magic-number rejection from lib/upload-document — route to the
+      // same educational modal the client-side gates use (cf. pickFile).
+      if (result.error === 'NON_PDF_REJECTED') {
+        setShowPdfModal(true);
+        setStep('selected');
+        return;
+      }
       const msg = fr
         ? "Erreur lors de l'envoi du fichier."
         : 'Error uploading file.';
@@ -212,7 +244,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
       setTitleDirty(false);
       setDocType('autre');
       setLanguage(preferredLanguage);
-      setDocYear(activeFiscalYears.includes(currentYear) ? currentYear : activeFiscalYears[0] ?? '');
+      setDocYear('');
       setProgress(0);
       if (inputRef.current) inputRef.current.value = '';
       onUploadComplete();
@@ -228,6 +260,49 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
     setProgress(0);
     if (inputRef.current) inputRef.current.value = '';
   }
+
+  // PDF-only educational modal — portaled to document.body to match the project
+  // convention used by BulkCatchUpModal and DueDiligenceModal. Declared once
+  // here, referenced from each of the three return paths so all steps can show it.
+  const pdfModalElement =
+    showPdfModal && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            onClick={(e) => { e.stopPropagation(); setShowPdfModal(false); }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              className="bg-[var(--card-bg)] rounded-xl max-w-md w-full p-6 shadow-2xl"
+            >
+              <h3 className="text-base font-semibold text-[var(--text-body)] mb-3">
+                {fr ? 'Format PDF requis' : 'PDF format required'}
+              </h3>
+              <div className="space-y-3 text-sm text-[var(--text-body)]">
+                <p>
+                  {fr
+                    ? "Les documents de votre livre de minutes doivent être en format PDF pour assurer la lisibilité à long terme, l'intégrité des archives et la conformité légale. D'autres formats (.docx, .pages, images) ne peuvent pas être acceptés."
+                    : 'Documents in your minute book must be PDFs to ensure long-term legibility, archive integrity, and legal compliance. Other formats (.docx, .pages, images) cannot be accepted.'}
+                </p>
+                <p>
+                  {fr
+                    ? 'Pour convertir : ouvrez votre document et utilisez «\u00A0Enregistrer au format PDF\u00A0» ou «\u00A0Imprimer en PDF\u00A0».'
+                    : "To convert: open your document and use 'Save as PDF' or 'Print to PDF'."}
+                </p>
+              </div>
+              <div className="flex justify-end mt-5">
+                <button
+                  onClick={() => setShowPdfModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--navy-600)] text-white hover:bg-[var(--navy-800)] transition-colors"
+                >
+                  {fr ? 'Compris' : 'Got it'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   /* ── Idle: drop zone ─────────────────────────────────── */
   if (step === 'idle') {
@@ -266,6 +341,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
           className="hidden"
           onChange={handleFileInput}
         />
+        {pdfModalElement}
       </div>
     );
   }
@@ -362,7 +438,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
                 <option value="">{fr ? '— Aucun exercice —' : '— No fiscal year —'}</option>
                 {activeFiscalYears.map(y => (
                   <option key={y} value={y}>
-                    {fr ? `Exercice ${y}` : `Fiscal Year ${y}`}
+                    {getFiscalYearLabel(y, locale)}
                   </option>
                 ))}
               </select>
@@ -393,7 +469,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
                 <option value="">
                   {fr ? 'Sélectionner un document requis (optionnel)' : 'Select a required document (optional)'}
                 </option>
-                {requirements.map(req => (
+                {filteredRequirements.map(req => (
                   <option
                     key={`${req.requirement_key}-${req.year ?? 'f'}`}
                     value={`${req.requirement_key}|${req.year ?? ''}`}
@@ -423,6 +499,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
             {fr ? 'Ajouter au coffre-fort' : 'Add to vault'}
           </button>
         </div>
+        {pdfModalElement}
       </div>
     );
   }
@@ -457,6 +534,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
           style={{ width: `${progress}%`, background: 'var(--amber-400)' }}
         />
       </div>
+      {pdfModalElement}
     </div>
   );
 }

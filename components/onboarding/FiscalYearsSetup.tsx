@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { computeDefaultActiveYears } from '@/lib/active-years'
+import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
 
 interface FiscalYearsSetupProps {
   locale: string
@@ -317,7 +318,7 @@ export function FiscalYearsSetup({
                           )}
                         </div>
                         <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '14px', color: 'var(--text-heading)' }}>
-                          {fr ? `Exercice ${year}` : `Fiscal Year ${year}`}
+                          {getFiscalYearLabel(year, locale)}
                         </span>
                         {isCurrent && (
                           <span style={{
