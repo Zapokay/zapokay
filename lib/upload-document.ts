@@ -149,13 +149,16 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
 
   // 5. Activity log (non-fatal if it fails).
   try {
+    const trimmedTitle = title.trim();
+    const fySuffixFr = docYear !== null ? ` — Exercice ${docYear}` : '';
+    const fySuffixEn = docYear !== null ? ` — Fiscal Year ${docYear}` : '';
     await logActivity(
       supabase,
       companyId,
       userId,
       'document_uploaded',
-      `Document téléversé : ${title.trim()}`,
-      `Document uploaded: ${title.trim()}`,
+      `Document téléversé : ${trimmedTitle}${fySuffixFr}`,
+      `Document uploaded: ${trimmedTitle}${fySuffixEn}`,
       { document_id: insertedDoc.id, document_type: docType }
     );
   } catch (logErr) {

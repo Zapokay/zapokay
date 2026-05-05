@@ -442,11 +442,12 @@
   },
   "activity": {
     "pageTitle": "Historique des activités",
-    "tooltip": "Journal chronologique de toutes les actions effectuées sur votre société. Ce registre est immuable et ne peut être modifié.",
+    "tooltip": "Journal chronologique des actions effectuées sur votre société. Ce registre est immuable et ne peut être modifié.",
     "empty": "Aucun événement enregistré pour le moment.",
     "loadMore": "Charger plus ↓",
     "loading": "Chargement…",
     "today": "Aujourd'hui",
-    "yesterday": "Hier"
+    "yesterday": "Hier",
+    "eventsCount": "{count, plural, =0 {Aucun événement enregistré} =1 {1 événement enregistré} other {# événements enregistrés}}"
   }
 }

@@ -442,11 +442,12 @@
   },
   "activity": {
     "pageTitle": "Activity History",
-    "tooltip": "Chronological log of all actions performed on your company. This log is immutable and cannot be modified.",
+    "tooltip": "Chronological log of actions performed on your company. This log is immutable and cannot be modified.",
     "empty": "No events recorded yet.",
     "loadMore": "Load more ↓",
     "loading": "Loading…",
     "today": "Today",
-    "yesterday": "Yesterday"
+    "yesterday": "Yesterday",
+    "eventsCount": "{count, plural, =0 {No events recorded} =1 {1 event recorded} other {# events recorded}}"
   }
 }

@@ -5,20 +5,26 @@ import ActivityRow from './ActivityRow'
 interface Event {
   id: string
   title_fr: string
+  title_en: string
   created_at: string
 }
 
 interface ActivityGroupProps {
   label: string
   events: Event[]
+  locale: string
 }
 
-function formatTime(dateStr: string) {
+function formatTime(dateStr: string, locale: string) {
   const d = new Date(dateStr)
-  return d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return d.toLocaleTimeString(locale === 'en' ? 'en-CA' : 'fr-CA', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
-export default function ActivityGroup({ label, events }: ActivityGroupProps) {
+export default function ActivityGroup({ label, events, locale }: ActivityGroupProps) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-2">
@@ -29,8 +35,8 @@ export default function ActivityGroup({ label, events }: ActivityGroupProps) {
         {events.map((event) => (
           <ActivityRow
             key={event.id}
-            time={formatTime(event.created_at)}
-            titleFr={event.title_fr}
+            time={formatTime(event.created_at, locale)}
+            title={locale === 'en' ? event.title_en : event.title_fr}
           />
         ))}
       </div>

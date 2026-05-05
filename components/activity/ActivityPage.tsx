@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Info } from 'lucide-react'
 import ActivityGroup from './ActivityGroup'
 
@@ -18,7 +19,12 @@ interface GroupedEvents {
   events: Event[]
 }
 
-function getDateLabel(dateStr: string): string {
+function getDateLabel(
+  dateStr: string,
+  locale: string,
+  todayLabel: string,
+  yesterdayLabel: string
+): string {
   const d = new Date(dateStr)
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -27,20 +33,25 @@ function getDateLabel(dateStr: string): string {
 
   const eventDate = new Date(d.getFullYear(), d.getMonth(), d.getDate())
 
-  if (eventDate.getTime() === today.getTime()) return "Aujourd'hui"
-  if (eventDate.getTime() === yesterday.getTime()) return 'Hier'
+  if (eventDate.getTime() === today.getTime()) return todayLabel
+  if (eventDate.getTime() === yesterday.getTime()) return yesterdayLabel
 
-  return d.toLocaleDateString('fr-CA', {
+  return d.toLocaleDateString(locale === 'en' ? 'en-CA' : 'fr-CA', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   })
 }
 
-function groupByDate(events: Event[]): GroupedEvents[] {
+function groupByDate(
+  events: Event[],
+  locale: string,
+  todayLabel: string,
+  yesterdayLabel: string
+): GroupedEvents[] {
   const map = new Map<string, Event[]>()
   for (const event of events) {
-    const label = getDateLabel(event.created_at)
+    const label = getDateLabel(event.created_at, locale, todayLabel, yesterdayLabel)
     if (!map.has(label)) map.set(label, [])
     map.get(label)!.push(event)
   }
@@ -50,6 +61,8 @@ function groupByDate(events: Event[]): GroupedEvents[] {
 const PAGE_SIZE = 50
 
 export default function ActivityPage() {
+  const t = useTranslations('activity')
+  const locale = useLocale()
   const [events, setEvents] = useState<Event[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -84,7 +97,7 @@ export default function ActivityPage() {
     )
   }
 
-  const groups = groupByDate(events)
+  const groups = groupByDate(events, locale, t('today'), t('yesterday'))
   const hasMore = events.length < total
 
   return (
@@ -93,7 +106,7 @@ export default function ActivityPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
-            Historique des activités
+            {t('pageTitle')}
           </h1>
           <button
             onMouseEnter={() => setShowTooltip(true)}
@@ -103,20 +116,19 @@ export default function ActivityPage() {
             <Info className="w-4 h-4" />
             {showTooltip && (
               <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs text-[var(--text-body)] shadow-lg">
-                Journal chronologique de toutes les actions effectuées sur votre
-                société. Ce registre est immuable et ne peut être modifié.
+                {t('tooltip')}
               </div>
             )}
           </button>
         </div>
         <p className="text-sm text-[var(--text-muted)] mt-1">
-          {total} événement{total !== 1 ? 's' : ''} enregistré{total !== 1 ? 's' : ''}
+          {t('eventsCount', { count: total })}
         </p>
       </div>
 
       {events.length === 0 ? (
         <p className="text-center text-[var(--text-muted)] italic py-12">
-          Aucun événement enregistré pour le moment.
+          {t('empty')}
         </p>
       ) : (
         <div className="space-y-6">
@@ -125,6 +137,7 @@ export default function ActivityPage() {
               key={group.label}
               label={group.label}
               events={group.events}
+              locale={locale}
             />
           ))}
         </div>
@@ -137,7 +150,7 @@ export default function ActivityPage() {
             disabled={loadingMore}
             className="px-5 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--text-body)] hover:bg-[var(--card-bg)] transition-colors disabled:opacity-50"
           >
-            {loadingMore ? 'Chargement…' : 'Charger plus ↓'}
+            {loadingMore ? t('loading') : t('loadMore')}
           </button>
         </div>
       )}

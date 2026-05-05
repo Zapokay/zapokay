@@ -271,13 +271,15 @@ export async function generatePdfDocument(
   }
 
   // 10. Activity log — same event shape as the wizard emits today.
+  const fySuffixFr = !isFoundational && effectiveYear ? ` — Exercice ${effectiveYear}` : '';
+  const fySuffixEn = !isFoundational && effectiveYear ? ` — Fiscal Year ${effectiveYear}` : '';
   await logActivity(
     supabaseAdmin,
     companyId,
     userId,
     'document_generated',
-    `Document généré : ${documentTitle}`,
-    `Document generated: ${documentTitle}`,
+    `Document généré : ${documentTitle}${fySuffixFr}`,
+    `Document generated: ${documentTitle}${fySuffixEn}`,
     { document_id: document.id },
   );
 
