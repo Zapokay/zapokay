@@ -40,6 +40,8 @@ type NavGroup = {
   items: NavItem[];
 };
 
+// FR/EN inline: matches existing DashboardShell sidebar pattern.
+// Full sidebar i18n migration to useTranslations() tracked separately.
 const navGroups: NavGroup[] = [
   {
     groupKeyFr: 'ENTREPRISE',
@@ -52,11 +54,12 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    groupKeyFr: 'DOCUMENTS',
-    groupKeyEn: 'DOCUMENTS',
+    groupKeyFr: 'LIVRE DE MINUTES',
+    groupKeyEn: 'MINUTE BOOK',
     items: [
-      { key: 'documents',   icon: <DuotoneFileText />,      labelFr: 'Documents',        labelEn: 'Documents',    href: 'documents' },
-      { key: 'minute-book', icon: <DuotoneBookOpen />,      labelFr: 'Livre de minutes', labelEn: 'Minute Book',  href: 'minute-book' },
+      { key: 'documents',    icon: <DuotoneFileText />,        labelFr: 'Documents',  labelEn: 'Documents',    href: 'minute-book/documents' },
+      { key: 'completeness', icon: <DuotoneClipboardCheck />,  labelFr: 'Complétude', labelEn: 'Completeness', href: 'minute-book/completeness' },
+      { key: 'binder',       icon: <DuotoneBookOpen />,        labelFr: 'Livre',      labelEn: 'Binder',       href: 'minute-book/binder' },
     ],
   },
   {
@@ -84,8 +87,9 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
   }
 
   function getPageTitle() {
-    if (pathname.includes('/dashboard/documents')) return fr ? 'Documents' : 'Documents';
-    if (pathname.includes('/dashboard/minute-book')) return fr ? 'Livre de minutes' : 'Minute Book';
+    if (pathname.includes('/dashboard/minute-book/documents'))    return fr ? 'Documents'  : 'Documents';
+    if (pathname.includes('/dashboard/minute-book/completeness')) return fr ? 'Complétude' : 'Completeness';
+    if (pathname.includes('/dashboard/minute-book/binder'))       return fr ? 'Livre'      : 'Binder';
     if (pathname.includes('/dashboard/settings')) return fr ? 'Paramètres' : 'Settings';
     if (pathname.includes('/dashboard/directors')) return fr ? 'Administrateurs' : 'Directors';
     if (pathname.includes('/dashboard/officers')) return fr ? 'Dirigeants' : 'Officers';
@@ -167,7 +171,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
                           {item.icon}
                         </span>
                         <span className="flex-1">{fr ? item.labelFr : item.labelEn}</span>
-                        {item.key === 'minute-book' && urgentCount > 0 && (
+                        {item.key === 'completeness' && urgentCount > 0 && (
                           <span
                             className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
                             style={{ backgroundColor: '#C9A5A5', color: '#6B1E1E' }}

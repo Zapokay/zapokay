@@ -317,7 +317,7 @@ export default async function DashboardPage({
                           </div>
                           {!isCurrent && entry.status !== 'complete' && (
                             <Link
-                              href={`/${locale}/dashboard/minute-book`}
+                              href={`/${locale}/dashboard/minute-book/completeness`}
                               className="text-[10px] font-semibold no-underline px-2 py-0.5 rounded"
                               style={{ backgroundColor: 'var(--amber-400)', color: 'var(--navy-900)' }}
                             >
@@ -400,7 +400,7 @@ export default async function DashboardPage({
 
             return (
               <Link
-                href={`/${locale}/dashboard/minute-book`}
+                href={`/${locale}/dashboard/minute-book/completeness`}
                 className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md hover:bg-[var(--hover)] hover:border-[var(--card-hover-border)] transition-colors block"
                 style={{ textDecoration: 'none', color: 'inherit' }}
               >
@@ -470,7 +470,7 @@ export default async function DashboardPage({
                   {fr ? 'Documents récents' : 'Recent documents'}
                 </h2>
                 <Link
-                  href={`/${locale}/dashboard/documents`}
+                  href={`/${locale}/dashboard/minute-book/documents`}
                   className="text-xs font-medium text-[var(--text-link)] hover:underline"
                 >
                   {fr ? 'Voir tout →' : 'View all →'}
@@ -483,7 +483,7 @@ export default async function DashboardPage({
                     {fr ? "Aucun document pour l'instant." : 'No documents yet.'}
                   </p>
                   <Link
-                    href={`/${locale}/dashboard/documents`}
+                    href={`/${locale}/dashboard/minute-book/documents`}
                     className="inline-block mt-3 text-sm font-medium text-[var(--text-link)] hover:underline"
                   >
                     {fr ? 'Ajouter votre premier document →' : 'Add your first document →'}
@@ -494,7 +494,7 @@ export default async function DashboardPage({
                   {recentDocs.map((doc, i) => (
                     <Link
                       key={doc.id}
-                      href={`/${locale}/dashboard/documents`}
+                      href={`/${locale}/dashboard/minute-book/documents`}
                       className={`flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-[var(--page-bg)] transition-colors ${
                         i < recentDocs.length - 1 ? 'border-b border-[var(--card-border)]' : ''
                       }`}
@@ -533,7 +533,7 @@ export default async function DashboardPage({
                   {fr ? `Actions requises (${actionCount})` : `Required actions (${actionCount})`}
                 </h2>
                 <Link
-                  href={`/${locale}/dashboard/minute-book`}
+                  href={`/${locale}/dashboard/minute-book/completeness`}
                   className="text-xs font-medium text-[var(--text-link)] hover:underline"
                 >
                   {fr ? 'Voir tout →' : 'View all →'}
@@ -606,7 +606,7 @@ export default async function DashboardPage({
                       : <><LegalTerm termKey={frameworkLabel === 'CBCA' ? 'cbca' : 'lsaq'} lang="en" /> Compliance</>}
                   </h2>
                   <Link
-                    href={`/${locale}/dashboard/minute-book`}
+                    href={`/${locale}/dashboard/minute-book/completeness`}
                     className="text-xs font-medium text-[var(--text-link)] hover:underline"
                   >
                     {fr ? 'Détails →' : 'Details →'}

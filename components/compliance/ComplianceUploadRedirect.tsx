@@ -15,7 +15,7 @@ export default function ComplianceUploadRedirect({
 
   return (
     <button
-      onClick={() => router.push(`/${locale}/dashboard/documents`)}
+      onClick={() => router.push(`/${locale}/dashboard/minute-book/documents`)}
       className="w-full sm:w-auto px-6 py-3 rounded-lg font-semibold text-sm transition-opacity hover:opacity-90"
       style={{
         backgroundColor: '#F5B91E',

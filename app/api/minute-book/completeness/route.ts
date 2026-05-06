@@ -104,7 +104,7 @@ export async function GET() {
 
     // 4. Compute endDate per fiscal year (resolution date stamped on PDFs
     // generated via Bulk Catch-Up). Year labels are now derived from `year`
-    // alone — see getFiscalYearLabel in MinuteBookPage.
+    // alone — see getFiscalYearLabel in lib/fiscal-year-label.ts.
     const fyFormatted = (fiscalYears || []).map((fy: { year: number }) => ({
       year: fy.year,
       endDate: `${fy.year}-${pad2(fyEndMonth)}-${pad2(fyEndDay)}`,

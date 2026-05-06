@@ -72,7 +72,7 @@ export default function MinuteBookCard() {
           </div>
 
           <Link
-            href={`/${locale}/dashboard/minute-book`}
+            href={`/${locale}/dashboard/minute-book/completeness`}
             className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[var(--text-link)] hover:underline"
           >
             Voir les détails

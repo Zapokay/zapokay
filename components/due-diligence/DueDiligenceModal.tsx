@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -128,6 +129,7 @@ export default function DueDiligenceModal({
   onScrollToRequirement,
 }: DueDiligenceModalProps) {
   const router = useRouter();
+  const locale = useLocale();
   const [status, setStatus] = useState<DueDiligenceStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -214,7 +216,7 @@ export default function DueDiligenceModal({
     if (onScrollToRequirement) {
       onScrollToRequirement(key);
     } else {
-      router.push(`/dashboard/minute-book#${key}`);
+      router.push(`/${locale}/dashboard/minute-book/completeness#${key}`);
     }
   }
 
@@ -339,7 +341,7 @@ export default function DueDiligenceModal({
                   className="dd-btn dd-btn--amber"
                   onClick={() => {
                     onClose();
-                    router.push('/dashboard/minute-book');
+                    router.push(`/${locale}/dashboard/minute-book/completeness`);
                   }}
                   type="button"
                 >

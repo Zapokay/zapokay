@@ -274,7 +274,7 @@ export function ComplianceClient({
             {t.emptyDescription}
           </p>
           <Link
-            href={`/${locale}/dashboard/documents`}
+            href={`/${locale}/dashboard/minute-book/documents`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               padding: '10px 20px', borderRadius: '8px',

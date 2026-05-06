@@ -230,7 +230,7 @@ export function GapAnalysisPanel({ companyId, locale }: GapAnalysisPanelProps) {
 
           {/* CTA */}
           <Link
-            href={`/${locale}/dashboard/minute-book`}
+            href={`/${locale}/dashboard/minute-book/completeness`}
             style={{
               display: 'block', textAlign: 'center',
               padding: '10px 16px', borderRadius: '8px',
