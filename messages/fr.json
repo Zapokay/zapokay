@@ -385,6 +385,23 @@
       "registres": "3 registres",
       "yearSuffix": "(Exercice {year})"
     },
+    "binderExport": {
+      "title": "Exporter le livre de minutes",
+      "closeAriaLabel": "Fermer la fenêtre",
+      "loading": "Chargement…",
+      "countSummary": "{count, plural, =0 {Aucun document signé n'est encore disponible.} =1 {1 document sera inclus dans cet export.} other {# documents seront inclus dans cet export.}}",
+      "emptySectionsNote": "Certaines sections ne contiennent aucun document signé pour le moment.",
+      "cta": {
+        "cancel": "Annuler",
+        "export": "Exporter",
+        "exporting": "Exportation…"
+      },
+      "errors": {
+        "loadFailed": "Impossible de charger les données du livre. Veuillez réessayer.",
+        "exportFailed": "L'export a échoué. Veuillez réessayer.",
+        "retry": "Réessayer"
+      }
+    },
     "registers": {
       "directors": "Registre des administrateurs",
       "officers": "Registre des dirigeants",

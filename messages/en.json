@@ -385,6 +385,23 @@
       "registres": "3 registers",
       "yearSuffix": "(Fiscal Year {year})"
     },
+    "binderExport": {
+      "title": "Export Minute Book",
+      "closeAriaLabel": "Close dialog",
+      "loading": "Loading…",
+      "countSummary": "{count, plural, =0 {No signed documents available yet.} =1 {1 document will be included in this export.} other {# documents will be included in this export.}}",
+      "emptySectionsNote": "Some sections do not yet contain signed documents.",
+      "cta": {
+        "cancel": "Cancel",
+        "export": "Export",
+        "exporting": "Exporting…"
+      },
+      "errors": {
+        "loadFailed": "Unable to load minute book data. Please try again.",
+        "exportFailed": "Export failed. Please try again.",
+        "retry": "Retry"
+      }
+    },
     "registers": {
       "directors": "Director Register",
       "officers": "Officer Register",
