@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
+import { filePathFromFileUrl } from '@/lib/storage-path';
 
 /* ------------------------------------------------------------------ */
 /*  Section mapping                                                    */
@@ -75,6 +76,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const scopeParam = searchParams.get('scope') ?? 'all';
+    if (scopeParam !== 'all' && scopeParam !== 'finalized') {
+      return NextResponse.json(
+        { error: 'Invalid scope. Allowed values: all, finalized.' },
+        { status: 400 }
+      );
+    }
+    const scope = scopeParam as 'all' | 'finalized';
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -103,11 +113,17 @@ export async function GET(request: NextRequest) {
 
     /* ---------- Charger les documents actifs ---------- */
 
-    const { data: documents, error: docsError } = await supabase
+    let documentsQuery = supabase
       .from('documents')
-      .select('id, document_type, title, file_name, storage_path')
+      .select('id, document_type, title, file_name, file_url')
       .eq('company_id', companyId)
       .eq('status', 'active');
+
+    if (scope === 'finalized') {
+      documentsQuery = documentsQuery.eq('is_finalized', true);
+    }
+
+    const { data: documents, error: docsError } = await documentsQuery;
 
     if (docsError) {
       console.error('Documents fetch error:', docsError);
@@ -143,13 +159,20 @@ export async function GET(request: NextRequest) {
       // Compteur par section
       sectionCounts[section.label] = (sectionCounts[section.label] ?? 0) + 1;
 
+      // Normaliser file_url (legacy: full public URL ou clé relative) → clé relative.
+      const storagePath = filePathFromFileUrl(doc.file_url);
+      if (!storagePath) {
+        console.error(`Cannot resolve storage path for doc ${doc.id}`);
+        continue;
+      }
+
       // Télécharger le fichier depuis Supabase Storage
       const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('documents')
-        .createSignedUrl(doc.storage_path, 60); // 60 secondes
+        .createSignedUrl(storagePath, 60); // 60 secondes
 
       if (signedUrlError || !signedUrlData?.signedUrl) {
-        console.error(`Signed URL error for ${doc.storage_path}:`, signedUrlError);
+        console.error(`Signed URL error for ${storagePath}:`, signedUrlError);
         continue;
       }
 
@@ -160,7 +183,15 @@ export async function GET(request: NextRequest) {
       }
 
       const fileBuffer = await fileResponse.arrayBuffer();
-      const safeName = doc.file_name.replace(/[^a-zA-Z0-9À-ÿ._-]/g, '_');
+
+      // Suffixer doc.id pour garantir l'unicité dans la section : plusieurs
+      // documents peuvent partager le même file_name (JSZip écrase silencieusement
+      // les chemins en doublon).
+      const rawName = doc.file_name.replace(/[^a-zA-Z0-9À-ÿ._-]/g, '_');
+      const dotIdx = rawName.lastIndexOf('.');
+      const base = dotIdx === -1 ? rawName : rawName.slice(0, dotIdx);
+      const ext = dotIdx === -1 ? '' : rawName.slice(dotIdx);
+      const safeName = `${base}_${doc.id.slice(0, 8)}${ext}`;
 
       zip.file(`${section.folder}/${safeName}`, fileBuffer);
     }
