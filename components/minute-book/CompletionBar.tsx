@@ -1,10 +1,18 @@
 'use client';
 
-import { getDocumentState } from '@/lib/minute-book/state';
+import { getStateForChecklistItem } from '@/lib/minute-book/state';
 
 interface CompletionBarItem {
   satisfied: boolean;
   source?: 'uploaded' | 'generated' | null;
+  /**
+   * Phase B B5-fix — enables segment coloring to distinguish signed-final
+   * uploads (green) from WIP uploads (amber). Threaded via the API's
+   * ChecklistItem.document_is_finalized field; the field-name remap to
+   * the helper's `is_finalized` parameter is encapsulated in
+   * getStateForChecklistItem.
+   */
+  document_is_finalized?: boolean | null;
 }
 
 interface CompletionBarProps {
@@ -39,7 +47,7 @@ interface CompletionBarProps {
 export default function CompletionBar({ items, className }: CompletionBarProps) {
   if (items.length === 0) return null;
 
-  const states = items.map(getDocumentState);
+  const states = items.map(getStateForChecklistItem);
   const filledCount = states.filter((s) => s !== 'missing').length;
   const totalCount = states.length;
 

@@ -20,6 +20,16 @@ export interface ChecklistItem {
   source?: 'uploaded' | 'generated' | null
   /** Derived server-side via `requirementToDocType` — see lib/requirement-doctype.ts. */
   document_type: VaultDocType
+  /**
+   * Phase B B5 — when the row is satisfied, these surface the attached
+   * documents-table row so the client can avoid an on-demand fetch (B4
+   * destructive-replace flow) and split the badge between signed final
+   * vs WIP upload. Null/undefined when the row is unsatisfied or when the
+   * lookup found no matching document (data drift).
+   */
+  document_id?: string | null
+  document_file_url?: string | null
+  document_is_finalized?: boolean | null
 }
 
 export interface CompletenessResponse {
@@ -91,9 +101,12 @@ export async function GET() {
     }
 
     // 3. Get all company documents with requirement_key
+    //    B5: id, file_url, is_finalized surfaced on ChecklistItem so the client
+    //    can resolve the destructive-replace target without an extra round-trip
+    //    and split the row badge between signed final vs WIP upload.
     const { data: documents, error: docError } = await supabase
       .from('documents')
-      .select('requirement_key, requirement_year, source')
+      .select('id, requirement_key, requirement_year, source, file_url, is_finalized')
       .eq('company_id', company.id)
       .eq('status', 'active')
       .not('requirement_key', 'is', null)
@@ -115,7 +128,14 @@ export async function GET() {
       description_fr: string | null; description_en: string | null; section: string;
       sort_order: number; can_generate: boolean; can_upload: boolean;
     }
-    type RawDoc = { requirement_key: string; requirement_year: number | null; source: string | null }
+    type RawDoc = {
+      id: string
+      requirement_key: string
+      requirement_year: number | null
+      source: string | null
+      file_url: string | null
+      is_finalized: boolean | null
+    }
 
     // 5. Build checklist
     const foundationalReqs = (requirements || []).filter((r: RawReq) => r.category === 'foundational')
@@ -131,13 +151,17 @@ export async function GET() {
       const matchingDoc = (documents || []).find((d: RawDoc) => d.requirement_key === req.requirement_key)
       const satisfied = !!matchingDoc
       const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null
-      const state = getDocumentState({ satisfied, source })
+      const isFinalized = matchingDoc?.is_finalized ?? null
+      const state = getDocumentState({ satisfied, source, is_finalized: isFinalized })
       checklist.push({
         ...req,
         year: null,
         satisfied,
         source,
         document_type: requirementToDocType(req.requirement_key, req.section),
+        document_id: matchingDoc?.id ?? null,
+        document_file_url: matchingDoc?.file_url ?? null,
+        document_is_finalized: isFinalized,
       })
       totalRequired++
       if (state === 'téléversé') totalUploaded++
@@ -152,13 +176,17 @@ export async function GET() {
         )
         const satisfied = !!matchingDoc
         const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null
-        const state = getDocumentState({ satisfied, source })
+        const isFinalized = matchingDoc?.is_finalized ?? null
+        const state = getDocumentState({ satisfied, source, is_finalized: isFinalized })
         checklist.push({
           ...req,
           year: fy.year,
           satisfied,
           source,
           document_type: requirementToDocType(req.requirement_key, req.section),
+          document_id: matchingDoc?.id ?? null,
+          document_file_url: matchingDoc?.file_url ?? null,
+          document_is_finalized: isFinalized,
         })
         totalRequired++
         if (state === 'téléversé') totalUploaded++

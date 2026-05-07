@@ -24,6 +24,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import { toStorageSafeName } from '@/lib/storage-key';
+import { filePathFromFileUrl } from '@/lib/storage-path';
 import { logActivity } from '@/lib/activity-log';
 
 export interface UploadDocumentParams {
@@ -40,6 +41,25 @@ export interface UploadDocumentParams {
   framework: 'LSA' | 'CBCA';
   /** Requirements list from /api/minute-book/completeness — used to resolve minute_book_section. */
   requirements: ChecklistItem[];
+  /**
+   * User-certified "final and signed" flag (Phase B). When true, the document
+   * is treated as canonical for Binder views (Phase C). Defaults to false:
+   * preserves the safety property that anything uncertified is provisional.
+   */
+  isFinalized?: boolean;
+  /**
+   * Phase B B4 — when set, this is a *replace* operation: the new file is
+   * uploaded and inserted first; on success, the old documents row + its
+   * storage object are deleted. Insert-then-delete is the safer sequence —
+   * if the new upload fails, the old doc remains intact. Cleanup failures
+   * after the new doc commits are non-fatal (logged as orphans). No UNIQUE
+   * constraint on (company_id, requirement_key, document_year) was found
+   * in migrations as of 2026-05-06, so two rows briefly coexist between
+   * insert and delete; a hidden prod constraint would surface as a 23505
+   * unique_violation on insert and the helper would return ok:false with
+   * the old doc untouched.
+   */
+  replaceDocumentId?: string;
 }
 
 export type UploadResult =
@@ -84,6 +104,8 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     requirementYear,
     framework,
     requirements,
+    isFinalized = false,
+    replaceDocumentId,
   } = params;
 
   // Layer C: PDF magic-number gate (defense-in-depth — see docstring).
@@ -133,6 +155,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
       framework,
       uploaded_at: new Date().toISOString(),
       source: 'uploaded',
+      is_finalized: isFinalized,
       ...(requirementKey ? { requirement_key: requirementKey } : {}),
       ...(requirementYear !== null ? { requirement_year: requirementYear } : {}),
       ...(minuteBookSection ? { minute_book_section: minuteBookSection } : {}),
@@ -147,7 +170,64 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     return { ok: false, error: dbError?.message ?? 'Document insert failed' };
   }
 
-  // 5. Activity log (non-fatal if it fails).
+  // 5. Replace cleanup (Phase B B4) — runs only on insert success. Each step
+  //    is non-fatal: from the user's perspective the new doc is in place,
+  //    which is what matters. Orphaned rows/objects are logged for a future
+  //    sweep. See JSDoc on `replaceDocumentId` for sequence rationale.
+  if (replaceDocumentId) {
+    const { data: oldDoc, error: oldFetchErr } = await supabase
+      .from('documents')
+      .select('file_url')
+      .eq('id', replaceDocumentId)
+      .maybeSingle();
+
+    if (oldFetchErr || !oldDoc) {
+      console.error(
+        '[uploadDocument] Replace target lookup failed (orphan possible):',
+        replaceDocumentId,
+        oldFetchErr,
+      );
+    } else {
+      const { error: oldDeleteErr } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', replaceDocumentId);
+      if (oldDeleteErr) {
+        console.error(
+          '[uploadDocument] Old document row delete failed (orphan):',
+          replaceDocumentId,
+          oldDeleteErr,
+        );
+      } else if (oldDoc.file_url) {
+        // B5-edit-8 — defense-in-depth: current writers persist a relative
+        // storage key in file_url, so this normalization is a no-op in
+        // practice today. The wrap covers legacy rows that may carry a
+        // full Supabase public/signed URL (data drift) and any future
+        // producer that accidentally writes one. Symmetric with
+        // DocumentsClient.tsx vault-delete which already wraps.
+        const oldStoragePath = filePathFromFileUrl(oldDoc.file_url);
+        if (!oldStoragePath) {
+          console.warn(
+            '[uploadDocument] Old file_url could not be normalized to a storage path; skipping storage.remove (orphan possible):',
+            oldDoc.file_url,
+          );
+        } else {
+          const { error: oldStorageErr } = await supabase.storage
+            .from('documents')
+            .remove([oldStoragePath]);
+          if (oldStorageErr) {
+            console.error(
+              '[uploadDocument] Old storage object remove failed (orphan):',
+              oldStoragePath,
+              oldStorageErr,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  // 6. Activity log (non-fatal if it fails).
   try {
     const trimmedTitle = title.trim();
     const fySuffixFr = docYear !== null ? ` — Exercice ${docYear}` : '';

@@ -212,7 +212,31 @@
       "fr": "French",
       "en": "English",
       "bilingual": "Bilingual"
+    },
+    "upload": {
+      "modalTitle": "Upload a document",
+      "modalSubtitleVault": "Classify this document before adding it to the vault.",
+      "modalSubtitleRow": "Upload the signed version for: {requirement}",
+      "fiscalYear": "Fiscal Year",
+      "fiscalYearNone": "— No fiscal year —",
+      "correspondsTo": "This document corresponds to:",
+      "correspondsToOptional": "Select a required document (optional)",
+      "certify": "I certify this document is final and signed by all required parties.",
+      "certifyHelp": "Check this box if the document is final and signed. Otherwise, the document will be added to completeness as a draft.",
+      "submit": "Upload",
+      "submitting": "Uploading…",
+      "replaceWarningTitle": "Replace existing document?",
+      "replaceWarningBody": "A copy of this document is already attached to this row. Uploading this new file will make the previous copy no longer available. If you change your mind, you can regenerate a fresh template to sign using the \"Generate\" button.",
+      "replaceSubmit": "Replace"
     }
+  },
+  "requirementRow": {
+    "unsignedBadge": "Unsigned",
+    "regenerate": "Regenerate",
+    "replace": "Replace",
+    "uploadButton": "Upload",
+    "uploadingButton": "Uploading…",
+    "notAvailable": "Coming soon"
   },
   "compliance": {
     "title": "Corporate Compliance",

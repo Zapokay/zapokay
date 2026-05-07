@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { uploadDocument } from '@/lib/upload-document';
 import { useToasts } from '@/components/ui/Toasts';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
+import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import BulkCatchUpButton from '@/components/minute-book/BulkCatchUpButton';
 import BulkCatchUpModal, {
   type BulkMissingByYear,
@@ -37,6 +37,14 @@ export default function CompletenessPage({
   const [loading, setLoading] = useState(true);
   const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [pickedFile, setPickedFile] = useState<File | null>(null);
+  const [pickedItem, setPickedItem] = useState<ChecklistItem | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  // B4/B5 — when set, the modal opens in replace mode and the upload helper
+  // deletes this row + its storage object on insert success. Resolved
+  // directly off the ChecklistItem.document_id field (B5-edit-2 surfaced it
+  // server-side), replacing B4-edit-4's on-demand documents lookup.
+  const [existingDocumentId, setExistingDocumentId] = useState<string | null>(null);
   const { addToast, ToastStack } = useToasts();
 
   const fetchData = useCallback(async () => {
@@ -59,18 +67,19 @@ export default function CompletenessPage({
 
   const MAX_SIZE = 20 * 1024 * 1024; // 20 MB — matches UploadZone cap
 
-  // Row-driven silent upload. Returns true on success, false on any validation
-  // or pipeline failure. All user feedback (toast + row refresh) is owned here;
-  // the row just awaits the boolean to clear its local isUploading state.
+  // Row-driven file pickup. Validates MIME + size, looks up the row's
+  // ChecklistItem, lazy-resolves the user id, then opens UploadDocumentModal
+  // in row-mode. The modal owns the rest of the pipeline (certification gate,
+  // uploadDocument call with isFinalized=true, success/error sinks).
   const handleFileSelected = useCallback(
-    async (file: File, requirementKey: string, year: number | null): Promise<boolean> => {
+    async (file: File, requirementKey: string, year: number | null): Promise<void> => {
       if (file.type !== 'application/pdf') {
         addToast(fr ? 'Seuls les fichiers PDF sont acceptés.' : 'Only PDF files are accepted.', 'error');
-        return false;
+        return;
       }
       if (file.size > MAX_SIZE) {
         addToast(fr ? 'Le fichier dépasse 20 Mo.' : 'File exceeds 20 MB.', 'error');
-        return false;
+        return;
       }
 
       const item = data?.checklist.find(
@@ -78,48 +87,35 @@ export default function CompletenessPage({
       );
       if (!item) {
         addToast(fr ? 'Exigence introuvable.' : 'Requirement not found.', 'error');
-        return false;
+        return;
       }
-
-      const base = fr ? item.title_fr : item.title_en;
-      const title = item.category === 'annual' && year !== null ? `${base} — ${year}` : base;
 
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         addToast(fr ? 'Session expirée.' : 'Session expired.', 'error');
-        return false;
+        return;
       }
 
-      const result = await uploadDocument({
-        file,
-        companyId,
-        userId: user.id,
-        supabaseClient: supabase,
-        title,
-        docType: item.document_type,
-        language: preferredLanguage,
-        docYear: item.category === 'annual' ? year : null,
-        requirementKey,
-        requirementYear: year,
-        framework,
-        requirements: data?.checklist ?? [],
-      });
-
-      if (!result.ok) {
-        addToast(fr ? "Erreur lors de l'envoi du fichier." : 'Error uploading file.', 'error');
-        return false;
+      // B5 — read existing-document id directly off the API-extended
+      // ChecklistItem (route.ts surfaces document_id whenever satisfied=true).
+      // Defensive warn for data drift: if a row is marked satisfied but
+      // document_id is null, fall through to a non-replace upload (better
+      // to over-upload than block the user; next fetchData() reconciles).
+      const existingDocId = item.document_id ?? null;
+      if (item.satisfied && !existingDocId) {
+        console.warn(
+          '[CompletenessPage] Row marked satisfied but document_id is null; data inconsistency. Falling back to fresh upload.',
+          { requirementKey, year },
+        );
       }
 
-      const yearSuffix = item.category === 'annual' && year !== null ? ` ${year}` : '';
-      addToast(
-        fr ? `Document ajouté à « ${base} »${yearSuffix}.` : `Document added to "${base}"${yearSuffix}.`,
-        'success',
-      );
-      await fetchData();
-      return true;
+      setUserId(user.id);
+      setPickedItem(item);
+      setPickedFile(file);
+      setExistingDocumentId(existingDocId);
     },
-    [addToast, companyId, data, fetchData, fr, framework, preferredLanguage],
+    [addToast, data, fr],
   );
 
   const foundationalItems: ChecklistItem[] =
@@ -198,7 +194,7 @@ export default function CompletenessPage({
               {' · '}
               {data.totalUploaded} {fr ? 'téléversés' : 'uploaded'}
               {' · '}
-              {data.totalGenerated} {fr ? 'générés' : 'generated'}
+              {data.totalGenerated} {fr ? 'non signés' : 'unsigned'}
               {' · '}
               {data.totalMissing} {fr ? 'manquants' : 'missing'}
             </p>
@@ -216,7 +212,7 @@ export default function CompletenessPage({
                   <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
                   <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
                 </svg>
-                {fr ? 'Généré (à signer)' : 'Generated (to sign)'}
+                {fr ? 'Non signé' : 'Unsigned'}
               </span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1.5">
@@ -248,6 +244,7 @@ export default function CompletenessPage({
                 title={fr ? 'Documents fondateurs' : 'Founding documents'}
                 items={foundationalItems}
                 companyId={companyId}
+                locale={fr ? 'fr' : 'en'}
                 onFileSelected={handleFileSelected}
                 onGenerated={fetchData}
               />
@@ -259,6 +256,7 @@ export default function CompletenessPage({
                 title={getFiscalYearLabel(year, locale)}
                 items={annualItemsByYear[year]}
                 companyId={companyId}
+                locale={fr ? 'fr' : 'en'}
                 onFileSelected={handleFileSelected}
                 onGenerated={fetchData}
               />
@@ -281,6 +279,55 @@ export default function CompletenessPage({
           void fetchData();
         }}
       />
+
+      {pickedFile && pickedItem && userId && (
+        <UploadDocumentModal
+          isOpen={true}
+          file={pickedFile}
+          mode="row"
+          companyId={companyId}
+          userId={userId}
+          framework={framework}
+          locale={locale}
+          preferredLanguage={preferredLanguage}
+          prefill={{
+            requirementKey: pickedItem.requirement_key,
+            requirementYear: pickedItem.year,
+            docType: pickedItem.document_type,
+            docYear: pickedItem.category === 'annual' ? pickedItem.year : null,
+            title:
+              pickedItem.category === 'annual' && pickedItem.year !== null
+                ? `${fr ? pickedItem.title_fr : pickedItem.title_en} — ${pickedItem.year}`
+                : (fr ? pickedItem.title_fr : pickedItem.title_en),
+          }}
+          replaceDocumentId={existingDocumentId ?? undefined}
+          onClose={() => {
+            setPickedFile(null);
+            setPickedItem(null);
+            setExistingDocumentId(null);
+          }}
+          onUploadComplete={() => {
+            const base = fr ? pickedItem.title_fr : pickedItem.title_en;
+            const yearSuffix =
+              pickedItem.category === 'annual' && pickedItem.year !== null
+                ? ` ${pickedItem.year}`
+                : '';
+            const isReplace = existingDocumentId !== null;
+            addToast(
+              isReplace
+                ? (fr
+                    ? `Document remplacé pour « ${base} »${yearSuffix}.`
+                    : `Document replaced for "${base}"${yearSuffix}.`)
+                : (fr
+                    ? `Document ajouté à « ${base} »${yearSuffix}.`
+                    : `Document added to "${base}"${yearSuffix}.`),
+              'success',
+            );
+            void fetchData();
+          }}
+          onError={(msg) => addToast(msg, 'error')}
+        />
+      )}
 
       {ToastStack}
     </div>

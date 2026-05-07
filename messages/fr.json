@@ -212,7 +212,31 @@
       "fr": "Français",
       "en": "Anglais",
       "bilingual": "Bilingue"
+    },
+    "upload": {
+      "modalTitle": "Téléverser un document",
+      "modalSubtitleVault": "Classifiez ce document avant de l'ajouter au coffre-fort.",
+      "modalSubtitleRow": "Téléversez la version signée pour : {requirement}",
+      "fiscalYear": "Exercice fiscal",
+      "fiscalYearNone": "— Aucun exercice —",
+      "correspondsTo": "Ce document correspond à :",
+      "correspondsToOptional": "Sélectionner un document requis (optionnel)",
+      "certify": "Je certifie que ce document est final et signé par toutes les parties requises.",
+      "certifyHelp": "Cochez cette case si le document est final et signé. Sinon, le document sera ajouté à la complétude comme brouillon.",
+      "submit": "Téléverser",
+      "submitting": "Envoi en cours…",
+      "replaceWarningTitle": "Remplacer le document existant?",
+      "replaceWarningBody": "Une copie de ce document est déjà associée à cette ligne. En téléversant ce nouveau fichier, l'ancienne copie ne sera plus disponible. Si vous changez d'idée, vous pourrez régénérer un nouveau modèle à signer en utilisant le bouton « Générer ».",
+      "replaceSubmit": "Remplacer"
     }
+  },
+  "requirementRow": {
+    "unsignedBadge": "Non signé",
+    "regenerate": "Régénérer",
+    "replace": "Remplacer",
+    "uploadButton": "Téléverser",
+    "uploadingButton": "Téléversement…",
+    "notAvailable": "Bientôt disponible"
   },
   "compliance": {
     "title": "Conformité corporative",

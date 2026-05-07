@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { CheckCircle2, XCircle, Info, Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import { getDocumentState } from '@/lib/minute-book/state';
@@ -11,11 +12,24 @@ interface RequirementRowProps {
   descriptionFr: string | null;
   satisfied: boolean;
   source?: 'uploaded' | 'generated' | null;
+  /**
+   * Phase B B5 — distinguishes signed-final uploads (green check, no badge)
+   * from WIP uploads (amber half-circle + "Non signé" badge). Null/undefined
+   * falls back to "treat as final" per the data-drift rule documented in
+   * lib/minute-book/state.ts.
+   */
+  documentIsFinalized?: boolean | null;
   canUpload: boolean;
   canGenerate: boolean;
   year: number | null;
   companyId?: string;
-  onFileSelected?: (file: File, requirementKey: string, year: number | null) => Promise<boolean>;
+  /**
+   * Locale forwarded from CompletenessPage → RequirementSection. Drives
+   * GenerateDocumentButton's bilingual labels. The row's own UI strings
+   * use useTranslations() and pick up locale from next-intl context.
+   */
+  locale: 'fr' | 'en';
+  onFileSelected?: (file: File, requirementKey: string, year: number | null) => Promise<void>;
   onGenerated?: () => void;
 }
 
@@ -25,17 +39,28 @@ export default function RequirementRow({
   descriptionFr,
   satisfied,
   source,
+  documentIsFinalized,
   canUpload,
   canGenerate,
   year,
   companyId,
+  locale,
   onFileSelected,
   onGenerated,
 }: RequirementRowProps) {
+  const t = useTranslations('requirementRow');
   const [showDescription, setShowDescription] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const state = getDocumentState({ satisfied, source });
+
+  // Phase B B5 — delegate three-state classification to lib/minute-book/state.ts
+  // so this row stays in lockstep with CompletionBar / CompletenessPage / API
+  // rather than re-deriving the rules inline. The booleans below are pure
+  // adapters from the canonical state to the row's two visual concerns:
+  // icon (3-way) and badge (binary "needs signature").
+  const state = getDocumentState({ satisfied, source, is_finalized: documentIsFinalized });
+  const isSignedFinal = state === 'téléversé';
+  const isUnsigned = state === 'généré'; // generated OR uploaded-WIP
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -51,13 +76,22 @@ export default function RequirementRow({
     }
   }
 
+  // Shared button class for the file-input triggers (Téléverser / Remplacer)
+  // and the Generate/Regenerate button (passed via GenerateDocumentButton's
+  // className override). Keeping a single string avoids drift between the
+  // empty-state, generated, and uploaded button surfaces.
+  const buttonClass =
+    'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
+
   return (
     <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
       {/* Left side: icon + title */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        {state === 'téléversé' ? (
+        {!satisfied ? (
+          <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
+        ) : isSignedFinal ? (
           <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
-        ) : state === 'généré' ? (
+        ) : (
           <svg
             viewBox="0 0 24 24"
             className="h-5 w-5 flex-shrink-0 text-amber-500"
@@ -66,8 +100,6 @@ export default function RequirementRow({
             <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
             <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
           </svg>
-        ) : (
-          <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
         )}
         <div className="flex items-center gap-2 min-w-0">
           <span
@@ -95,38 +127,43 @@ export default function RequirementRow({
         </div>
       </div>
 
-      {/* Right side: badge or action buttons */}
+      {/*
+        Right side — Phase B B5 reachability fix.
+
+        Badge: surfaces "Non signé" / "Unsigned" on rows where the document
+        exists but isn't a signed final (generated rows AND uploaded-WIP
+        rows). Signed finals show no badge — the green check icon carries
+        the signal.
+
+        Action buttons (per option 3):
+          - Empty (!satisfied)            → Téléverser, Générer, or notAvailable
+          - Generated (uploaded=false)    → Téléverser + Régénérer
+          - Uploaded (any finalized)      → Remplacer  (B4 destructive flow)
+
+        The Remplacer button intentionally drops the `canUpload` gate: a row
+        whose `source` is 'uploaded' is by definition replaceable, and
+        gating would re-introduce the reachability bug this batch fixes
+        on requirements where canUpload toggled false after upload.
+      */}
       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        {satisfied ? (
-          <span
-            className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-              source === 'generated'
-                ? 'bg-[var(--warning-bg)] text-[var(--warning-text)]'
-                : 'bg-[var(--card-border)] text-[var(--text-muted)]'
-            }`}
-          >
-            {source === 'generated' ? 'Généré' : 'Téléversé'}
+        {isUnsigned && (
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
+            {t('unsignedBadge')}
           </span>
-        ) : (
+        )}
+
+        {/* Empty state */}
+        {!satisfied && (
           <>
             {canUpload && (
-              <>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  {isUploading ? 'Téléversement…' : 'Téléverser'}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handleFileChange}
-                  style={{ display: 'none' }}
-                />
-              </>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className={buttonClass}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                {isUploading ? t('uploadingButton') : t('uploadButton')}
+              </button>
             )}
             {canGenerate && companyId && (
               <GenerateDocumentButton
@@ -134,17 +171,67 @@ export default function RequirementRow({
                 requirementKey={requirementKey}
                 year={year}
                 onSuccess={onGenerated}
-                locale="fr"
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                locale={locale}
+                className={buttonClass}
               />
             )}
             {!canUpload && !canGenerate && (
               <span className="text-xs text-[var(--text-muted)]">
-                Bientôt disponible
+                {t('notAvailable')}
               </span>
             )}
           </>
         )}
+
+        {/* Generated — Téléverser (signed) + Régénérer (replace template) */}
+        {satisfied && source === 'generated' && (
+          <>
+            {canUpload && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className={buttonClass}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                {isUploading ? t('uploadingButton') : t('uploadButton')}
+              </button>
+            )}
+            {canGenerate && companyId && (
+              <GenerateDocumentButton
+                companyId={companyId}
+                requirementKey={requirementKey}
+                year={year}
+                onSuccess={onGenerated}
+                locale={locale}
+                label={t('regenerate')}
+                className={buttonClass}
+              />
+            )}
+          </>
+        )}
+
+        {/* Uploaded (any finalized state) — single Remplacer button */}
+        {satisfied && source === 'uploaded' && (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className={buttonClass}
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {isUploading ? t('uploadingButton') : t('replace')}
+          </button>
+        )}
+
+        {/* Single hidden file input shared across all surfaces — only one
+            button is visible at a time per row state, so a single ref is
+            sufficient and avoids ref-index gymnastics. */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+        />
       </div>
 
     </div>

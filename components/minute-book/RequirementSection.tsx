@@ -5,13 +5,23 @@ import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import RequirementRow from './RequirementRow';
 import CompletionBar from './CompletionBar';
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
-import { getDocumentState } from '@/lib/minute-book/state';
+import { getStateForChecklistItem } from '@/lib/minute-book/state';
 
 interface RequirementSectionProps {
   title: string;
   items: ChecklistItem[];
   companyId?: string;
-  onFileSelected?: (file: File, requirementKey: string, year: number | null) => Promise<boolean>;
+  /**
+   * Phase B B5 — forwarded from CompletenessPage to RequirementRow so the
+   * row's bilingual button labels (Régénérer/Regenerate, etc.) and the
+   * GenerateDocumentButton's locale-driven copy stay in sync with the URL
+   * locale. Section itself doesn't read locale — pure pass-through.
+   *
+   * documentIsFinalized is intentionally NOT on this interface: it varies
+   * per row and is read off each ChecklistItem inline at row mount below.
+   */
+  locale: 'fr' | 'en';
+  onFileSelected?: (file: File, requirementKey: string, year: number | null) => Promise<void>;
   onGenerated?: () => void;
 }
 
@@ -19,6 +29,7 @@ export default function RequirementSection({
   title,
   items,
   companyId,
+  locale,
   onFileSelected,
   onGenerated,
 }: RequirementSectionProps) {
@@ -30,7 +41,7 @@ export default function RequirementSection({
   // runs once on mount, so the section does NOT auto-collapse when the user
   // satisfies the last requirement — per Brief D-2 design decision.
   const [expanded, setExpanded] = useState(() =>
-    items.some((i) => getDocumentState(i) !== 'téléversé'),
+    items.some((i) => getStateForChecklistItem(i) !== 'téléversé'),
   );
 
   return (
@@ -79,10 +90,12 @@ export default function RequirementSection({
               descriptionFr={item.description_fr}
               satisfied={item.satisfied}
               source={item.source}
+              documentIsFinalized={item.document_is_finalized}
               canUpload={item.can_upload}
               canGenerate={item.can_generate}
               year={item.year}
               companyId={companyId}
+              locale={locale}
               onFileSelected={onFileSelected}
               onGenerated={onGenerated}
             />
