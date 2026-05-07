@@ -22,7 +22,7 @@ export default function BinderView() {
     async function fetchAll() {
       try {
         const [binderRes, dirRes, offRes, shRes] = await Promise.all([
-          fetch('/api/minute-book/binder'),
+          fetch('/api/minute-book/binder?scope=finalized'),
           fetch('/api/registers/directors'),
           fetch('/api/registers/officers'),
           fetch('/api/registers/shareholders'),

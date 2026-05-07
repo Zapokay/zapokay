@@ -97,7 +97,7 @@ export default function BinderSection({
         <div className="px-5 pb-5 space-y-3">{children}</div>
       ) : !hasContent ? (
         <p className="px-5 pb-5 text-sm text-[var(--text-muted)] italic">
-          Aucun document dans cette section
+          {t('emptySection')}
         </p>
       ) : (
         <div className="divide-y divide-[var(--card-border)]">

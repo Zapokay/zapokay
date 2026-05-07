@@ -381,7 +381,7 @@
         "actionnaires": "Shareholders and Certificates",
         "registres": "Corporate Registers"
       },
-      "emptySection": "No documents in this section",
+      "emptySection": "No signed documents in this section",
       "registres": "3 registers",
       "yearSuffix": "(Fiscal Year {year})"
     },

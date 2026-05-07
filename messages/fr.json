@@ -381,7 +381,7 @@
         "actionnaires": "Actionnaires et certificats",
         "registres": "Registres corporatifs"
       },
-      "emptySection": "Aucun document dans cette section",
+      "emptySection": "Aucun document signé dans cette section",
       "registres": "3 registres",
       "yearSuffix": "(Exercice {year})"
     },
