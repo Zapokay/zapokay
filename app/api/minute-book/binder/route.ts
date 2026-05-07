@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const SECTIONS = [
@@ -27,7 +27,16 @@ function resolveSection(doc: any): string {
   return DOC_TYPE_SECTION_MAP[doc.document_type] || 'statuts'
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const scopeParam = request.nextUrl.searchParams.get('scope') ?? 'all'
+  if (scopeParam !== 'all' && scopeParam !== 'finalized') {
+    return NextResponse.json(
+      { error: 'Invalid scope. Allowed values: all, finalized.' },
+      { status: 400 }
+    )
+  }
+  const scope = scopeParam as 'all' | 'finalized'
+
   const supabase = createClient()
 
   const {
@@ -43,11 +52,17 @@ export async function GET() {
 
   if (!company) return NextResponse.json({ error: 'No company' }, { status: 404 })
 
-  const { data: documents, error: docError } = await supabase
+  let query = supabase
     .from('documents')
     .select('*')
     .eq('company_id', company.id)
     .eq('status', 'active')
+
+  if (scope === 'finalized') {
+    query = query.eq('is_finalized', true)
+  }
+
+  const { data: documents, error: docError } = await query
     .order('document_year', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
 
