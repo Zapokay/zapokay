@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Info } from 'lucide-react';
 import BinderView from '@/components/minute-book/BinderView';
-import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
+import BinderExportModal from '@/components/minute-book/BinderExportModal';
 import CompletenessProgressBar from '@/components/minute-book/CompletenessProgressBar';
 import type { CompletenessResponse } from '@/app/api/minute-book/completeness/route';
 
@@ -16,7 +16,7 @@ export default function BinderPage({ locale, companyId }: BinderPageProps) {
   const fr = locale === 'fr';
   const [score, setScore] = useState<number | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
-  const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
+  const [showBinderExportModal, setShowBinderExportModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +63,7 @@ export default function BinderPage({ locale, companyId }: BinderPageProps) {
           </div>
           <button
             type="button"
-            onClick={() => setShowDueDiligenceModal(true)}
+            onClick={() => setShowBinderExportModal(true)}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border-[1.5px] border-[var(--card-hover-border)] text-[var(--text-heading)] bg-transparent transition-colors hover:bg-[var(--hover)]"
             style={{ fontFamily: 'DM Sans, sans-serif' }}
           >
@@ -80,10 +80,10 @@ export default function BinderPage({ locale, companyId }: BinderPageProps) {
       {/* Body */}
       <BinderView />
 
-      <DueDiligenceModal
+      <BinderExportModal
         companyId={companyId}
-        isOpen={showDueDiligenceModal}
-        onClose={() => setShowDueDiligenceModal(false)}
+        isOpen={showBinderExportModal}
+        onClose={() => setShowBinderExportModal(false)}
       />
     </div>
   );

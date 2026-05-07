@@ -303,9 +303,8 @@ export default function BinderExportModal({
             size="md"
             onClick={handleExport}
             disabled={!canExport || exporting}
-            loading={exporting}
           >
-            {exporting ? t('cta.exporting') : t('cta.export')}
+            {t('cta.export')}
           </Button>
         </div>
       </div>
