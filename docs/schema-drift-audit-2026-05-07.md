@@ -615,3 +615,17 @@ Total: 13 Phase 10A foundation-backfill items. The brief's Batch 1 = "foundation
 ---
 
 End of §4.
+
+---
+**[2026-05-10 update — Batch 3 corrective ledger]**
+
+Post-Batch-3 §4.6 status: closed = {#1, #2, #3, #4, #5, #8, #9, #11, #12} (9/13), open = {#6, #7, #10, #13} (4/13).
+
+Phase A (Batch 3) surfaced 4 corrections to this document:
+1. §1 implied a CHECK on `documents.status` — Phase A confirms none exists in prod. Migration 20260510134015 reproduces the column with default 'active' but no CHECK.
+2. §4.6 #12 stated "6 off-repo CHECK enums on documents." Actual count is 3 (document_type committed via 20260329; framework + language committed via schema.sql:151–153). The 3 actually-off-repo CHECKs (minute_book_section, signature_status, source) are codified in 20260510134015.
+3. §1 documents drift table is correct (17 net-new columns); the Sprint 10A Batch 3 brief listed only 8 plus `title`. `title` is committed in schema.sql:148 (false positive in brief).
+4. Memory v3.41 §4.6 ledger listed wrong closed/open items. v3.42 corrects.
+
+Canonical corrective ledger lives in `docs/audit-batch3-documents-drift-backfill-2026-05-10.md` §1–§2.
+---

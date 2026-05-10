@@ -213,3 +213,49 @@ Natural Batch 4 / 5 decomposition (Dom 2026-05-10):
 ---
 
 End of Batch 3 investigation.
+
+---
+
+## 8. Phase B–G ship record (appended 2026-05-10)
+
+### Phase B — authoring
+
+Migration `supabase/migrations/20260510134015_documents_drift_backfill.sql` authored to spec. 17 column ADDs in prod ordinal order (positions 11-27), 3 CHECK constraints in `DO $$ EXCEPTION WHEN duplicate_object THEN NULL; END $$` blocks (verbatim from Phase A.3.2 `pg_get_constraintdef()` capture), 1 FK index `CREATE INDEX IF NOT EXISTS idx_documents_company_id ON documents(company_id)`. Zero structural change to prod beyond the intentional new index.
+
+### Phase C — push
+
+`npx supabase db push --include-all` succeeded. Migration registered in `supabase_migrations.schema_migrations`. Local == Remote verified.
+
+### Phase D — verification
+
+Bytewise sample equivalence verified:
+
+- Column count: 28 unchanged (17 ADD COLUMN IF NOT EXISTS calls all no-op'd as expected per `NOTICE 42701` "column already exists, skipping")
+- Row count: 42 unchanged (zero INSERT/UPDATE/DELETE in migration, verified post-push)
+- 3 reproduced CHECK constraints: `pg_get_constraintdef()` output matches Phase A capture verbatim (`minute_book_section` 8-value, `signature_status` 3-value, `source` 3-value)
+- New index `idx_documents_company_id` present in `pg_indexes`
+- RLS state unchanged: 4 policies on `documents` still match `schema.sql:160-190`
+
+### Phase E — visual gate
+
+2 fixtures × 2 locales × 5 surfaces = 20 page loads. All clean. Surfaces: Coffre-fort, Livre, Complétude, Historique, Dashboard. Fixtures: Acme Test inc. (canonical CTF-1) + droussy inc. (real-data). Locales: FR + EN. Zero regressions surfaced.
+
+### Phase F — two-commit ship
+
+- Investigation doc: `dbb62b7` (this file at the time of commit; this §8 append is post-ship documentation)
+- Migration: `5440f41`
+
+Two-commit shape preserved per Batch 2 precedent.
+
+### Phase G — push to origin
+
+`git push origin main` completed. Both Batch 3 commits pushed; GitHub + Supabase remain in alignment. No Vercel deploy needed (DB-only batch, zero code delta — WA #13 spirit-satisfied by skipping unnecessary deploy).
+
+### §4.6 ledger post-Batch-3
+
+- **Closed (9/13):** `{#1, #2, #3, #4, #5, #8, #9, #11, #12}`
+- **Open (4/13):** `{#6, #7, #10, #13}`
+
+Matches §6 projection. Natural Batch 4 / 5 decomposition holds: Batch 4 = `compliance_*` cluster (#6 + #7 + #10); Batch 5 = #13 NEQ partial unique index + any residuals.
+
+End of Batch 3 ship record.
