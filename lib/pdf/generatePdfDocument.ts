@@ -184,7 +184,8 @@ export async function generatePdfDocument(
   const { data: shareholdings } = await supabaseAdmin
     .from('shareholdings')
     .select('id, quantity, company_people(id, full_name), share_classes(name)')
-    .eq('company_id', companyId);
+    .eq('company_id', companyId)
+    .is('end_date', null);
 
   const activeShareholders = (shareholdings ?? []).map((s) => ({
     name: (s.company_people as unknown as { full_name: string }).full_name,

@@ -93,6 +93,12 @@ export type ShareClassInsert = Omit<ShareClass, 'id' | 'created_at'>;
 // ---------------------------------------------------------------------------
 // shareholdings
 // ---------------------------------------------------------------------------
+export type ShareholdingEndReason =
+  | 'transfer'
+  | 'redemption'
+  | 'cancellation'
+  | 'conversion';
+
 export interface Shareholding {
   id: string;
   company_id: string;
@@ -102,10 +108,17 @@ export interface Shareholding {
   issue_date: string;
   issue_price_per_share: number | null;
   certificate_number: string | null;
+  end_date: string | null;
+  end_reason: ShareholdingEndReason | null;
+  source: string;
+  certificate_old: string | null;
+  certificate_new: string | null;
   created_at: string;
 }
 
-export type ShareholdingInsert = Omit<Shareholding, 'id' | 'created_at'>;
+export type ShareholdingInsert =
+  Omit<Shareholding, 'id' | 'created_at' | 'end_date' | 'end_reason' | 'source' | 'certificate_old' | 'certificate_new'>
+  & Partial<Pick<Shareholding, 'end_date' | 'end_reason' | 'source' | 'certificate_old' | 'certificate_new'>>;
 
 // ---------------------------------------------------------------------------
 // Joined / enriched types used by the UI

@@ -75,7 +75,7 @@ export default function DirectorsClient() {
     setOfficerAppointments((officersRaw as OfficerAppointment[]) || []);
 
     const { data: sharesRaw } = await supabase
-      .from('shareholdings').select('*, share_class:share_classes(*)').eq('company_id', cid);
+      .from('shareholdings').select('*, share_class:share_classes(*)').eq('company_id', cid).is('end_date', null);
     setShareholdings((sharesRaw || []).map((row: any) => ({ ...row, share_class: row.share_class as ShareClass })));
 
     setLoading(false);

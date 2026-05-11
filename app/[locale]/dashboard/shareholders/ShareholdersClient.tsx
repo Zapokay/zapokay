@@ -74,20 +74,25 @@ export default function ShareholdersClient() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const totalIssued = useMemo(() => shareholdings.reduce((sum, s) => sum + s.quantity, 0), [shareholdings]);
+  const currentShareholdings = useMemo(
+    () => shareholdings.filter((s) => s.end_date === null),
+    [shareholdings]
+  );
+
+  const totalIssued = useMemo(() => currentShareholdings.reduce((sum, s) => sum + s.quantity, 0), [currentShareholdings]);
 
   const shareholdingsByPerson = useMemo(() => {
     const map = new Map<string, ShareholdingWithDetails[]>();
-    shareholdings.forEach((sh) => { const list = map.get(sh.person_id) || []; list.push(sh); map.set(sh.person_id, list); });
+    currentShareholdings.forEach((sh) => { const list = map.get(sh.person_id) || []; list.push(sh); map.set(sh.person_id, list); });
     return map;
-  }, [shareholdings]);
+  }, [currentShareholdings]);
 
   const shareholderPersonIds = useMemo(() => {
     const seen = new Set<string>();
     const ids: string[] = [];
-    shareholdings.forEach((sh) => { if (!seen.has(sh.person_id)) { seen.add(sh.person_id); ids.push(sh.person_id); } });
+    currentShareholdings.forEach((sh) => { if (!seen.has(sh.person_id)) { seen.add(sh.person_id); ids.push(sh.person_id); } });
     return ids;
-  }, [shareholdings]);
+  }, [currentShareholdings]);
 
   const nextCertificateNumber = useMemo(() => {
     let max = 0;
@@ -104,7 +109,7 @@ export default function ShareholdersClient() {
     return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-amber-500" /></div>;
   }
 
-  const hasShareholders = shareholdings.length > 0;
+  const hasShareholders = currentShareholdings.length > 0;
 
   return (
     <div className="space-y-6">
@@ -154,7 +159,7 @@ export default function ShareholdersClient() {
 
       {hasShareholders ? (
         <>
-          <CapTableChart key={`${totalIssued}-${shareholdings.length}`} shareholdings={shareholdings} totalIssued={totalIssued} />
+          <CapTableChart key={`${totalIssued}-${currentShareholdings.length}`} shareholdings={currentShareholdings} totalIssued={totalIssued} />
 
           <div>
             <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">

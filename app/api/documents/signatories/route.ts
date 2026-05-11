@@ -89,7 +89,8 @@ export async function GET(request: NextRequest) {
     const { data: shareholdings, error: shareholdingsError } = await supabase
       .from('shareholdings')
       .select('person_id')
-      .eq('company_id', companyId);
+      .eq('company_id', companyId)
+      .is('end_date', null);
 
     if (shareholdingsError) {
       console.error('[signatories] shareholdings error:', shareholdingsError);
