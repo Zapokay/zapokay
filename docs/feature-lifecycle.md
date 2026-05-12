@@ -57,7 +57,7 @@ Status column to be filled in by Dom.
 | Minute Book — Complétude | _TBD_ | Per v2.5: primary edit surface |
 | Minute Book — Livre (Binder) | _TBD_ | Per v2.5: finalized record view |
 | Administrateurs | ACTIVE | Critical path (Phase 10F/10G temporal registry UX) |
-| Dirigeants | _TBD_ | Critical path (Phase 10F/10G temporal registry UX) |
+| Dirigeants | ACTIVE | Critical path (Phase 10F/10G temporal registry UX) |
 | Actionnaires | _TBD_ | Critical path (Phase 10F/10G temporal registry UX) |
 | Historique | _TBD_ | |
 | Paramètres | _TBD_ | |
