@@ -156,14 +156,20 @@ export default function DirectorCard({
 
       {/* Actions */}
       <div className="mt-4 flex items-center gap-2 border-t border-[var(--card-border)] pt-3">
-        <button
-          type="button"
-          onClick={() => onEdit(director)}
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          {t('edit')}
-        </button>
+        {/* Q-EDIT-DIR-1 hotfix: Edit button hidden pending scaffold.
+            See docs/audit-administrateurs-2026-05-12.md §3.
+            Re-enable: flip `false` to a real gate AND rewire onClick
+            to open EditDirectorModal with director hydrated. */}
+        {false && (
+          <button
+            type="button"
+            onClick={() => onEdit(director)}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            {t('edit')}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onRemove(director)}
