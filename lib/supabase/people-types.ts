@@ -102,7 +102,10 @@ export type ShareholdingEndReason =
 export interface Shareholding {
   id: string;
   company_id: string;
-  person_id: string;
+  // person_id dropped in Phase 10A.5 atom 2 (2026-05-15, migration
+  // 20260515065959). Holders moved to shareholding_holders join table;
+  // see ShareholdingHolder below (raw join shape). Full Holder discriminated
+  // union with entity-signatory hydration deferred to atom 3.
   share_class_id: string;
   quantity: number;
   issue_date: string;
@@ -121,6 +124,83 @@ export type ShareholdingInsert =
   & Partial<Pick<Shareholding, 'end_date' | 'end_reason' | 'source' | 'certificate_old' | 'certificate_new'>>;
 
 // ---------------------------------------------------------------------------
+// Phase 10A.5 atom 1 — shareholder_entities (trust + corporation holders)
+// ---------------------------------------------------------------------------
+export type ShareholderEntityType = 'trust' | 'corporation';
+
+export interface ShareholderEntity {
+  id: string;
+  company_id: string;
+  entity_type: ShareholderEntityType;
+  legal_name: string;
+  jurisdiction: string | null;
+  entity_number: string | null;
+  date_constituted: string | null;
+  date_incorporated: string | null;
+  address_line1: string | null;
+  address_city: string | null;
+  address_province: string | null;
+  address_postal_code: string | null;
+  address_country: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 10A.5 atom 1 — shareholder_entity_signatories
+// ---------------------------------------------------------------------------
+export type ShareholderEntitySignatoryRole =
+  | 'trustee'
+  | 'president'
+  | 'vice_president'
+  | 'secretary'
+  | 'treasurer'
+  | 'custom';
+
+export interface ShareholderEntitySignatory {
+  id: string;
+  company_id: string;
+  entity_id: string;
+  person_id: string;
+  role: ShareholderEntitySignatoryRole;
+  custom_role: string | null;
+  start_date: string;
+  end_date: string | null;
+  end_reason: string | null;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 10A.5 atom 1 — shareholding_holders (polymorphic join)
+// ---------------------------------------------------------------------------
+export type HolderType = 'individual' | 'entity';
+
+export interface ShareholdingHolder {
+  id: string;
+  company_id: string;
+  shareholding_id: string;
+  holder_type: HolderType;
+  person_id: string | null;
+  entity_id: string | null;
+  display_order: number;
+  created_at: string;
+}
+
+/**
+ * Hydrated holder row as returned by PostgREST embed
+ *   `holders:shareholding_holders(*, person:company_people(*), entity:shareholder_entities(*))`.
+ * Exactly one of `person` / `entity` is non-null, matching `holder_type`.
+ * Full hydration with trustees / signing officers (the audit's `Holder`
+ * discriminated union per decomposition proposal §2.2) is deferred to atom 3+.
+ */
+export interface ShareholdingHolderWithDetails extends ShareholdingHolder {
+  person: CompanyPerson | null;
+  entity: ShareholderEntity | null;
+}
+
+// ---------------------------------------------------------------------------
 // Joined / enriched types used by the UI
 // ---------------------------------------------------------------------------
 
@@ -134,10 +214,20 @@ export interface OfficerWithPerson extends OfficerAppointment {
   person: CompanyPerson;
 }
 
-/** A shareholding row joined with company_people + share_classes */
+/**
+ * A shareholding row joined with holders + share_classes (atom 2 shape).
+ * Post atom 2 the canonical "who owns this" surface is `holders`.
+ */
 export interface ShareholdingWithDetails extends Shareholding {
-  person: CompanyPerson;
+  holders: ShareholdingHolderWithDetails[];
   share_class: ShareClass;
+  /**
+   * @deprecated Transitional convenience field. Hydrated at the data-loader
+   * boundary from `holders[0]?.person` for individual single-holder
+   * shareholdings; null for entity holders and joint holdings. Read
+   * `holders` directly. Slated for removal in Phase 10A.5 atom 3.
+   */
+  person: CompanyPerson | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +237,13 @@ export interface PersonRoleSummary {
   person: CompanyPerson;
   directorMandates: DirectorMandate[];
   officerAppointments: OfficerAppointment[];
+  /**
+   * @deprecated Vestigial — R-G2 audit (2026-05-15) §6 found zero consumers.
+   * Post atom 2 the shape compiles but no longer reflects "shareholdings
+   * this person holds" (that query now goes through shareholding_holders).
+   * Atom 3 to decide: rebuild as `ShareholdingWithDetails[]` filtered by
+   * holder identity, or remove the field entirely.
+   */
   shareholdings: (Shareholding & { share_class: ShareClass })[];
 }
 

@@ -86,20 +86,24 @@ export async function GET(request: NextRequest) {
     }
 
     // signatoryType === 'shareholder'
-    const { data: shareholdings, error: shareholdingsError } = await supabase
-      .from('shareholdings')
-      .select('person_id')
-      .eq('company_id', companyId)
-      .is('end_date', null);
+    // Atom 2: holder identity moved to shareholding_holders. Individual-only
+    // filter per Q-R-G2-B — entity-shareholder signatory expansion (trust
+    // trustees, corporate signing officers) is Phase 10A.5 atom 3+ scope.
+    const { data: holders, error: holdersError } = await supabase
+      .from('shareholding_holders')
+      .select('person_id, shareholding:shareholdings!inner(company_id, end_date)')
+      .eq('shareholding.company_id', companyId)
+      .is('shareholding.end_date', null)
+      .eq('holder_type', 'individual');
 
-    if (shareholdingsError) {
-      console.error('[signatories] shareholdings error:', shareholdingsError);
+    if (holdersError) {
+      console.error('[signatories] shareholding_holders error:', holdersError);
       return NextResponse.json({ error: 'Erreur lors de la récupération des actionnaires.' }, { status: 500 });
     }
 
     // Deduplicate person_ids
     const personIds = Array.from(new Set(
-      (shareholdings ?? []).map((r) => r.person_id as string).filter(Boolean)
+      (holders ?? []).map((r) => r.person_id as string).filter(Boolean)
     ));
 
     if (personIds.length === 0) {

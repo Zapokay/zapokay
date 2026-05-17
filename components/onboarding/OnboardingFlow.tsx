@@ -194,13 +194,19 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
               if (!newPerson) continue;
               personId = newPerson.id;
             }
-            await supabase.from('shareholdings').insert({
-              company_id: companyId,
-              person_id: personId,
-              share_class_id: shareClassId,
-              quantity: sh.numberOfShares,
-              issue_date: sh.issueDate,
-              certificate_number: String(certNum).padStart(3, '0'),
+            // Atom 2 (Q-R-G2-A): Pattern β2 RPC. Individual-only holder for atom 2;
+            // entity-holder onboarding paths are atom 3+ scope.
+            await supabase.rpc('create_shareholding_with_holders', {
+              p_shareholding: {
+                company_id: companyId,
+                share_class_id: shareClassId,
+                quantity: sh.numberOfShares,
+                issue_date: sh.issueDate,
+                certificate_number: String(certNum).padStart(3, '0'),
+              },
+              p_holders: [
+                { holder_type: 'individual', person_id: personId },
+              ],
             });
             certNum++;
           }

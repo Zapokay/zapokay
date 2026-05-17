@@ -15,6 +15,7 @@ import type {
   CompanyPerson,
   ShareClass,
   ShareholdingWithDetails,
+  ShareholdingHolderWithDetails,
   DirectorMandate,
   OfficerAppointment,
 } from '@/lib/supabase/people-types';
@@ -54,12 +55,26 @@ export default function ShareholdersClient() {
       .from('share_classes').select('*').eq('company_id', cid).order('created_at', { ascending: true });
     setShareClasses((classesRaw as ShareClass[]) || []);
 
+    // Atom 2: holder identity lives on shareholding_holders. SELECT embeds the
+    // join with both polymorphic targets (person + entity). Transitional
+    // `person` field is hydrated from holders[0]?.person per Q-R-G2-C — null
+    // for entity holders / joint holdings; deprecated, slated for removal in
+    // atom 3. Downstream consumers should read `holders` directly.
     const { data: shRaw } = await supabase
-      .from('shareholdings').select('*, person:company_people(*), share_class:share_classes(*)')
+      .from('shareholdings')
+      .select('*, holders:shareholding_holders(*, person:company_people(*), entity:shareholder_entities(*)), share_class:share_classes(*)')
       .eq('company_id', cid).order('issue_date', { ascending: true });
-    setShareholdings((shRaw || []).map((row: any) => ({
-      ...row, person: row.person as CompanyPerson, share_class: row.share_class as ShareClass,
-    })));
+    setShareholdings((shRaw || []).map((row: any) => {
+      const holders = ((row.holders ?? []) as ShareholdingHolderWithDetails[])
+        .slice()
+        .sort((a, b) => a.display_order - b.display_order);
+      return {
+        ...row,
+        holders,
+        person: holders[0]?.person ?? null,
+        share_class: row.share_class as ShareClass,
+      } as ShareholdingWithDetails;
+    }));
 
     const { data: mandatesRaw } = await supabase
       .from('director_mandates').select('*').eq('company_id', cid).eq('is_active', true);
@@ -83,14 +98,27 @@ export default function ShareholdersClient() {
 
   const shareholdingsByPerson = useMemo(() => {
     const map = new Map<string, ShareholdingWithDetails[]>();
-    currentShareholdings.forEach((sh) => { const list = map.get(sh.person_id) || []; list.push(sh); map.set(sh.person_id, list); });
+    // Atom 2: group by primary holder's person_id. Entity-holder rows yield
+    // a null key and are skipped here; not exercised in atom 2's deployed
+    // state (individual-only). Entity-aware grouping is atom 3+ scope.
+    currentShareholdings.forEach((sh) => {
+      const personId = sh.holders?.[0]?.person_id ?? null;
+      if (personId === null) return;
+      const list = map.get(personId) || [];
+      list.push(sh);
+      map.set(personId, list);
+    });
     return map;
   }, [currentShareholdings]);
 
   const shareholderPersonIds = useMemo(() => {
     const seen = new Set<string>();
     const ids: string[] = [];
-    currentShareholdings.forEach((sh) => { if (!seen.has(sh.person_id)) { seen.add(sh.person_id); ids.push(sh.person_id); } });
+    currentShareholdings.forEach((sh) => {
+      const personId = sh.holders?.[0]?.person_id ?? null;
+      if (personId === null) return;
+      if (!seen.has(personId)) { seen.add(personId); ids.push(personId); }
+    });
     return ids;
   }, [currentShareholdings]);
 

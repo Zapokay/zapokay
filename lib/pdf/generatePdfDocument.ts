@@ -181,17 +181,38 @@ export async function generatePdfDocument(
   }));
 
   // 5. Current-state shareholders.
+  // Atom 2: holders moved to shareholding_holders join table. Single-holder
+  // individual rows resolve via holders[0].person; entity holders surface the
+  // entity legal_name. Full atom 4 PDF branching (per-trustee Par: lines for
+  // trusts, single Par: for corps, joint inline) is Phase 10A.5 atom 4 scope.
   const { data: shareholdings } = await supabaseAdmin
     .from('shareholdings')
-    .select('id, quantity, company_people(id, full_name), share_classes(name)')
+    .select(`
+      id, quantity,
+      shareholding_holders(holder_type, person_id, entity_id, display_order,
+        person:company_people(id, full_name),
+        entity:shareholder_entities(id, legal_name, entity_type)
+      ),
+      share_classes(name)
+    `)
     .eq('company_id', companyId)
     .is('end_date', null);
 
-  const activeShareholders = (shareholdings ?? []).map((s) => ({
-    name: (s.company_people as unknown as { full_name: string }).full_name,
-    shares: s.quantity as number,
-    shareClass: (s.share_classes as unknown as { name: string } | null)?.name ?? 'A',
-  }));
+  const activeShareholders = (shareholdings ?? []).map((s) => {
+    const holders = (s.shareholding_holders ?? []) as unknown as Array<{
+      person: { full_name: string } | null;
+      entity: { legal_name: string } | null;
+    }>;
+    const shareholderName =
+      holders[0]?.person?.full_name ??
+      holders[0]?.entity?.legal_name ??
+      '(unknown holder)';
+    return {
+      name: shareholderName,
+      shares: s.quantity as number,
+      shareClass: (s.share_classes as unknown as { name: string } | null)?.name ?? 'A',
+    };
+  });
 
   // 6. Build template payload.
   const now = new Date();

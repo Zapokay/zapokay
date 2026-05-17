@@ -118,15 +118,22 @@ export default function IssueSharesModal({
         ? parseFloat(pricePerShare)
         : null;
 
-      // Create shareholding
-      const { error: shErr } = await supabase.from('shareholdings').insert({
-        company_id: companyId,
-        person_id: personId,
-        share_class_id: shareClassId,
-        quantity: qty,
-        issue_date: issueDate,
-        issue_price_per_share: price,
-        certificate_number: certificateNumber.trim() || null,
+      // Atom 2 (Q-R-G2-A): single RPC call replaces the prior dual-INSERT pattern
+      // (shareholdings + atom-1 transitional trigger backfilling shareholding_holders).
+      // Pattern β2 — SECURITY INVOKER PL/pgSQL with implicit subtransaction atomicity.
+      // Individual-only holder for atom 2; entity-holder issuance is atom 3+ scope.
+      const { error: shErr } = await supabase.rpc('create_shareholding_with_holders', {
+        p_shareholding: {
+          company_id: companyId,
+          share_class_id: shareClassId,
+          quantity: qty,
+          issue_date: issueDate,
+          issue_price_per_share: price,
+          certificate_number: certificateNumber.trim() || null,
+        },
+        p_holders: [
+          { holder_type: 'individual', person_id: personId },
+        ],
       });
 
       if (shErr) throw new Error(shErr.message);

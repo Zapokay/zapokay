@@ -325,20 +325,29 @@ async function main() {
   // 9. shareholdings × 2 (P1=60, P2=40; P3 has no shares)
   // ---------------------------------------------------------------------------
   log('Inserting shareholdings (2)...');
+  // Atom 2 (Q-R-G2-A): Pattern β2 RPC per row. Loop replaces the prior bulk
+  // insert; cross-row atomicity is not load-bearing for a fixture seed
+  // (fail() implements abort-on-error semantics). Individual-only holders.
   const shareholdingRows = [
     { person_id: UUID.p1Sophie, quantity: 60, certificate_number: '001' },
     { person_id: UUID.p2Marc,   quantity: 40, certificate_number: '002' },
-  ].map((sh) => ({
-    company_id:            UUID.company,
-    person_id:             sh.person_id,
-    share_class_id:        UUID.shareClass,
-    quantity:              sh.quantity,
-    issue_date:            COMPANY_INC_DATE,
-    issue_price_per_share: null,
-    certificate_number:    sh.certificate_number,
-  }));
-  const { error: shErr } = await supabase.from('shareholdings').insert(shareholdingRows);
-  if (shErr) fail(`shareholdings insert failed: ${shErr.message}`);
+  ];
+  for (const sh of shareholdingRows) {
+    const { error: shErr } = await supabase.rpc('create_shareholding_with_holders', {
+      p_shareholding: {
+        company_id:            UUID.company,
+        share_class_id:        UUID.shareClass,
+        quantity:              sh.quantity,
+        issue_date:            COMPANY_INC_DATE,
+        issue_price_per_share: null,
+        certificate_number:    sh.certificate_number,
+      },
+      p_holders: [
+        { holder_type: 'individual', person_id: sh.person_id },
+      ],
+    });
+    if (shErr) fail(`shareholdings insert failed (cert ${sh.certificate_number}): ${shErr.message}`);
+  }
   log('  ✓ shareholdings: 2 rows (60/40 split)');
 
   // ---------------------------------------------------------------------------

@@ -65,7 +65,11 @@ export default function ShareholderCard({
   const t = useTranslations('shareholders');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
 
-  if (shareholdings.length === 0) return null;
+  // Atom 2: ShareholdingWithDetails.person is nullable (Q-R-G2-C transitional).
+  // In practice unreachable here — ShareholdersClient.tsx's shareholderPersonIds
+  // already filters out null-person rows upstream. The guard is a type-honesty
+  // formality, removed in atom 3 when the card is rebuilt for entity holders.
+  if (shareholdings.length === 0 || !shareholdings[0].person) return null;
 
   const person = shareholdings[0].person;
   const totalQuantity = shareholdings.reduce((sum, s) => sum + s.quantity, 0);

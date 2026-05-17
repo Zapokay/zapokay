@@ -79,12 +79,18 @@ export default function CapTableChart({
     const map = new Map<string, { name: string; quantity: number }>();
 
     shareholdings.forEach((sh) => {
-      const existing = map.get(sh.person_id);
+      // Atom 2: aggregate by primary holder's person_id; entity-holder rows
+      // (no person_id) are skipped here per Q-R-G2-B (entity-aware cap-table
+      // surfacing deferred to atom 3+). Display name uses transitional
+      // `.person` field with sentinel for forward-compat diagnostics.
+      const personId = sh.holders?.[0]?.person_id ?? null;
+      if (personId === null) return;
+      const existing = map.get(personId);
       if (existing) {
         existing.quantity += sh.quantity;
       } else {
-        map.set(sh.person_id, {
-          name: sh.person.full_name,
+        map.set(personId, {
+          name: sh.person?.full_name ?? '(unknown holder)',
           quantity: sh.quantity,
         });
       }

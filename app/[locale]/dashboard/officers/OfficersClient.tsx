@@ -14,6 +14,7 @@ import type {
   OfficerWithPerson,
   DirectorMandate,
   Shareholding,
+  ShareholdingHolder,
   ShareClass,
 } from '@/lib/supabase/people-types';
 
@@ -28,7 +29,7 @@ export default function OfficersClient() {
   const [incorporationDate, setIncorporationDate] = useState<string | null>(null);
   const [officers, setOfficers] = useState<OfficerWithPerson[]>([]);
   const [directorMandates, setDirectorMandates] = useState<DirectorMandate[]>([]);
-  const [shareholdings, setShareholdings] = useState<(Shareholding & { share_class: ShareClass })[]>([]);
+  const [shareholdings, setShareholdings] = useState<(Shareholding & { share_class: ShareClass; holders: ShareholdingHolder[] })[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -58,9 +59,18 @@ export default function OfficersClient() {
       .from('director_mandates').select('*').eq('company_id', cid).eq('is_active', true);
     setDirectorMandates((mandatesRaw as DirectorMandate[]) || []);
 
+    // Atom 2: embed shareholding_holders so getShareholdingsForPerson can
+    // join through the polymorphic holder table. Minimal embed (no person /
+    // entity hydration) — only holder_type + person_id are consumed here.
     const { data: sharesRaw } = await supabase
-      .from('shareholdings').select('*, share_class:share_classes(*)').eq('company_id', cid).is('end_date', null);
-    setShareholdings((sharesRaw || []).map((row: any) => ({ ...row, share_class: row.share_class as ShareClass })));
+      .from('shareholdings')
+      .select('*, share_class:share_classes(*), holders:shareholding_holders(*)')
+      .eq('company_id', cid).is('end_date', null);
+    setShareholdings((sharesRaw || []).map((row: any) => ({
+      ...row,
+      share_class: row.share_class as ShareClass,
+      holders: (row.holders ?? []) as ShareholdingHolder[],
+    })));
 
     setLoading(false);
   }, [supabase]);
@@ -71,7 +81,14 @@ export default function OfficersClient() {
   const uniqueOfficerCount = new Set(officers.map(o => o.person_id)).size;
 
   function getDirectorMandatesForPerson(personId: string) { return directorMandates.filter((dm) => dm.person_id === personId); }
-  function getShareholdingsForPerson(personId: string) { return shareholdings.filter((sh) => sh.person_id === personId); }
+  // Atom 2: a person "holds" a shareholding when they appear as an individual
+  // holder on its shareholding_holders join row. Entity-typed officer scenarios
+  // (officer sits via a corporate trustee) are atom 3+ scope per Q-R-G2-B.
+  function getShareholdingsForPerson(personId: string) {
+    return shareholdings.filter((sh) =>
+      sh.holders?.some((h) => h.holder_type === 'individual' && h.person_id === personId) ?? false
+    );
+  }
 
   function handleModalSuccess() {
     setShowAddModal(false);
