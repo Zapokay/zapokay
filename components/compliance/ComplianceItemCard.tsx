@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { EnrichedComplianceItem } from '@/lib/compliance/complianceRules'
+import { formatDate } from '@/lib/utils'
 
 interface ComplianceItemCardProps {
   item: EnrichedComplianceItem
@@ -41,18 +42,6 @@ function IconClock() {
   )
 }
 
-// ─── Formatage de la date affichée ───────────────────────────────────────────
-
-function formatDate(dateStr: string | null, locale: 'fr' | 'en'): string {
-  if (!dateStr) return '—'
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString(locale === 'fr' ? 'fr-CA' : 'en-CA', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
-
 // ─── Composant ────────────────────────────────────────────────────────────────
 
 export default function ComplianceItemCard({
@@ -62,7 +51,9 @@ export default function ComplianceItemCard({
 }: ComplianceItemCardProps) {
   const t = useTranslations('compliance')
   const title = locale === 'fr' ? item.rule.title_fr : item.rule.title_en
-  const dueDateFormatted = formatDate(item.due_date, locale)
+  const dueDateFormatted = item.due_date
+    ? formatDate(item.due_date, locale, { year: 'numeric', month: 'long', day: 'numeric' })
+    : '—'
 
   // ── Compliant ──────────────────────────────────────────────────────────────
   if (item.status === 'compliant') {
@@ -82,7 +73,7 @@ export default function ComplianceItemCard({
             {title}
           </p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--success-text)', fontFamily: "'DM Sans', sans-serif" }}>
-            {t('cardCompliant')} {formatDate(item.lastDocumentDate, locale)}
+            {t('cardCompliant')} {item.lastDocumentDate ? formatDate(item.lastDocumentDate, locale, { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
           </p>
         </div>
       </div>

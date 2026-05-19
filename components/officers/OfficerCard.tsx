@@ -8,6 +8,7 @@ import type {
   Shareholding,
   ShareClass,
 } from '@/lib/supabase/people-types';
+import { formatDate } from '@/lib/utils';
 
 // =============================================================================
 // Types
@@ -42,14 +43,6 @@ function getInitials(name: string): string {
     .join('')
     .toUpperCase()
     .slice(0, 2);
-}
-
-function formatDate(iso: string, locale: string): string {
-  return new Date(iso).toLocaleDateString(locale === 'fr' ? 'fr-CA' : 'en-CA', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 // =============================================================================
@@ -113,8 +106,8 @@ export default function OfficerCard({
           </h3>
           <p className="mt-0.5 text-sm text-[var(--text-muted)]">
             {locale === 'fr'
-              ? `En poste depuis le ${formatDate(officer.appointment_date, locale)}`
-              : `In office since ${formatDate(officer.appointment_date, locale)}`}
+              ? `En poste depuis le ${formatDate(officer.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}`
+              : `In office since ${formatDate(officer.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}`}
           </p>
         </div>
       </div>

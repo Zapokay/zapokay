@@ -7,6 +7,7 @@ import type {
   DirectorMandate,
   OfficerAppointment,
 } from '@/lib/supabase/people-types';
+import { formatDate } from '@/lib/utils';
 
 // =============================================================================
 // Types
@@ -41,14 +42,6 @@ function getInitials(name: string): string {
     .join('')
     .toUpperCase()
     .slice(0, 2);
-}
-
-function formatDate(iso: string, locale: string): string {
-  return new Date(iso).toLocaleDateString(locale === 'fr' ? 'fr-CA' : 'en-CA', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 // =============================================================================
@@ -130,8 +123,8 @@ export default function ShareholderCard({
         {/* Issue date */}
         <p className="text-sm text-[var(--text-muted)]">
           {locale === 'fr'
-            ? `Émises le ${formatDate(primary.issue_date, locale)}`
-            : `Issued ${formatDate(primary.issue_date, locale)}`}
+            ? `Émises le ${formatDate(primary.issue_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}`
+            : `Issued ${formatDate(primary.issue_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}`}
         </p>
 
         {/* Certificate number */}
@@ -150,7 +143,7 @@ export default function ShareholderCard({
                 {sh.share_class.name}
                 {sh.certificate_number ? ` · #${sh.certificate_number}` : ''}
                 {' · '}
-                {formatDate(sh.issue_date, locale)}
+                {formatDate(sh.issue_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}
               </p>
             ))}
           </div>

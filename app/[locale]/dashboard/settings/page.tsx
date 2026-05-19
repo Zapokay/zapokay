@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { SettingsClient } from '@/components/dashboard/SettingsClient'
+import { parseLocalDate } from '@/lib/utils'
 
 function computeAllYears(
   incorporationDate: string | null,
@@ -10,7 +11,7 @@ function computeAllYears(
 ): number[] {
   const currentYear = new Date().getFullYear()
   const incorpYear = incorporationDate
-    ? new Date(incorporationDate).getFullYear()
+    ? parseLocalDate(incorporationDate).getFullYear()
     : currentYear - 7
   const startYear = Math.max(incorpYear, currentYear - 7)
   const length = currentYear - startYear + 1

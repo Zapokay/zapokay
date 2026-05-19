@@ -6,6 +6,7 @@ import {
   EnrichedComplianceItem,
   DOCUMENT_TYPE_TO_RULE,
 } from './complianceRules'
+import { parseLocalDate } from '@/lib/utils'
 
 // ─── Helpers date ─────────────────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ function calculateDueDate(
 
     case 'corporations_canada_annual_return': {
       if (!incorporationDate) return null
-      const incDate = new Date(incorporationDate)
+      const incDate = parseLocalDate(incorporationDate)
       // Anniversary month of current year
       const anniv = new Date(today.getFullYear(), incDate.getMonth(), incDate.getDate())
       // If already passed this year, next year

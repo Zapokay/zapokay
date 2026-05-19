@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Info, Lock } from 'lucide-react'
 import { logActivity } from '@/lib/activity-log'
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
+import { formatDate } from '@/lib/utils'
 
 const MONTHS_FR = [
   'Janvier','Février','Mars','Avril','Mai','Juin',
@@ -526,10 +527,11 @@ export function SettingsClient({
                 }}
               >
                 {editIncorpDate
-                  ? new Date(editIncorpDate + 'T00:00:00').toLocaleDateString(
-                      fr ? 'fr-CA' : 'en-CA',
-                      { year: 'numeric', month: 'long', day: 'numeric' }
-                    )
+                  ? formatDate(editIncorpDate, fr ? 'fr' : 'en', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })
                   : (fr ? 'Non renseigné' : 'Not set')}
               </div>
             )}

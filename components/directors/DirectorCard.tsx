@@ -8,6 +8,7 @@ import type {
   Shareholding,
   ShareClass,
 } from '@/lib/supabase/people-types';
+import { formatDate } from '@/lib/utils';
 
 // =============================================================================
 // Types
@@ -41,14 +42,6 @@ function getInitials(name: string): string {
     .join('')
     .toUpperCase()
     .slice(0, 2);
-}
-
-function formatDate(iso: string, locale: string): string {
-  return new Date(iso).toLocaleDateString(locale === 'fr' ? 'fr-CA' : 'en-CA', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 // =============================================================================
@@ -112,8 +105,8 @@ export default function DirectorCard({
           </h3>
           <p className="mt-0.5 text-sm text-[var(--text-muted)]">
             {locale === 'fr'
-              ? `Administrateur depuis le ${formatDate(director.appointment_date, locale)}`
-              : `Director since ${formatDate(director.appointment_date, locale)}`}
+              ? `Administrateur depuis le ${formatDate(director.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}`
+              : `Director since ${formatDate(director.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}`}
           </p>
         </div>
       </div>

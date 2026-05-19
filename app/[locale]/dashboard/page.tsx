@@ -13,6 +13,7 @@ import { getOldestGap } from '@/lib/priority';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
 import MinuteBookCard from '@/components/dashboard/MinuteBookCard'
 import { LegalTerm } from '@/components/ui/LegalTerm';
+import { formatDate, parseLocalDate } from '@/lib/utils';
 
 // ─── Fiscal year history helper ───────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ function computeFiscalYearHistory(
   docs: { document_type: string; document_year: number | null }[]
 ): FiscalYearHistoryEntry[] {
   if (!incorporationDate) return []
-  const incYear = new Date(incorporationDate).getFullYear()
+  const incYear = parseLocalDate(incorporationDate).getFullYear()
   const today = new Date()
   const lastFyEnd = new Date(today.getFullYear(), fyMonth - 1, fyDay)
   const lastCompletedYear = lastFyEnd <= today ? today.getFullYear() : today.getFullYear() - 1
@@ -101,16 +102,6 @@ function fiscalYearLabel(
     fyStart = new Date(today.getFullYear() - 1, fyEndMonth - 1, fyEndDay);
   }
   return `${fyStart.getFullYear()}–${fyStart.getFullYear() + 1}`;
-}
-
-function formatDueDate(dateStr: string | null, fr: boolean): string {
-  if (!dateStr) return '—';
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString(fr ? 'fr-CA' : 'en-CA', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
 }
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
@@ -372,10 +363,11 @@ export default async function DashboardPage({
               bigValueClass = 'text-lg font-bold text-[var(--text-heading)] leading-snug';
             } else if (isAnnual && nextGap) {
               if (nextGap.dueDate) {
-                bigValueNode = new Date(nextGap.dueDate + 'T00:00:00').toLocaleDateString(
-                  fr ? 'fr-CA' : 'en-CA',
-                  { month: 'short', day: 'numeric', year: 'numeric' }
-                );
+                bigValueNode = formatDate(nextGap.dueDate, fr ? 'fr' : 'en', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                });
               } else {
                 bigValueNode = fr ? `Exercice ${nextGap.year}` : `FY ${nextGap.year}`;
               }
@@ -548,7 +540,9 @@ export default async function DashboardPage({
                 <div className="flex flex-col gap-3">
                   {actionItems.map(item => {
                     const title = fr ? item.rule.title_fr : item.rule.title_en;
-                    const dueFormatted = formatDueDate(item.due_date, fr);
+                    const dueFormatted = item.due_date
+                      ? formatDate(item.due_date, fr ? 'fr' : 'en', { year: 'numeric', month: 'long', day: 'numeric' })
+                      : '—';
                     const isRequired = item.status === 'required';
                     return (
                       <div
