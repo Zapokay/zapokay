@@ -226,6 +226,7 @@ export async function generatePdfDocument(
   const templateData = {
     companyName: company.legal_name_fr,
     neq: company.neq,
+    documentTitle,
     resolutionDate: effectiveResolutionDate,
     fiscalYear: isFoundational ? null : String(effectiveYear),
     language,

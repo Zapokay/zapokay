@@ -14,6 +14,7 @@ import type { BoardResolutionData, ShareholderResolutionData, CoverPageData } fr
 interface BoardResolutionInput {
   companyName: string;
   neq?: string;
+  documentTitle: string;
   resolutionDate: string;
   fiscalYear: string | null;
   language?: 'fr' | 'en' | 'bilingual';
@@ -25,6 +26,7 @@ interface BoardResolutionInput {
 interface ShareholderResolutionInput {
   companyName: string;
   neq?: string;
+  documentTitle: string;
   resolutionDate: string;
   fiscalYear: string | null;
   language?: 'fr' | 'en' | 'bilingual';
@@ -57,6 +59,7 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
       const tmplData: BoardResolutionData = {
         companyName: d.companyName,
         neq: d.neq,
+        documentTitle: d.documentTitle,
         resolutionDate: d.resolutionDate,
         fiscalYear: d.fiscalYear,
         language: d.language ?? 'fr',
@@ -78,6 +81,7 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
       const tmplData: ShareholderResolutionData = {
         companyName: d.companyName,
         neq: d.neq,
+        documentTitle: d.documentTitle,
         resolutionDate: d.resolutionDate,
         fiscalYear: d.fiscalYear,
         language: d.language ?? 'fr',

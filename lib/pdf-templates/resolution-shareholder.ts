@@ -5,6 +5,7 @@ import type { Signatory } from './signature-blocks';
 export interface ShareholderResolutionData {
   companyName: string;
   neq?: string;
+  documentTitle: string;
   resolutionDate: string;
   fiscalYear: string | null;
   shareholders: { name: string; shares: number; class?: string }[];
@@ -15,7 +16,6 @@ export interface ShareholderResolutionData {
 
 const LABELS = {
   fr: {
-    title: 'Résolution des actionnaires',
     subtitle: (fy: string) => `Exercice fiscal ${fy}`,
     resolved: 'IL EST RÉSOLU QUE :',
     sigLabel: 'Actionnaire',
@@ -23,7 +23,6 @@ const LABELS = {
     date: 'Date',
   },
   en: {
-    title: 'Shareholders\' Resolution',
     subtitle: (fy: string) => `Fiscal Year ${fy}`,
     resolved: 'IT IS RESOLVED THAT:',
     sigLabel: 'Shareholder',
@@ -31,7 +30,6 @@ const LABELS = {
     date: 'Date',
   },
   bilingual: {
-    title: 'Résolution des actionnaires / Shareholders\' Resolution',
     subtitle: (fy: string) => `Exercice fiscal / Fiscal Year ${fy}`,
     resolved: 'IL EST RÉSOLU / IT IS RESOLVED:',
     sigLabel: 'Actionnaire / Shareholder',
@@ -78,11 +76,11 @@ export function shareholderResolutionHTML(data: ShareholderResolutionData): stri
   return baseLayoutHTML({
     companyName: data.companyName,
     neq: data.neq,
-    documentTitle: l.title,
+    documentTitle: data.documentTitle,
     documentSubtitle: data.fiscalYear !== null ? l.subtitle(data.fiscalYear) : undefined,
     effectiveDate: data.resolutionDate,
     bodyContent,
-    footerDocName: l.title,
+    footerDocName: data.documentTitle,
     language: data.language,
   });
 }

@@ -5,6 +5,7 @@ import type { Signatory } from './signature-blocks';
 export interface BoardResolutionData {
   companyName: string;
   neq?: string;
+  documentTitle: string;
   resolutionDate: string;
   fiscalYear: string | null;
   directors: { name: string; title: string }[];
@@ -15,21 +16,18 @@ export interface BoardResolutionData {
 
 const LABELS = {
   fr: {
-    title: 'Résolution du conseil d\'administration',
     subtitle: (fy: string) => `Exercice fiscal ${fy}`,
     resolved: 'IL EST RÉSOLU QUE :',
     sigLabel: 'Administrateur',
     date: 'Date',
   },
   en: {
-    title: 'Board of Directors Resolution',
     subtitle: (fy: string) => `Fiscal Year ${fy}`,
     resolved: 'IT IS RESOLVED THAT:',
     sigLabel: 'Director',
     date: 'Date',
   },
   bilingual: {
-    title: 'Résolution du conseil d\'administration / Board of Directors Resolution',
     subtitle: (fy: string) => `Exercice fiscal / Fiscal Year ${fy}`,
     resolved: 'IL EST RÉSOLU / IT IS RESOLVED:',
     sigLabel: 'Administrateur / Director',
@@ -75,11 +73,11 @@ export function boardResolutionHTML(data: BoardResolutionData): string {
   return baseLayoutHTML({
     companyName: data.companyName,
     neq: data.neq,
-    documentTitle: l.title,
+    documentTitle: data.documentTitle,
     documentSubtitle: data.fiscalYear !== null ? l.subtitle(data.fiscalYear) : undefined,
     effectiveDate: data.resolutionDate,
     bodyContent,
-    footerDocName: l.title,
+    footerDocName: data.documentTitle,
     language: data.language,
   });
 }
