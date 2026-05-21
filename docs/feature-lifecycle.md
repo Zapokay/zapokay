@@ -53,9 +53,9 @@ Status column to be filled in by Dom.
 |---|---|---|
 | Dashboard | _TBD_ | Composite surface with multiple widgets: LSAQ Compliance (reads compliance_rules), History, Foundational Document, Records analysis, Recent documents, Required actions, Livre de minutes progress |
 | Documents (Coffre-fort) | _TBD_ | Vault standalone |
-| Minute Book — Documents | _TBD_ | One of three Minute Book siblings |
-| Minute Book — Complétude | _TBD_ | Per v2.5: primary edit surface |
-| Minute Book — Livre (Binder) | _TBD_ | Per v2.5: finalized record view |
+| Minute Book — Documents | ACTIVE | Core minute-book document-generation surface; hosts the inline generate-item route; carries open Tier 1 blocker NB-PDF-Title #17. Flipped 2026-05-20, preflight. |
+| Minute Book — Complétude | ACTIVE | Per v2.5: primary edit surface. Core minute-book surface; flipped 2026-05-20, NB-PDF-Title preflight. |
+| Minute Book — Livre (Binder) | ACTIVE | Per v2.5: finalized record view. Core minute-book surface; flipped 2026-05-20, NB-PDF-Title preflight. |
 | Administrateurs | ACTIVE | Critical path (Phase 10F/10G temporal registry UX) |
 | Dirigeants | ACTIVE | Critical path (Phase 10F/10G temporal registry UX) |
 | Actionnaires | _TBD_ | Critical path (Phase 10F/10G temporal registry UX) |
