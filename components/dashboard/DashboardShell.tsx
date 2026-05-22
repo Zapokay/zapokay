@@ -213,10 +213,10 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
             </div>
             <div>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--sb-user-name)' }}>
-                {profile.full_name ?? 'Utilisateur'}
+                {profile.full_name ?? (fr ? 'Utilisateur' : 'User')}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--sb-user-role)' }}>
-                Propriétaire · Plan Pro
+                {fr ? 'Propriétaire · Plan Pro' : 'Owner · Pro plan'}
               </div>
             </div>
           </div>

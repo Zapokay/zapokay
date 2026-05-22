@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   AlertTriangle,
   Loader2,
-  Users,
 } from 'lucide-react';
 import DirectorCard from '@/components/directors/DirectorCard';
 import { LegalTerm } from '@/components/ui/LegalTerm';
@@ -160,27 +159,22 @@ export default function DirectorsClient() {
         </button>
       </div>
 
-      {/* Summary bar */}
-      {totalDirectors > 0 && (
+      {/* CBCA residency compliance badge (sole 25%-resident readout for this page).
+          Active-count was previously rendered here as well; removed 2026-05-22 to dedupe
+          against the H1 subtitle. Outer conditional tightened to `isCBCA` so LSAQ tenants
+          do not see an empty bar. See docs/audit-people-surfaces-2026-05-22.md B.1. */}
+      {totalDirectors > 0 && isCBCA && (
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-5 py-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-body)]">
-            <Users className="h-4 w-4 text-[var(--text-muted)]" />
+          <div
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${residencyOk ? 'bg-emerald-100 text-emerald-700' : 'border'}`}
+            style={residencyOk ? undefined : { backgroundColor: 'var(--error-bg)', color: 'var(--error-text)', borderColor: 'var(--error-border)' }}
+          >
+            {residencyOk ? <ShieldCheck className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
             {locale === 'fr'
-              ? `${totalDirectors} administrateur${totalDirectors > 1 ? 's' : ''} actif${totalDirectors > 1 ? 's' : ''}`
-              : `${totalDirectors} active director${totalDirectors > 1 ? 's' : ''}`}
+              ? <><LegalTerm termKey="resident_canadien" lang="fr" /> : {residencyPct}%</>
+              : <><LegalTerm termKey="resident_canadien" lang="en" />: {residencyPct}%</>}
+            {residencyOk ? ' ✔' : locale === 'fr' ? ' — minimum 25% requis' : ' — 25% minimum required'}
           </div>
-          {isCBCA && (
-            <div
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${residencyOk ? 'bg-emerald-100 text-emerald-700' : 'border'}`}
-              style={residencyOk ? undefined : { backgroundColor: 'var(--error-bg)', color: 'var(--error-text)', borderColor: 'var(--error-border)' }}
-            >
-              {residencyOk ? <ShieldCheck className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
-              {locale === 'fr'
-                ? <><LegalTerm termKey="resident_canadien" lang="fr" /> : {residencyPct}%</>
-                : <><LegalTerm termKey="resident_canadien" lang="en" />: {residencyPct}%</>}
-              {residencyOk ? ' ✔' : locale === 'fr' ? ' — minimum 25% requis' : ' — 25% minimum required'}
-            </div>
-          )}
         </div>
       )}
 

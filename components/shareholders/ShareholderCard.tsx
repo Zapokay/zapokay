@@ -109,7 +109,7 @@ export default function ShareholderCard({
           <p className="mt-0.5 text-sm text-[var(--text-muted)]">
             {totalQuantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA')}{' '}
             {locale === 'fr' ? 'actions' : 'shares'}{' '}
-            <span className="lowercase">{classLabel}</span>
+            <span>{classLabel}</span>
             {' · '}
             <span className="font-medium text-[var(--text-body)]">{pct}%</span>
             {' '}
@@ -175,7 +175,7 @@ export default function ShareholderCard({
           type="button"
           disabled
           className="group/btn flex cursor-not-allowed items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-muted)] opacity-60"
-          title={locale === 'fr' ? 'Bientôt disponible (Sprint 7)' : 'Coming soon (Sprint 7)'}
+          title={locale === 'fr' ? 'Bientôt disponible' : 'Coming soon'}
         >
           <ArrowRightLeft className="h-3.5 w-3.5" />
           {t('transfer')}
