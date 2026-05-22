@@ -58,7 +58,7 @@ Status column to be filled in by Dom.
 | Minute Book — Livre (Binder) | ACTIVE | Per v2.5: finalized record view. Core minute-book surface; flipped 2026-05-20, NB-PDF-Title preflight. |
 | Administrateurs | ACTIVE | Critical path (Phase 10F/10G temporal registry UX) |
 | Dirigeants | ACTIVE | Critical path (Phase 10F/10G temporal registry UX) |
-| Actionnaires | _TBD_ | Critical path (Phase 10F/10G temporal registry UX) |
+| Actionnaires | ACTIVE | Critical path (Phase 10F/10G temporal registry UX). Flipped 2026-05-22 following `docs/audit-people-surfaces-2026-05-22.md` first full audit closure. |
 | Historique | _TBD_ | |
 | Paramètres | _TBD_ | |
 
