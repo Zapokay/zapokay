@@ -4,8 +4,20 @@ import { useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
-import type { OfficerWithPerson } from '@/lib/supabase/people-types';
+import type { OfficerWithPerson, OfficerEndReason } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
+
+// =============================================================================
+// End-reason options (labels resolved via t('endReasons.{value}'))
+// =============================================================================
+
+const END_REASON_VALUES: OfficerEndReason[] = [
+  'resignation',
+  'revocation',
+  'term_expired',
+  'death',
+  'disqualification',
+];
 
 // =============================================================================
 // Helpers
@@ -42,6 +54,7 @@ export default function RemoveOfficerModal({
   const supabase = createClient();
 
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endReason, setEndReason] = useState<OfficerEndReason | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +64,10 @@ export default function RemoveOfficerModal({
       : (TITLE_LABELS[officer.title]?.[locale] ?? officer.title);
 
   const handleConfirm = useCallback(async () => {
+    if (!endReason) {
+      setError(locale === 'fr' ? 'Le motif de fin est requis.' : 'A reason is required.');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -60,6 +77,7 @@ export default function RemoveOfficerModal({
         .update({
           is_active: false,
           end_date: endDate,
+          end_reason: endReason,
         })
         .eq('id', officer.id);
 
@@ -93,7 +111,7 @@ export default function RemoveOfficerModal({
     } finally {
       setSaving(false);
     }
-  }, [endDate, officer.id, supabase, onSuccess]);
+  }, [endDate, endReason, officer.id, supabase, onSuccess, locale]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -128,6 +146,25 @@ export default function RemoveOfficerModal({
               : 'The person will remain in the registry but will no longer hold this position.'}
           </p>
 
+          {/* End reason */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              {t('endReason')}
+            </label>
+            <select
+              value={endReason}
+              onChange={(e) => setEndReason(e.target.value as OfficerEndReason | '')}
+              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            >
+              <option value="">{locale === 'fr' ? '— Sélectionner —' : '— Select —'}</option>
+              {END_REASON_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {t(`endReasons.${value}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* End date */}
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -161,7 +198,7 @@ export default function RemoveOfficerModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={saving}
+            disabled={saving || !endReason}
             className="flex items-center gap-2 rounded-lg bg-red-500 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-600 disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

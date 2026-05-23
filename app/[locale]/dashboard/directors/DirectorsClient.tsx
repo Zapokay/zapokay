@@ -266,9 +266,13 @@ export default function DirectorsClient() {
                   {group.mandates.map((m) => (
                     <div key={m.id} className="text-[var(--text-muted)]">
                       <span className="font-medium">{t('formerDirector')}</span>
+                      {' — '}
+                      {t('startedOn', {
+                        date: formatDate(m.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                      })}
                       {m.end_date && (
                         <>
-                          {' — '}
+                          {' · '}
                           {t('endedOn', {
                             date: formatDate(m.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
                           })}

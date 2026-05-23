@@ -18,15 +18,15 @@ interface RemoveDirectorModalProps {
 }
 
 // =============================================================================
-// End-reason options
+// End-reason options (labels resolved via t('endReasons.{value}'))
 // =============================================================================
 
-const END_REASONS: { value: DirectorEndReason; fr: string; en: string }[] = [
-  { value: 'resignation', fr: 'Démission', en: 'Resignation' },
-  { value: 'revocation', fr: 'Révocation', en: 'Revocation' },
-  { value: 'term_expired', fr: 'Fin de mandat', en: 'Term expired' },
-  { value: 'death', fr: 'Décès', en: 'Death' },
-  { value: 'disqualification', fr: 'Disqualification', en: 'Disqualification' },
+const END_REASON_VALUES: DirectorEndReason[] = [
+  'resignation',
+  'revocation',
+  'term_expired',
+  'death',
+  'disqualification',
 ];
 
 // =============================================================================
@@ -43,11 +43,15 @@ export default function RemoveDirectorModal({
   const supabase = createClient();
 
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endReason, setEndReason] = useState<DirectorEndReason>('resignation');
+  const [endReason, setEndReason] = useState<DirectorEndReason | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = useCallback(async () => {
+    if (!endReason) {
+      setError(locale === 'fr' ? 'Le motif de fin est requis.' : 'A reason is required.');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -82,7 +86,7 @@ export default function RemoveDirectorModal({
     } finally {
       setSaving(false);
     }
-  }, [endDate, endReason, director.id, supabase, onSuccess]);
+  }, [endDate, endReason, director.id, supabase, onSuccess, locale]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -126,12 +130,13 @@ export default function RemoveDirectorModal({
             </label>
             <select
               value={endReason}
-              onChange={(e) => setEndReason(e.target.value as DirectorEndReason)}
+              onChange={(e) => setEndReason(e.target.value as DirectorEndReason | '')}
               className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             >
-              {END_REASONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {locale === 'fr' ? r.fr : r.en}
+              <option value="">{locale === 'fr' ? '— Sélectionner —' : '— Select —'}</option>
+              {END_REASON_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {t(`endReasons.${value}`)}
                 </option>
               ))}
             </select>
@@ -171,7 +176,7 @@ export default function RemoveDirectorModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={saving}
+            disabled={saving || !endReason}
             className="flex items-center gap-2 rounded-lg bg-red-500 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-600 disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -7,7 +7,20 @@ import { X, RefreshCw, Loader2, ArrowRight } from 'lucide-react';
 import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
-import type { OfficerWithPerson } from '@/lib/supabase/people-types';
+import type { OfficerWithPerson, OfficerEndReason } from '@/lib/supabase/people-types';
+
+// =============================================================================
+// End-reason options (labels resolved via t('endReasons.{value}')). NO default
+// — user must pick (per Bundle 1 brief).
+// =============================================================================
+
+const END_REASON_VALUES: OfficerEndReason[] = [
+  'resignation',
+  'revocation',
+  'term_expired',
+  'death',
+  'disqualification',
+];
 
 // =============================================================================
 // Helpers
@@ -58,6 +71,7 @@ export default function ReplaceOfficerModal({
   // ---- State ----------------------------------------------------------------
   const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);
   const [endDate, setEndDate] = useState(today);
+  const [endReason, setEndReason] = useState<OfficerEndReason | ''>('');
   const [startDate, setStartDate] = useState(today);
   const [isSigningAuthority, setIsSigningAuthority] = useState(
     officer.is_primary_signing_authority
@@ -69,6 +83,10 @@ export default function ReplaceOfficerModal({
   const handleSave = useCallback(async () => {
     if (!personValue) {
       setError(t('errorSelectPerson'));
+      return;
+    }
+    if (!endReason) {
+      setError(locale === 'fr' ? 'Le motif de fin est requis.' : 'A reason is required.');
       return;
     }
 
@@ -111,6 +129,7 @@ export default function ReplaceOfficerModal({
         .update({
           is_active: false,
           end_date: endDate,
+          end_reason: endReason,
         })
         .eq('id', officer.id);
 
@@ -137,7 +156,7 @@ export default function ReplaceOfficerModal({
     } finally {
       setSaving(false);
     }
-  }, [personValue, endDate, startDate, isSigningAuthority, officer, companyId, supabase, onSuccess, t]);
+  }, [personValue, endDate, endReason, startDate, isSigningAuthority, officer, companyId, supabase, onSuccess, t, locale]);
 
   // ---- Render ---------------------------------------------------------------
   return (
@@ -193,6 +212,25 @@ export default function ReplaceOfficerModal({
             excludePersonIds={[officer.person_id]}
             label={locale === 'fr' ? 'Nouveau titulaire' : 'New appointee'}
           />
+
+          {/* End reason (outgoing) — NO default; user must pick */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              {t('endReason')}
+            </label>
+            <select
+              value={endReason}
+              onChange={(e) => setEndReason(e.target.value as OfficerEndReason | '')}
+              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            >
+              <option value="">{locale === 'fr' ? '— Sélectionner —' : '— Select —'}</option>
+              {END_REASON_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {t(`endReasons.${value}`)}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Dates row */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -258,7 +296,7 @@ export default function ReplaceOfficerModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !personValue}
+            disabled={saving || !personValue || !endReason}
             className="flex items-center gap-2 rounded-lg bg-[var(--amber-400)] px-5 py-2 text-sm font-semibold text-[var(--cta-text)] shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

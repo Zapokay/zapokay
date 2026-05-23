@@ -22,6 +22,15 @@ import type {
 
 const ROLE_ORDER = ['president', 'vice_president', 'secretary', 'treasurer', 'custom'];
 
+// Mirrors OfficerCard.tsx:36-41 — kept local per Bundle 1 brief (extraction
+// to lib/officer-title-labels.ts deferred to a Tier-3 follow-up).
+const TITLE_LABELS: Record<string, { fr: string; en: string }> = {
+  president: { fr: 'Président·e', en: 'President' },
+  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
+  secretary: { fr: 'Secrétaire', en: 'Secretary' },
+  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
+};
+
 export default function OfficersClient() {
   const t = useTranslations('officers');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
@@ -232,10 +241,11 @@ export default function OfficersClient() {
         </div>
       )}
 
-      {/* Phase 1C: Former officers section. Visible by default. Hidden when
-          empty. Officer ended rows commonly have NULL end_reason until
-          1B-capture ships RemoveOfficerModal end_reason capture — date-only
-          rendering is expected interim behavior. */}
+      {/* Phase 1B-CAPTURE: Former officers section. Now renders per-appointment
+          title (formerTitled) + start date (appointedOn) + end date + end_reason.
+          end_reason capture lands in same bundle via RemoveOfficerModal +
+          ReplaceOfficerModal end_reason plumbing — legacy rows may still be NULL
+          (no backfill per Bundle 1 lock). */}
       {formerOfficers.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-[var(--text-heading)] mb-3">
@@ -246,25 +256,35 @@ export default function OfficersClient() {
               <div key={group.person_id} className="text-sm">
                 <div className="font-medium text-[var(--text-body)]">{group.person.full_name}</div>
                 <div className="mt-1 space-y-0.5 text-xs">
-                  {group.appointments.map((a) => (
-                    <div key={a.id} className="text-[var(--text-muted)]">
-                      <span className="font-medium">{t('formerOfficer')}</span>
-                      {a.end_date && (
-                        <>
-                          {' — '}
-                          {t('endedOn', {
-                            date: formatDate(a.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
-                          })}
-                        </>
-                      )}
-                      {a.end_reason && (
-                        <span>
-                          {' · '}
-                          {t(`endReasons.${a.end_reason}`)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                  {group.appointments.map((a) => {
+                    const titleLabel =
+                      a.title === 'custom'
+                        ? (a.custom_title && a.custom_title.length > 0 ? a.custom_title : t('customTitle'))
+                        : TITLE_LABELS[a.title][locale];
+                    return (
+                      <div key={a.id} className="text-[var(--text-muted)]">
+                        <span className="font-medium">{t('formerTitled', { title: titleLabel })}</span>
+                        {' — '}
+                        {t('appointedOn', {
+                          date: formatDate(a.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                        })}
+                        {a.end_date && (
+                          <>
+                            {' · '}
+                            {t('endedOn', {
+                              date: formatDate(a.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                            })}
+                          </>
+                        )}
+                        {a.end_reason && (
+                          <span>
+                            {' · '}
+                            {t(`endReasons.${a.end_reason}`)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}

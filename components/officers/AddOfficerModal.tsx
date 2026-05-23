@@ -7,8 +7,20 @@ import { X, Zap, Loader2 } from 'lucide-react';
 import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
-import type { OfficerTitle } from '@/lib/supabase/people-types';
+import type { OfficerTitle, OfficerEndReason } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
+
+// =============================================================================
+// End-reason options (labels resolved via t('endReasons.{value}'))
+// =============================================================================
+
+const END_REASON_VALUES: OfficerEndReason[] = [
+  'resignation',
+  'revocation',
+  'term_expired',
+  'death',
+  'disqualification',
+];
 
 // =============================================================================
 // Types
@@ -47,17 +59,33 @@ export default function AddOfficerModal({
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
+  const defaultAppointmentDate = incorporationDate || new Date().toISOString().split('T')[0];
+
   // ---- State ----------------------------------------------------------------
   const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);
   const [title, setTitle] = useState<OfficerTitle>('president');
   const [customTitle, setCustomTitle] = useState('');
   const [isSigningAuthority, setIsSigningAuthority] = useState(false);
-  const [appointmentDate, setAppointmentDate] = useState(
-    incorporationDate || new Date().toISOString().split('T')[0]
-  );
+  const [stillInOffice, setStillInOffice] = useState(true);
+  const [appointmentDate, setAppointmentDate] = useState(defaultAppointmentDate);
+  const [endDate, setEndDate] = useState('');
+  const [endReason, setEndReason] = useState<OfficerEndReason | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflictOfficer, setConflictOfficer] = useState<{ id: string; personId: string; name: string; titleLabel: string } | null>(null);
+
+  // Toggle handler — retroactive mode clears dates to force explicit entry;
+  // ON mode restores the appointment_date default.
+  const handleStillInOfficeChange = useCallback((next: boolean) => {
+    setStillInOffice(next);
+    if (next) {
+      setAppointmentDate(defaultAppointmentDate);
+      setEndDate('');
+    } else {
+      setAppointmentDate('');
+      setEndDate('');
+    }
+  }, [defaultAppointmentDate]);
 
   // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async (replaceConflict = false) => {
@@ -73,13 +101,34 @@ export default function AddOfficerModal({
       setError(t('errorCustomTitle'));
       return;
     }
+    // Retroactive mode requires end_date + end_reason; end_date >= appointment_date.
+    if (!stillInOffice) {
+      if (!endDate) {
+        setError(locale === 'fr' ? 'La date de fin est requise.' : 'End date is required.');
+        return;
+      }
+      if (!endReason) {
+        setError(locale === 'fr' ? 'Le motif de fin est requis.' : 'A reason is required.');
+        return;
+      }
+      if (new Date(endDate) < new Date(appointmentDate)) {
+        setError(
+          locale === 'fr'
+            ? 'La date de fin doit être postérieure ou égale à la date de nomination.'
+            : 'End date must be on or after the appointment date.'
+        );
+        return;
+      }
+    }
 
     setSaving(true);
     setError(null);
 
     try {
-      // Check for title conflict (non-custom roles only)
-      if (title !== 'custom' && !replaceConflict) {
+      // SAFEGUARD 1 — active-title-uniqueness check. SKIP in retroactive mode
+      // (toggle OFF) so back-dating a former CEO does not collide with the
+      // sitting CEO. Also skipped for 'custom' titles (free-form, no uniqueness).
+      if (stillInOffice && title !== 'custom' && !replaceConflict) {
         const { data: existing } = await supabase
           .from('officer_appointments')
           .select('id, person_id, company_people(full_name)')
@@ -137,18 +186,25 @@ export default function AddOfficerModal({
         personId = personValue.personId;
       }
 
-      // Create officer appointment
+      // Create officer appointment — retroactive mode inserts inactive row
+      // with end_date + end_reason; normal mode is unchanged.
+      const appointmentPayload: Record<string, unknown> = {
+        company_id: companyId,
+        person_id: personId,
+        title,
+        custom_title: title === 'custom' ? customTitle.trim() : null,
+        is_primary_signing_authority: isSigningAuthority,
+        appointment_date: appointmentDate,
+        is_active: stillInOffice,
+      };
+      if (!stillInOffice) {
+        appointmentPayload.end_date = endDate;
+        appointmentPayload.end_reason = endReason;
+      }
+
       const { error: appointErr } = await supabase
         .from('officer_appointments')
-        .insert({
-          company_id: companyId,
-          person_id: personId,
-          title,
-          custom_title: title === 'custom' ? customTitle.trim() : null,
-          is_primary_signing_authority: isSigningAuthority,
-          appointment_date: appointmentDate,
-          is_active: true,
-        });
+        .insert(appointmentPayload);
 
       if (appointErr) {
         throw new Error(appointErr.message);
@@ -165,14 +221,28 @@ export default function AddOfficerModal({
       const titleLabel = title === 'custom' ? customTitle.trim() : (titleFrMap[title] || title);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // Option A: single _added event; retroactive carries end metadata in details.
+        const titleFr = stillInOffice
+          ? `Dirigeant nommé : ${fullName} — ${titleLabel}`
+          : `Dirigeant nommé (rétroactif) : ${fullName} — ${titleLabel}`;
+        const titleEn = stillInOffice
+          ? `Officer appointed: ${fullName} — ${title}`
+          : `Officer appointed (retroactive): ${fullName} — ${title}`;
+        const details: Record<string, unknown> = { person_id: personId, title };
+        if (!stillInOffice) {
+          details.ended = true;
+          details.end_date = endDate;
+          details.end_reason = endReason;
+          details.retroactive = true;
+        }
         await logActivity(
           supabase,
           companyId,
           user.id,
           'officer_added',
-          `Dirigeant nommé : ${fullName} — ${titleLabel}`,
-          `Officer appointed: ${fullName} — ${title}`,
-          { person_id: personId, title }
+          titleFr,
+          titleEn,
+          details
         );
       }
 
@@ -182,7 +252,7 @@ export default function AddOfficerModal({
     } finally {
       setSaving(false);
     }
-  }, [personValue, title, customTitle, isSigningAuthority, appointmentDate, companyId, conflictOfficer, supabase, onSuccess, t, locale]);
+  }, [personValue, title, customTitle, isSigningAuthority, stillInOffice, appointmentDate, endDate, endReason, companyId, conflictOfficer, supabase, onSuccess, t, locale]);
 
   // ---- Render ---------------------------------------------------------------
   return (
@@ -267,6 +337,21 @@ export default function AddOfficerModal({
             </span>
           </label>
 
+          {/* Still in office? toggle */}
+          <label className="flex cursor-pointer items-center gap-3">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={stillInOffice}
+                onChange={(e) => handleStillInOfficeChange(e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="h-5 w-9 rounded-full bg-zinc-300 transition-colors peer-checked:bg-amber-500 dark:bg-zinc-600" />
+              <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+            </div>
+            <span className="text-sm text-zinc-700 dark:text-zinc-300">{t('stillInOffice')}</span>
+          </label>
+
           {/* Appointment date */}
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -279,6 +364,40 @@ export default function AddOfficerModal({
               className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
           </div>
+
+          {/* Retroactive mode: end_date + end_reason */}
+          {!stillInOffice && (
+            <>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {t('endDate')} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {t('endReason')} <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={endReason}
+                  onChange={(e) => setEndReason(e.target.value as OfficerEndReason | '')}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  <option value="">{locale === 'fr' ? '— Sélectionner —' : '— Select —'}</option>
+                  {END_REASON_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`endReasons.${value}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
 
           {/* Error */}
           {error && (
@@ -335,7 +454,7 @@ export default function AddOfficerModal({
           <button
             type="button"
             onClick={() => handleSave()}
-            disabled={saving || !personValue}
+            disabled={saving || !personValue || (!stillInOffice && !endReason)}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
