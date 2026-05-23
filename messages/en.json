@@ -303,7 +303,20 @@
     "endDate": "End date",
     "confirmRemove": "Confirm removal",
     "errorSelectPerson": "Please select a person.",
-    "errorAppointmentDate": "Appointment date is required."
+    "errorAppointmentDate": "Appointment date is required.",
+    "viewHistory": "View history",
+    "hideHistory": "Hide history",
+    "formerDirector": "Former director",
+    "formerSectionTitle": "Former directors ({count})",
+    "endedOn": "Ended on {date}",
+    "noHistory": "No history",
+    "endReasons": {
+      "resignation": "Resignation",
+      "revocation": "Revocation",
+      "death": "Death",
+      "disqualification": "Disqualification",
+      "term_expired": "Term expired"
+    }
   },
   "officers": {
     "_locale": "en",
@@ -326,7 +339,20 @@
     "confirmRemove": "Confirm removal",
     "errorSelectPerson": "Please select a person.",
     "errorAppointmentDate": "Appointment date is required.",
-    "errorCustomTitle": "Custom title is required."
+    "errorCustomTitle": "Custom title is required.",
+    "viewHistory": "View history",
+    "hideHistory": "Hide history",
+    "formerOfficer": "Former officer",
+    "formerSectionTitle": "Former officers ({count})",
+    "endedOn": "Ended on {date}",
+    "noHistory": "No history",
+    "endReasons": {
+      "resignation": "Resignation",
+      "revocation": "Removal",
+      "death": "Death",
+      "disqualification": "Disqualification",
+      "term_expired": "Term ended"
+    }
   },
   "shareholders": {
     "_locale": "en",

@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { MapPin, Pencil, UserMinus, Flag } from 'lucide-react';
+import { MapPin, Pencil, UserMinus, Flag, ChevronDown, ChevronRight } from 'lucide-react';
 import type {
+  DirectorMandate,
   DirectorWithPerson,
   OfficerAppointment,
   Shareholding,
@@ -20,6 +22,8 @@ interface DirectorCardProps {
   officerAppointments: OfficerAppointment[];
   /** Active shareholdings for this person */
   shareholdings: (Shareholding & { share_class: ShareClass })[];
+  /** Prior (ended) director mandates for this same person — Phase 1B-view history */
+  endedMandates: DirectorMandate[];
   onEdit: (director: DirectorWithPerson) => void;
   onRemove: (director: DirectorWithPerson) => void;
 }
@@ -52,11 +56,13 @@ export default function DirectorCard({
   director,
   officerAppointments,
   shareholdings,
+  endedMandates,
   onEdit,
   onRemove,
 }: DirectorCardProps) {
   const t = useTranslations('directors');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
+  const [historyExpanded, setHistoryExpanded] = useState<boolean>(() => false);
 
   const { person } = director;
   const totalShares = shareholdings.reduce((sum, s) => sum + s.quantity, 0);
@@ -144,6 +150,57 @@ export default function DirectorCard({
             {' : '}
             {otherRoles.join(', ')}
           </p>
+        )}
+      </div>
+
+      {/* History disclosure (Phase 1B-view). Pattern mirrors
+          components/minute-book/RequirementSection.tsx:43-72 — useState lazy
+          init + <button aria-expanded> + Chevron + conditional render. Per
+          readiness doc D13: kept inline (no extracted component) until Phase 3
+          when Shareholder card joins. */}
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={() => setHistoryExpanded((e) => !e)}
+          aria-expanded={historyExpanded}
+          className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-body)]"
+        >
+          {historyExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
+          {historyExpanded ? t('hideHistory') : t('viewHistory')}
+          {endedMandates.length > 0 && (
+            <span>({endedMandates.length})</span>
+          )}
+        </button>
+        {historyExpanded && (
+          <div className="mt-2 space-y-1.5 pl-5 text-xs">
+            {endedMandates.length === 0 ? (
+              <p className="italic text-[var(--text-muted)]">{t('noHistory')}</p>
+            ) : (
+              endedMandates.map((em) => (
+                <div key={em.id} className="text-[var(--text-body)]">
+                  <span className="font-medium">{t('formerDirector')}</span>
+                  {em.end_date && (
+                    <>
+                      {' — '}
+                      {t('endedOn', {
+                        date: formatDate(em.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                      })}
+                    </>
+                  )}
+                  {em.end_reason && (
+                    <span className="text-[var(--text-muted)]">
+                      {' · '}
+                      {t(`endReasons.${em.end_reason}`)}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
 

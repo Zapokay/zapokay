@@ -57,6 +57,15 @@ export type OfficerTitle =
   | 'vice_president'
   | 'custom';
 
+// Mirror of DirectorEndReason (5 values). Schema enforced by CHECK constraint
+// in migration 20260511001738_phase10a_low_risk_additive.sql (LOCK-3).
+export type OfficerEndReason =
+  | 'resignation'
+  | 'revocation'
+  | 'death'
+  | 'disqualification'
+  | 'term_expired';
+
 export interface OfficerAppointment {
   id: string;
   company_id: string;
@@ -66,6 +75,7 @@ export interface OfficerAppointment {
   is_primary_signing_authority: boolean;
   appointment_date: string;
   end_date: string | null;
+  end_reason: OfficerEndReason | null;
   is_active: boolean;
   created_at: string;
 }

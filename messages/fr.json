@@ -303,7 +303,20 @@
     "endDate": "Date de fin",
     "confirmRemove": "Confirmer le retrait",
     "errorSelectPerson": "Veuillez sélectionner une personne.",
-    "errorAppointmentDate": "La date de nomination est requise."
+    "errorAppointmentDate": "La date de nomination est requise.",
+    "viewHistory": "Voir l'historique",
+    "hideHistory": "Masquer l'historique",
+    "formerDirector": "Ancien administrateur",
+    "formerSectionTitle": "Anciens administrateurs ({count})",
+    "endedOn": "Terminé le {date}",
+    "noHistory": "Aucun historique",
+    "endReasons": {
+      "resignation": "Démission",
+      "revocation": "Révocation",
+      "death": "Décès",
+      "disqualification": "Disqualification",
+      "term_expired": "Fin de mandat"
+    }
   },
   "officers": {
     "_locale": "fr",
@@ -326,7 +339,20 @@
     "confirmRemove": "Confirmer le retrait",
     "errorSelectPerson": "Veuillez sélectionner une personne.",
     "errorAppointmentDate": "La date de nomination est requise.",
-    "errorCustomTitle": "Le titre personnalisé est requis."
+    "errorCustomTitle": "Le titre personnalisé est requis.",
+    "viewHistory": "Voir l'historique",
+    "hideHistory": "Masquer l'historique",
+    "formerOfficer": "Ancien dirigeant",
+    "formerSectionTitle": "Anciens dirigeants ({count})",
+    "endedOn": "Terminé le {date}",
+    "noHistory": "Aucun historique",
+    "endReasons": {
+      "resignation": "Démission",
+      "revocation": "Destitution",
+      "death": "Décès",
+      "disqualification": "Inhabilité",
+      "term_expired": "Fin de mandat"
+    }
   },
   "shareholders": {
     "_locale": "fr",

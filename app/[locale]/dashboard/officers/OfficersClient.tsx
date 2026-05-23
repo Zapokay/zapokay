@@ -9,8 +9,10 @@ import { LegalTerm } from '@/components/ui/LegalTerm';
 import AddOfficerModal from '@/components/officers/AddOfficerModal';
 import ReplaceOfficerModal from '@/components/officers/ReplaceOfficerModal';
 import RemoveOfficerModal from '@/components/officers/RemoveOfficerModal';
+import { formatDate } from '@/lib/utils';
 import type {
   CompanyPerson,
+  OfficerAppointment,
   OfficerWithPerson,
   DirectorMandate,
   Shareholding,
@@ -28,6 +30,10 @@ export default function OfficersClient() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [incorporationDate, setIncorporationDate] = useState<string | null>(null);
   const [officers, setOfficers] = useState<OfficerWithPerson[]>([]);
+  // Phase 1C: keep person embed on ended rows so the "former officers"
+  // section can render full_name without a separate lookup. The card prop
+  // `endedAppointments: OfficerAppointment[]` still accepts these via covariance.
+  const [endedAppointments, setEndedAppointments] = useState<OfficerWithPerson[]>([]);
   const [directorMandates, setDirectorMandates] = useState<DirectorMandate[]>([]);
   const [shareholdings, setShareholdings] = useState<(Shareholding & { share_class: ShareClass; holders: ShareholdingHolder[] })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,10 +56,17 @@ export default function OfficersClient() {
     setIncorporationDate(company.incorporation_date);
     const cid = company.id;
 
+    // Phase 1B-view: fetch ALL appointments (active + ended). Active rows remain
+    // the default display list (`officers`); ended rows feed the per-card
+    // history disclosure via `endedAppointments` filtered by person_id.
     const { data: officersRaw } = await supabase
       .from('officer_appointments').select('*, person:company_people(*)')
-      .eq('company_id', cid).eq('is_active', true).order('appointment_date', { ascending: true });
-    setOfficers((officersRaw || []).map((row: any) => ({ ...row, person: row.person as CompanyPerson })));
+      .eq('company_id', cid).order('appointment_date', { ascending: true });
+
+    const activeRows = (officersRaw || []).filter((row: any) => row.is_active);
+    const endedRows = (officersRaw || []).filter((row: any) => !row.is_active);
+    setOfficers(activeRows.map((row: any) => ({ ...row, person: row.person as CompanyPerson })));
+    setEndedAppointments(endedRows.map((row: any) => ({ ...row, person: row.person as CompanyPerson })));
 
     const { data: mandatesRaw } = await supabase
       .from('director_mandates').select('*').eq('company_id', cid).eq('is_active', true);
@@ -80,7 +93,26 @@ export default function OfficersClient() {
   const sortedOfficers = [...officers].sort((a, b) => ROLE_ORDER.indexOf(a.title) - ROLE_ORDER.indexOf(b.title));
   const uniqueOfficerCount = new Set(officers.map(o => o.person_id)).size;
 
+  // Phase 1C: derive fully-former officers (ended rows whose person_id is NOT
+  // present in the active list). Group multiple ended appointments under the
+  // same person so a CEO who later returned as Secretary, then resigned, etc.
+  // shows as one entry. Active people show their ended segments via the
+  // per-card disclosure — no overlap.
+  const activePersonIdSet = new Set(officers.map((o) => o.person_id));
+  const formerOfficers = Object.values(
+    endedAppointments
+      .filter((a) => !activePersonIdSet.has(a.person_id))
+      .reduce((acc, a) => {
+        if (!acc[a.person_id]) {
+          acc[a.person_id] = { person_id: a.person_id, person: a.person, appointments: [] };
+        }
+        acc[a.person_id].appointments.push(a);
+        return acc;
+      }, {} as Record<string, { person_id: string; person: CompanyPerson; appointments: OfficerAppointment[] }>)
+  );
+
   function getDirectorMandatesForPerson(personId: string) { return directorMandates.filter((dm) => dm.person_id === personId); }
+  function getEndedAppointmentsForPerson(personId: string) { return endedAppointments.filter((ea) => ea.person_id === personId); }
   // Atom 2: a person "holds" a shareholding when they appear as an individual
   // holder on its shareholding_holders join row. Entity-typed officer scenarios
   // (officer sits via a corporate trustee) are atom 3+ scope per Q-R-G2-B.
@@ -167,6 +199,7 @@ export default function OfficersClient() {
               officer={officer}
               directorMandates={getDirectorMandatesForPerson(officer.person_id)}
               shareholdings={getShareholdingsForPerson(officer.person_id)}
+              endedAppointments={getEndedAppointmentsForPerson(officer.person_id)}
               onEdit={() => setShowAddModal(true)}
               onReplace={(o) => setReplacingOfficer(o)}
               onRemove={(o) => setRemovingOfficer(o)}
@@ -197,6 +230,46 @@ export default function OfficersClient() {
             {t('appointOfficer')}
           </button>
         </div>
+      )}
+
+      {/* Phase 1C: Former officers section. Visible by default. Hidden when
+          empty. Officer ended rows commonly have NULL end_reason until
+          1B-capture ships RemoveOfficerModal end_reason capture — date-only
+          rendering is expected interim behavior. */}
+      {formerOfficers.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-[var(--text-heading)] mb-3">
+            {t('formerSectionTitle', { count: formerOfficers.length })}
+          </h2>
+          <div className="space-y-3 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
+            {formerOfficers.map((group) => (
+              <div key={group.person_id} className="text-sm">
+                <div className="font-medium text-[var(--text-body)]">{group.person.full_name}</div>
+                <div className="mt-1 space-y-0.5 text-xs">
+                  {group.appointments.map((a) => (
+                    <div key={a.id} className="text-[var(--text-muted)]">
+                      <span className="font-medium">{t('formerOfficer')}</span>
+                      {a.end_date && (
+                        <>
+                          {' — '}
+                          {t('endedOn', {
+                            date: formatDate(a.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                          })}
+                        </>
+                      )}
+                      {a.end_reason && (
+                        <span>
+                          {' · '}
+                          {t(`endReasons.${a.end_reason}`)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {showAddModal && companyId && (

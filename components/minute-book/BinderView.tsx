@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
 import BinderSection from './BinderSection'
 import RegisterCard from './RegisterCard'
 
@@ -12,6 +13,8 @@ interface Section {
 }
 
 export default function BinderView() {
+  const t = useTranslations('minuteBook.registers')
+  const locale = useLocale()
   const [sections, setSections] = useState<Section[]>([])
   const [directors, setDirectors] = useState<any>(null)
   const [officers, setOfficers] = useState<any>(null)
@@ -61,17 +64,18 @@ export default function BinderView() {
           >
             {directors && (
               <RegisterCard
-                title={directors.register_title_fr}
+                title={locale === 'en' ? directors.register_title_en : directors.register_title_fr}
+                emptyMessage={t('emptyRegister')}
                 columns={[
-                  { key: 'full_name', label: 'Nom' },
-                  { key: 'resident', label: 'Résidence' },
-                  { key: 'appointment_date', label: 'Début' },
-                  { key: 'end_date_display', label: 'Fin' },
-                  { key: 'status', label: 'Actif' },
+                  { key: 'full_name', label: t('columns.name') },
+                  { key: 'resident', label: t('columns.residence') },
+                  { key: 'appointment_date', label: t('columns.start') },
+                  { key: 'end_date_display', label: t('columns.end') },
+                  { key: 'status', label: t('columns.active') },
                 ]}
                 rows={(directors.entries || []).map((e: any) => ({
                   ...e,
-                  resident: e.is_canadian_resident ? 'Oui' : 'Non',
+                  resident: e.is_canadian_resident ? t('residentYes') : t('residentNo'),
                   end_date_display: e.end_date || '—',
                   status: e.is_active ? (
                     <span className="text-green-600">✓</span>
@@ -84,15 +88,18 @@ export default function BinderView() {
 
             {officers && (
               <RegisterCard
-                title={officers.register_title_fr}
+                title={locale === 'en' ? officers.register_title_en : officers.register_title_fr}
+                emptyMessage={t('emptyRegister')}
                 columns={[
-                  { key: 'full_name', label: 'Nom' },
-                  { key: 'title', label: 'Titre' },
-                  { key: 'appointment_date', label: 'Début' },
-                  { key: 'status', label: 'Actif' },
+                  { key: 'full_name', label: t('columns.name') },
+                  { key: 'title', label: t('columns.title') },
+                  { key: 'appointment_date', label: t('columns.start') },
+                  { key: 'end_date_display', label: t('columns.end') },
+                  { key: 'status', label: t('columns.active') },
                 ]}
                 rows={(officers.entries || []).map((e: any) => ({
                   ...e,
+                  end_date_display: e.end_date || '—',
                   status: e.is_active ? (
                     <span className="text-green-600">✓</span>
                   ) : (
@@ -104,13 +111,14 @@ export default function BinderView() {
 
             {shareholders && (
               <RegisterCard
-                title={shareholders.register_title_fr}
+                title={locale === 'en' ? shareholders.register_title_en : shareholders.register_title_fr}
+                emptyMessage={t('emptyRegister')}
                 columns={[
-                  { key: 'full_name', label: 'Nom' },
-                  { key: 'share_class', label: 'Catégorie' },
-                  { key: 'quantity', label: 'Qté' },
-                  { key: 'certificate_number', label: 'Cert.' },
-                  { key: 'issue_date', label: 'Émission' },
+                  { key: 'full_name', label: t('columns.name') },
+                  { key: 'share_class', label: t('columns.shareClass') },
+                  { key: 'quantity', label: t('columns.quantity') },
+                  { key: 'certificate_number', label: t('columns.certificate') },
+                  { key: 'issue_date', label: t('columns.issueDate') },
                 ]}
                 rows={(shareholders.entries || []).map((e: any) => ({
                   ...e,

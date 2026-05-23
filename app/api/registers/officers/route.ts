@@ -40,6 +40,7 @@ export async function GET() {
           : (TITLE_FR_MAP[m.title] || m.title),
         appointment_date: m.appointment_date,
         end_date: m.end_date || null,
+        end_reason: m.end_reason || null,
         is_active: m.is_active,
       }))
     )

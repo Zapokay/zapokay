@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Pencil, UserMinus, RefreshCw, Star } from 'lucide-react';
+import { Pencil, UserMinus, RefreshCw, Star, ChevronDown, ChevronRight } from 'lucide-react';
 import type {
+  OfficerAppointment,
   OfficerWithPerson,
   DirectorMandate,
   Shareholding,
@@ -20,6 +22,8 @@ interface OfficerCardProps {
   directorMandates: DirectorMandate[];
   /** Active shareholdings for this person */
   shareholdings: (Shareholding & { share_class: ShareClass })[];
+  /** Prior (ended) officer appointments for this same person — Phase 1B-view history */
+  endedAppointments: OfficerAppointment[];
   onEdit: (officer: OfficerWithPerson) => void;
   onReplace: (officer: OfficerWithPerson) => void;
   onRemove: (officer: OfficerWithPerson) => void;
@@ -53,12 +57,14 @@ export default function OfficerCard({
   officer,
   directorMandates,
   shareholdings,
+  endedAppointments,
   onEdit,
   onReplace,
   onRemove,
 }: OfficerCardProps) {
   const t = useTranslations('officers');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
+  const [historyExpanded, setHistoryExpanded] = useState<boolean>(() => false);
 
   const { person } = officer;
   const totalShares = shareholdings.reduce((sum, s) => sum + s.quantity, 0);
@@ -134,6 +140,56 @@ export default function OfficerCard({
             {' : '}
             {otherRoles.join(', ')}
           </p>
+        )}
+      </div>
+
+      {/* History disclosure (Phase 1B-view). Pattern mirrors DirectorCard.
+          Officer ended rows commonly have NULL end_reason until 1B-capture
+          ships RemoveOfficerModal end_reason capture — disclosure renders
+          only the date in that case (graceful degradation, not a bug). */}
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={() => setHistoryExpanded((e) => !e)}
+          aria-expanded={historyExpanded}
+          className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-body)]"
+        >
+          {historyExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
+          {historyExpanded ? t('hideHistory') : t('viewHistory')}
+          {endedAppointments.length > 0 && (
+            <span>({endedAppointments.length})</span>
+          )}
+        </button>
+        {historyExpanded && (
+          <div className="mt-2 space-y-1.5 pl-5 text-xs">
+            {endedAppointments.length === 0 ? (
+              <p className="italic text-[var(--text-muted)]">{t('noHistory')}</p>
+            ) : (
+              endedAppointments.map((ea) => (
+                <div key={ea.id} className="text-[var(--text-body)]">
+                  <span className="font-medium">{t('formerOfficer')}</span>
+                  {ea.end_date && (
+                    <>
+                      {' — '}
+                      {t('endedOn', {
+                        date: formatDate(ea.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                      })}
+                    </>
+                  )}
+                  {ea.end_reason && (
+                    <span className="text-[var(--text-muted)]">
+                      {' · '}
+                      {t(`endReasons.${ea.end_reason}`)}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
 
