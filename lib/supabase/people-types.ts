@@ -213,6 +213,26 @@ export interface ShareholdingHolderWithDetails extends ShareholdingHolder {
 }
 
 // ---------------------------------------------------------------------------
+// #19 foundation — event_documents (M:N link, documents ↔ lifecycle events)
+// ---------------------------------------------------------------------------
+// Polymorphic via (event_type, event_id). No cross-table FK on event_id;
+// see migration 20260524215506_create_event_documents.sql for rationale.
+export type EventDocumentType =
+  | 'director_mandate'
+  | 'officer_appointment'
+  | 'shareholding'
+  | 'share_transfer';
+
+export interface EventDocument {
+  id: string;
+  document_id: string;
+  event_type: EventDocumentType;
+  event_id: string;
+  company_id: string;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
 // Joined / enriched types used by the UI
 // ---------------------------------------------------------------------------
 
