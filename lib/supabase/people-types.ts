@@ -42,6 +42,7 @@ export interface DirectorMandate {
   end_date: string | null;
   end_reason: DirectorEndReason | null;
   is_active: boolean;
+  deleted_at: string | null;
   created_at: string;
 }
 
@@ -77,6 +78,7 @@ export interface OfficerAppointment {
   end_date: string | null;
   end_reason: OfficerEndReason | null;
   is_active: boolean;
+  deleted_at: string | null;
   created_at: string;
 }
 
