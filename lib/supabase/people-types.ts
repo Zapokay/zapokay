@@ -223,11 +223,25 @@ export type EventDocumentType =
   | 'shareholding'
   | 'share_transfer';
 
+// Act-granular phase pinned per event_type via DB CHECK constraint in
+// migration 20260524221747_event_documents_event_phase.sql:
+//   director_mandate    → 'appointment' | 'departure'
+//   officer_appointment → 'appointment' | 'departure'
+//   shareholding        → 'issuance'    | 'cessation'
+//   share_transfer      → 'transfer'
+export type EventPhase =
+  | 'appointment'
+  | 'departure'
+  | 'issuance'
+  | 'cessation'
+  | 'transfer';
+
 export interface EventDocument {
   id: string;
   document_id: string;
   event_type: EventDocumentType;
   event_id: string;
+  event_phase: EventPhase;
   company_id: string;
   created_at: string;
 }
