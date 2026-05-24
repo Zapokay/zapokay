@@ -22,18 +22,22 @@ export async function GET() {
     .select('*, director_mandates(*)')
     .eq('company_id', company.id)
 
+  // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted mandates from the register
+  // (audit §8d row 3 — protects register PDF + BinderView via the registers API).
   const entries = (people || [])
     .filter((p: any) => p.director_mandates && p.director_mandates.length > 0)
     .flatMap((p: any) =>
-      p.director_mandates.map((m: any) => ({
-        full_name: p.full_name,
-        address: p.address_line1 ? `${p.address_line1}, ${p.address_city || ''}`.trim().replace(/,$/, '') : '',
-        is_canadian_resident: p.is_canadian_resident ?? true,
-        appointment_date: m.appointment_date,
-        end_date: m.end_date || null,
-        end_reason: m.end_reason || null,
-        is_active: m.is_active,
-      }))
+      p.director_mandates
+        .filter((m: any) => !m.deleted_at)
+        .map((m: any) => ({
+          full_name: p.full_name,
+          address: p.address_line1 ? `${p.address_line1}, ${p.address_city || ''}`.trim().replace(/,$/, '') : '',
+          is_canadian_resident: p.is_canadian_resident ?? true,
+          appointment_date: m.appointment_date,
+          end_date: m.end_date || null,
+          end_reason: m.end_reason || null,
+          is_active: m.is_active,
+        }))
     )
     .sort((a: any, b: any) => {
       if (a.is_active && !b.is_active) return -1

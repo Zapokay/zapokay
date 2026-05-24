@@ -15,6 +15,7 @@ import DirectorCard from '@/components/directors/DirectorCard';
 import { LegalTerm } from '@/components/ui/LegalTerm';
 import AddDirectorModal from '@/components/directors/AddDirectorModal';
 import RemoveDirectorModal from '@/components/directors/RemoveDirectorModal';
+import EditFormerDirectorModal from '@/components/directors/EditFormerDirectorModal';
 import { formatDate } from '@/lib/utils';
 import type {
   CompanyPerson,
@@ -46,6 +47,8 @@ export default function DirectorsClient() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingDirector, setEditingDirector] = useState<DirectorWithPerson | null>(null);
   const [removingDirector, setRemovingDirector] = useState<DirectorWithPerson | null>(null);
+  // Phase 1B-CAPTURE Bundle 2: per-row edit affordance on former-mandate rows.
+  const [editingFormerMandate, setEditingFormerMandate] = useState<DirectorWithPerson | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -70,10 +73,13 @@ export default function DirectorsClient() {
     // Phase 1B-view: fetch ALL mandates (active + ended). Active rows remain
     // the default display list (`directors`); ended rows feed the per-card
     // history disclosure via `endedMandates` filtered by person_id.
+    // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted rows from both partitions
+    // (audit §8d row 1 — leak filter into former section).
     const { data: mandatesRaw } = await supabase
       .from('director_mandates')
       .select('*, person:company_people(*)')
       .eq('company_id', cid)
+      .is('deleted_at', null)
       .order('appointment_date', { ascending: true });
 
     const activeRows = (mandatesRaw || []).filter((row: any) => row.is_active);
@@ -264,26 +270,35 @@ export default function DirectorsClient() {
                 <div className="font-medium text-[var(--text-body)]">{group.person.full_name}</div>
                 <div className="mt-1 space-y-0.5 text-xs">
                   {group.mandates.map((m) => (
-                    <div key={m.id} className="text-[var(--text-muted)]">
-                      <span className="font-medium">{t('formerDirector')}</span>
-                      {' — '}
-                      {t('startedOn', {
-                        date: formatDate(m.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
-                      })}
-                      {m.end_date && (
-                        <>
-                          {' · '}
-                          {t('endedOn', {
-                            date: formatDate(m.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
-                          })}
-                        </>
-                      )}
-                      {m.end_reason && (
-                        <span>
-                          {' · '}
-                          {t(`endReasons.${m.end_reason}`)}
-                        </span>
-                      )}
+                    <div key={m.id} className="flex items-start justify-between gap-3 text-[var(--text-muted)]">
+                      <div>
+                        <span className="font-medium">{t('formerDirector')}</span>
+                        {' — '}
+                        {t('startedOn', {
+                          date: formatDate(m.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                        })}
+                        {m.end_date && (
+                          <>
+                            {' · '}
+                            {t('endedOn', {
+                              date: formatDate(m.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                            })}
+                          </>
+                        )}
+                        {m.end_reason && (
+                          <span>
+                            {' · '}
+                            {t(`endReasons.${m.end_reason}`)}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingFormerMandate(m as DirectorWithPerson)}
+                        className="shrink-0 text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                      >
+                        {t('edit')}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -308,6 +323,13 @@ export default function DirectorsClient() {
           director={removingDirector}
           onClose={() => setRemovingDirector(null)}
           onSuccess={() => { setRemovingDirector(null); fetchData(); }}
+        />
+      )}
+      {editingFormerMandate && (
+        <EditFormerDirectorModal
+          mandate={editingFormerMandate}
+          onClose={() => setEditingFormerMandate(null)}
+          onSuccess={() => { setEditingFormerMandate(null); fetchData(); }}
         />
       )}
     </div>

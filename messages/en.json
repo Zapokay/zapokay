@@ -312,6 +312,9 @@
     "startedOn": "Started on {date}",
     "endedOn": "Ended on {date}",
     "noHistory": "No history",
+    "editEntry": "Edit entry",
+    "enteredInError": "This entry was created in error",
+    "enteredInErrorHelp": "The record is kept, not permanently deleted.",
     "endReasons": {
       "resignation": "Resignation",
       "revocation": "Revocation",
@@ -352,6 +355,9 @@
     "appointedOn": "Appointed on {date}",
     "endedOn": "Ended on {date}",
     "noHistory": "No history",
+    "editEntry": "Edit entry",
+    "enteredInError": "This entry was created in error",
+    "enteredInErrorHelp": "The record is kept, not permanently deleted.",
     "endReasons": {
       "resignation": "Resignation",
       "revocation": "Removal",

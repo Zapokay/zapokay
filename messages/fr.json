@@ -312,6 +312,9 @@
     "startedOn": "Débuté le {date}",
     "endedOn": "Terminé le {date}",
     "noHistory": "Aucun historique",
+    "editEntry": "Modifier l'entrée",
+    "enteredInError": "Cette entrée a été créée par erreur",
+    "enteredInErrorHelp": "Le dossier est conservé, non supprimé définitivement.",
     "endReasons": {
       "resignation": "Démission",
       "revocation": "Révocation",
@@ -352,6 +355,9 @@
     "appointedOn": "Nommé·e le {date}",
     "endedOn": "Terminé le {date}",
     "noHistory": "Aucun historique",
+    "editEntry": "Modifier l'entrée",
+    "enteredInError": "Cette entrée a été créée par erreur",
+    "enteredInErrorHelp": "Le dossier est conservé, non supprimé définitivement.",
     "endReasons": {
       "resignation": "Démission",
       "revocation": "Destitution",

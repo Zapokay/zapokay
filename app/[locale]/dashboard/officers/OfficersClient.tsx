@@ -9,6 +9,7 @@ import { LegalTerm } from '@/components/ui/LegalTerm';
 import AddOfficerModal from '@/components/officers/AddOfficerModal';
 import ReplaceOfficerModal from '@/components/officers/ReplaceOfficerModal';
 import RemoveOfficerModal from '@/components/officers/RemoveOfficerModal';
+import EditFormerOfficerModal from '@/components/officers/EditFormerOfficerModal';
 import { formatDate } from '@/lib/utils';
 import type {
   CompanyPerson,
@@ -50,6 +51,8 @@ export default function OfficersClient() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [replacingOfficer, setReplacingOfficer] = useState<OfficerWithPerson | null>(null);
   const [removingOfficer, setRemovingOfficer] = useState<OfficerWithPerson | null>(null);
+  // Phase 1B-CAPTURE Bundle 2: per-row edit affordance on former-appointment rows.
+  const [editingFormerAppointment, setEditingFormerAppointment] = useState<OfficerWithPerson | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -68,9 +71,12 @@ export default function OfficersClient() {
     // Phase 1B-view: fetch ALL appointments (active + ended). Active rows remain
     // the default display list (`officers`); ended rows feed the per-card
     // history disclosure via `endedAppointments` filtered by person_id.
+    // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted rows from both partitions
+    // (audit §8d row 2 — leak filter into former section).
     const { data: officersRaw } = await supabase
       .from('officer_appointments').select('*, person:company_people(*)')
-      .eq('company_id', cid).order('appointment_date', { ascending: true });
+      .eq('company_id', cid).is('deleted_at', null)
+      .order('appointment_date', { ascending: true });
 
     const activeRows = (officersRaw || []).filter((row: any) => row.is_active);
     const endedRows = (officersRaw || []).filter((row: any) => !row.is_active);
@@ -262,26 +268,35 @@ export default function OfficersClient() {
                         ? (a.custom_title && a.custom_title.length > 0 ? a.custom_title : t('customTitle'))
                         : TITLE_LABELS[a.title][locale];
                     return (
-                      <div key={a.id} className="text-[var(--text-muted)]">
-                        <span className="font-medium">{t('formerTitled', { title: titleLabel })}</span>
-                        {' — '}
-                        {t('appointedOn', {
-                          date: formatDate(a.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
-                        })}
-                        {a.end_date && (
-                          <>
-                            {' · '}
-                            {t('endedOn', {
-                              date: formatDate(a.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
-                            })}
-                          </>
-                        )}
-                        {a.end_reason && (
-                          <span>
-                            {' · '}
-                            {t(`endReasons.${a.end_reason}`)}
-                          </span>
-                        )}
+                      <div key={a.id} className="flex items-start justify-between gap-3 text-[var(--text-muted)]">
+                        <div>
+                          <span className="font-medium">{t('formerTitled', { title: titleLabel })}</span>
+                          {' — '}
+                          {t('appointedOn', {
+                            date: formatDate(a.appointment_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                          })}
+                          {a.end_date && (
+                            <>
+                              {' · '}
+                              {t('endedOn', {
+                                date: formatDate(a.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                              })}
+                            </>
+                          )}
+                          {a.end_reason && (
+                            <span>
+                              {' · '}
+                              {t(`endReasons.${a.end_reason}`)}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEditingFormerAppointment(a as OfficerWithPerson)}
+                          className="shrink-0 text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                        >
+                          {t('edit')}
+                        </button>
                       </div>
                     );
                   })}
@@ -313,6 +328,13 @@ export default function OfficersClient() {
           officer={removingOfficer}
           onClose={() => setRemovingOfficer(null)}
           onSuccess={handleModalSuccess}
+        />
+      )}
+      {editingFormerAppointment && (
+        <EditFormerOfficerModal
+          appointment={editingFormerAppointment}
+          onClose={() => setEditingFormerAppointment(null)}
+          onSuccess={() => { setEditingFormerAppointment(null); fetchData(); }}
         />
       )}
     </div>

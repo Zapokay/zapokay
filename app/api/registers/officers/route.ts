@@ -30,19 +30,23 @@ export async function GET() {
     .select('*, officer_appointments(*)')
     .eq('company_id', company.id)
 
+  // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted appointments from the register
+  // (audit §8d row 4 — protects register PDF + BinderView via the registers API).
   const entries = (people || [])
     .filter((p: any) => p.officer_appointments && p.officer_appointments.length > 0)
     .flatMap((p: any) =>
-      p.officer_appointments.map((m: any) => ({
-        full_name: p.full_name,
-        title: m.title === 'custom'
-          ? (m.custom_title || m.title)
-          : (TITLE_FR_MAP[m.title] || m.title),
-        appointment_date: m.appointment_date,
-        end_date: m.end_date || null,
-        end_reason: m.end_reason || null,
-        is_active: m.is_active,
-      }))
+      p.officer_appointments
+        .filter((m: any) => !m.deleted_at)
+        .map((m: any) => ({
+          full_name: p.full_name,
+          title: m.title === 'custom'
+            ? (m.custom_title || m.title)
+            : (TITLE_FR_MAP[m.title] || m.title),
+          appointment_date: m.appointment_date,
+          end_date: m.end_date || null,
+          end_reason: m.end_reason || null,
+          is_active: m.is_active,
+        }))
     )
     .sort((a: any, b: any) => {
       if (a.is_active && !b.is_active) return -1
