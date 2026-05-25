@@ -1,0 +1,410 @@
+/**
+ * #19d Brief 2a — Lifecycle-document generation orchestrator (PATH A).
+ *
+ * End-to-end pipeline for the 5 lifecycle resolution docKeys defined in
+ * `lifecycle-templates.ts`:
+ *
+ *   1. Look up the registry entry by docKey (via the Brief 1 engine on call).
+ *   2. Load the company.
+ *   3. Load the referenced event row (director_mandate or officer_appointment)
+ *      by eventId. Reject soft-deleted rows.
+ *   4. Build the fill context (companyName, neq, personName, optional
+ *      officerTitle and endReason, formatted effectiveDate / resolutionDate)
+ *      and call `fillLifecycleResolution(docKey, ctx, locale)`.
+ *   5. Load the current-state roster appropriate to the registry entry's
+ *      instrument ('board' → active directors; 'shareholder' → active
+ *      shareholders) for the resolution shell.
+ *   6. Render the PDF through the existing `generatePDF` adapter — same shell
+ *      used by founding/annual resolutions, called with type 'board-resolution'
+ *      or 'shareholder-resolution' per `entry.instrument`.
+ *   7. Upload to the `documents` storage bucket.
+ *   8. Insert the `documents` row (document_type='resolution',
+ *      source='generated', minute_book_section='resolutions',
+ *      requirement_key=NULL, signature_status default 'draft').
+ *   9. Insert the `event_documents` link tuple — if it fails, compensating
+ *      cleanup deletes the documents row + storage object so nothing
+ *      orphans (UNIQUE constraint enforces 1 doc per (doc,type,event,phase)).
+ *  10. logActivity('document_generated', ...) ONLY after both writes succeed.
+ *
+ * Language safety (§8.44): `language` is a REQUIRED explicit param. Silent
+ * default to 'fr' would produce a French resolution for an EN user with no
+ * error — exactly the wrong-language failure mode this brief was written to
+ * prevent. Throws on missing/invalid.
+ *
+ * Does NOT touch `generate-item/route.ts` or `generatePdfDocument.ts` — this
+ * orchestrator is the lifecycle parallel, deliberately separate while the
+ * #19d shape stabilizes.
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
+
+import { logActivity } from '@/lib/activity-log';
+import { generatePDF } from '@/lib/pdf/generatePDF';
+import { fillLifecycleResolution } from '@/lib/pdf/lifecycle-template-engine';
+import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
+import { formatDate } from '@/lib/utils';
+import {
+  getEndReasonLabel,
+  getOfficerTitleLabel,
+} from '@/lib/i18n/lifecycle-labels';
+
+export type LifecycleLanguage = 'fr' | 'en';
+
+export interface GenerateLifecycleDocumentParams {
+  /** Service-role admin client. Required for storage + DB writes that bypass RLS. */
+  supabaseAdmin: SupabaseClient;
+  /** Authenticated user ID (for activity_log). Required. */
+  userId: string;
+  companyId: string;
+  /** One of LIFECYCLE_TEMPLATES keys. */
+  docKey: string;
+  /** Identifier of the underlying event row (director_mandates.id or
+   *  officer_appointments.id, per the registry entry's event_type). */
+  eventId: string;
+  /** ISO date (YYYY-MM-DD) stamped on the resolution. */
+  resolutionDate: string;
+  /** Document language. REQUIRED — see §8.44 rationale in module doc. */
+  language: LifecycleLanguage;
+}
+
+export interface GenerateLifecycleDocumentResult {
+  documentId: string;
+  fileName: string;
+  fileUrl: string;
+  title: string;
+}
+
+/**
+ * Throws with a clear message on invalid inputs (caller / route maps to 400),
+ * and on any DB / storage failure (caller maps to 500). Compensating cleanup
+ * runs on event_documents-insert failure to avoid orphaned doc rows.
+ */
+export async function generateLifecycleDocument(
+  params: GenerateLifecycleDocumentParams,
+): Promise<GenerateLifecycleDocumentResult> {
+  const {
+    supabaseAdmin,
+    userId,
+    companyId,
+    docKey,
+    eventId,
+    resolutionDate,
+    language,
+  } = params;
+
+  /* -------- Param validation (loud, no silent defaults) ------------------- */
+
+  if (!supabaseAdmin) throw new Error('generateLifecycleDocument: supabaseAdmin is required');
+  if (!userId) throw new Error('generateLifecycleDocument: userId is required');
+  if (!companyId) throw new Error('generateLifecycleDocument: companyId is required');
+  if (!docKey) throw new Error('generateLifecycleDocument: docKey is required');
+  if (!eventId) throw new Error('generateLifecycleDocument: eventId is required');
+  if (!resolutionDate || !/^\d{4}-\d{2}-\d{2}$/.test(resolutionDate)) {
+    throw new Error(
+      `generateLifecycleDocument: resolutionDate must be YYYY-MM-DD, got "${resolutionDate}"`,
+    );
+  }
+  if (language !== 'fr' && language !== 'en') {
+    throw new Error(
+      `generateLifecycleDocument: language must be 'fr' or 'en', got "${language as unknown as string}"`,
+    );
+  }
+
+  const entry = LIFECYCLE_TEMPLATES[docKey];
+  if (!entry) {
+    throw new Error(`generateLifecycleDocument: unknown docKey "${docKey}"`);
+  }
+
+  /* -------- Load company -------------------------------------------------- */
+
+  const { data: company, error: companyError } = await supabaseAdmin
+    .from('companies')
+    .select('id, legal_name_fr, neq, incorporation_type')
+    .eq('id', companyId)
+    .single();
+  if (companyError || !company) {
+    throw new Error(`generateLifecycleDocument: company not found (${companyId})`);
+  }
+  const framework = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
+
+  /* -------- Load the underlying event row --------------------------------- */
+  // event_type drives which table to read. Soft-deleted rows are rejected
+  // (deleted_at IS NOT NULL) — matches the #19c completeness engine's
+  // exclusion list so we never generate a doc for an act that no longer
+  // exists for scoring purposes.
+
+  type EventRow = {
+    id: string;
+    person_id: string;
+    appointment_date: string;
+    end_date: string | null;
+    end_reason: string | null;
+    deleted_at: string | null;
+    title?: string;
+    custom_title?: string | null;
+    person: { full_name: string } | null;
+  };
+
+  const eventTable =
+    entry.satisfies.event_type === 'director_mandate'
+      ? 'director_mandates'
+      : 'officer_appointments';
+
+  const selectCols =
+    entry.satisfies.event_type === 'officer_appointment'
+      ? 'id, person_id, appointment_date, end_date, end_reason, deleted_at, title, custom_title, person:company_people(full_name)'
+      : 'id, person_id, appointment_date, end_date, end_reason, deleted_at, person:company_people(full_name)';
+
+  const { data: eventRow, error: eventError } = await supabaseAdmin
+    .from(eventTable)
+    .select(selectCols)
+    .eq('id', eventId)
+    .eq('company_id', companyId)
+    .single<EventRow>();
+
+  if (eventError || !eventRow) {
+    throw new Error(
+      `generateLifecycleDocument: event row not found (table=${eventTable}, id=${eventId})`,
+    );
+  }
+  if (eventRow.deleted_at) {
+    throw new Error(
+      `generateLifecycleDocument: event row is soft-deleted (table=${eventTable}, id=${eventId})`,
+    );
+  }
+
+  const personName = eventRow.person?.full_name?.trim();
+  if (!personName) {
+    throw new Error(
+      `generateLifecycleDocument: person.full_name missing for event ${eventId}`,
+    );
+  }
+
+  /* -------- Build the fill context ---------------------------------------- */
+
+  const effectiveDateIso =
+    entry.satisfies.event_phase === 'appointment'
+      ? eventRow.appointment_date
+      : eventRow.end_date;
+  if (!effectiveDateIso) {
+    throw new Error(
+      `generateLifecycleDocument: effective date missing on event (phase=${entry.satisfies.event_phase}, id=${eventId})`,
+    );
+  }
+
+  const ctx: Record<string, string> = {
+    companyName: company.legal_name_fr,
+    neq: company.neq ?? '',
+    personName,
+    effectiveDate: formatDate(effectiveDateIso, language),
+    resolutionDate: formatDate(resolutionDate, language),
+  };
+
+  // Officer docKeys need officerTitle. director_removal omits endReason.
+  if (entry.satisfies.event_type === 'officer_appointment') {
+    ctx.officerTitle = getOfficerTitleLabel(
+      eventRow.title ?? '',
+      eventRow.custom_title ?? null,
+      language,
+    );
+  }
+
+  // endReason: required for director_departure + officer_departure (per
+  // registry requiredVars). NOT required for director_removal (the
+  // shareholder-driven dismissal — the act of removal IS the reason).
+  if (entry.requiredVars.includes('endReason')) {
+    if (!eventRow.end_reason) {
+      throw new Error(
+        `generateLifecycleDocument: end_reason required for docKey "${docKey}" but missing on event ${eventId}`,
+      );
+    }
+    const scope =
+      entry.satisfies.event_type === 'director_mandate' ? 'director' : 'officer';
+    ctx.endReason = getEndReasonLabel(eventRow.end_reason, language, scope);
+  }
+
+  /* -------- Fill resolution via Brief 1 engine ---------------------------- */
+
+  const filled = fillLifecycleResolution(docKey, ctx, language);
+
+  /* -------- Load current-state roster for the shell ----------------------- */
+  // 'board' instrument → active directors signature block.
+  // 'shareholder' instrument → active shareholders signature block.
+
+  let directors: { name: string; title: string }[] | undefined;
+  let shareholders:
+    | { name: string; shares: number; shareClass?: string }[]
+    | undefined;
+
+  if (entry.instrument === 'board') {
+    const { data: mandates, error: mErr } = await supabaseAdmin
+      .from('director_mandates')
+      .select('id, company_people(id, full_name)')
+      .eq('company_id', companyId)
+      .eq('is_active', true);
+    if (mErr) {
+      throw new Error(`generateLifecycleDocument: load directors failed: ${mErr.message}`);
+    }
+    directors = (mandates ?? []).map((d) => ({
+      name: (d.company_people as unknown as { full_name: string }).full_name,
+      title: 'Administrateur',
+    }));
+  } else {
+    const { data: holdings, error: hErr } = await supabaseAdmin
+      .from('shareholdings')
+      .select(`
+        id, quantity,
+        shareholding_holders(holder_type, person_id, entity_id, display_order,
+          person:company_people(id, full_name),
+          entity:shareholder_entities(id, legal_name, entity_type)
+        ),
+        share_classes(name)
+      `)
+      .eq('company_id', companyId)
+      .is('end_date', null);
+    if (hErr) {
+      throw new Error(`generateLifecycleDocument: load shareholders failed: ${hErr.message}`);
+    }
+    shareholders = (holdings ?? []).map((s) => {
+      const holders = (s.shareholding_holders ?? []) as unknown as Array<{
+        person: { full_name: string } | null;
+        entity: { legal_name: string } | null;
+      }>;
+      const name =
+        holders[0]?.person?.full_name ??
+        holders[0]?.entity?.legal_name ??
+        '(unknown holder)';
+      return {
+        name,
+        shares: s.quantity as number,
+        shareClass: (s.share_classes as unknown as { name: string } | null)?.name ?? 'A',
+      };
+    });
+  }
+
+  /* -------- Render PDF through the existing adapter ----------------------- */
+
+  const pdfType =
+    entry.instrument === 'board' ? 'board-resolution' : 'shareholder-resolution';
+
+  const pdfBuffer = await generatePDF({
+    type: pdfType,
+    data: {
+      companyName: company.legal_name_fr,
+      neq: company.neq ?? undefined,
+      documentTitle: filled.resolution.title,
+      resolutionDate: formatDate(resolutionDate, language),
+      // Lifecycle resolutions are not tied to a fiscal year — suppress the
+      // subtitle in the shell.
+      fiscalYear: null,
+      language,
+      ...(entry.instrument === 'board' ? { directors } : { shareholders }),
+      resolutions: [filled.resolution],
+    },
+  });
+
+  /* -------- Upload to storage --------------------------------------------- */
+
+  const documentId = randomUUID();
+  const fileName = `${documentId}.pdf`;
+  const storagePath = `${companyId}/${fileName}`;
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from('documents')
+    .upload(storagePath, pdfBuffer, {
+      contentType: 'application/pdf',
+      upsert: true,
+    });
+  if (uploadError) {
+    throw new Error(
+      `generateLifecycleDocument: storage upload failed: ${uploadError.message}`,
+    );
+  }
+
+  /* -------- Insert documents row ----------------------------------------- */
+  // signature_status omitted: lets the column DEFAULT 'draft' fire (lifecycle
+  // resolutions are draft-state until a signatories pack is later wired).
+  // requirement_key NULL: lifecycle resolutions do NOT satisfy a row in
+  // minute_book_requirements — the satisfaction link lives in event_documents.
+
+  const { data: docInsert, error: docInsertError } = await supabaseAdmin
+    .from('documents')
+    .insert({
+      id: documentId,
+      company_id: companyId,
+      document_type: 'resolution',
+      title: filled.resolution.title,
+      file_name: fileName,
+      file_url: storagePath,
+      file_size: pdfBuffer.length,
+      language,
+      status: 'active',
+      source: 'generated',
+      framework,
+      document_year: null,
+      requirement_key: null,
+      minute_book_section: 'resolutions',
+    })
+    .select('id')
+    .single();
+
+  if (docInsertError || !docInsert) {
+    // Roll back the orphaned storage object.
+    await supabaseAdmin.storage.from('documents').remove([storagePath]);
+    throw new Error(
+      `generateLifecycleDocument: documents insert failed: ${docInsertError?.message ?? 'unknown'}`,
+    );
+  }
+
+  /* -------- Insert event_documents link ---------------------------------- */
+  // 4-col UNIQUE on (document_id, event_type, event_id, event_phase). A
+  // conflict here means another generation already linked this exact tuple
+  // to this exact document — vanishingly unlikely (new random documentId
+  // per call) but treated as a hard error and rolled back.
+
+  const { error: linkError } = await supabaseAdmin
+    .from('event_documents')
+    .insert({
+      document_id: documentId,
+      event_type: entry.satisfies.event_type,
+      event_id: eventId,
+      event_phase: entry.satisfies.event_phase,
+      company_id: companyId,
+    });
+
+  if (linkError) {
+    // Compensating cleanup: orphan the storage object + documents row so the
+    // doc never surfaces in Coffre-fort detached from any event.
+    await supabaseAdmin.from('documents').delete().eq('id', documentId);
+    await supabaseAdmin.storage.from('documents').remove([storagePath]);
+    throw new Error(
+      `generateLifecycleDocument: event_documents insert failed: ${linkError.message}`,
+    );
+  }
+
+  /* -------- Activity log (only after both writes succeed) ---------------- */
+
+  await logActivity(
+    supabaseAdmin,
+    companyId,
+    userId,
+    'document_generated',
+    `Document généré : ${filled.resolution.title}`,
+    `Document generated: ${filled.resolution.title}`,
+    {
+      document_id: documentId,
+      doc_key: docKey,
+      event_type: entry.satisfies.event_type,
+      event_id: eventId,
+      event_phase: entry.satisfies.event_phase,
+    },
+  );
+
+  return {
+    documentId,
+    fileName,
+    fileUrl: storagePath,
+    title: filled.resolution.title,
+  };
+}
