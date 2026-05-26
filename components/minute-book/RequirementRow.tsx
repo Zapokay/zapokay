@@ -49,6 +49,7 @@ export default function RequirementRow({
   onGenerated,
 }: RequirementRowProps) {
   const t = useTranslations('requirementRow');
+  const tDocs = useTranslations('documents');
   const [showDescription, setShowDescription] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -148,7 +149,7 @@ export default function RequirementRow({
       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
         {isUnsigned && (
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
-            {t('unsignedBadge')}
+            {tDocs('toSignBadge')}
           </span>
         )}
 

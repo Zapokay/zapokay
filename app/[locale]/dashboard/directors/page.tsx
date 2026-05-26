@@ -16,7 +16,9 @@ export default async function DirectorsPage({ params: { locale } }: { params: { 
 
   return (
     <DashboardShell locale={locale} profile={profile} company={company ?? null}>
-      <DirectorsClient />
+      <DirectorsClient
+        preferredLanguage={(profile?.preferred_language as 'fr' | 'en') ?? 'fr'}
+      />
     </DashboardShell>
   );
 }

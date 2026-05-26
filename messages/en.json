@@ -228,10 +228,10 @@
       "replaceWarningTitle": "Replace existing document?",
       "replaceWarningBody": "A copy of this document is already attached to this row. Uploading this new file will make the previous copy no longer available. If you change your mind, you can regenerate a fresh template to sign using the \"Generate\" button.",
       "replaceSubmit": "Replace"
-    }
+    },
+    "toSignBadge": "To sign"
   },
   "requirementRow": {
-    "unsignedBadge": "Unsigned",
     "regenerate": "Regenerate",
     "replace": "Replace",
     "uploadButton": "Upload",
@@ -321,7 +321,9 @@
       "death": "Death",
       "disqualification": "Disqualification",
       "term_expired": "Term expired"
-    }
+    },
+    "generateResolution": "Generate resolution",
+    "viewDocument": "View document"
   },
   "officers": {
     "_locale": "en",
@@ -364,7 +366,9 @@
       "death": "Death",
       "disqualification": "Disqualification",
       "term_expired": "Term ended"
-    }
+    },
+    "generateResolution": "Generate resolution",
+    "viewDocument": "View document"
   },
   "shareholders": {
     "_locale": "en",
@@ -528,5 +532,25 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "eventsCount": "{count, plural, =0 {No events recorded} =1 {1 event recorded} other {# events recorded}}"
+  },
+  "lifecycle": {
+    "_locale": "en",
+    "dialogTitle": "Generate resolution",
+    "bodyBoard": "This resolution is adopted today by the current board of directors to record a past event. Confirm the details below are correct.",
+    "bodyShareholder": "This resolution is adopted today by the current shareholders to record a past event. Confirm the details below are correct.",
+    "personLabel": "Person",
+    "roleDirector": "Director",
+    "roleOfficer": "Officer",
+    "eventDateLabel": "Event date",
+    "reasonLabel": "Reason",
+    "signedByBoard": "Signed by the current board of directors",
+    "signedByShareholders": "Signed by the current shareholders",
+    "resolutionDateLabel": "Resolution adoption date",
+    "resolutionDateNote": "Backdating a resolution is generally not advisable.",
+    "cancel": "Cancel",
+    "generate": "Generate",
+    "generating": "Generating…",
+    "errorGeneric": "Error generating the document.",
+    "errorNetwork": "Network error."
   }
 }

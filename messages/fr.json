@@ -228,10 +228,10 @@
       "replaceWarningTitle": "Remplacer le document existant?",
       "replaceWarningBody": "Une copie de ce document est déjà associée à cette ligne. En téléversant ce nouveau fichier, l'ancienne copie ne sera plus disponible. Si vous changez d'idée, vous pourrez régénérer un nouveau modèle à signer en utilisant le bouton « Générer ».",
       "replaceSubmit": "Remplacer"
-    }
+    },
+    "toSignBadge": "À signer"
   },
   "requirementRow": {
-    "unsignedBadge": "Non signé",
     "regenerate": "Régénérer",
     "replace": "Remplacer",
     "uploadButton": "Téléverser",
@@ -321,7 +321,9 @@
       "death": "Décès",
       "disqualification": "Disqualification",
       "term_expired": "Fin de mandat"
-    }
+    },
+    "generateResolution": "Générer la résolution",
+    "viewDocument": "Voir le document"
   },
   "officers": {
     "_locale": "fr",
@@ -364,7 +366,9 @@
       "death": "Décès",
       "disqualification": "Inhabilité",
       "term_expired": "Fin de mandat"
-    }
+    },
+    "generateResolution": "Générer la résolution",
+    "viewDocument": "Voir le document"
   },
   "shareholders": {
     "_locale": "fr",
@@ -528,5 +532,25 @@
     "today": "Aujourd'hui",
     "yesterday": "Hier",
     "eventsCount": "{count, plural, =0 {Aucun événement enregistré} =1 {1 événement enregistré} other {# événements enregistrés}}"
+  },
+  "lifecycle": {
+    "_locale": "fr",
+    "dialogTitle": "Générer la résolution",
+    "bodyBoard": "Cette résolution est adoptée aujourd'hui par le conseil d'administration actuel pour constater un événement passé. Confirmez que les détails ci-dessous sont exacts.",
+    "bodyShareholder": "Cette résolution est adoptée aujourd'hui par les actionnaires actuels pour constater un événement passé. Confirmez que les détails ci-dessous sont exacts.",
+    "personLabel": "Personne",
+    "roleDirector": "Administrateur",
+    "roleOfficer": "Dirigeant",
+    "eventDateLabel": "Date de l'événement",
+    "reasonLabel": "Motif",
+    "signedByBoard": "Signée par le conseil d'administration actuel",
+    "signedByShareholders": "Signée par les actionnaires actuels",
+    "resolutionDateLabel": "Date d'adoption de la résolution",
+    "resolutionDateNote": "L'antidatage d'une résolution est généralement déconseillé.",
+    "cancel": "Annuler",
+    "generate": "Générer",
+    "generating": "Génération…",
+    "errorGeneric": "Erreur lors de la génération du document.",
+    "errorNetwork": "Erreur réseau."
   }
 }

@@ -194,7 +194,7 @@ export default function CompletenessPage({
               {' · '}
               {data.totalUploaded} {fr ? 'téléversés' : 'uploaded'}
               {' · '}
-              {data.totalGenerated} {fr ? 'non signés' : 'unsigned'}
+              {data.totalGenerated} {fr ? 'à signer' : 'to sign'}
               {' · '}
               {data.totalMissing} {fr ? 'manquants' : 'missing'}
             </p>
@@ -212,7 +212,7 @@ export default function CompletenessPage({
                   <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
                   <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
                 </svg>
-                {fr ? 'Non signé' : 'Unsigned'}
+                {fr ? 'À signer' : 'To sign'}
               </span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1.5">

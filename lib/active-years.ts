@@ -16,6 +16,31 @@ export async function getActiveYears(
   return data.map((row: { year: number }) => row.year)
 }
 
+/**
+ * Map an arbitrary date to the integer label of the fiscal year that CONTAINS
+ * that date, for a company with the given fiscal-year-end month/day.
+ *
+ * A fiscal year is identified by the calendar year in which it ENDS. The FY
+ * containing a date is the one whose end is on-or-after that date. Mirrors
+ * the inline logic in `computeDefaultActiveYears` (lines 56-59) — extracted
+ * as a separate export for the lifecycle-document orchestrator. Dedupe with
+ * computeDefaultActiveYears is a Tier-4 follow-up.
+ */
+export function fiscalYearForDate(
+  dateISO: string,
+  fiscalYearEndMonth: number,
+  fiscalYearEndDay: number
+): number {
+  const d = new Date(dateISO);
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1; // 1-12
+  const day = d.getDate();
+  const fiscalEndPassed =
+    month > fiscalYearEndMonth ||
+    (month === fiscalYearEndMonth && day > fiscalYearEndDay);
+  return fiscalEndPassed ? year + 1 : year;
+}
+
 export function computeDefaultActiveYears(
   incorporationDate: string | Date | null,
   fiscalYearEndMonth: number,

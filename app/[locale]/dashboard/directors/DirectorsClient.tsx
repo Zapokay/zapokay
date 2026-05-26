@@ -16,6 +16,7 @@ import { LegalTerm } from '@/components/ui/LegalTerm';
 import AddDirectorModal from '@/components/directors/AddDirectorModal';
 import RemoveDirectorModal from '@/components/directors/RemoveDirectorModal';
 import EditFormerDirectorModal from '@/components/directors/EditFormerDirectorModal';
+import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
 import { formatDate } from '@/lib/utils';
 import type {
   CompanyPerson,
@@ -27,8 +28,15 @@ import type {
   ShareClass,
 } from '@/lib/supabase/people-types';
 
-export default function DirectorsClient() {
+interface DirectorsClientProps {
+  /** users.preferred_language — document language for generated resolutions.
+   *  Independent of UI locale (Two-Layer Language Model, CLAUDE.md §3). */
+  preferredLanguage: 'fr' | 'en';
+}
+
+export default function DirectorsClient({ preferredLanguage }: DirectorsClientProps) {
   const t = useTranslations('directors');
+  const tDocs = useTranslations('documents');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -50,6 +58,13 @@ export default function DirectorsClient() {
   // Phase 1B-CAPTURE Bundle 2: per-row edit affordance on former-mandate rows.
   const [editingFormerMandate, setEditingFormerMandate] = useState<DirectorWithPerson | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
+
+  // #19d Brief 2b — per-row lifecycle act state (from event-completeness)
+  // keyed by `${event_type}|${event_id}|${event_phase}`. Each former row's
+  // departure act is looked up here to decide button vs draft-state.
+  const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null }>>(new Map());
+  // Generate-dialog target: the mandate row that opened the dialog.
+  const [generatingFor, setGeneratingFor] = useState<DirectorWithPerson | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -103,6 +118,30 @@ export default function DirectorsClient() {
       share_class: row.share_class as ShareClass,
       holders: (row.holders ?? []) as ShareholdingHolder[],
     })));
+
+    // #19d Brief 2b — pull the per-act satisfaction map (event-completeness).
+    // Non-fatal: if it 404s / 500s, the rows simply render as if no acts
+    // are satisfied (button shown). Logged to console for visibility.
+    try {
+      const res = await fetch('/api/minute-book/event-completeness');
+      if (res.ok) {
+        const payload = (await res.json()) as {
+          acts?: Array<{ event_type: string; event_id: string; event_phase: string; satisfied: boolean; documentId: string | null }>;
+        };
+        const m = new Map<string, { satisfied: boolean; documentId: string | null }>();
+        for (const a of payload.acts ?? []) {
+          m.set(`${a.event_type}|${a.event_id}|${a.event_phase}`, {
+            satisfied: a.satisfied,
+            documentId: a.documentId,
+          });
+        }
+        setActsMap(m);
+      } else {
+        console.warn('[DirectorsClient] event-completeness fetch non-OK:', res.status);
+      }
+    } catch (e) {
+      console.warn('[DirectorsClient] event-completeness fetch failed:', e);
+    }
 
     setLoading(false);
   }, [supabase]);
@@ -292,13 +331,49 @@ export default function DirectorsClient() {
                           </span>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setEditingFormerMandate(m as DirectorWithPerson)}
-                        className="shrink-0 text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
-                      >
-                        {t('edit')}
-                      </button>
+                      <div className="flex shrink-0 items-center gap-3">
+                        {(() => {
+                          // Per-row departure-act lookup. Only render the affordance
+                          // when the row has an end_date (the act is flaggable per the
+                          // #19c rules — see lib/minute-book/event-completeness.ts L13).
+                          if (!m.end_date) return null;
+                          const key = `director_mandate|${m.id}|departure`;
+                          const act = actsMap.get(key);
+                          if (act?.satisfied && act.documentId) {
+                            return (
+                              <>
+                                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
+                                  {tDocs('toSignBadge')}
+                                </span>
+                                <a
+                                  href={`/api/documents/${act.documentId}/download?preview=true`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                                >
+                                  {t('viewDocument')}
+                                </a>
+                              </>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setGeneratingFor(m as DirectorWithPerson)}
+                              className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                            >
+                              {t('generateResolution')}
+                            </button>
+                          );
+                        })()}
+                        <button
+                          type="button"
+                          onClick={() => setEditingFormerMandate(m as DirectorWithPerson)}
+                          className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                        >
+                          {t('edit')}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -332,6 +407,35 @@ export default function DirectorsClient() {
           onSuccess={() => { setEditingFormerMandate(null); fetchData(); }}
         />
       )}
+      {generatingFor && companyId && (() => {
+        // docKey derivation (Brief 2b lock):
+        //   end_reason === 'revocation' → director_removal (shareholder)
+        //   everything else              → director_departure (board)
+        const isRemoval = generatingFor.end_reason === 'revocation';
+        const docKey = isRemoval ? 'director_removal' : 'director_departure';
+        const instrument: 'board' | 'shareholder' = isRemoval ? 'shareholder' : 'board';
+        // Reason label only needed for director_departure (the board-acknowledged
+        // departures); director_removal omits endReason per the registry.
+        const reasonLabel =
+          !isRemoval && generatingFor.end_reason
+            ? t(`endReasons.${generatingFor.end_reason}`)
+            : undefined;
+        return (
+          <GenerateLifecycleResolutionDialog
+            companyId={companyId}
+            docKey={docKey}
+            instrument={instrument}
+            eventId={generatingFor.id}
+            personName={generatingFor.person.full_name}
+            roleLabel={locale === 'fr' ? 'Administrateur' : 'Director'}
+            eventDate={generatingFor.end_date ?? ''}
+            reasonLabel={reasonLabel}
+            language={preferredLanguage}
+            onClose={() => setGeneratingFor(null)}
+            onSuccess={() => { setGeneratingFor(null); fetchData(); }}
+          />
+        );
+      })()}
     </div>
   );
 }

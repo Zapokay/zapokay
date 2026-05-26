@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Eye, Download } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { DocumentTypePill } from './DocumentTypePill';
@@ -31,6 +32,7 @@ interface DocumentRowProps {
 const BUCKET_MARKER = '/object/public/documents/';
 
 export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false }: DocumentRowProps) {
+  const tDocs = useTranslations('documents');
   const [hovered, setHovered] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDocModal, setShowDocModal] = useState(false);
@@ -116,7 +118,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false 
                   padding: '2px 8px',
                 }}
               >
-                {fr ? 'À signer' : 'To sign'}
+                {tDocs('toSignBadge')}
               </span>
             )}
           </div>

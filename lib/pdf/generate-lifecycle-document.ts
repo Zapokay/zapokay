@@ -40,6 +40,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 
 import { logActivity } from '@/lib/activity-log';
+import { fiscalYearForDate } from '@/lib/active-years';
 import { generatePDF } from '@/lib/pdf/generatePDF';
 import { fillLifecycleResolution } from '@/lib/pdf/lifecycle-template-engine';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
@@ -120,13 +121,23 @@ export async function generateLifecycleDocument(
 
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('id, legal_name_fr, neq, incorporation_type')
+    .select('id, legal_name_fr, neq, incorporation_type, fiscal_year_end_month, fiscal_year_end_day')
     .eq('id', companyId)
     .single();
   if (companyError || !company) {
     throw new Error(`generateLifecycleDocument: company not found (${companyId})`);
   }
   const framework = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
+
+  // Fiscal calendar config — REQUIRED for document_year stamping. Loud error
+  // rather than silent fallback to null per the consolidated build amendment.
+  const fyEndMonth = (company as { fiscal_year_end_month: number | null }).fiscal_year_end_month;
+  const fyEndDay = (company as { fiscal_year_end_day: number | null }).fiscal_year_end_day;
+  if (fyEndMonth == null || fyEndDay == null) {
+    throw new Error(
+      `generateLifecycleDocument: company ${companyId} is missing fiscal_year_end_month or fiscal_year_end_day — cannot determine document_year`,
+    );
+  }
 
   /* -------- Load the underlying event row --------------------------------- */
   // event_type drives which table to read. Soft-deleted rows are rejected
@@ -283,6 +294,38 @@ export async function generateLifecycleDocument(
     });
   }
 
+  /* -------- Compute document_year from the EVENT's effective date --------- */
+  // Findability invariant: the generated doc must never be invisible. The
+  // Documents view's year tabs are populated from `company_fiscal_years`
+  // (status='active') — see app/[locale]/dashboard/minute-book/documents/page.tsx:42-50.
+  // If we stamp a computed year that is NOT in active fiscal years, the doc
+  // would not appear under any visible year tab AND would be excluded from
+  // the "unclassified" bucket (which requires document_year === null). It
+  // would only be reachable via the "All" tab — a discoverability hole. In
+  // that specific case we fall back to document_year: null + console.warn so
+  // the doc shows up under "Non classé" / "Unclassified" until the user adds
+  // the matching fiscal year. The resolution/adoption date does NOT drive
+  // this — only the event's effective date.
+  const computedYear = fiscalYearForDate(effectiveDateIso, fyEndMonth, fyEndDay);
+  const { data: activeYearRows, error: yearsError } = await supabaseAdmin
+    .from('company_fiscal_years')
+    .select('year')
+    .eq('company_id', companyId)
+    .eq('status', 'active');
+  if (yearsError) {
+    throw new Error(`generateLifecycleDocument: load fiscal years failed: ${yearsError.message}`);
+  }
+  const activeYears = new Set((activeYearRows ?? []).map((r) => (r as { year: number }).year));
+  let documentYear: number | null;
+  if (activeYears.has(computedYear)) {
+    documentYear = computedYear;
+  } else {
+    console.warn(
+      `generateLifecycleDocument: computed fiscal year ${computedYear} for event ${eventId} (effectiveDate=${effectiveDateIso}) is not in company_fiscal_years (status=active) for company ${companyId}; falling back to document_year=null so the doc remains findable under Unclassified.`,
+    );
+    documentYear = null;
+  }
+
   /* -------- Render PDF through the existing adapter ----------------------- */
 
   const pdfType =
@@ -342,7 +385,7 @@ export async function generateLifecycleDocument(
       status: 'active',
       source: 'generated',
       framework,
-      document_year: null,
+      document_year: documentYear,
       requirement_key: null,
       minute_book_section: 'resolutions',
     })

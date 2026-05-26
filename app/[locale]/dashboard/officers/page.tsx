@@ -16,7 +16,9 @@ export default async function OfficersPage({ params: { locale } }: { params: { l
 
   return (
     <DashboardShell locale={locale} profile={profile} company={company ?? null}>
-      <OfficersClient />
+      <OfficersClient
+        preferredLanguage={(profile?.preferred_language as 'fr' | 'en') ?? 'fr'}
+      />
     </DashboardShell>
   );
 }

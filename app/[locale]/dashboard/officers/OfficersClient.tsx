@@ -10,6 +10,7 @@ import AddOfficerModal from '@/components/officers/AddOfficerModal';
 import ReplaceOfficerModal from '@/components/officers/ReplaceOfficerModal';
 import RemoveOfficerModal from '@/components/officers/RemoveOfficerModal';
 import EditFormerOfficerModal from '@/components/officers/EditFormerOfficerModal';
+import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
 import { formatDate } from '@/lib/utils';
 import type {
   CompanyPerson,
@@ -32,8 +33,15 @@ const TITLE_LABELS: Record<string, { fr: string; en: string }> = {
   treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
 };
 
-export default function OfficersClient() {
+interface OfficersClientProps {
+  /** users.preferred_language — document language for generated resolutions.
+   *  Independent of UI locale (Two-Layer Language Model, CLAUDE.md §3). */
+  preferredLanguage: 'fr' | 'en';
+}
+
+export default function OfficersClient({ preferredLanguage }: OfficersClientProps) {
   const t = useTranslations('officers');
+  const tDocs = useTranslations('documents');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -54,6 +62,13 @@ export default function OfficersClient() {
   // Phase 1B-CAPTURE Bundle 2: per-row edit affordance on former-appointment rows.
   const [editingFormerAppointment, setEditingFormerAppointment] = useState<OfficerWithPerson | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
+
+  // #19d Brief 2b — per-row lifecycle act state (from event-completeness)
+  // keyed by `${event_type}|${event_id}|${event_phase}`. Each former row's
+  // departure act is looked up here to decide button vs draft-state.
+  const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null }>>(new Map());
+  // Generate-dialog target: the appointment row that opened the dialog.
+  const [generatingFor, setGeneratingFor] = useState<OfficerWithPerson | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -99,6 +114,30 @@ export default function OfficersClient() {
       share_class: row.share_class as ShareClass,
       holders: (row.holders ?? []) as ShareholdingHolder[],
     })));
+
+    // #19d Brief 2b — pull the per-act satisfaction map (event-completeness).
+    // Non-fatal: if it 404s / 500s, the rows simply render as if no acts
+    // are satisfied (button shown). Logged to console for visibility.
+    try {
+      const res = await fetch('/api/minute-book/event-completeness');
+      if (res.ok) {
+        const payload = (await res.json()) as {
+          acts?: Array<{ event_type: string; event_id: string; event_phase: string; satisfied: boolean; documentId: string | null }>;
+        };
+        const m = new Map<string, { satisfied: boolean; documentId: string | null }>();
+        for (const a of payload.acts ?? []) {
+          m.set(`${a.event_type}|${a.event_id}|${a.event_phase}`, {
+            satisfied: a.satisfied,
+            documentId: a.documentId,
+          });
+        }
+        setActsMap(m);
+      } else {
+        console.warn('[OfficersClient] event-completeness fetch non-OK:', res.status);
+      }
+    } catch (e) {
+      console.warn('[OfficersClient] event-completeness fetch failed:', e);
+    }
 
     setLoading(false);
   }, [supabase]);
@@ -290,13 +329,49 @@ export default function OfficersClient() {
                             </span>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setEditingFormerAppointment(a as OfficerWithPerson)}
-                          className="shrink-0 text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
-                        >
-                          {t('edit')}
-                        </button>
+                        <div className="flex shrink-0 items-center gap-3">
+                          {(() => {
+                            // Per-row departure-act lookup. Only render the affordance
+                            // when the row has an end_date (the act is flaggable per the
+                            // #19c rules — see lib/minute-book/event-completeness.ts L14).
+                            if (!a.end_date) return null;
+                            const key = `officer_appointment|${a.id}|departure`;
+                            const act = actsMap.get(key);
+                            if (act?.satisfied && act.documentId) {
+                              return (
+                                <>
+                                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
+                                    {tDocs('toSignBadge')}
+                                  </span>
+                                  <a
+                                    href={`/api/documents/${act.documentId}/download?preview=true`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                                  >
+                                    {t('viewDocument')}
+                                  </a>
+                                </>
+                              );
+                            }
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setGeneratingFor(a as OfficerWithPerson)}
+                                className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                              >
+                                {t('generateResolution')}
+                              </button>
+                            );
+                          })()}
+                          <button
+                            type="button"
+                            onClick={() => setEditingFormerAppointment(a as OfficerWithPerson)}
+                            className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                          >
+                            {t('edit')}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -337,6 +412,35 @@ export default function OfficersClient() {
           onSuccess={() => { setEditingFormerAppointment(null); fetchData(); }}
         />
       )}
+      {generatingFor && companyId && (() => {
+        // Officers always route to officer_departure (board instrument) —
+        // there is no shareholder-instrument removal for officers in the
+        // #19d registry.
+        const titleLabel =
+          generatingFor.title === 'custom'
+            ? (generatingFor.custom_title && generatingFor.custom_title.length > 0
+                ? generatingFor.custom_title
+                : t('customTitle'))
+            : TITLE_LABELS[generatingFor.title]?.[locale] ?? generatingFor.title;
+        const reasonLabel = generatingFor.end_reason
+          ? t(`endReasons.${generatingFor.end_reason}`)
+          : undefined;
+        return (
+          <GenerateLifecycleResolutionDialog
+            companyId={companyId}
+            docKey="officer_departure"
+            instrument="board"
+            eventId={generatingFor.id}
+            personName={generatingFor.person.full_name}
+            roleLabel={titleLabel}
+            eventDate={generatingFor.end_date ?? ''}
+            reasonLabel={reasonLabel}
+            language={preferredLanguage}
+            onClose={() => setGeneratingFor(null)}
+            onSuccess={() => { setGeneratingFor(null); fetchData(); }}
+          />
+        );
+      })()}
     </div>
   );
 }
