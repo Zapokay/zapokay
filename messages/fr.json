@@ -238,6 +238,14 @@
     "uploadingButton": "Téléversement…",
     "notAvailable": "Bientôt disponible"
   },
+  "events": {
+    "sectionTitle": "Événements {year}",
+    "sectionUnclassified": "Événements — hors exercice",
+    "inYearDivider": "Événements de l'année",
+    "viewDocument": "Voir le document",
+    "generate": "Générer",
+    "regenerate": "Régénérer"
+  },
   "compliance": {
     "title": "Conformité corporative",
     "subtitle": "{compliant} sur {total} obligations remplies",

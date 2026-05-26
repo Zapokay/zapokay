@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import RequirementRow from './RequirementRow';
+import EventActRow from './EventActRow';
 import CompletionBar from './CompletionBar';
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { getStateForChecklistItem } from '@/lib/minute-book/state';
+import type { EventActStatus } from '@/lib/minute-book/event-completeness';
 
 interface RequirementSectionProps {
   title: string;
@@ -23,6 +26,20 @@ interface RequirementSectionProps {
   locale: 'fr' | 'en';
   onFileSelected?: (file: File, requirementKey: string, year: number | null) => Promise<void>;
   onGenerated?: () => void;
+  /**
+   * #19d Brief 1 (amended) — optional per-year lifecycle act stack rendered
+   * INSIDE this section's card, below the requirement rows, separated by a
+   * localized "Événements de l'année" divider. Empty / undefined → no
+   * events footer is rendered. The header strip + "X/Y" count remain
+   * REQUIREMENTS-ONLY; events live below the bar inside the same collapse.
+   *
+   * onEventGenerated is fired after a successful event-row generation so
+   * the page can refetch the event-completeness payload (separate from the
+   * requirements refetch wired to `onGenerated`).
+   */
+  eventActs?: EventActStatus[];
+  preferredLanguage?: 'fr' | 'en';
+  onEventGenerated?: () => void;
 }
 
 export default function RequirementSection({
@@ -32,7 +49,11 @@ export default function RequirementSection({
   locale,
   onFileSelected,
   onGenerated,
+  eventActs,
+  preferredLanguage,
+  onEventGenerated,
 }: RequirementSectionProps) {
+  const tEvents = useTranslations('events');
   const satisfiedCount = items.filter((i) => i.satisfied).length;
   const totalCount = items.length;
 
@@ -100,6 +121,31 @@ export default function RequirementSection({
               onGenerated={onGenerated}
             />
           ))}
+
+          {/* #19d Brief 1 (amended) — in-card events footer. Renders below
+              the requirement rows when this year has lifecycle acts. The
+              divider is chrome (localized); the rows themselves use the
+              registry's FR resolution title (page convention: legal doc
+              names stay FR). Companies without companyId / preferredLanguage
+              wiring (defensive — shouldn't happen on the live page) skip
+              rendering rather than crash the section. */}
+          {eventActs && eventActs.length > 0 && companyId && preferredLanguage && (
+            <>
+              <div className="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                {tEvents('inYearDivider')}
+              </div>
+              {eventActs.map((act) => (
+                <EventActRow
+                  key={`${act.event_type}|${act.event_id}|${act.event_phase}`}
+                  act={act}
+                  companyId={companyId}
+                  locale={locale}
+                  preferredLanguage={preferredLanguage}
+                  onGenerated={onEventGenerated ?? (() => {})}
+                />
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

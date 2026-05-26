@@ -1,0 +1,280 @@
+'use client';
+
+/**
+ * #19d Brief 1 — Single act row inside an EventSection.
+ *
+ * Mirrors RequirementRow's visual grammar (state icon, label, right-side
+ * affordances) but reads from an EventActStatus (the lifecycle engine's
+ * shape) instead of a ChecklistItem. The three-state classification is
+ * computed via the SAME getDocumentState helper so téléversé / généré /
+ * missing icons and the "À signer" badge stay in lockstep with the
+ * requirements rows.
+ *
+ * Affordance scope (Brief 1 = generate-only):
+ *   missing   → [Générer]
+ *   généré    → [À signer badge] + [Voir le document] + [Régénérer]
+ *   téléversé → [Voir le document]
+ *
+ * Téléverser / Remplacer are Brief 2 — intentionally not rendered here.
+ *
+ * docKey + instrument derivation mirrors DirectorsClient / OfficersClient:
+ *   director_mandate    | departure with end_reason='revocation' → director_removal + shareholder
+ *   director_mandate    | departure otherwise                    → director_departure + board
+ *   director_mandate    | appointment                            → director_appointment + shareholder
+ *   officer_appointment | departure                              → officer_departure + board
+ *   officer_appointment | appointment                            → officer_appointment + board
+ *
+ * Defensive note on departure end_reason: getEndReasonLabel + the server-side
+ * orchestrator THROW when end_reason is missing for docKeys whose
+ * requiredVars includes 'endReason' (director_departure + officer_departure).
+ * We mirror the upstream consumer pattern (DirectorsClient line 419-422):
+ * pass reasonLabel only when end_reason is present; the orchestrator surfaces
+ * a 400 if the data is incomplete, which is the same error path the user
+ * would hit from the Administrateurs page.
+ */
+
+import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { CheckCircle2, XCircle } from 'lucide-react';
+import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
+import { getDocumentState } from '@/lib/minute-book/state';
+import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
+import type { EventActStatus } from '@/lib/minute-book/event-completeness';
+
+// Mirrors OfficersClient.tsx TITLE_LABELS — kept local per the same Tier-3
+// extraction follow-up. lib/i18n/lifecycle-labels.ts has a server-side
+// equivalent but it THROWS on unknown title; the row prefers a soft fallback
+// (display the raw title) to silently degrade rather than crash a render.
+const OFFICER_TITLE_LABELS: Record<string, { fr: string; en: string }> = {
+  president: { fr: 'Président·e', en: 'President' },
+  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
+  secretary: { fr: 'Secrétaire', en: 'Secretary' },
+  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
+};
+
+interface EventActRowProps {
+  act: EventActStatus;
+  companyId: string;
+  locale: 'fr' | 'en';
+  /** Document language for the generated resolution. Independent of UI locale
+   *  per the Two-Layer Language Model (CLAUDE.md §3). */
+  preferredLanguage: 'fr' | 'en';
+  /** Called after a successful generation so the parent refetches the
+   *  event-completeness payload and the row flips to "À signer". */
+  onGenerated: () => void;
+}
+
+interface DocKeyDerivation {
+  docKey:
+    | 'director_appointment'
+    | 'director_departure'
+    | 'director_removal'
+    | 'officer_appointment'
+    | 'officer_departure';
+  instrument: 'board' | 'shareholder';
+}
+
+function deriveDocKey(act: EventActStatus): DocKeyDerivation | null {
+  if (act.event_type === 'director_mandate') {
+    if (act.event_phase === 'appointment') {
+      return { docKey: 'director_appointment', instrument: 'shareholder' };
+    }
+    if (act.event_phase === 'departure') {
+      return act.endReason === 'revocation'
+        ? { docKey: 'director_removal', instrument: 'shareholder' }
+        : { docKey: 'director_departure', instrument: 'board' };
+    }
+  }
+  if (act.event_type === 'officer_appointment') {
+    if (act.event_phase === 'appointment') {
+      return { docKey: 'officer_appointment', instrument: 'board' };
+    }
+    if (act.event_phase === 'departure') {
+      return { docKey: 'officer_departure', instrument: 'board' };
+    }
+  }
+  // shareholding + share_transfer acts have no registry entry in this slice.
+  return null;
+}
+
+export default function EventActRow({
+  act,
+  companyId,
+  locale,
+  preferredLanguage,
+  onGenerated,
+}: EventActRowProps) {
+  const tDocs = useTranslations('documents');
+  const tEvents = useTranslations('events');
+  // End-reason labels live under directors / officers (already shipped). We
+  // pick the right namespace based on the act's event_type.
+  const tDirectors = useTranslations('directors');
+  const tOfficers = useTranslations('officers');
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const state = getDocumentState({
+    satisfied: act.satisfied,
+    source: act.documentSource,
+    is_finalized: act.documentIsFinalized,
+  });
+  const isSignedFinal = state === 'téléversé';
+  const isUnsigned = state === 'généré';
+  const isMissing = state === 'missing';
+
+  const personName = act.personName ?? '—';
+  const derivation = deriveDocKey(act);
+
+  // Row label uses the canonical FR resolution title from the template
+  // registry (single source of truth — same string that the generated PDF
+  // carries). Matches the page convention: legal document names are French
+  // and not localized; only chrome (section titles, buttons, dividers) is
+  // localized via i18n.
+  //
+  // Fallback path: an act whose docKey can't be derived (currently only
+  // share* acts, which are filtered out upstream) or whose registry entry
+  // somehow goes missing — fall back to the engine's localized category
+  // label so the row never renders empty.
+  const registryTitleFr = derivation
+    ? LIFECYCLE_TEMPLATES[derivation.docKey]?.titleFr
+    : undefined;
+  const labelHead =
+    registryTitleFr ?? (locale === 'fr' ? act.label_fr : act.label_en);
+  const rowLabel = `${labelHead} — ${personName}`;
+
+  // Role label resolution. Directors get the canonical role string; officers
+  // resolve through the local TITLE_LABELS map (custom titles use the
+  // user-authored string verbatim, with a non-localized fallback when the
+  // custom value is blank). For non-officer events that fall through to a
+  // simple director label, the dialog still receives a sensible value.
+  let roleLabel = '';
+  if (act.event_type === 'director_mandate') {
+    roleLabel = locale === 'fr' ? 'Administrateur' : 'Director';
+  } else if (act.event_type === 'officer_appointment') {
+    const t = act.officerTitle;
+    if (t === 'custom') {
+      roleLabel =
+        act.officerCustomTitle && act.officerCustomTitle.trim().length > 0
+          ? act.officerCustomTitle
+          : (locale === 'fr' ? 'Dirigeant·e' : 'Officer');
+    } else if (t && OFFICER_TITLE_LABELS[t]) {
+      roleLabel = OFFICER_TITLE_LABELS[t][locale];
+    } else {
+      roleLabel = t ?? (locale === 'fr' ? 'Dirigeant·e' : 'Officer');
+    }
+  }
+
+  // reasonLabel: only meaningful for departure phases AND only when the
+  // doc registry actually requires endReason (director_removal omits it —
+  // the act of removal IS the reason). Resolved through the existing
+  // directors/officers endReasons namespaces.
+  let reasonLabel: string | undefined;
+  if (
+    act.event_phase === 'departure' &&
+    derivation?.docKey !== 'director_removal' &&
+    act.endReason
+  ) {
+    try {
+      const ns = act.event_type === 'officer_appointment' ? tOfficers : tDirectors;
+      reasonLabel = ns(`endReasons.${act.endReason}`);
+    } catch {
+      // Missing translation — let the server error surface rather than
+      // ship a code identifier into the dialog readout.
+      reasonLabel = undefined;
+    }
+  }
+
+  // Disable Générer when the doc requires endReason but we don't have one —
+  // surfaces the data-integrity gap up-front instead of letting the user
+  // hit a 400 from the orchestrator. Rare (created via the Administrateurs /
+  // Dirigeants flows which collect end_reason at the same time as end_date).
+  const generateDisabled =
+    !derivation ||
+    (act.event_phase === 'departure' &&
+      derivation.docKey !== 'director_removal' &&
+      !act.endReason);
+
+  function openDialog() {
+    if (generateDisabled) return;
+    setDialogOpen(true);
+  }
+
+  return (
+    <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
+      {/* Left side: state icon + label */}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        {isMissing ? (
+          <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
+        ) : isSignedFinal ? (
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+        ) : (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-5 w-5 flex-shrink-0 text-amber-500"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
+          </svg>
+        )}
+        <span
+          className={`text-sm truncate ${
+            act.satisfied ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'
+          }`}
+        >
+          {rowLabel}
+        </span>
+      </div>
+
+      {/* Right side: state-driven affordances */}
+      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+        {isUnsigned && (
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
+            {tDocs('toSignBadge')}
+          </span>
+        )}
+
+        {act.satisfied && act.documentId && (
+          <a
+            href={`/api/documents/${act.documentId}/download?preview=true`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
+          >
+            {tEvents('viewDocument')}
+          </a>
+        )}
+
+        {(isMissing || isUnsigned) && derivation && (
+          <button
+            type="button"
+            onClick={openDialog}
+            disabled={generateDisabled}
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isUnsigned ? tEvents('regenerate') : tEvents('generate')}
+          </button>
+        )}
+      </div>
+
+      {dialogOpen && derivation && (
+        <GenerateLifecycleResolutionDialog
+          companyId={companyId}
+          docKey={derivation.docKey}
+          instrument={derivation.instrument}
+          eventId={act.event_id}
+          personName={personName}
+          roleLabel={roleLabel}
+          eventDate={act.date}
+          reasonLabel={reasonLabel}
+          language={preferredLanguage}
+          onClose={() => setDialogOpen(false)}
+          onSuccess={() => {
+            setDialogOpen(false);
+            onGenerated();
+          }}
+        />
+      )}
+    </div>
+  );
+}

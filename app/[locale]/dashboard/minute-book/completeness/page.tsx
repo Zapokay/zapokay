@@ -41,6 +41,8 @@ export default async function CompletenessRoute({
         companyId={company.id}
         framework={company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA'}
         preferredLanguage={(profile?.preferred_language as 'fr' | 'en') ?? 'fr'}
+        fiscalYearEndMonth={(company.fiscal_year_end_month as number | null) ?? 12}
+        fiscalYearEndDay={(company.fiscal_year_end_day as number | null) ?? 31}
       />
     </DashboardShell>
   )

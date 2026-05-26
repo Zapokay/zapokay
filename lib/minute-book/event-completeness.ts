@@ -52,6 +52,29 @@ export interface EventActStatus {
   date: string;
   satisfied: boolean;
   documentId: string | null;
+  /**
+   * #19d Brief 1 — additive hydration for the Complétude EventActRow.
+   *
+   * endReason: present on director_mandate + officer_appointment acts when
+   *   the underlying mandate/appointment row has an end_reason. Null for
+   *   appointment-phase acts and for share* acts (which have no end_reason
+   *   column). Powers docKey derivation (revocation → director_removal) and
+   *   the reason-label readout in the generate dialog.
+   *
+   * officerTitle / officerCustomTitle: present on officer_appointment acts;
+   *   null otherwise. Caller resolves the display string (title='custom'
+   *   uses customTitle verbatim).
+   *
+   * documentSource + documentIsFinalized: present only when satisfied=true
+   *   (the engine joins documents through event_documents). Lets the
+   *   consumer call getDocumentState({satisfied, source, is_finalized}) for
+   *   the three-state classification (téléversé / généré / missing).
+   */
+  endReason: string | null;
+  officerTitle: string | null;
+  officerCustomTitle: string | null;
+  documentSource: 'uploaded' | 'generated' | null;
+  documentIsFinalized: boolean | null;
 }
 
 export interface EventCompletenessResponse {
@@ -103,12 +126,16 @@ interface RawDirector {
   id: string;
   appointment_date: string;
   end_date: string | null;
+  end_reason: string | null;
   person: RawPerson | null;
 }
 interface RawOfficer {
   id: string;
   appointment_date: string;
   end_date: string | null;
+  end_reason: string | null;
+  title: string | null;
+  custom_title: string | null;
   person: RawPerson | null;
 }
 interface RawShareholding {
@@ -127,6 +154,14 @@ interface RawEventDoc {
   event_type: EventDocumentType;
   event_id: string;
   event_phase: EventPhase;
+  // Embed shape — single-FK relation returns an object, not an array.
+  document: { source: string | null; is_finalized: boolean | null } | null;
+}
+
+interface SatisfiedEntry {
+  documentId: string;
+  source: 'uploaded' | 'generated' | null;
+  isFinalized: boolean | null;
 }
 
 function holderName(holders: RawHolder[] | null | undefined): string | null {
@@ -159,12 +194,12 @@ export async function computeEventCompleteness(
   const [dirRes, offRes, shRes, trRes, edRes] = await Promise.all([
     supabase
       .from('director_mandates')
-      .select('id, appointment_date, end_date, person:company_people(full_name)')
+      .select('id, appointment_date, end_date, end_reason, person:company_people(full_name)')
       .eq('company_id', companyId)
       .is('deleted_at', null),
     supabase
       .from('officer_appointments')
-      .select('id, appointment_date, end_date, person:company_people(full_name)')
+      .select('id, appointment_date, end_date, end_reason, title, custom_title, person:company_people(full_name)')
       .eq('company_id', companyId)
       .is('deleted_at', null),
     supabase
@@ -179,9 +214,12 @@ export async function computeEventCompleteness(
         'id, transfer_date, from_sh:shareholdings!from_shareholding_id(holders:shareholding_holders(holder_type, person:company_people(full_name), entity:shareholder_entities(legal_name)))',
       )
       .eq('company_id', companyId),
+    // #19d Brief 1 — embed documents(source, is_finalized) so the consumer
+    // can call getDocumentState({satisfied, source, is_finalized}) and
+    // render téléversé vs généré without an extra round-trip.
     supabase
       .from('event_documents')
-      .select('document_id, event_type, event_id, event_phase')
+      .select('document_id, event_type, event_id, event_phase, document:documents(source, is_finalized)')
       .eq('company_id', companyId),
   ]);
 
@@ -197,16 +235,36 @@ export async function computeEventCompleteness(
   const transfers     = (trRes.data  ?? []) as unknown as RawTransfer[];
   const eventDocs     = (edRes.data  ?? []) as unknown as RawEventDoc[];
 
-  // (event_type, event_id, event_phase) → documentId (first wins; UNIQUE
-  // constraint in DB makes "first" deterministic per the 4-col uniqueness).
+  // (event_type, event_id, event_phase) → satisfaction entry (first wins;
+  // UNIQUE constraint in DB makes "first" deterministic per the 4-col
+  // uniqueness). The entry carries the linked document's source +
+  // is_finalized so the consumer can three-state-classify without a
+  // second round-trip.
   const satisfiedKey = (t: string, id: string, p: string) => `${t}|${id}|${p}`;
-  const satisfiedMap = new Map<string, string>();
+  const satisfiedMap = new Map<string, SatisfiedEntry>();
   for (const ed of eventDocs) {
     const k = satisfiedKey(ed.event_type, ed.event_id, ed.event_phase);
-    if (!satisfiedMap.has(k)) satisfiedMap.set(k, ed.document_id);
+    if (!satisfiedMap.has(k)) {
+      const rawSource = ed.document?.source ?? null;
+      satisfiedMap.set(k, {
+        documentId: ed.document_id,
+        source: rawSource === 'uploaded' || rawSource === 'generated' ? rawSource : null,
+        isFinalized: ed.document?.is_finalized ?? null,
+      });
+    }
   }
 
   const acts: EventActStatus[] = [];
+
+  // Per-act metadata carried through pushAct so we can populate the
+  // engine-level hydration fields (endReason, officerTitle, officerCustomTitle)
+  // without a sprawling parameter list. All optional — non-applicable acts
+  // pass undefined and the act emits null for those fields.
+  interface ActMeta {
+    endReason?: string | null;
+    officerTitle?: string | null;
+    officerCustomTitle?: string | null;
+  }
 
   const pushAct = (
     type: EventDocumentType,
@@ -215,8 +273,9 @@ export async function computeEventCompleteness(
     label: { fr: string; en: string },
     personName: string | null,
     date: string,
+    meta?: ActMeta,
   ) => {
-    const docId = satisfiedMap.get(satisfiedKey(type, id, phase)) ?? null;
+    const entry = satisfiedMap.get(satisfiedKey(type, id, phase)) ?? null;
     acts.push({
       event_type: type,
       event_id: id,
@@ -225,28 +284,43 @@ export async function computeEventCompleteness(
       label_en: label.en,
       personName,
       date,
-      satisfied: docId !== null,
-      documentId: docId,
+      satisfied: entry !== null,
+      documentId: entry?.documentId ?? null,
+      endReason: meta?.endReason ?? null,
+      officerTitle: meta?.officerTitle ?? null,
+      officerCustomTitle: meta?.officerCustomTitle ?? null,
+      documentSource: entry?.source ?? null,
+      documentIsFinalized: entry?.isFinalized ?? null,
     });
   };
 
   for (const m of directors) {
     const name = m.person?.full_name ?? null;
     if (afterIncorp(m.appointment_date)) {
+      // Appointment-phase acts have no end_reason — emit null.
       pushAct('director_mandate', m.id, 'appointment', LABELS.director_appointment, name, m.appointment_date);
     }
     if (m.end_date) {
-      pushAct('director_mandate', m.id, 'departure', LABELS.director_departure, name, m.end_date);
+      pushAct('director_mandate', m.id, 'departure', LABELS.director_departure, name, m.end_date, {
+        endReason: m.end_reason ?? null,
+      });
     }
   }
 
   for (const o of officers) {
     const name = o.person?.full_name ?? null;
+    const officerMeta: ActMeta = {
+      officerTitle: o.title ?? null,
+      officerCustomTitle: o.custom_title ?? null,
+    };
     if (afterIncorp(o.appointment_date)) {
-      pushAct('officer_appointment', o.id, 'appointment', LABELS.officer_appointment, name, o.appointment_date);
+      pushAct('officer_appointment', o.id, 'appointment', LABELS.officer_appointment, name, o.appointment_date, officerMeta);
     }
     if (o.end_date) {
-      pushAct('officer_appointment', o.id, 'departure', LABELS.officer_departure, name, o.end_date);
+      pushAct('officer_appointment', o.id, 'departure', LABELS.officer_departure, name, o.end_date, {
+        ...officerMeta,
+        endReason: o.end_reason ?? null,
+      });
     }
   }
 

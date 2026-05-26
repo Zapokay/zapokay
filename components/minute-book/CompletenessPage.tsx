@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useToasts } from '@/components/ui/Toasts';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
+import { fiscalYearForDate } from '@/lib/active-years';
 import RequirementSection from '@/components/minute-book/RequirementSection';
+import EventSection from '@/components/minute-book/EventSection';
 import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import BulkCatchUpButton from '@/components/minute-book/BulkCatchUpButton';
@@ -18,12 +21,17 @@ import type {
   CompletenessResponse,
   ChecklistItem,
 } from '@/app/api/minute-book/completeness/route';
+import type { EventActStatus } from '@/lib/minute-book/event-completeness';
 
 interface CompletenessPageProps {
   locale: string;
   companyId: string;
   framework: 'LSA' | 'CBCA';
   preferredLanguage: 'fr' | 'en';
+  /** Fiscal calendar — used to derive each lifecycle act's filing year via
+   *  fiscalYearForDate (mirrors the orchestrator's findability guard). */
+  fiscalYearEndMonth: number;
+  fiscalYearEndDay: number;
 }
 
 export default function CompletenessPage({
@@ -31,9 +39,16 @@ export default function CompletenessPage({
   companyId,
   framework,
   preferredLanguage,
+  fiscalYearEndMonth,
+  fiscalYearEndDay,
 }: CompletenessPageProps) {
   const fr = locale === 'fr';
+  const tEvents = useTranslations('events');
   const [data, setData] = useState<CompletenessResponse | null>(null);
+  // #19d Brief 1 — director + officer lifecycle acts grouped by FY. Non-fatal:
+  // when the event-completeness fetch fails, this stays null and the page
+  // renders exactly as today (event sections simply don't appear).
+  const [events, setEvents] = useState<EventActStatus[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -61,9 +76,28 @@ export default function CompletenessPage({
     }
   }, []);
 
+  // #19d Brief 1 — event-completeness fetch is non-fatal. A failure leaves
+  // `events` null and the page renders requirement sections only, exactly as
+  // it did before this brief. We log so a regression is visible in the
+  // console without breaking the user's primary flow.
+  const fetchEvents = useCallback(async () => {
+    try {
+      const res = await fetch('/api/minute-book/event-completeness');
+      if (!res.ok) {
+        console.warn('[CompletenessPage] event-completeness fetch non-OK:', res.status);
+        return;
+      }
+      const json = (await res.json()) as { acts?: EventActStatus[] };
+      setEvents(json.acts ?? []);
+    } catch (e) {
+      console.warn('[CompletenessPage] event-completeness fetch failed:', e);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchEvents();
+  }, [fetchData, fetchEvents]);
 
   const MAX_SIZE = 20 * 1024 * 1024; // 20 MB — matches UploadZone cap
 
@@ -134,6 +168,35 @@ export default function CompletenessPage({
   const sortedYears = Object.keys(annualItemsByYear)
     .map(Number)
     .sort((a, b) => b - a);
+
+  // #19d Brief 1 — group director + officer DEPARTURE acts by the fiscal
+  // year that CONTAINS act.date. Appointments are out of scope for this
+  // slice (Administrateurs / Dirigeants surface no appointment-resolution
+  // affordance today; Complétude mirrors that surface). Acts whose computed
+  // year isn't in the page's active-fiscal-years set fall into the
+  // "unclassified" bucket (mirrors the orchestrator's findability guard:
+  // never render a phantom year section the user can't see elsewhere).
+  // shareholding + share_transfer acts are excluded — Phase 3.
+  const activeYearSet = new Set(sortedYears);
+  const eventsByYear: Record<number, EventActStatus[]> = {};
+  const eventsUnclassified: EventActStatus[] = [];
+  if (events) {
+    for (const act of events) {
+      if (
+        (act.event_type !== 'director_mandate' && act.event_type !== 'officer_appointment') ||
+        act.event_phase !== 'departure'
+      ) {
+        continue;
+      }
+      const fy = fiscalYearForDate(act.date, fiscalYearEndMonth, fiscalYearEndDay);
+      if (activeYearSet.has(fy)) {
+        if (!eventsByYear[fy]) eventsByYear[fy] = [];
+        eventsByYear[fy].push(act);
+      } else {
+        eventsUnclassified.push(act);
+      }
+    }
+  }
 
   // Bulk Catch-Up: build per-year groups of annual missing items
   // (filters out foundational; modal owns canGenerate-driven checkbox state).
@@ -259,8 +322,24 @@ export default function CompletenessPage({
                 locale={fr ? 'fr' : 'en'}
                 onFileSelected={handleFileSelected}
                 onGenerated={fetchData}
+                eventActs={eventsByYear[year]}
+                preferredLanguage={preferredLanguage}
+                onEventGenerated={fetchEvents}
               />
             ))}
+
+            {/* Hors-exercice acts have no fiscal-year box to live in —
+                render the standalone EventSection card here for that bucket. */}
+            {eventsUnclassified.length > 0 && (
+              <EventSection
+                title={tEvents('sectionUnclassified')}
+                acts={eventsUnclassified}
+                companyId={companyId}
+                locale={fr ? 'fr' : 'en'}
+                preferredLanguage={preferredLanguage}
+                onGenerated={fetchEvents}
+              />
+            )}
           </>
         )}
       </div>
