@@ -230,7 +230,7 @@ export default function ShareholderCard({
       </div>
 
       {/* Actions */}
-      <div className="mt-4 flex items-center gap-2 border-t border-[var(--card-border)] pt-3">
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--card-border)] pt-3">
         <button
           type="button"
           onClick={() => onEdit(primary)}
