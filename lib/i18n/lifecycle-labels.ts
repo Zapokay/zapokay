@@ -92,6 +92,24 @@ export function getEndReasonLabel(
 }
 
 /**
+ * Localized director-role label for the resolution-shell signatory roster
+ * (board-instrument resolutions only). Narrow 2-key helper; widened
+ * getSignatoryRoleLabel deliberately deferred (YAGNI — shareholder branch
+ * does not consume a roster title today).
+ */
+const DIRECTOR_ROLE_LABELS: Record<LifecycleLocale, string> = {
+  fr: 'Administrateur',
+  en: 'Director',
+};
+
+export function getDirectorRoleLabel(locale: LifecycleLocale): string {
+  if (locale !== 'fr' && locale !== 'en') {
+    throw new Error(`getDirectorRoleLabel: invalid locale "${locale}"`);
+  }
+  return DIRECTOR_ROLE_LABELS[locale];
+}
+
+/**
  * Canonical officer-title map. Single source of truth (server-side) until the
  * 5 React duplicates are migrated under the Tier-4 follow-up noted above.
  */

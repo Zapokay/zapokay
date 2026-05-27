@@ -46,6 +46,7 @@ import { fillLifecycleResolution } from '@/lib/pdf/lifecycle-template-engine';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
 import { formatDate } from '@/lib/utils';
 import {
+  getDirectorRoleLabel,
   getEndReasonLabel,
   getOfficerTitleLabel,
 } from '@/lib/i18n/lifecycle-labels';
@@ -346,7 +347,7 @@ export async function generateLifecycleDocument(
     }
     directors = (mandates ?? []).map((d) => ({
       name: (d.company_people as unknown as { full_name: string }).full_name,
-      title: 'Administrateur',
+      title: getDirectorRoleLabel(language),
     }));
   } else {
     const { data: holdings, error: hErr } = await supabaseAdmin

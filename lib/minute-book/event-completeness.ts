@@ -208,7 +208,8 @@ export async function computeEventCompleteness(
     supabase
       .from('event_documents')
       .select('document_id, event_type, event_id, event_phase, document:documents(source, is_finalized)')
-      .eq('company_id', companyId),
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false }),
   ]);
 
   if (dirRes.error) throw dirRes.error;
@@ -223,11 +224,15 @@ export async function computeEventCompleteness(
   const transfers     = (trRes.data  ?? []) as unknown as RawTransfer[];
   const eventDocs     = (edRes.data  ?? []) as unknown as RawEventDoc[];
 
-  // (event_type, event_id, event_phase) → satisfaction entry (first wins;
-  // UNIQUE constraint in DB makes "first" deterministic per the 4-col
-  // uniqueness). The entry carries the linked document's source +
-  // is_finalized so the consumer can three-state-classify without a
-  // second round-trip.
+  // (event_type, event_id, event_phase) → satisfaction entry. Newest link
+  // wins: the 4-col UNIQUE (document_id, event_type, event_id, event_phase)
+  // includes document_id, so multiple links per (event_type, event_id,
+  // event_phase) are intentional — each regeneration appends a fresh doc +
+  // link. The .order('created_at' desc) above sorts parent event_documents
+  // rows newest-first, so the existing first-seen-wins reduce surfaces the
+  // most recently generated (or uploaded) document. The entry carries the
+  // linked document's source + is_finalized so the consumer can
+  // three-state-classify without a second round-trip.
   const satisfiedKey = (t: string, id: string, p: string) => `${t}|${id}|${p}`;
   const satisfiedMap = new Map<string, SatisfiedEntry>();
   for (const ed of eventDocs) {
