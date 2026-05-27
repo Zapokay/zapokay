@@ -1,0 +1,68 @@
+-- =============================================================================
+-- #19d Phase 3 (cessation) — shareholdings.end_date: TIMESTAMPTZ → DATE
+-- =============================================================================
+-- Root fix for the off-by-one date bug surfaced at the WA #15 dual-locale gate
+-- (Ben Harpez cessation: modal showed 2024-02-01, Former-holdings list +
+-- Generate dialog showed 2024-01-31 — same DB row, two calendar days).
+--
+-- The bug class is "calendar event stored as TIMESTAMPTZ". Consumers each pick
+-- a timezone to extract the calendar date and disagree:
+--   - `.split('T')[0]`               → UTC calendar date (the modal's path)
+--   - `formatDate` via parseLocalDate → viewer's local calendar date (app surfaces)
+-- For a value stored as "2024-02-01T00:00:00+00:00", these resolve to Feb 1 vs
+-- Jan 31 in America/Montreal — neither universally "correct".
+--
+-- Root cause: Phase 10A Atom 4 over-spec. The semantic IS a calendar date
+-- (start/end of a holding period — no time-of-day meaning); the three sibling
+-- temporal columns already get this right:
+--   - shareholdings.issue_date                       — DATE
+--   - director_mandates.end_date                     — DATE
+--   - officer_appointments.end_date                  — DATE
+--   - shareholder_entity_signatories.end_date        — DATE
+-- This migration aligns shareholdings.end_date with them, eliminating the
+-- ambiguity at the schema level rather than re-deriving the calendar date in
+-- every consumer.
+--
+-- Precedent for the TIMESTAMPTZ add: Phase 10A Atom 4
+--   supabase/migrations/20260511140949_phase10a_shareholdings_temporal.sql
+-- That migration's LOCK-2 / LOCK-7 reconciliation chose TIMESTAMPTZ; this
+-- migration walks that one decision back. The other Atom 4 columns
+-- (end_reason, source, certificate_old, certificate_new) are unaffected.
+--
+-- Pre-push audit (READ-ONLY PostgREST GET, 2026-05-26): all non-null end_date
+-- values across all companies (n=1) have tail "T00:00:00+00:00" — UTC midnight,
+-- the inevitable shape produced by EndShareholdingModal's YYYY-MM-DD string
+-- write coerced into a TIMESTAMPTZ. So `(end_date AT TIME ZONE 'UTC')::date`
+-- recovers the originally-picked calendar date for every stored row.
+--
+-- USING clause: MUST be `(end_date AT TIME ZONE 'UTC')::date`, NOT bare
+-- `end_date::date`. Bare cast resolves in the SESSION timezone — a session
+-- running in America/Montreal would cast "2024-02-01T00:00:00+00:00" to
+-- Jan 31, permanently baking the off-by-one bug into the data. The explicit
+-- UTC zone makes the cast deterministic regardless of who runs the migration.
+--
+-- Nullability: end_date stays NULL-able (Phase 10A Atom 4 invariant — "former"
+-- derived from end_date IS NOT NULL; active holdings have end_date = NULL).
+--
+-- Downstream surfaces verified (no code change required by this migration):
+--   - lib/utils.ts parseLocalDate          — DATE branch is local-midnight (correct)
+--   - lib/pdf/generate-lifecycle-document.ts (Edit 6 shareholding event-load)
+--                                          — reads sh.end_date as a string; works on either type
+--   - lib/minute-book/event-completeness.ts:321 pushAct(..., sh.end_date)
+--                                          — fiscalYearForDate works on DATE
+--   - EndShareholdingModal write { end_date: endDate } (YYYY-MM-DD string)
+--                                          — goes straight into the DATE column, no change
+--   - EditFormerShareholdingModal: the .split('T')[0] surface fix is now dead
+--                                  — reverted in the same commit as this migration.
+--
+-- VISIBLE EFFECT for existing rows: the displayed date for Ben Harpez moves
+-- from Jan 31 → Feb 1 in all surfaces simultaneously (modal, list, PDF). This
+-- is the bug being corrected — Feb 1 is the date the user originally picked
+-- when ending the holding; the prior Jan 31 render in EST was a local-tz
+-- subtraction from UTC midnight. Not data loss, not silent corruption —
+-- restoration of original intent. Flagged to Dom pre-push.
+-- =============================================================================
+
+ALTER TABLE shareholdings
+  ALTER COLUMN end_date TYPE DATE
+  USING (end_date AT TIME ZONE 'UTC')::date;

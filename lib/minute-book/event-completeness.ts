@@ -38,6 +38,11 @@ import type {
   EventDocumentType,
   EventPhase,
 } from '@/lib/supabase/people-types';
+import {
+  holderName,
+  type RawHolder,
+  type RawPerson,
+} from '@/lib/minute-book/holder-name';
 
 export interface EventActStatus {
   event_type: EventDocumentType;
@@ -114,14 +119,9 @@ const LABELS: Record<
 
 // Raw shapes from supabase-js with PostgREST embeds. Loose typing because the
 // embedded children are dictated by the .select() strings below; we narrow on
-// use.
-interface RawPerson { full_name: string | null }
-interface RawEntity { legal_name: string | null }
-interface RawHolder {
-  holder_type: 'individual' | 'entity';
-  person: RawPerson | null;
-  entity: RawEntity | null;
-}
+// use. RawHolder / RawPerson / RawEntity + holderName() live in
+// `lib/minute-book/holder-name.ts` so the lifecycle-document generator can
+// reuse the same polymorphic shape.
 interface RawDirector {
   id: string;
   appointment_date: string;
@@ -162,18 +162,6 @@ interface SatisfiedEntry {
   documentId: string;
   source: 'uploaded' | 'generated' | null;
   isFinalized: boolean | null;
-}
-
-function holderName(holders: RawHolder[] | null | undefined): string | null {
-  if (!holders || holders.length === 0) return null;
-  const names = holders
-    .map((h) => {
-      if (h.holder_type === 'individual') return h.person?.full_name ?? null;
-      if (h.holder_type === 'entity') return h.entity?.legal_name ?? null;
-      return null;
-    })
-    .filter((n): n is string => !!n);
-  return names.length > 0 ? names.join(', ') : null;
 }
 
 export async function computeEventCompleteness(

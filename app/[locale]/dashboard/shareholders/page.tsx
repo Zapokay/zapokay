@@ -16,7 +16,9 @@ export default async function ShareholdersPage({ params: { locale } }: { params:
 
   return (
     <DashboardShell locale={locale} profile={profile} company={company ?? null}>
-      <ShareholdersClient />
+      <ShareholdersClient
+        preferredLanguage={(profile?.preferred_language as 'fr' | 'en') ?? 'fr'}
+      />
     </DashboardShell>
   );
 }

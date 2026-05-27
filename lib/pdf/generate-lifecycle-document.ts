@@ -49,6 +49,7 @@ import {
   getEndReasonLabel,
   getOfficerTitleLabel,
 } from '@/lib/i18n/lifecycle-labels';
+import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
 
 export type LifecycleLanguage = 'fr' | 'en';
 
@@ -140,99 +141,185 @@ export async function generateLifecycleDocument(
   }
 
   /* -------- Load the underlying event row --------------------------------- */
-  // event_type drives which table to read. Soft-deleted rows are rejected
-  // (deleted_at IS NOT NULL) — matches the #19c completeness engine's
-  // exclusion list so we never generate a doc for an act that no longer
-  // exists for scoring purposes.
+  // event_type drives which table to read:
+  //   - 'director_mandate'    → director_mandates    (soft-deletes excluded)
+  //   - 'officer_appointment' → officer_appointments (soft-deletes excluded)
+  //   - 'shareholding'        → shareholdings (no deleted_at; "former" derived
+  //                              from end_date IS NOT NULL — Phase 10A Atom 4)
 
-  type EventRow = {
-    id: string;
-    person_id: string;
-    appointment_date: string;
-    end_date: string | null;
-    end_reason: string | null;
-    deleted_at: string | null;
-    title?: string;
-    custom_title?: string | null;
-    person: { full_name: string } | null;
-  };
+  let effectiveDateIso: string | null = null;
+  let personName: string | undefined;
+  let officerTitleRaw: string | undefined;
+  let officerCustomTitle: string | null | undefined;
+  let endReasonRaw: string | null = null;
+  let holderDisplayName: string | undefined;
+  let shareholdingShares: number | undefined;
+  let shareholdingClassName: string | undefined;
 
-  const eventTable =
-    entry.satisfies.event_type === 'director_mandate'
-      ? 'director_mandates'
-      : 'officer_appointments';
+  if (entry.satisfies.event_type === 'shareholding') {
+    type ShRow = {
+      id: string;
+      quantity: number;
+      end_date: string | null;
+      end_reason: string | null;
+      shareholding_holders: Array<{
+        holder_type: 'individual' | 'entity';
+        display_order: number | null;
+        person: { full_name: string | null } | null;
+        entity: { legal_name: string | null } | null;
+      }> | null;
+      share_classes: { name: string } | null;
+    };
 
-  const selectCols =
-    entry.satisfies.event_type === 'officer_appointment'
-      ? 'id, person_id, appointment_date, end_date, end_reason, deleted_at, title, custom_title, person:company_people(full_name)'
-      : 'id, person_id, appointment_date, end_date, end_reason, deleted_at, person:company_people(full_name)';
+    const { data: shRow, error: shError } = await supabaseAdmin
+      .from('shareholdings')
+      .select(`
+        id, quantity, end_date, end_reason,
+        shareholding_holders(holder_type, display_order,
+          person:company_people(full_name),
+          entity:shareholder_entities(legal_name)
+        ),
+        share_classes(name)
+      `)
+      .eq('id', eventId)
+      .eq('company_id', companyId)
+      .single<ShRow>();
 
-  const { data: eventRow, error: eventError } = await supabaseAdmin
-    .from(eventTable)
-    .select(selectCols)
-    .eq('id', eventId)
-    .eq('company_id', companyId)
-    .single<EventRow>();
+    if (shError || !shRow) {
+      throw new Error(
+        `generateLifecycleDocument: shareholding not found (id=${eventId})`,
+      );
+    }
 
-  if (eventError || !eventRow) {
-    throw new Error(
-      `generateLifecycleDocument: event row not found (table=${eventTable}, id=${eventId})`,
-    );
+    const orderedHolders = (shRow.shareholding_holders ?? [])
+      .slice()
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const computedHolderName = holderName(orderedHolders as RawHolder[]);
+    if (!computedHolderName) {
+      throw new Error(
+        `generateLifecycleDocument: holder name missing for shareholding ${eventId}`,
+      );
+    }
+    holderDisplayName = computedHolderName;
+
+    effectiveDateIso =
+      entry.satisfies.event_phase === 'cessation' ? shRow.end_date : null;
+
+    shareholdingShares = shRow.quantity;
+    const className = shRow.share_classes?.name;
+    if (!className) {
+      throw new Error(
+        `generateLifecycleDocument: share class missing for shareholding ${eventId}`,
+      );
+    }
+    shareholdingClassName = className;
+    endReasonRaw = shRow.end_reason;
+  } else {
+    type EventRow = {
+      id: string;
+      person_id: string;
+      appointment_date: string;
+      end_date: string | null;
+      end_reason: string | null;
+      deleted_at: string | null;
+      title?: string;
+      custom_title?: string | null;
+      person: { full_name: string } | null;
+    };
+
+    const eventTable =
+      entry.satisfies.event_type === 'director_mandate'
+        ? 'director_mandates'
+        : 'officer_appointments';
+
+    const selectCols =
+      entry.satisfies.event_type === 'officer_appointment'
+        ? 'id, person_id, appointment_date, end_date, end_reason, deleted_at, title, custom_title, person:company_people(full_name)'
+        : 'id, person_id, appointment_date, end_date, end_reason, deleted_at, person:company_people(full_name)';
+
+    const { data: eventRow, error: eventError } = await supabaseAdmin
+      .from(eventTable)
+      .select(selectCols)
+      .eq('id', eventId)
+      .eq('company_id', companyId)
+      .single<EventRow>();
+
+    if (eventError || !eventRow) {
+      throw new Error(
+        `generateLifecycleDocument: event row not found (table=${eventTable}, id=${eventId})`,
+      );
+    }
+    if (eventRow.deleted_at) {
+      throw new Error(
+        `generateLifecycleDocument: event row is soft-deleted (table=${eventTable}, id=${eventId})`,
+      );
+    }
+
+    const fullName = eventRow.person?.full_name?.trim();
+    if (!fullName) {
+      throw new Error(
+        `generateLifecycleDocument: person.full_name missing for event ${eventId}`,
+      );
+    }
+    personName = fullName;
+
+    effectiveDateIso =
+      entry.satisfies.event_phase === 'appointment'
+        ? eventRow.appointment_date
+        : eventRow.end_date;
+
+    officerTitleRaw = eventRow.title;
+    officerCustomTitle = eventRow.custom_title;
+    endReasonRaw = eventRow.end_reason;
   }
-  if (eventRow.deleted_at) {
-    throw new Error(
-      `generateLifecycleDocument: event row is soft-deleted (table=${eventTable}, id=${eventId})`,
-    );
-  }
 
-  const personName = eventRow.person?.full_name?.trim();
-  if (!personName) {
-    throw new Error(
-      `generateLifecycleDocument: person.full_name missing for event ${eventId}`,
-    );
-  }
-
-  /* -------- Build the fill context ---------------------------------------- */
-
-  const effectiveDateIso =
-    entry.satisfies.event_phase === 'appointment'
-      ? eventRow.appointment_date
-      : eventRow.end_date;
   if (!effectiveDateIso) {
     throw new Error(
       `generateLifecycleDocument: effective date missing on event (phase=${entry.satisfies.event_phase}, id=${eventId})`,
     );
   }
 
+  /* -------- Build the fill context ---------------------------------------- */
+
   const ctx: Record<string, string> = {
     companyName: company.legal_name_fr,
     neq: company.neq ?? '',
-    personName,
     effectiveDate: formatDate(effectiveDateIso, language),
     resolutionDate: formatDate(resolutionDate, language),
   };
 
-  // Officer docKeys need officerTitle. director_removal omits endReason.
-  if (entry.satisfies.event_type === 'officer_appointment') {
-    ctx.officerTitle = getOfficerTitleLabel(
-      eventRow.title ?? '',
-      eventRow.custom_title ?? null,
-      language,
-    );
+  if (entry.satisfies.event_type === 'shareholding') {
+    ctx.holderName = holderDisplayName!;
+    ctx.shares = String(shareholdingShares);
+    ctx.shareClass = shareholdingClassName!;
+  } else {
+    ctx.personName = personName!;
+    // Officer docKeys need officerTitle. director_removal omits endReason.
+    if (entry.satisfies.event_type === 'officer_appointment') {
+      ctx.officerTitle = getOfficerTitleLabel(
+        officerTitleRaw ?? '',
+        officerCustomTitle ?? null,
+        language,
+      );
+    }
   }
 
-  // endReason: required for director_departure + officer_departure (per
-  // registry requiredVars). NOT required for director_removal (the
-  // shareholder-driven dismissal — the act of removal IS the reason).
+  // endReason: required for director_departure + officer_departure + share_cessation
+  // (per each registry entry's requiredVars). NOT required for director_removal
+  // (shareholder-driven dismissal — the act of removal IS the reason).
   if (entry.requiredVars.includes('endReason')) {
-    if (!eventRow.end_reason) {
+    if (!endReasonRaw) {
       throw new Error(
         `generateLifecycleDocument: end_reason required for docKey "${docKey}" but missing on event ${eventId}`,
       );
     }
     const scope =
-      entry.satisfies.event_type === 'director_mandate' ? 'director' : 'officer';
-    ctx.endReason = getEndReasonLabel(eventRow.end_reason, language, scope);
+      entry.satisfies.event_type === 'director_mandate'
+        ? 'director'
+        : entry.satisfies.event_type === 'officer_appointment'
+          ? 'officer'
+          : 'shareholder';
+    ctx.endReason = getEndReasonLabel(endReasonRaw, language, scope);
   }
 
   /* -------- Fill resolution via Brief 1 engine ---------------------------- */

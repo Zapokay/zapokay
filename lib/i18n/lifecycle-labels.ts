@@ -25,14 +25,18 @@ import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
 
 export type LifecycleLocale = 'fr' | 'en';
-export type EndReasonScope = 'director' | 'officer';
+export type EndReasonScope = 'director' | 'officer' | 'shareholder';
 
 type EndReasonKey =
   | 'resignation'
   | 'revocation'
   | 'death'
   | 'disqualification'
-  | 'term_expired';
+  | 'term_expired'
+  | 'redemption'
+  | 'cancellation'
+  | 'conversion'
+  | 'transfer';
 
 type OfficerTitleKey =
   | 'president'
@@ -44,6 +48,7 @@ type OfficerTitleKey =
 interface MessagesShape {
   directors?: { endReasons?: Partial<Record<EndReasonKey, string>> };
   officers?: { endReasons?: Partial<Record<EndReasonKey, string>> };
+  shareholders?: { endReasons?: Partial<Record<EndReasonKey, string>> };
 }
 
 const MESSAGES: Record<LifecycleLocale, MessagesShape> = {
@@ -67,14 +72,16 @@ export function getEndReasonLabel(
   if (locale !== 'fr' && locale !== 'en') {
     throw new Error(`getEndReasonLabel: invalid locale "${locale}"`);
   }
-  if (scope !== 'director' && scope !== 'officer') {
+  if (scope !== 'director' && scope !== 'officer' && scope !== 'shareholder') {
     throw new Error(`getEndReasonLabel: invalid scope "${scope}"`);
   }
   const bag = MESSAGES[locale];
   const map =
     scope === 'director'
       ? bag.directors?.endReasons
-      : bag.officers?.endReasons;
+      : scope === 'officer'
+        ? bag.officers?.endReasons
+        : bag.shareholders?.endReasons;
   const label = map?.[reason as EndReasonKey];
   if (!label || label.trim() === '') {
     throw new Error(

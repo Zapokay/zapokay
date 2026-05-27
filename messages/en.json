@@ -395,7 +395,28 @@
     "errorSelectPerson": "Please select a person.",
     "errorShareClass": "Please select a share class.",
     "errorQuantity": "Number of shares must be greater than 0.",
-    "errorIssueDate": "Issue date is required."
+    "errorIssueDate": "Issue date is required.",
+    "terminate": "End",
+    "endShareholding": "End shareholding",
+    "endReason": "Cessation reason",
+    "endDate": "Cessation date",
+    "confirmEnd": "Confirm cessation",
+    "viewHistory": "View history",
+    "hideHistory": "Hide history",
+    "formerShareholder": "Former holding",
+    "formerSectionTitle": "Former holdings ({count})",
+    "startedOn": "Started {date}",
+    "endedOn": "Ended {date}",
+    "noHistory": "No history",
+    "editEntry": "Edit entry",
+    "endReasons": {
+      "redemption": "Redemption",
+      "cancellation": "Cancellation",
+      "conversion": "Conversion",
+      "transfer": "Transfer"
+    },
+    "generateResolution": "Generate resolution",
+    "viewDocument": "View document"
   },
   "nav": {
     "group": {
@@ -549,6 +570,7 @@
     "personLabel": "Person",
     "roleDirector": "Director",
     "roleOfficer": "Officer",
+    "roleShareholder": "Shareholder",
     "eventDateLabel": "Event date",
     "reasonLabel": "Reason",
     "signedByBoard": "Signed by the current board of directors",

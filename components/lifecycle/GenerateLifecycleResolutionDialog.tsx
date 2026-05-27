@@ -28,23 +28,47 @@ import { formatDate } from '@/lib/utils';
 
 export interface LifecycleDialogProps {
   companyId: string;
+  /**
+   * docKey is grouped by event family so adding a new family is a single-line
+   * union extension. The share family currently holds only 'share_cessation';
+   * 'share_issuance' will be appended by the issuance slice (#19d Phase 3
+   * issuance brief — pre-scoped 2026-05-26, build deferred).
+   */
   docKey:
+    // director family
     | 'director_appointment'
     | 'director_departure'
     | 'director_removal'
+    // officer family
     | 'officer_appointment'
-    | 'officer_departure';
+    | 'officer_departure'
+    // share family
+    | 'share_cessation';
   instrument: 'board' | 'shareholder';
   eventId: string;
+  /**
+   * Person/holder display label. For director_* and officer_* docKeys this is
+   * the person's `full_name`. For share_* docKeys the caller passes the output
+   * of `holderName(shareholding.holders)` (joint holders comma-separated,
+   * entity holders by `legal_name`). The dialog itself is name-agnostic — it
+   * just renders this string.
+   */
   personName: string;
   /** Role/title label to show in the event-facts block (e.g. "Administrateur"
-   *  or "Président"). Caller localizes. */
+   *  or "Président" or "Actionnaire"). Caller localizes. */
   roleLabel: string;
-  /** ISO YYYY-MM-DD — the event's effective date (end_date for departures,
-   *  appointment_date for appointments). Caller passes raw; dialog formats. */
+  /** ISO YYYY-MM-DD — the event's effective date (end_date for departures /
+   *  cessation, appointment_date for appointments). Caller passes raw;
+   *  dialog formats. */
   eventDate: string;
-  /** Pre-localized end-reason label for departure docKeys; omit otherwise. */
+  /** Pre-localized end-reason label for departure / cessation docKeys; omit otherwise. */
   reasonLabel?: string;
+  /**
+   * Optional additional pre-localized fact rows rendered in the event-facts
+   * block after the reason row. The share_cessation case passes shares +
+   * share class here. When undefined, the block renders exactly as before.
+   */
+  extraFacts?: Array<{ label: string; value: string }>;
   /** Document language — passed straight to the route. Independent of UI locale. */
   language: 'fr' | 'en';
   onClose: () => void;
@@ -60,6 +84,7 @@ export default function GenerateLifecycleResolutionDialog({
   roleLabel,
   eventDate,
   reasonLabel,
+  extraFacts,
   language,
   onClose,
   onSuccess,
@@ -110,6 +135,15 @@ export default function GenerateLifecycleResolutionDialog({
   const signedBy =
     instrument === 'board' ? t('signedByBoard') : t('signedByShareholders');
 
+  // Role-label heading derived from the docKey family prefix. Explicit mapping
+  // (not docKey.startsWith('officer') ? ... : ...) so adding a future family
+  // is a single new arm rather than re-debugging a ternary fall-through.
+  const roleLabelHeading = docKey.startsWith('officer')
+    ? t('roleOfficer')
+    : docKey.startsWith('share')
+      ? t('roleShareholder')
+      : t('roleDirector');
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -150,7 +184,7 @@ export default function GenerateLifecycleResolutionDialog({
             </div>
             <div className="flex justify-between gap-3 py-1">
               <span className="text-xs font-medium text-[var(--text-muted)]">
-                {docKey.startsWith('officer') ? t('roleOfficer') : t('roleDirector')}
+                {roleLabelHeading}
               </span>
               <span className="text-right">{roleLabel}</span>
             </div>
@@ -174,6 +208,14 @@ export default function GenerateLifecycleResolutionDialog({
                 <span className="text-right">{reasonLabel}</span>
               </div>
             )}
+            {extraFacts?.map((fact) => (
+              <div key={fact.label} className="flex justify-between gap-3 py-1">
+                <span className="text-xs font-medium text-[var(--text-muted)]">
+                  {fact.label}
+                </span>
+                <span className="text-right">{fact.value}</span>
+              </div>
+            ))}
           </div>
 
           {/* Signed-by label (role only — no name enumeration, per brief

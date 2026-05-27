@@ -37,9 +37,15 @@
 
 export type LifecycleInstrument = 'board' | 'shareholder';
 
-export type LifecycleEventType = 'director_mandate' | 'officer_appointment';
+export type LifecycleEventType =
+  | 'director_mandate'
+  | 'officer_appointment'
+  | 'shareholding';
 
-export type LifecycleEventPhase = 'appointment' | 'departure';
+export type LifecycleEventPhase =
+  | 'appointment'
+  | 'departure'
+  | 'cessation';
 
 export interface LifecycleSatisfies {
   event_type: LifecycleEventType;
@@ -213,5 +219,36 @@ RESOLVED THAT:
 3. Any director of the Corporation is authorized to do all things necessary to give effect to this resolution.
 
 Adopted by the board of directors on {{resolutionDate}}.`,
+  },
+
+  share_cessation: {
+    docKey: 'share_cessation',
+    instrument: 'board',
+    satisfies: { event_type: 'shareholding', event_phase: 'cessation' },
+    requiredVars: ['companyName', 'holderName', 'shares', 'shareClass', 'endReason', 'effectiveDate', 'resolutionDate'],
+    titleFr: "Cessation d'actions",
+    titleEn: 'Cessation of Shares',
+    bodyFr: `RÉSOLUTION DU CONSEIL D'ADMINISTRATION DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE {{shares}} action(s) de catégorie {{shareClass}} détenue(s) par {{holderName}} ont cessé d'être en circulation, pour le motif suivant : {{endReason}}, prenant effet le {{effectiveDate}};
+
+IL EST RÉSOLU :
+
+1. QUE la cessation de {{shares}} action(s) de catégorie {{shareClass}} détenue(s) par {{holderName}}, prenant effet le {{effectiveDate}}, soit et est par les présentes constatée;
+2. QUE les registres des valeurs mobilières de la Société soient mis à jour en conséquence;
+3. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}}.`,
+    bodyEn: `RESOLUTION OF THE BOARD OF DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS {{shares}} {{shareClass}} share(s) held by {{holderName}} have ceased to be outstanding, for the following reason: {{endReason}}, effective {{effectiveDate}};
+
+RESOLVED THAT:
+
+1. The cessation of {{shares}} {{shareClass}} share(s) held by {{holderName}}, effective {{effectiveDate}}, is hereby acknowledged;
+2. The securities records of the Corporation be updated accordingly;
+3. Any director or officer of the Corporation is authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}}.`,
   },
 };

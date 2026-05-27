@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Pencil, ArrowRightLeft } from 'lucide-react';
+import { Pencil, ArrowRightLeft, LogOut } from 'lucide-react';
 import type {
   ShareholdingWithDetails,
   DirectorMandate,
@@ -22,6 +22,14 @@ interface ShareholderCardProps {
   /** Active officer appointments for this person */
   officerAppointments: OfficerAppointment[];
   onEdit: (shareholding: ShareholdingWithDetails) => void;
+  /**
+   * #19d Phase 3 (cessation) — per-holding "Terminer" affordance. PER-HOLDING
+   * granularity is a locked decision (brief 2026-05-26): one End modal per
+   * shareholding row, not one per shareholder card. For multi-holding cards
+   * the button is rendered next to each detail row; for single-holding cards
+   * it sits in the bottom action bar next to Edit.
+   */
+  onEndShareholding: (shareholding: ShareholdingWithDetails) => void;
 }
 
 // =============================================================================
@@ -54,6 +62,7 @@ export default function ShareholderCard({
   directorMandates,
   officerAppointments,
   onEdit,
+  onEndShareholding,
 }: ShareholderCardProps) {
   const t = useTranslations('shareholders');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
@@ -134,17 +143,29 @@ export default function ShareholderCard({
           </p>
         )}
 
-        {/* Multiple holdings detail */}
+        {/* Multiple holdings detail — per-holding Terminer button (#19d Phase 3
+            locked decision: capture granularity is PER-HOLDING, not per-card). */}
         {shareholdings.length > 1 && (
           <div className="mt-1 space-y-1 rounded-md bg-[var(--card-bg)] px-3 py-2">
             {shareholdings.map((sh) => (
-              <p key={sh.id} className="text-xs text-[var(--text-muted)]">
-                {sh.quantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA')}{' '}
-                {sh.share_class.name}
-                {sh.certificate_number ? ` · #${sh.certificate_number}` : ''}
-                {' · '}
-                {formatDate(sh.issue_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}
-              </p>
+              <div key={sh.id} className="flex items-center justify-between gap-2">
+                <p className="text-xs text-[var(--text-muted)]">
+                  {sh.quantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA')}{' '}
+                  {sh.share_class.name}
+                  {sh.certificate_number ? ` · #${sh.certificate_number}` : ''}
+                  {' · '}
+                  {formatDate(sh.issue_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onEndShareholding(sh)}
+                  className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+                  title={t('endShareholding')}
+                >
+                  <LogOut className="h-3 w-3" />
+                  {t('terminate')}
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -171,6 +192,19 @@ export default function ShareholderCard({
           <Pencil className="h-3.5 w-3.5" />
           {t('edit')}
         </button>
+        {/* Single-holding case: bottom-bar Terminer targets the only holding.
+            Multi-holding case shows Terminer on each detail row above instead,
+            to enforce PER-HOLDING capture granularity. */}
+        {shareholdings.length === 1 && (
+          <button
+            type="button"
+            onClick={() => onEndShareholding(primary)}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            {t('terminate')}
+          </button>
+        )}
         <button
           type="button"
           disabled

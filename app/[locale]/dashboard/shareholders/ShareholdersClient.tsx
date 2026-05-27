@@ -11,6 +11,11 @@ import ShareholderCard from '@/components/shareholders/ShareholderCard';
 import IssueSharesModal from '@/components/shareholders/IssueSharesModal';
 import ShareClassModal from '@/components/shareholders/ShareClassModal';
 import EditShareholdingModal from '@/components/shareholders/EditShareholdingModal';
+import EndShareholdingModal from '@/components/shareholders/EndShareholdingModal';
+import EditFormerShareholdingModal from '@/components/shareholders/EditFormerShareholdingModal';
+import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
+import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
+import { formatDate } from '@/lib/utils';
 import type {
   CompanyPerson,
   ShareClass,
@@ -20,8 +25,15 @@ import type {
   OfficerAppointment,
 } from '@/lib/supabase/people-types';
 
-export default function ShareholdersClient() {
+interface ShareholdersClientProps {
+  /** users.preferred_language — document language for generated resolutions.
+   *  Independent of UI locale (Two-Layer Language Model, CLAUDE.md §3). */
+  preferredLanguage: 'fr' | 'en';
+}
+
+export default function ShareholdersClient({ preferredLanguage }: ShareholdersClientProps) {
   const t = useTranslations('shareholders');
+  const tDocs = useTranslations('documents');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -36,6 +48,15 @@ export default function ShareholdersClient() {
   const [showShareClassModal, setShowShareClassModal] = useState(false);
   const [editingShareClass, setEditingShareClass] = useState<ShareClass | null>(null);
   const [editingShareholding, setEditingShareholding] = useState<ShareholdingWithDetails | null>(null);
+  // #19d Phase 3 (cessation) — per-row state for end / edit-former / generate.
+  const [endingShareholding, setEndingShareholding] = useState<ShareholdingWithDetails | null>(null);
+  const [editingFormerShareholding, setEditingFormerShareholding] = useState<ShareholdingWithDetails | null>(null);
+  const [generatingForShareholding, setGeneratingForShareholding] = useState<ShareholdingWithDetails | null>(null);
+  // Per-row lifecycle act state (from /api/minute-book/event-completeness)
+  // keyed by `${event_type}|${event_id}|${event_phase}` — mirrors DirectorsClient
+  // pattern. Used to flip Generate→Voir + show "À signer" badge once a doc
+  // has been generated for a given act.
+  const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null }>>(new Map());
   const [showTooltip, setShowTooltip] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -84,6 +105,29 @@ export default function ShareholdersClient() {
       .from('officer_appointments').select('*').eq('company_id', cid).eq('is_active', true);
     setOfficerAppointments((officersRaw as OfficerAppointment[]) || []);
 
+    // #19d Phase 3 — pull per-act satisfaction map for cessation acts.
+    // Non-fatal: if it 404s / 500s, rows render as if no acts are satisfied.
+    try {
+      const res = await fetch('/api/minute-book/event-completeness');
+      if (res.ok) {
+        const payload = (await res.json()) as {
+          acts?: Array<{ event_type: string; event_id: string; event_phase: string; satisfied: boolean; documentId: string | null }>;
+        };
+        const m = new Map<string, { satisfied: boolean; documentId: string | null }>();
+        for (const a of payload.acts ?? []) {
+          m.set(`${a.event_type}|${a.event_id}|${a.event_phase}`, {
+            satisfied: a.satisfied,
+            documentId: a.documentId,
+          });
+        }
+        setActsMap(m);
+      } else {
+        console.warn('[ShareholdersClient] event-completeness fetch non-OK:', res.status);
+      }
+    } catch (e) {
+      console.warn('[ShareholdersClient] event-completeness fetch failed:', e);
+    }
+
     setLoading(false);
   }, [supabase]);
 
@@ -91,6 +135,18 @@ export default function ShareholdersClient() {
 
   const currentShareholdings = useMemo(
     () => shareholdings.filter((s) => s.end_date === null),
+    [shareholdings]
+  );
+
+  // #19d Phase 3 — former holdings are listed PER-HOLDING (NOT grouped by
+  // person), since a person may have partially ceased holdings while
+  // retaining other active ones. This matches the brief's locked
+  // PER-HOLDING capture granularity. Sort newest-cessation first.
+  const formerShareholdings = useMemo(
+    () =>
+      shareholdings
+        .filter((s) => s.end_date !== null)
+        .sort((a, b) => (b.end_date ?? '').localeCompare(a.end_date ?? '')),
     [shareholdings]
   );
 
@@ -225,6 +281,7 @@ export default function ShareholdersClient() {
                   directorMandates={getDirectorMandatesForPerson(personId)}
                   officerAppointments={getOfficerAppointmentsForPerson(personId)}
                   onEdit={(sh) => setEditingShareholding(sh)}
+                  onEndShareholding={(sh) => setEndingShareholding(sh)}
                 />
               ))}
             </div>
@@ -254,6 +311,103 @@ export default function ShareholdersClient() {
             {t('issueShares')}
           </button>
         </div>
+      )}
+
+      {/* #19d Phase 3 — former-shareholders section. PER-HOLDING list (one row
+          per former holding) so partial cessations show distinctly from full
+          exits. Per-row affordances mirror DirectorsClient: "À signer" badge +
+          Voir le document when a cessation resolution already exists in
+          event_documents; otherwise "Générer la résolution" opens the
+          GenerateLifecycleResolutionDialog. Edit affordance opens
+          EditFormerShareholdingModal. */}
+      {formerShareholdings.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-[var(--text-heading)] mb-3">
+            {t('formerSectionTitle', { count: formerShareholdings.length })}
+          </h2>
+          <div className="space-y-3 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
+            {formerShareholdings.map((sh) => {
+              const name =
+                holderName(sh.holders as unknown as RawHolder[]) ??
+                (locale === 'fr' ? '(détenteur inconnu)' : '(unknown holder)');
+              return (
+                <div key={sh.id} className="text-sm">
+                  <div className="font-medium text-[var(--text-body)]">{name}</div>
+                  <div className="mt-1 flex items-start justify-between gap-3 text-xs text-[var(--text-muted)]">
+                    <div>
+                      <span className="font-medium">{t('formerShareholder')}</span>
+                      {' — '}
+                      {sh.quantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA')}{' '}
+                      {sh.share_class.name}
+                      {sh.certificate_number ? ` · #${sh.certificate_number}` : ''}
+                      {' · '}
+                      {t('startedOn', {
+                        date: formatDate(sh.issue_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                      })}
+                      {sh.end_date && (
+                        <>
+                          {' · '}
+                          {t('endedOn', {
+                            date: formatDate(sh.end_date, locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                          })}
+                        </>
+                      )}
+                      {sh.end_reason && (
+                        <span>
+                          {' · '}
+                          {t(`endReasons.${sh.end_reason}`)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      {(() => {
+                        // Per-row cessation-act lookup. Only render the affordance
+                        // when the row has an end_date (the act is flaggable per the
+                        // #19c rules — see lib/minute-book/event-completeness.ts).
+                        if (!sh.end_date) return null;
+                        const key = `shareholding|${sh.id}|cessation`;
+                        const act = actsMap.get(key);
+                        if (act?.satisfied && act.documentId) {
+                          return (
+                            <>
+                              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
+                                {tDocs('toSignBadge')}
+                              </span>
+                              <a
+                                href={`/api/documents/${act.documentId}/download?preview=true`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                              >
+                                {t('viewDocument')}
+                              </a>
+                            </>
+                          );
+                        }
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setGeneratingForShareholding(sh)}
+                            className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                          >
+                            {t('generateResolution')}
+                          </button>
+                        );
+                      })()}
+                      <button
+                        type="button"
+                        onClick={() => setEditingFormerShareholding(sh)}
+                        className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                      >
+                        {t('edit')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {!hasShareholders && shareClasses.length > 0 && (
@@ -301,6 +455,63 @@ export default function ShareholdersClient() {
           onSuccess={() => { setEditingShareholding(null); fetchData(); }}
         />
       )}
+
+      {endingShareholding && (
+        <EndShareholdingModal
+          shareholding={endingShareholding}
+          onClose={() => setEndingShareholding(null)}
+          onSuccess={() => { setEndingShareholding(null); fetchData(); }}
+        />
+      )}
+
+      {editingFormerShareholding && (
+        <EditFormerShareholdingModal
+          shareholding={editingFormerShareholding}
+          onClose={() => setEditingFormerShareholding(null)}
+          onSuccess={() => { setEditingFormerShareholding(null); fetchData(); }}
+        />
+      )}
+
+      {generatingForShareholding && companyId && (() => {
+        // #19d Phase 3 — share_cessation dispatch. docKey is fixed (only one
+        // cessation key per locked decision — endReason is carried as a token,
+        // not a docKey discriminator). Instrument='board' per the registry
+        // entry; signers come from the board's current state. extraFacts
+        // passes shares + share class to the dialog's event-facts block.
+        const sh = generatingForShareholding;
+        const name =
+          holderName(sh.holders as unknown as RawHolder[]) ??
+          (locale === 'fr' ? '(détenteur inconnu)' : '(unknown holder)');
+        const reasonLabel = sh.end_reason
+          ? t(`endReasons.${sh.end_reason}`)
+          : undefined;
+        const extraFacts = [
+          {
+            label: locale === 'fr' ? 'Actions' : 'Shares',
+            value: sh.quantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA'),
+          },
+          {
+            label: locale === 'fr' ? "Classe d'actions" : 'Share class',
+            value: sh.share_class.name,
+          },
+        ];
+        return (
+          <GenerateLifecycleResolutionDialog
+            companyId={companyId}
+            docKey="share_cessation"
+            instrument="board"
+            eventId={sh.id}
+            personName={name}
+            roleLabel={locale === 'fr' ? 'Actionnaire' : 'Shareholder'}
+            eventDate={sh.end_date ?? ''}
+            reasonLabel={reasonLabel}
+            extraFacts={extraFacts}
+            language={preferredLanguage}
+            onClose={() => setGeneratingForShareholding(null)}
+            onSuccess={() => { setGeneratingForShareholding(null); fetchData(); }}
+          />
+        );
+      })()}
     </div>
   );
 }

@@ -17,12 +17,14 @@
  *
  * Téléverser / Remplacer are Brief 2 — intentionally not rendered here.
  *
- * docKey + instrument derivation mirrors DirectorsClient / OfficersClient:
+ * docKey + instrument derivation mirrors DirectorsClient / OfficersClient /
+ * ShareholdersClient:
  *   director_mandate    | departure with end_reason='revocation' → director_removal + shareholder
  *   director_mandate    | departure otherwise                    → director_departure + board
  *   director_mandate    | appointment                            → director_appointment + shareholder
  *   officer_appointment | departure                              → officer_departure + board
  *   officer_appointment | appointment                            → officer_appointment + board
+ *   shareholding        | cessation                              → share_cessation + board
  *
  * Defensive note on departure end_reason: getEndReasonLabel + the server-side
  * orchestrator THROW when end_reason is missing for docKeys whose
@@ -70,7 +72,8 @@ interface DocKeyDerivation {
     | 'director_departure'
     | 'director_removal'
     | 'officer_appointment'
-    | 'officer_departure';
+    | 'officer_departure'
+    | 'share_cessation';
   instrument: 'board' | 'shareholder';
 }
 
@@ -93,7 +96,10 @@ function deriveDocKey(act: EventActStatus): DocKeyDerivation | null {
       return { docKey: 'officer_departure', instrument: 'board' };
     }
   }
-  // shareholding + share_transfer acts have no registry entry in this slice.
+  if (act.event_type === 'shareholding' && act.event_phase === 'cessation') {
+    return { docKey: 'share_cessation', instrument: 'board' };
+  }
+  // share_issuance + share_transfer acts have no registry entry in this slice.
   return null;
 }
 
@@ -162,6 +168,8 @@ export default function EventActRow({
     } else {
       roleLabel = t ?? (locale === 'fr' ? 'Dirigeant·e' : 'Officer');
     }
+  } else if (act.event_type === 'shareholding') {
+    roleLabel = locale === 'fr' ? 'Actionnaire' : 'Shareholder';
   }
 
   // reasonLabel: only meaningful for departure phases AND only when the

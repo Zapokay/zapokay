@@ -176,16 +176,24 @@ export default function CompletenessPage({
   // year isn't in the page's active-fiscal-years set fall into the
   // "unclassified" bucket (mirrors the orchestrator's findability guard:
   // never render a phantom year section the user can't see elsewhere).
-  // shareholding + share_transfer acts are excluded — Phase 3.
+  //
+  // #19d Phase 3 (cessation) — shareholding+cessation acts are admitted on
+  // the same footing as director/officer departures (same generate / upload
+  // / replace affordances via the shared EventActRow → dialog path). NO
+  // end_reason / transfer gating here — transfer interaction (double-count
+  // suppression) is the transfer slice's job. share_issuance + share_transfer
+  // acts remain excluded — their own slices will widen this filter.
   const activeYearSet = new Set(sortedYears);
   const eventsByYear: Record<number, EventActStatus[]> = {};
   const eventsUnclassified: EventActStatus[] = [];
   if (events) {
     for (const act of events) {
-      if (
-        (act.event_type !== 'director_mandate' && act.event_type !== 'officer_appointment') ||
-        act.event_phase !== 'departure'
-      ) {
+      const isDirectorOrOfficerDeparture =
+        (act.event_type === 'director_mandate' || act.event_type === 'officer_appointment') &&
+        act.event_phase === 'departure';
+      const isShareholdingCessation =
+        act.event_type === 'shareholding' && act.event_phase === 'cessation';
+      if (!isDirectorOrOfficerDeparture && !isShareholdingCessation) {
         continue;
       }
       const fy = fiscalYearForDate(act.date, fiscalYearEndMonth, fiscalYearEndDay);

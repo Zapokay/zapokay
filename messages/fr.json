@@ -395,7 +395,28 @@
     "errorSelectPerson": "Veuillez sélectionner une personne.",
     "errorShareClass": "Veuillez sélectionner une classe d'actions.",
     "errorQuantity": "Le nombre d'actions doit être supérieur à 0.",
-    "errorIssueDate": "La date d'émission est requise."
+    "errorIssueDate": "La date d'émission est requise.",
+    "terminate": "Terminer",
+    "endShareholding": "Terminer la détention",
+    "endReason": "Motif de cessation",
+    "endDate": "Date de cessation",
+    "confirmEnd": "Confirmer la cessation",
+    "viewHistory": "Voir l'historique",
+    "hideHistory": "Masquer l'historique",
+    "formerShareholder": "Détention terminée",
+    "formerSectionTitle": "Anciennes détentions ({count})",
+    "startedOn": "Débuté le {date}",
+    "endedOn": "Terminé le {date}",
+    "noHistory": "Aucun historique",
+    "editEntry": "Modifier l'entrée",
+    "endReasons": {
+      "redemption": "Rachat",
+      "cancellation": "Annulation",
+      "conversion": "Conversion",
+      "transfer": "Transfert"
+    },
+    "generateResolution": "Générer la résolution",
+    "viewDocument": "Voir le document"
   },
   "nav": {
     "group": {
@@ -549,6 +570,7 @@
     "personLabel": "Personne",
     "roleDirector": "Administrateur",
     "roleOfficer": "Dirigeant",
+    "roleShareholder": "Actionnaire",
     "eventDateLabel": "Date de l'événement",
     "reasonLabel": "Motif",
     "signedByBoard": "Signée par le conseil d'administration actuel",
