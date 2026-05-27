@@ -24,6 +24,7 @@
  *   director_mandate    | appointment                            → director_appointment + shareholder
  *   officer_appointment | departure                              → officer_departure + board
  *   officer_appointment | appointment                            → officer_appointment + board
+ *   shareholding        | issuance                               → share_issuance + board
  *   shareholding        | cessation                              → share_cessation + board
  *
  * Defensive note on departure end_reason: getEndReasonLabel + the server-side
@@ -73,6 +74,7 @@ interface DocKeyDerivation {
     | 'director_removal'
     | 'officer_appointment'
     | 'officer_departure'
+    | 'share_issuance'
     | 'share_cessation';
   instrument: 'board' | 'shareholder';
 }
@@ -96,10 +98,15 @@ function deriveDocKey(act: EventActStatus): DocKeyDerivation | null {
       return { docKey: 'officer_departure', instrument: 'board' };
     }
   }
-  if (act.event_type === 'shareholding' && act.event_phase === 'cessation') {
-    return { docKey: 'share_cessation', instrument: 'board' };
+  if (act.event_type === 'shareholding') {
+    if (act.event_phase === 'issuance') {
+      return { docKey: 'share_issuance', instrument: 'board' };
+    }
+    if (act.event_phase === 'cessation') {
+      return { docKey: 'share_cessation', instrument: 'board' };
+    }
   }
-  // share_issuance + share_transfer acts have no registry entry in this slice.
+  // share_transfer acts have no registry entry in this slice (next slice).
   return null;
 }
 

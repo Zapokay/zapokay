@@ -52,6 +52,8 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
   const [endingShareholding, setEndingShareholding] = useState<ShareholdingWithDetails | null>(null);
   const [editingFormerShareholding, setEditingFormerShareholding] = useState<ShareholdingWithDetails | null>(null);
   const [generatingForShareholding, setGeneratingForShareholding] = useState<ShareholdingWithDetails | null>(null);
+  // #19d Phase 3 (issuance) — per-holding state for the share_issuance generate dialog.
+  const [generatingIssuanceForShareholding, setGeneratingIssuanceForShareholding] = useState<ShareholdingWithDetails | null>(null);
   // Per-row lifecycle act state (from /api/minute-book/event-completeness)
   // keyed by `${event_type}|${event_id}|${event_phase}` — mirrors DirectorsClient
   // pattern. Used to flip Generate→Voir + show "À signer" badge once a doc
@@ -282,6 +284,8 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                   officerAppointments={getOfficerAppointmentsForPerson(personId)}
                   onEdit={(sh) => setEditingShareholding(sh)}
                   onEndShareholding={(sh) => setEndingShareholding(sh)}
+                  getIssuanceAct={(id) => actsMap.get(`shareholding|${id}|issuance`)}
+                  onGenerateIssuance={(sh) => setGeneratingIssuanceForShareholding(sh)}
                 />
               ))}
             </div>
@@ -509,6 +513,53 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
             language={preferredLanguage}
             onClose={() => setGeneratingForShareholding(null)}
             onSuccess={() => { setGeneratingForShareholding(null); fetchData(); }}
+          />
+        );
+      })()}
+
+      {generatingIssuanceForShareholding && companyId && (() => {
+        // #19d Phase 3 — share_issuance dispatch. Mirrors cessation: extraFacts
+        // surfaces shares + share class (+ price-per-share when recorded) for
+        // the dialog's event-facts block. eventDate is the holding's issue_date
+        // (event = past issuance; resolutionDate defaults to today per §8.45).
+        const sh = generatingIssuanceForShareholding;
+        const name =
+          holderName(sh.holders as unknown as RawHolder[]) ??
+          (locale === 'fr' ? '(détenteur inconnu)' : '(unknown holder)');
+        const extraFacts: Array<{ label: string; value: string }> = [
+          {
+            label: locale === 'fr' ? 'Actions' : 'Shares',
+            value: sh.quantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA'),
+          },
+          {
+            label: locale === 'fr' ? "Classe d'actions" : 'Share class',
+            value: sh.share_class.name,
+          },
+        ];
+        if (sh.issue_price_per_share != null && Number(sh.issue_price_per_share) > 0) {
+          const formatted = new Intl.NumberFormat(
+            locale === 'fr' ? 'fr-CA' : 'en-CA',
+            { style: 'currency', currency: 'CAD',
+              ...(locale === 'en' ? { currencyDisplay: 'narrowSymbol' as const } : {}) },
+          ).format(Number(sh.issue_price_per_share));
+          extraFacts.push({
+            label: locale === 'fr' ? 'Prix par action' : 'Price per share',
+            value: formatted,
+          });
+        }
+        return (
+          <GenerateLifecycleResolutionDialog
+            companyId={companyId}
+            docKey="share_issuance"
+            instrument="board"
+            eventId={sh.id}
+            personName={name}
+            roleLabel={locale === 'fr' ? 'Actionnaire' : 'Shareholder'}
+            eventDate={sh.issue_date}
+            extraFacts={extraFacts}
+            language={preferredLanguage}
+            onClose={() => setGeneratingIssuanceForShareholding(null)}
+            onSuccess={() => { setGeneratingIssuanceForShareholding(null); fetchData(); }}
           />
         );
       })()}

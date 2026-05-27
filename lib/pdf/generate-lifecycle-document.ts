@@ -1,7 +1,7 @@
 /**
  * #19d Brief 2a — Lifecycle-document generation orchestrator (PATH A).
  *
- * End-to-end pipeline for the 5 lifecycle resolution docKeys defined in
+ * End-to-end pipeline for the 7 lifecycle resolution docKeys defined in
  * `lifecycle-templates.ts`:
  *
  *   1. Look up the registry entry by docKey (via the Brief 1 engine on call).
@@ -157,10 +157,14 @@ export async function generateLifecycleDocument(
   let shareholdingShares: number | undefined;
   let shareholdingClassName: string | undefined;
 
+  let issueDateIso: string | null = null;
+  let issuePricePerShare: number | null = null;
   if (entry.satisfies.event_type === 'shareholding') {
     type ShRow = {
       id: string;
       quantity: number;
+      issue_date: string;
+      issue_price_per_share: number | null;
       end_date: string | null;
       end_reason: string | null;
       shareholding_holders: Array<{
@@ -175,7 +179,7 @@ export async function generateLifecycleDocument(
     const { data: shRow, error: shError } = await supabaseAdmin
       .from('shareholdings')
       .select(`
-        id, quantity, end_date, end_reason,
+        id, quantity, issue_date, issue_price_per_share, end_date, end_reason,
         shareholding_holders(holder_type, display_order,
           person:company_people(full_name),
           entity:shareholder_entities(legal_name)
@@ -204,7 +208,9 @@ export async function generateLifecycleDocument(
     holderDisplayName = computedHolderName;
 
     effectiveDateIso =
-      entry.satisfies.event_phase === 'cessation' ? shRow.end_date : null;
+      entry.satisfies.event_phase === 'cessation' ? shRow.end_date :
+      entry.satisfies.event_phase === 'issuance'  ? shRow.issue_date :
+      null;
 
     shareholdingShares = shRow.quantity;
     const className = shRow.share_classes?.name;
@@ -214,7 +220,14 @@ export async function generateLifecycleDocument(
       );
     }
     shareholdingClassName = className;
-    endReasonRaw = shRow.end_reason;
+    // end_reason is meaningful only for cessation. For issuance the row's
+    // end_reason is null anyway (active holding), but skipping the read here
+    // makes the semantic explicit and matches the issuance template's lack
+    // of endReason in requiredVars.
+    endReasonRaw =
+      entry.satisfies.event_phase === 'cessation' ? shRow.end_reason : null;
+    issueDateIso = shRow.issue_date;
+    issuePricePerShare = shRow.issue_price_per_share;
   } else {
     type EventRow = {
       id: string;
@@ -292,7 +305,40 @@ export async function generateLifecycleDocument(
   if (entry.satisfies.event_type === 'shareholding') {
     ctx.holderName = holderDisplayName!;
     ctx.shares = String(shareholdingShares);
+    // Both share_cessation and share_issuance bodies use the {{shareClass}}
+    // token — harmonized 2026-05-27.
     ctx.shareClass = shareholdingClassName!;
+
+    // Issuance-only: pre-compose the conditional price phrase per locale.
+    // The engine is single-pass and would flag `{{pricePerShare}}` nested
+    // inside a phrase token as residual; instead we inline the formatted
+    // price here so the engine sees a complete substring. Both phrase keys
+    // are populated (empty string when no price recorded or non-issuance)
+    // so the post-fill residual-{{ guard always passes.
+    let pricePhraseFr = '';
+    let pricePhraseEn = '';
+    if (
+      entry.satisfies.event_phase === 'issuance' &&
+      issuePricePerShare !== null &&
+      Number(issuePricePerShare) > 0
+    ) {
+      // No shared currency helper exists in lib/ today — using Intl.NumberFormat
+      // directly. fr-CA renders "0,15 $" by default. en-CA defaults to
+      // "CA$0.15"; narrowSymbol coerces to the brief-required "$0.15".
+      const priceFr = new Intl.NumberFormat('fr-CA', {
+        style: 'currency',
+        currency: 'CAD',
+      }).format(Number(issuePricePerShare));
+      const priceEn = new Intl.NumberFormat('en-CA', {
+        style: 'currency',
+        currency: 'CAD',
+        currencyDisplay: 'narrowSymbol',
+      }).format(Number(issuePricePerShare));
+      pricePhraseFr = ` au prix de ${priceFr} par action`;
+      pricePhraseEn = ` at a price of ${priceEn} per share`;
+    }
+    ctx.pricePhraseFr = pricePhraseFr;
+    ctx.pricePhraseEn = pricePhraseEn;
   } else {
     ctx.personName = personName!;
     // Officer docKeys need officerTitle. director_removal omits endReason.

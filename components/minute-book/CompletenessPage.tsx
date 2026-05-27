@@ -181,8 +181,8 @@ export default function CompletenessPage({
   // the same footing as director/officer departures (same generate / upload
   // / replace affordances via the shared EventActRow → dialog path). NO
   // end_reason / transfer gating here — transfer interaction (double-count
-  // suppression) is the transfer slice's job. share_issuance + share_transfer
-  // acts remain excluded — their own slices will widen this filter.
+  // suppression) is the transfer slice's job. share_transfer acts remain
+  // excluded — its own slice will widen this filter.
   const activeYearSet = new Set(sortedYears);
   const eventsByYear: Record<number, EventActStatus[]> = {};
   const eventsUnclassified: EventActStatus[] = [];
@@ -193,7 +193,9 @@ export default function CompletenessPage({
         act.event_phase === 'departure';
       const isShareholdingCessation =
         act.event_type === 'shareholding' && act.event_phase === 'cessation';
-      if (!isDirectorOrOfficerDeparture && !isShareholdingCessation) {
+      const isShareholdingIssuance =
+        act.event_type === 'shareholding' && act.event_phase === 'issuance';
+      if (!isDirectorOrOfficerDeparture && !isShareholdingCessation && !isShareholdingIssuance) {
         continue;
       }
       const fy = fiscalYearForDate(act.date, fiscalYearEndMonth, fiscalYearEndDay);

@@ -30,6 +30,14 @@ interface ShareholderCardProps {
    * it sits in the bottom action bar next to Edit.
    */
   onEndShareholding: (shareholding: ShareholdingWithDetails) => void;
+  /**
+   * #19d Phase 3 (issuance) — per-holding "Générer émission" affordance.
+   * Mirrors the cessation pattern, but for the issuance act on ACTIVE
+   * holdings. Returns undefined for founding-cohort holdings (issue_date <=
+   * incorporation_date) since event-completeness doesn't enumerate those.
+   */
+  getIssuanceAct: (shareholdingId: string) => { satisfied: boolean; documentId: string | null } | undefined;
+  onGenerateIssuance: (shareholding: ShareholdingWithDetails) => void;
 }
 
 // =============================================================================
@@ -63,9 +71,45 @@ export default function ShareholderCard({
   officerAppointments,
   onEdit,
   onEndShareholding,
+  getIssuanceAct,
+  onGenerateIssuance,
 }: ShareholderCardProps) {
   const t = useTranslations('shareholders');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
+
+  // Per-holding issuance affordance. Returns null for founding-cohort holdings
+  // (no act enumerated). Mirrors the cessation per-row pattern on the
+  // former-shareholders list in ShareholdersClient.tsx (L323-411).
+  function renderIssuanceAffordance(sh: ShareholdingWithDetails) {
+    const act = getIssuanceAct(sh.id);
+    if (!act) return null;
+    if (act.satisfied && act.documentId) {
+      return (
+        <>
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
+            {t('issuanceGenerated')}
+          </span>
+          <a
+            href={`/api/documents/${act.documentId}/download?preview=true`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+          >
+            {t('viewDocument')}
+          </a>
+        </>
+      );
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => onGenerateIssuance(sh)}
+        className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+      >
+        {t('generateIssuance')}
+      </button>
+    );
+  }
 
   // Atom 2: ShareholdingWithDetails.person is nullable (Q-R-G2-C transitional).
   // In practice unreachable here — ShareholdersClient.tsx's shareholderPersonIds
@@ -156,15 +200,18 @@ export default function ShareholderCard({
                   {' · '}
                   {formatDate(sh.issue_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => onEndShareholding(sh)}
-                  className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
-                  title={t('endShareholding')}
-                >
-                  <LogOut className="h-3 w-3" />
-                  {t('terminate')}
-                </button>
+                <div className="flex shrink-0 items-center gap-3">
+                  {renderIssuanceAffordance(sh)}
+                  <button
+                    type="button"
+                    onClick={() => onEndShareholding(sh)}
+                    className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+                    title={t('endShareholding')}
+                  >
+                    <LogOut className="h-3 w-3" />
+                    {t('terminate')}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -204,6 +251,13 @@ export default function ShareholderCard({
             <LogOut className="h-3.5 w-3.5" />
             {t('terminate')}
           </button>
+        )}
+        {/* Single-holding case: issuance affordance sits alongside Terminer.
+            Multi-holding case renders one per holding row above instead. */}
+        {shareholdings.length === 1 && (
+          <div className="flex items-center gap-3">
+            {renderIssuanceAffordance(primary)}
+          </div>
         )}
         <button
           type="button"

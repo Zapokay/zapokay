@@ -416,7 +416,9 @@
       "transfer": "Transfer"
     },
     "generateResolution": "Generate resolution",
-    "viewDocument": "View document"
+    "viewDocument": "View document",
+    "generateIssuance": "Generate issuance",
+    "issuanceGenerated": "Issuance generated"
   },
   "nav": {
     "group": {

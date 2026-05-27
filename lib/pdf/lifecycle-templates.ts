@@ -1,8 +1,8 @@
 /**
  * #19d — Lifecycle-act resolution template registry.
  *
- * 5 docKeys, each FR + EN, covering the four #19c-scored lifecycle act
- * phases that have a resolution-class evidence document:
+ * 7 docKeys, each FR + EN, covering the #19c-scored lifecycle act phases
+ * that have a resolution-class evidence document:
  *
  *   docKey              instrument    satisfies (event_type, event_phase)
  *   ──────────────────  ────────────  ─────────────────────────────────────
@@ -11,10 +11,16 @@
  *   director_removal      shareholder (director_mandate,    departure)
  *   officer_appointment   board       (officer_appointment, appointment)
  *   officer_departure     board       (officer_appointment, departure)
+ *   share_issuance        board       (shareholding,        issuance)
+ *   share_cessation       board       (shareholding,        cessation)
  *
  * Token convention is `{{token}}`. Tokens used across the registry:
  *   companyName, neqClause, personName, officerTitle (officer entries only),
- *   effectiveDate, endReason (departure entries only), resolutionDate.
+ *   holderName / shares / shareClass (share entries only),
+ *   effectiveDate, endReason (departure / cessation entries only),
+ *   pricePhraseFr / pricePhraseEn (issuance entry only — pre-composed by the
+ *   orchestrator with the formatted price already inlined; resolves to empty
+ *   string when the holding has no recorded price), resolutionDate.
  *
  * NEQ handling: bodies use a single `{{neqClause}}` token immediately after
  * `{{companyName}}`. The engine composes neqClause from `ctx.neq` —
@@ -45,7 +51,8 @@ export type LifecycleEventType =
 export type LifecycleEventPhase =
   | 'appointment'
   | 'departure'
-  | 'cessation';
+  | 'cessation'
+  | 'issuance';
 
 export interface LifecycleSatisfies {
   event_type: LifecycleEventType;
@@ -219,6 +226,31 @@ RESOLVED THAT:
 3. Any director of the Corporation is authorized to do all things necessary to give effect to this resolution.
 
 Adopted by the board of directors on {{resolutionDate}}.`,
+  },
+
+  share_issuance: {
+    docKey: 'share_issuance',
+    instrument: 'board',
+    satisfies: { event_type: 'shareholding', event_phase: 'issuance' },
+    // pricePhraseFr / pricePhraseEn are required (must be present in ctx so
+    // the engine's residual-{{ guard passes), but each may legitimately be an
+    // empty string when the holding has no recorded issue_price_per_share.
+    // The engine treats empty-string as missing for required-var validation,
+    // so they are NOT in requiredVars — the orchestrator unconditionally
+    // populates both keys.
+    requiredVars: ['companyName', 'holderName', 'shares', 'shareClass', 'effectiveDate', 'resolutionDate'],
+    titleFr: "Résolution du conseil — Émission d'actions",
+    titleEn: 'Board resolution — Share issuance',
+    bodyFr: `RÉSOLUTION DU CONSEIL D'ADMINISTRATION DE {{companyName}}{{neqClause}}
+
+RÉSOLU QUE l'émission de {{shares}} action(s) de {{shareClass}} à {{holderName}}{{pricePhraseFr}}, prenant effet le {{effectiveDate}}, est par les présentes constatée et ratifiée par le conseil d'administration de la société.
+
+Adoptée le {{resolutionDate}}.`,
+    bodyEn: `RESOLUTION OF THE BOARD OF DIRECTORS OF {{companyName}}{{neqClause}}
+
+RESOLVED THAT the issuance of {{shares}} share(s) of {{shareClass}} to {{holderName}}{{pricePhraseEn}}, effective {{effectiveDate}}, is hereby acknowledged and ratified by the board of directors of the corporation.
+
+Adopted on {{resolutionDate}}.`,
   },
 
   share_cessation: {
