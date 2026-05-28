@@ -10,6 +10,9 @@
 --   - same-class implied (destination inherits source's share_class_id)
 --   - price optional (free-form `consideration` TEXT, mirrors issuance optional price)
 --   - founding-cohort allowed (no `> incorporation_date` predicate)
+--   - destination holding source='transfer' (provenance: acquired by transfer,
+--     not direct issuance — column is unconstrained TEXT, no CHECK added;
+--     vocabulary-lock deferred to post-app-slice hardening)
 --
 -- Refs:
 --   - docs/audit-transfer-investigation-2026-05-27.md (precondition; §5 flagged
@@ -240,20 +243,24 @@ BEGIN
 
   -- (4) Create the destination shareholding. issue_date PRESERVED from source
   -- (the original issuance event is unchanged; the transfer is a separate
-  -- event recorded in share_transfers below). source defaults to
-  -- 'direct_issuance' per the column default (20260511140949 L8) — acceptable
-  -- for v1; revisit if a 'transfer' source value is desired later.
+  -- event recorded in share_transfers below). source = 'transfer' set
+  -- explicitly (provenance: acquired by transfer, not direct issuance). The
+  -- shareholdings.source column is unconstrained TEXT — no CHECK guards
+  -- the value (intentional, see header). Vocabulary-lock deferred to
+  -- post-app-slice hardening.
   INSERT INTO shareholdings (
     company_id,
     share_class_id,
     quantity,
-    issue_date
+    issue_date,
+    source
   )
   VALUES (
     v_company_id,
     v_share_class_id,
     v_quantity,
-    v_issue_date
+    v_issue_date,
+    'transfer'
   )
   RETURNING id INTO v_new_destination_id;
 
