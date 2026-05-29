@@ -418,7 +418,15 @@
     "generateResolution": "Generate resolution",
     "viewDocument": "View document",
     "generateIssuance": "Generate issuance",
-    "issuanceGenerated": "Issuance generated"
+    "issuanceGenerated": "Issuance generated",
+    "transferShareholdingTitle": "Transfer Shareholding",
+    "transferShareholdingIntro": "Transfer {qty, plural, =1{1 share} other{# shares}} of class {className} from {transferorName} to ?",
+    "transferShareholdingSubtext": "The shareholding will be closed and a new shareholding opened in the new holder's name on the same date.",
+    "newHolder": "New holder",
+    "transferDate": "Transfer date",
+    "considerationOptional": "Consideration (optional)",
+    "considerationPlaceholder": "e.g. $1.00 per share, no consideration, in exchange for services rendered…",
+    "confirmTransfer": "Confirm transfer"
   },
   "nav": {
     "group": {

@@ -30,8 +30,8 @@ export interface LifecycleDialogProps {
   companyId: string;
   /**
    * docKey is grouped by event family so adding a new family is a single-line
-   * union extension. share_issuance + share_cessation present; share_transfer
-   * will be appended by the transfer slice.
+   * union extension. share family (issuance + cessation + transfer) all
+   * present after the #19d Phase 3 close slice.
    */
   docKey:
     // director family
@@ -43,7 +43,8 @@ export interface LifecycleDialogProps {
     | 'officer_departure'
     // share family
     | 'share_issuance'
-    | 'share_cessation';
+    | 'share_cessation'
+    | 'share_transfer';
   instrument: 'board' | 'shareholder';
   eventId: string;
   /**

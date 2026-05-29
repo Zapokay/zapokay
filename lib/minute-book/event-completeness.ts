@@ -142,6 +142,7 @@ interface RawShareholding {
   id: string;
   issue_date: string;
   end_date: string | null;
+  end_reason: string | null;
   holders: RawHolder[] | null;
 }
 interface RawTransfer {
@@ -193,7 +194,7 @@ export async function computeEventCompleteness(
     supabase
       .from('shareholdings')
       .select(
-        'id, issue_date, end_date, holders:shareholding_holders(holder_type, person:company_people(full_name), entity:shareholder_entities(legal_name))',
+        'id, issue_date, end_date, end_reason, holders:shareholding_holders(holder_type, person:company_people(full_name), entity:shareholder_entities(legal_name))',
       )
       .eq('company_id', companyId),
     supabase
@@ -322,7 +323,11 @@ export async function computeEventCompleteness(
     if (afterIncorp(sh.issue_date)) {
       pushAct('shareholding', sh.id, 'issuance', LABELS.share_issuance, name, sh.issue_date);
     }
-    if (sh.end_date) {
+    // Suppress cessation act when end_reason marks a transfer — the
+    // share_transfers loop below emits its own act for that case. Without
+    // this guard the same transferred shareholding surfaces as BOTH a
+    // cessation row AND a transfer row in the completeness view.
+    if (sh.end_date && sh.end_reason !== 'transfer') {
       pushAct('shareholding', sh.id, 'cessation', LABELS.share_cessation, name, sh.end_date);
     }
   }

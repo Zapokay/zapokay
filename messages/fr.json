@@ -418,7 +418,15 @@
     "generateResolution": "Générer la résolution",
     "viewDocument": "Voir le document",
     "generateIssuance": "Générer émission",
-    "issuanceGenerated": "Émission générée"
+    "issuanceGenerated": "Émission générée",
+    "transferShareholdingTitle": "Transférer la détention",
+    "transferShareholdingIntro": "Transférer {qty, plural, =1{1 action} other{# actions}} de catégorie {className} de {transferorName} vers ?",
+    "transferShareholdingSubtext": "La détention sera fermée et une nouvelle détention sera ouverte au nom du nouveau titulaire à la même date.",
+    "newHolder": "Nouveau titulaire",
+    "transferDate": "Date du transfert",
+    "considerationOptional": "Contrepartie (optionnel)",
+    "considerationPlaceholder": "ex. 1,00 $ par action, à titre gratuit, en échange de services rendus…",
+    "confirmTransfer": "Confirmer le transfert"
   },
   "nav": {
     "group": {

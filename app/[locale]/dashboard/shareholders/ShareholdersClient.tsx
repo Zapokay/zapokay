@@ -12,6 +12,7 @@ import IssueSharesModal from '@/components/shareholders/IssueSharesModal';
 import ShareClassModal from '@/components/shareholders/ShareClassModal';
 import EditShareholdingModal from '@/components/shareholders/EditShareholdingModal';
 import EndShareholdingModal from '@/components/shareholders/EndShareholdingModal';
+import TransferShareholdingModal from '@/components/shareholders/TransferShareholdingModal';
 import EditFormerShareholdingModal from '@/components/shareholders/EditFormerShareholdingModal';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
 import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
@@ -50,10 +51,22 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
   const [editingShareholding, setEditingShareholding] = useState<ShareholdingWithDetails | null>(null);
   // #19d Phase 3 (cessation) — per-row state for end / edit-former / generate.
   const [endingShareholding, setEndingShareholding] = useState<ShareholdingWithDetails | null>(null);
+  // #19d Phase 3 close — per-holding "Transférer" target. PER-HOLDING granularity
+  // mirrors the cessation / issuance slots above.
+  const [transferingShareholding, setTransferingShareholding] = useState<ShareholdingWithDetails | null>(null);
   const [editingFormerShareholding, setEditingFormerShareholding] = useState<ShareholdingWithDetails | null>(null);
   const [generatingForShareholding, setGeneratingForShareholding] = useState<ShareholdingWithDetails | null>(null);
   // #19d Phase 3 (issuance) — per-holding state for the share_issuance generate dialog.
   const [generatingIssuanceForShareholding, setGeneratingIssuanceForShareholding] = useState<ShareholdingWithDetails | null>(null);
+  // #19d Phase 3 close — per-holding state for the share_transfer generate
+  // dialog. Distinct from generatingForShareholding (cessation) so the
+  // former-row dispatch can branch on sh.end_reason without setter collision.
+  const [generatingTransferForShareholding, setGeneratingTransferForShareholding] = useState<ShareholdingWithDetails | null>(null);
+  // from_shareholding_id → {transfer.id, transfer_date, to-side holders}.
+  // Built from a side-fetch in fetchData; the former-holdings per-row dispatch
+  // uses this to resolve the correct eventId / eventDate / transferee name
+  // when a row's end_reason === 'transfer'.
+  const [transferByFromShId, setTransferByFromShId] = useState<Map<string, { id: string; transfer_date: string; to_holders: RawHolder[] | null }>>(new Map());
   // Per-row lifecycle act state (from /api/minute-book/event-completeness)
   // keyed by `${event_type}|${event_id}|${event_phase}` — mirrors DirectorsClient
   // pattern. Used to flip Generate→Voir + show "À signer" badge once a doc
@@ -106,6 +119,20 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
     const { data: officersRaw } = await supabase
       .from('officer_appointments').select('*').eq('company_id', cid).eq('is_active', true);
     setOfficerAppointments((officersRaw as OfficerAppointment[]) || []);
+
+    // #19d Phase 3 close — pull share_transfers + embed to-side holders so
+    // the former-holdings per-row dispatch can resolve transferee at render.
+    // Keyed by from_shareholding_id (the source holding that appears in the
+    // former-holdings view). Disambiguated embed via !to_shareholding_id.
+    const { data: transfersRaw } = await supabase
+      .from('share_transfers')
+      .select('id, from_shareholding_id, transfer_date, to_sh:shareholdings!to_shareholding_id(holders:shareholding_holders(holder_type, person:company_people(full_name), entity:shareholder_entities(legal_name)))')
+      .eq('company_id', cid);
+    const trMap = new Map<string, { id: string; transfer_date: string; to_holders: RawHolder[] | null }>();
+    for (const tr of ((transfersRaw ?? []) as unknown) as Array<{ id: string; from_shareholding_id: string; transfer_date: string; to_sh: { holders: RawHolder[] | null } | null }>) {
+      trMap.set(tr.from_shareholding_id, { id: tr.id, transfer_date: tr.transfer_date, to_holders: tr.to_sh?.holders ?? null });
+    }
+    setTransferByFromShId(trMap);
 
     // #19d Phase 3 — pull per-act satisfaction map for cessation acts.
     // Non-fatal: if it 404s / 500s, rows render as if no acts are satisfied.
@@ -286,6 +313,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                   onEndShareholding={(sh) => setEndingShareholding(sh)}
                   getIssuanceAct={(id) => actsMap.get(`shareholding|${id}|issuance`)}
                   onGenerateIssuance={(sh) => setGeneratingIssuanceForShareholding(sh)}
+                  onTransfer={(sh) => setTransferingShareholding(sh)}
                 />
               ))}
             </div>
@@ -365,11 +393,22 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
                       {(() => {
-                        // Per-row cessation-act lookup. Only render the affordance
-                        // when the row has an end_date (the act is flaggable per the
-                        // #19c rules — see lib/minute-book/event-completeness.ts).
+                        // Per-row affordance lookup. Transferred rows
+                        // (end_reason === 'transfer') route to a share_transfer
+                        // act keyed by share_transfers.id; everything else
+                        // routes to share_cessation keyed by shareholdings.id.
                         if (!sh.end_date) return null;
-                        const key = `shareholding|${sh.id}|cessation`;
+                        const isTransfer = sh.end_reason === 'transfer';
+                        const transfer = isTransfer ? transferByFromShId.get(sh.id) : undefined;
+                        if (isTransfer && !transfer) {
+                          // share_transfers row not loaded yet (race) — render
+                          // nothing for this slot rather than risk wrong dispatch.
+                          // Act still surfaces on Complétude.
+                          return null;
+                        }
+                        const key = isTransfer
+                          ? `share_transfer|${transfer!.id}|transfer`
+                          : `shareholding|${sh.id}|cessation`;
                         const act = actsMap.get(key);
                         if (act?.satisfied && act.documentId) {
                           return (
@@ -391,7 +430,11 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                         return (
                           <button
                             type="button"
-                            onClick={() => setGeneratingForShareholding(sh)}
+                            onClick={() =>
+                              isTransfer
+                                ? setGeneratingTransferForShareholding(sh)
+                                : setGeneratingForShareholding(sh)
+                            }
                             className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
                           >
                             {t('generateResolution')}
@@ -468,6 +511,14 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
         />
       )}
 
+      {transferingShareholding && (
+        <TransferShareholdingModal
+          shareholding={transferingShareholding}
+          onClose={() => setTransferingShareholding(null)}
+          onSuccess={() => { setTransferingShareholding(null); fetchData(); }}
+        />
+      )}
+
       {editingFormerShareholding && (
         <EditFormerShareholdingModal
           shareholding={editingFormerShareholding}
@@ -513,6 +564,52 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
             language={preferredLanguage}
             onClose={() => setGeneratingForShareholding(null)}
             onSuccess={() => { setGeneratingForShareholding(null); fetchData(); }}
+          />
+        );
+      })()}
+
+      {generatingTransferForShareholding && companyId && (() => {
+        // #19d Phase 3 close — share_transfer dispatch. Looks up the
+        // share_transfers row by from_shareholding_id (sh.id is the SOURCE
+        // holding shown in the former-holdings view). Dialog gets
+        // eventId=transfer.id (NOT sh.id) so the orchestrator's
+        // share_transfer arm finds the right row.
+        const sh = generatingTransferForShareholding;
+        const transfer = transferByFromShId.get(sh.id);
+        if (!transfer) return null;
+        const transferorName =
+          holderName(sh.holders as unknown as RawHolder[]) ??
+          (locale === 'fr' ? '(détenteur inconnu)' : '(unknown holder)');
+        const transfereeName =
+          holderName(transfer.to_holders) ??
+          (locale === 'fr' ? '(détenteur inconnu)' : '(unknown holder)');
+        const extraFacts: Array<{ label: string; value: string }> = [
+          {
+            label: locale === 'fr' ? 'Actions' : 'Shares',
+            value: sh.quantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA'),
+          },
+          {
+            label: locale === 'fr' ? "Classe d'actions" : 'Share class',
+            value: sh.share_class.name,
+          },
+          {
+            label: t('newHolder'),
+            value: transfereeName,
+          },
+        ];
+        return (
+          <GenerateLifecycleResolutionDialog
+            companyId={companyId}
+            docKey="share_transfer"
+            instrument="board"
+            eventId={transfer.id}
+            personName={transferorName}
+            roleLabel={locale === 'fr' ? 'Actionnaire (cédant)' : 'Shareholder (transferor)'}
+            eventDate={transfer.transfer_date}
+            extraFacts={extraFacts}
+            language={preferredLanguage}
+            onClose={() => setGeneratingTransferForShareholding(null)}
+            onSuccess={() => { setGeneratingTransferForShareholding(null); fetchData(); }}
           />
         );
       })()}

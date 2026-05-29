@@ -177,12 +177,12 @@ export default function CompletenessPage({
   // "unclassified" bucket (mirrors the orchestrator's findability guard:
   // never render a phantom year section the user can't see elsewhere).
   //
-  // #19d Phase 3 (cessation) — shareholding+cessation acts are admitted on
-  // the same footing as director/officer departures (same generate / upload
-  // / replace affordances via the shared EventActRow → dialog path). NO
-  // end_reason / transfer gating here — transfer interaction (double-count
-  // suppression) is the transfer slice's job. share_transfer acts remain
-  // excluded — its own slice will widen this filter.
+  // #19d Phase 3 (cessation + issuance + transfer) — shareholding cessation,
+  // shareholding issuance, AND share_transfer acts are admitted on the same
+  // footing as director/officer departures (same generate / upload / replace
+  // affordances via the shared EventActRow → dialog path). The engine
+  // handles transfer's source-cessation double-count suppression upstream so
+  // this filter stays declarative — no end_reason gating needed here.
   const activeYearSet = new Set(sortedYears);
   const eventsByYear: Record<number, EventActStatus[]> = {};
   const eventsUnclassified: EventActStatus[] = [];
@@ -195,7 +195,14 @@ export default function CompletenessPage({
         act.event_type === 'shareholding' && act.event_phase === 'cessation';
       const isShareholdingIssuance =
         act.event_type === 'shareholding' && act.event_phase === 'issuance';
-      if (!isDirectorOrOfficerDeparture && !isShareholdingCessation && !isShareholdingIssuance) {
+      const isShareTransfer =
+        act.event_type === 'share_transfer' && act.event_phase === 'transfer';
+      if (
+        !isDirectorOrOfficerDeparture &&
+        !isShareholdingCessation &&
+        !isShareholdingIssuance &&
+        !isShareTransfer
+      ) {
         continue;
       }
       const fy = fiscalYearForDate(act.date, fiscalYearEndMonth, fiscalYearEndDay);

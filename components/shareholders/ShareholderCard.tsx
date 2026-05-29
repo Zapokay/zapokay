@@ -38,6 +38,14 @@ interface ShareholderCardProps {
    */
   getIssuanceAct: (shareholdingId: string) => { satisfied: boolean; documentId: string | null } | undefined;
   onGenerateIssuance: (shareholding: ShareholdingWithDetails) => void;
+  /**
+   * #19d Phase 3 close — per-holding "Transférer" affordance. Same PER-HOLDING
+   * granularity as Terminer (multi-holding cards render one Transférer per
+   * detail row; single-holding cards render it in the bottom action bar
+   * next to Edit / Terminer). Captures an ind-to-ind full transfer via
+   * the dedicated TransferShareholdingModal.
+   */
+  onTransfer: (shareholding: ShareholdingWithDetails) => void;
 }
 
 // =============================================================================
@@ -73,6 +81,7 @@ export default function ShareholderCard({
   onEndShareholding,
   getIssuanceAct,
   onGenerateIssuance,
+  onTransfer,
 }: ShareholderCardProps) {
   const t = useTranslations('shareholders');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
@@ -191,8 +200,11 @@ export default function ShareholderCard({
             locked decision: capture granularity is PER-HOLDING, not per-card). */}
         {shareholdings.length > 1 && (
           <div className="mt-1 space-y-1 rounded-md bg-[var(--card-bg)] px-3 py-2">
-            {shareholdings.map((sh) => (
-              <div key={sh.id} className="flex items-center justify-between gap-2">
+            {shareholdings.map((sh, idx) => (
+              <div
+                key={sh.id}
+                className={idx > 0 ? 'border-t border-[var(--card-border)] pt-3' : ''}
+              >
                 <p className="text-xs text-[var(--text-muted)]">
                   {sh.quantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA')}{' '}
                   {sh.share_class.name}
@@ -200,7 +212,11 @@ export default function ShareholderCard({
                   {' · '}
                   {formatDate(sh.issue_date, locale, { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
-                <div className="flex shrink-0 items-center gap-3">
+                {/* Per-holding actions on their own row below details — never
+                    inline (§8.58 narrow-viewport: 3 affordances + details
+                    would clip / wrap untidily otherwise). flex-wrap on the
+                    action row itself handles further squeeze. */}
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   {renderIssuanceAffordance(sh)}
                   <button
                     type="button"
@@ -210,6 +226,15 @@ export default function ShareholderCard({
                   >
                     <LogOut className="h-3 w-3" />
                     {t('terminate')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onTransfer(sh)}
+                    className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+                    title={t('transfer')}
+                  >
+                    <ArrowRightLeft className="h-3 w-3" />
+                    {t('transfer')}
                   </button>
                 </div>
               </div>
@@ -259,15 +284,19 @@ export default function ShareholderCard({
             {renderIssuanceAffordance(primary)}
           </div>
         )}
-        <button
-          type="button"
-          disabled
-          className="group/btn flex cursor-not-allowed items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-muted)] opacity-60"
-          title={locale === 'fr' ? 'Bientôt disponible' : 'Coming soon'}
-        >
-          <ArrowRightLeft className="h-3.5 w-3.5" />
-          {t('transfer')}
-        </button>
+        {/* Single-holding case: bottom-bar Transférer targets the only holding.
+            Multi-holding case shows Transférer on each detail row above instead,
+            to enforce PER-HOLDING capture granularity (same pattern as Terminer). */}
+        {shareholdings.length === 1 && (
+          <button
+            type="button"
+            onClick={() => onTransfer(primary)}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+          >
+            <ArrowRightLeft className="h-3.5 w-3.5" />
+            {t('transfer')}
+          </button>
+        )}
       </div>
     </div>
   );

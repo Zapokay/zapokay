@@ -26,6 +26,7 @@
  *   officer_appointment | appointment                            → officer_appointment + board
  *   shareholding        | issuance                               → share_issuance + board
  *   shareholding        | cessation                              → share_cessation + board
+ *   share_transfer      | transfer                               → share_transfer + board
  *
  * Defensive note on departure end_reason: getEndReasonLabel + the server-side
  * orchestrator THROW when end_reason is missing for docKeys whose
@@ -75,7 +76,8 @@ interface DocKeyDerivation {
     | 'officer_appointment'
     | 'officer_departure'
     | 'share_issuance'
-    | 'share_cessation';
+    | 'share_cessation'
+    | 'share_transfer';
   instrument: 'board' | 'shareholder';
 }
 
@@ -106,7 +108,9 @@ function deriveDocKey(act: EventActStatus): DocKeyDerivation | null {
       return { docKey: 'share_cessation', instrument: 'board' };
     }
   }
-  // share_transfer acts have no registry entry in this slice (next slice).
+  if (act.event_type === 'share_transfer' && act.event_phase === 'transfer') {
+    return { docKey: 'share_transfer', instrument: 'board' };
+  }
   return null;
 }
 

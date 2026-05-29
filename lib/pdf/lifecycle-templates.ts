@@ -1,7 +1,7 @@
 /**
  * #19d — Lifecycle-act resolution template registry.
  *
- * 7 docKeys, each FR + EN, covering the #19c-scored lifecycle act phases
+ * 8 docKeys, each FR + EN, covering the #19c-scored lifecycle act phases
  * that have a resolution-class evidence document:
  *
  *   docKey              instrument    satisfies (event_type, event_phase)
@@ -13,10 +13,16 @@
  *   officer_departure     board       (officer_appointment, departure)
  *   share_issuance        board       (shareholding,        issuance)
  *   share_cessation       board       (shareholding,        cessation)
+ *   share_transfer        board       (share_transfer,      transfer)
  *
  * Token convention is `{{token}}`. Tokens used across the registry:
  *   companyName, neqClause, personName, officerTitle (officer entries only),
  *   holderName / shares / shareClass (share entries only),
+ *   transferorName / transfereeName / quantity / shareClassName / transferDate /
+ *   considerationClause (transfer entry only — considerationClause is pre-composed
+ *   by the orchestrator with the locale-correct preposition + formatted value
+ *   inlined, resolving to empty string when no consideration is recorded;
+ *   mirrors the pricePhraseFr/En pattern from share_issuance),
  *   effectiveDate, endReason (departure / cessation entries only),
  *   pricePhraseFr / pricePhraseEn (issuance entry only — pre-composed by the
  *   orchestrator with the formatted price already inlined; resolves to empty
@@ -46,13 +52,15 @@ export type LifecycleInstrument = 'board' | 'shareholder';
 export type LifecycleEventType =
   | 'director_mandate'
   | 'officer_appointment'
-  | 'shareholding';
+  | 'shareholding'
+  | 'share_transfer';
 
 export type LifecycleEventPhase =
   | 'appointment'
   | 'departure'
   | 'cessation'
-  | 'issuance';
+  | 'issuance'
+  | 'transfer';
 
 export interface LifecycleSatisfies {
   event_type: LifecycleEventType;
@@ -280,6 +288,57 @@ RESOLVED THAT:
 1. The cessation of {{shares}} {{shareClass}} share(s) held by {{holderName}}, effective {{effectiveDate}}, is hereby acknowledged;
 2. The securities records of the Corporation be updated accordingly;
 3. Any director or officer of the Corporation is authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}}.`,
+  },
+
+  share_transfer: {
+    docKey: 'share_transfer',
+    instrument: 'board',
+    satisfies: { event_type: 'share_transfer', event_phase: 'transfer' },
+    // considerationClause is required (must be present in ctx so the engine's
+    // residual-{{ guard passes), but may legitimately be an empty string when
+    // no consideration is recorded. The engine treats empty-string as missing
+    // for required-var validation, so it is NOT in requiredVars — the
+    // orchestrator unconditionally populates the key. Mirrors the
+    // pricePhraseFr/En pattern from share_issuance.
+    requiredVars: ['companyName', 'transferorName', 'transfereeName', 'quantity', 'shareClassName', 'transferDate', 'resolutionDate'],
+    titleFr: "Transfert d'actions",
+    titleEn: 'Share Transfer',
+    bodyFr: `{{companyName}}{{neqClause}}
+
+RÉSOLUTION DU CONSEIL D'ADMINISTRATION
+RECONNAISSANT UN TRANSFERT D'ACTIONS
+
+ATTENDU QUE {{transferorName}} a transféré {{quantity}} action(s) de catégorie {{shareClassName}} à {{transfereeName}} en date du {{transferDate}}{{considerationClause}};
+
+ATTENDU QUE le conseil d'administration souhaite reconnaître ce transfert et mettre à jour les registres de la société en conséquence;
+
+IL EST RÉSOLU :
+
+1. QUE le transfert de {{quantity}} action(s) de catégorie {{shareClassName}} de {{transferorName}} à {{transfereeName}}, en date du {{transferDate}}, soit reconnu;
+
+2. QUE le registre des actionnaires de la société soit mis à jour pour refléter ce transfert;
+
+3. QUE tout dirigeant de la société soit autorisé à signer tout document nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}}.`,
+    bodyEn: `{{companyName}}{{neqClause}}
+
+BOARD RESOLUTION
+ACKNOWLEDGING A SHARE TRANSFER
+
+WHEREAS {{transferorName}} transferred {{quantity}} share(s) of class {{shareClassName}} to {{transfereeName}} on {{transferDate}}{{considerationClause}};
+
+WHEREAS the board of directors wishes to acknowledge this transfer and update the company's registers accordingly;
+
+IT IS RESOLVED:
+
+1. THAT the transfer of {{quantity}} share(s) of class {{shareClassName}} from {{transferorName}} to {{transfereeName}}, on {{transferDate}}, be acknowledged;
+
+2. THAT the company's shareholder register be updated to reflect this transfer;
+
+3. THAT any officer of the company be authorized to sign any document necessary to give effect to this resolution.
 
 Adopted on {{resolutionDate}}.`,
   },

@@ -1,7 +1,7 @@
 /**
  * #19d Brief 2a — Lifecycle-document generation orchestrator (PATH A).
  *
- * End-to-end pipeline for the 7 lifecycle resolution docKeys defined in
+ * End-to-end pipeline for the 8 lifecycle resolution docKeys defined in
  * `lifecycle-templates.ts`:
  *
  *   1. Look up the registry entry by docKey (via the Brief 1 engine on call).
@@ -53,6 +53,35 @@ import {
 import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
 
 export type LifecycleLanguage = 'fr' | 'en';
+
+/**
+ * Compose the consideration clause for share_transfer resolutions.
+ *
+ * Per §8.44, locale-dependent connectives stay caller-side — the engine is
+ * locale-agnostic about values. This helper returns a complete substring with
+ * the leading space included, so the template renders cleanly with or without
+ * the clause and no whitespace cleanup is needed downstream.
+ *
+ * Returns:
+ *   - FR + non-empty: " en contrepartie de <consideration>"
+ *   - EN + non-empty: " for consideration of <consideration>"
+ *   - null / undefined / empty / whitespace-only: "" (the template's line-end
+ *     semicolon handles closure regardless)
+ *
+ * Mirrors `composeNeqClause` in lifecycle-template-engine.ts in shape, but
+ * lives orchestrator-side because the FR/EN connective is locale-dependent
+ * (the engine intentionally stays locale-agnostic about values).
+ */
+function composeConsiderationClause(
+  consideration: string | null | undefined,
+  locale: LifecycleLanguage,
+): string {
+  const trimmed = consideration?.trim();
+  if (!trimmed) return '';
+  return locale === 'fr'
+    ? ` en contrepartie de ${trimmed}`
+    : ` for consideration of ${trimmed}`;
+}
 
 export interface GenerateLifecycleDocumentParams {
   /** Service-role admin client. Required for storage + DB writes that bypass RLS. */
@@ -159,6 +188,15 @@ export async function generateLifecycleDocument(
 
   let issueDateIso: string | null = null;
   let issuePricePerShare: number | null = null;
+
+  // share_transfer arm locals (Phase 3 close). transferDate is sourced from
+  // share_transfers.transfer_date and reused via effectiveDateIso for the
+  // document_year fiscal-year stamp downstream.
+  let transferorDisplayName: string | undefined;
+  let transfereeDisplayName: string | undefined;
+  let transferQuantity: number | undefined;
+  let transferShareClassName: string | undefined;
+  let considerationRaw: string | null | undefined;
   if (entry.satisfies.event_type === 'shareholding') {
     type ShRow = {
       id: string;
@@ -228,6 +266,117 @@ export async function generateLifecycleDocument(
       entry.satisfies.event_phase === 'cessation' ? shRow.end_reason : null;
     issueDateIso = shRow.issue_date;
     issuePricePerShare = shRow.issue_price_per_share;
+  } else if (entry.satisfies.event_type === 'share_transfer') {
+    type TransferRow = {
+      id: string;
+      transfer_date: string;
+      quantity_transferred: number;
+      consideration: string | null;
+      from_shareholding: {
+        id: string;
+        shareholding_holders: Array<{
+          holder_type: 'individual' | 'entity';
+          display_order: number | null;
+          person: { full_name: string | null } | null;
+          entity: { legal_name: string | null } | null;
+        }> | null;
+        share_classes: { name: string } | null;
+      } | null;
+      to_shareholding: {
+        id: string;
+        shareholding_holders: Array<{
+          holder_type: 'individual' | 'entity';
+          display_order: number | null;
+          person: { full_name: string | null } | null;
+          entity: { legal_name: string | null } | null;
+        }> | null;
+      } | null;
+    };
+
+    // Disambiguated PostgREST embeds via `!from_shareholding_id` /
+    // `!to_shareholding_id` (share_transfers has two FKs to shareholdings).
+    const { data: trRow, error: trError } = await supabaseAdmin
+      .from('share_transfers')
+      .select(`
+        id, transfer_date, quantity_transferred, consideration,
+        from_shareholding:shareholdings!from_shareholding_id(
+          id,
+          shareholding_holders(holder_type, display_order,
+            person:company_people(full_name),
+            entity:shareholder_entities(legal_name)
+          ),
+          share_classes(name)
+        ),
+        to_shareholding:shareholdings!to_shareholding_id(
+          id,
+          shareholding_holders(holder_type, display_order,
+            person:company_people(full_name),
+            entity:shareholder_entities(legal_name)
+          )
+        )
+      `)
+      .eq('id', eventId)
+      .eq('company_id', companyId)
+      .single<TransferRow>();
+
+    if (trError || !trRow) {
+      throw new Error(
+        `generateLifecycleDocument: share_transfer not found (id=${eventId})`,
+      );
+    }
+    if (!trRow.from_shareholding || !trRow.to_shareholding) {
+      throw new Error(
+        `generateLifecycleDocument: share_transfer ${eventId} missing from/to shareholding join`,
+      );
+    }
+
+    // Mirror the shareholding arm's holder-resolution path (above, ~L199-208)
+    // for both ends. Even though v1 transfer is ind-only (RPC-enforced), using
+    // the polymorphic holderName() helper keeps the code stylistically
+    // consistent with cessation+issuance and ready for v2 entity-target
+    // extension without rewriting this arm.
+    const fromHolders = (trRow.from_shareholding.shareholding_holders ?? [])
+      .slice()
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const fromName = holderName(fromHolders as RawHolder[]);
+    if (!fromName) {
+      throw new Error(
+        `generateLifecycleDocument: transferor name missing for share_transfer ${eventId}`,
+      );
+    }
+    transferorDisplayName = fromName;
+
+    const toHolders = (trRow.to_shareholding.shareholding_holders ?? [])
+      .slice()
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const toName = holderName(toHolders as RawHolder[]);
+    if (!toName) {
+      throw new Error(
+        `generateLifecycleDocument: transferee name missing for share_transfer ${eventId}`,
+      );
+    }
+    transfereeDisplayName = toName;
+
+    transferQuantity = trRow.quantity_transferred;
+
+    const className = trRow.from_shareholding.share_classes?.name;
+    if (!className) {
+      throw new Error(
+        `generateLifecycleDocument: share class missing for share_transfer ${eventId} source shareholding`,
+      );
+    }
+    transferShareClassName = className;
+
+    considerationRaw = trRow.consideration;
+
+    // effectiveDateIso drives the document_year fiscal-year stamp downstream
+    // (~L443). For a transfer act the event's effective date IS the transfer
+    // date itself. The generic ctx.effectiveDate populated at the top of the
+    // ctx block will also receive this formatted value; the share_transfer
+    // template body does not reference {{effectiveDate}} (it uses
+    // {{transferDate}} instead — populated in the ctx arm below), so the
+    // extra ctx key is harmless to the engine's residual-{{ guard.
+    effectiveDateIso = trRow.transfer_date;
   } else {
     type EventRow = {
       id: string;
@@ -339,6 +488,20 @@ export async function generateLifecycleDocument(
     }
     ctx.pricePhraseFr = pricePhraseFr;
     ctx.pricePhraseEn = pricePhraseEn;
+  } else if (entry.satisfies.event_type === 'share_transfer') {
+    ctx.transferorName = transferorDisplayName!;
+    ctx.transfereeName = transfereeDisplayName!;
+    ctx.quantity = String(transferQuantity);
+    ctx.shareClassName = transferShareClassName!;
+    // transferDate sourced from share_transfers.transfer_date, threaded via
+    // effectiveDateIso (set in the event-resolution arm above). Caller-side
+    // formatted per §8.44 (locale-dep formatter stays caller-side).
+    ctx.transferDate = formatDate(effectiveDateIso, language);
+    // considerationClause is pre-composed caller-side per §8.44 (locale-dep
+    // connective). Empty string when no consideration recorded — template's
+    // line-end semicolon handles closure regardless. Always populated so the
+    // engine's residual-{{ guard always passes (mirrors pricePhraseFr/En).
+    ctx.considerationClause = composeConsiderationClause(considerationRaw, language);
   } else {
     ctx.personName = personName!;
     // Officer docKeys need officerTitle. director_removal omits endReason.
