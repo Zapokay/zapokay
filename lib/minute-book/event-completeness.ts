@@ -43,6 +43,10 @@ import {
   type RawHolder,
   type RawPerson,
 } from '@/lib/minute-book/holder-name';
+// Tier 1 #21 — per-act weighting reuses the requirement engine's three-state
+// derivation. Same STATE_WEIGHT constant (téléversé=1.0, généré=0.5, missing=0.0)
+// so requirements + events weight identically in the merged route.
+import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state';
 
 export interface EventActStatus {
   event_type: EventDocumentType;
@@ -96,6 +100,19 @@ export interface EventCompletenessResponse {
    */
   incorporationDateMissing: boolean;
   acts: EventActStatus[];
+  /**
+   * Tier 1 #21 — additive fields for the merged /api/minute-book/completeness
+   * route. The 4 standalone /event-completeness consumers (CompletenessPage,
+   * DirectorsClient, OfficersClient, ShareholdersClient) read only `acts` and
+   * ignore these. Same three-state weighting as requirements via getDocumentState
+   * + STATE_WEIGHT — no parallel weighting function.
+   */
+  /** Sum of per-act weights: téléversé × 1.0 + généré × 0.5. */
+  eventsWeightedNum: number;
+  /** Count of acts whose state derives to 'téléversé'. */
+  eventsUploaded: number;
+  /** Count of acts whose state derives to 'généré' (incl. WIP-upload events). */
+  eventsGenerated: number;
 }
 
 const LABELS: Record<
@@ -342,6 +359,24 @@ export async function computeEventCompleteness(
   const totalMissing = totalActs - totalSatisfied;
   const score = totalActs === 0 ? 100 : Math.round((totalSatisfied / totalActs) * 100);
 
+  // Tier 1 #21 — per-act three-state weighting via the shared requirement
+  // helper. Field-name remap: documentSource → source, documentIsFinalized
+  // → is_finalized. STATE_WEIGHT constant means events and requirements
+  // weight identically in the merged route's combined formula.
+  let eventsWeightedNum = 0;
+  let eventsUploaded = 0;
+  let eventsGenerated = 0;
+  for (const a of acts) {
+    const state = getDocumentState({
+      satisfied: a.satisfied,
+      source: a.documentSource,
+      is_finalized: a.documentIsFinalized,
+    });
+    eventsWeightedNum += STATE_WEIGHT[state];
+    if (state === 'téléversé') eventsUploaded++;
+    else if (state === 'généré') eventsGenerated++;
+  }
+
   return {
     score,
     totalActs,
@@ -349,5 +384,8 @@ export async function computeEventCompleteness(
     totalMissing,
     incorporationDateMissing,
     acts,
+    eventsWeightedNum,
+    eventsUploaded,
+    eventsGenerated,
   };
 }

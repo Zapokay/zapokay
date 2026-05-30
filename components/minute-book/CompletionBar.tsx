@@ -1,6 +1,7 @@
 'use client';
 
-import { getStateForChecklistItem } from '@/lib/minute-book/state';
+import { getDocumentState, getStateForChecklistItem } from '@/lib/minute-book/state';
+import type { EventActStatus } from '@/lib/minute-book/event-completeness';
 
 interface CompletionBarItem {
   satisfied: boolean;
@@ -17,6 +18,16 @@ interface CompletionBarItem {
 
 interface CompletionBarProps {
   items: CompletionBarItem[];
+  /**
+   * Tier 1 #21 — per-year lifecycle act stack folded into the X/Y count and
+   * the bar segments. The CompletenessPage groups events by FY and passes
+   * eventsByYear[year] through RequirementSection. Hors-exercice events are
+   * filtered out upstream (they render in their own standalone section) so
+   * this prop only ever receives same-FY acts. Same three-state derivation
+   * as requirements via getDocumentState (field-name remap: documentSource →
+   * source, documentIsFinalized → is_finalized).
+   */
+  eventActs?: EventActStatus[];
   /**
    * Optional className override on the outer flex container. Defaults to
    * `max-w-md` for section-header use. Page-header use passes a wider
@@ -44,10 +55,21 @@ interface CompletionBarProps {
  * NOTE: colors use Tailwind/hex hardcodes (emerald-600, amber-500). Will
  * re-theme to Aria v2 tokens when Sprint 7 ships them.
  */
-export default function CompletionBar({ items, className }: CompletionBarProps) {
-  if (items.length === 0) return null;
+export default function CompletionBar({ items, eventActs, className }: CompletionBarProps) {
+  if (items.length === 0 && (!eventActs || eventActs.length === 0)) return null;
 
-  const states = items.map(getStateForChecklistItem);
+  // Tier 1 #21 — per-year strip folds requirement rows + same-FY event acts.
+  // Unweighted not-missing count by design (the page-level % is the weighted
+  // figure; the section strip is a row-count display).
+  const reqStates = items.map(getStateForChecklistItem);
+  const eventStates = (eventActs ?? []).map((a) =>
+    getDocumentState({
+      satisfied: a.satisfied,
+      source: a.documentSource,
+      is_finalized: a.documentIsFinalized,
+    }),
+  );
+  const states = [...reqStates, ...eventStates];
   const filledCount = states.filter((s) => s !== 'missing').length;
   const totalCount = states.length;
 

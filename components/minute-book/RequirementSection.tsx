@@ -87,7 +87,7 @@ export default function RequirementSection({
               {title}
             </h3>
           </div>
-          <CompletionBar items={items} className="w-48" />
+          <CompletionBar items={items} eventActs={eventActs} className="w-48" />
         </div>
       </button>
 

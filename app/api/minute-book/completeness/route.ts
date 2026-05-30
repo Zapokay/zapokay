@@ -1,220 +1,136 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { requirementToDocType, type VaultDocType } from '@/lib/requirement-doctype'
-import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state'
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import {
+  computeRequirementCompleteness,
+  type ChecklistItem,
+} from '@/lib/minute-book/requirement-completeness';
+import { computeEventCompleteness } from '@/lib/minute-book/event-completeness';
 
-export interface ChecklistItem {
-  id: string
-  requirement_key: string
-  category: 'foundational' | 'annual'
-  title_fr: string
-  title_en: string
-  description_fr: string | null
-  description_en: string | null
-  section: string
-  sort_order: number
-  can_generate: boolean
-  can_upload: boolean
-  year: number | null
-  satisfied: boolean
-  source?: 'uploaded' | 'generated' | null
-  /** Derived server-side via `requirementToDocType` — see lib/requirement-doctype.ts. */
-  document_type: VaultDocType
-  /**
-   * Phase B B5 — when the row is satisfied, these surface the attached
-   * documents-table row so the client can avoid an on-demand fetch (B4
-   * destructive-replace flow) and split the badge between signed final
-   * vs WIP upload. Null/undefined when the row is unsatisfied or when the
-   * lookup found no matching document (data drift).
-   */
-  document_id?: string | null
-  document_file_url?: string | null
-  document_is_finalized?: boolean | null
-}
+// Re-export ChecklistItem for backward compat — multiple consumers
+// (CompletenessPage, RequirementSection, UploadDocumentModal, upload-document)
+// import the type from this route's path.
+export type { ChecklistItem };
 
 export interface CompletenessResponse {
-  /** Weighted percentage: téléversé=1.0, généré=0.5, missing=0.0. Rounded. */
-  score: number
-  totalRequired: number
-  /** Raw count of satisfied rows (téléversé + généré). Used by dashboard
-   *  MinuteBookCard for truthful "X / Y documents requis" text. */
-  totalSatisfied: number
-  totalMissing: number
-  /** NEW (Bundle D-2): per-state counts for three-state header display. */
-  totalUploaded: number
-  totalGenerated: number
-  checklist: ChecklistItem[]
-  fiscalYears: { year: number; endDate: string }[]
+  /**
+   * Tier 1 #21 — combined weighted percentage across requirements + event acts.
+   * Sums numerators and denominators (never averages two scores):
+   *   round((requirementsWeightedNum + eventsWeightedNum) /
+   *         (requirementsTotal + eventActsTotal) × 100)
+   * 0 when there are no requirements AND no events. The event engine's
+   * standalone score=100-on-empty special case does NOT feed this formula.
+   */
+  score: number;
+  /** Combined: requirements + event acts. */
+  totalRequired: number;
+  /** Combined raw count of satisfied rows (téléversé + généré across both engines). */
+  totalSatisfied: number;
+  totalMissing: number;
+  /** Per-state counts for three-state header display, combined across both engines. */
+  totalUploaded: number;
+  totalGenerated: number;
+  /** UNCHANGED: requirements-only checklist. UploadDocumentModal "corresponds to"
+   *  dropdown depends on this array shape — do NOT inject events. */
+  checklist: ChecklistItem[];
+  fiscalYears: { year: number; endDate: string }[];
+  /**
+   * Tier 1 #21 — additive fields exposing the per-engine scores so consumers
+   * can render the breakdown if needed. `score` above is the combined headline.
+   */
+  requirementsScore: number;
+  eventsScore: number;
+  combinedScore: number;
+  eventActsTotal: number;
+  eventActsSatisfied: number;
 }
 
 export async function GET() {
   try {
-    const supabase = createClient()
+    const supabase = createClient();
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    // Get user's active company
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('id, incorporation_type, fiscal_year_end_month, fiscal_year_end_day')
+      .select('id, incorporation_type, fiscal_year_end_month, fiscal_year_end_day, incorporation_date')
       .eq('user_id', user.id)
       .eq('status', 'active')
-      .single()
+      .single();
 
     if (companyError || !company) {
-      return NextResponse.json({ error: 'Aucune société trouvée' }, { status: 404 })
+      return NextResponse.json({ error: 'Aucune société trouvée' }, { status: 404 });
     }
 
-    const framework = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA'
-    const fyEndMonth = (company.fiscal_year_end_month as number | null) ?? 12
-    const fyEndDay   = (company.fiscal_year_end_day   as number | null) ?? 31
-    const pad2 = (n: number) => String(n).padStart(2, '0')
+    const framework = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
+    const fyEndMonth = (company.fiscal_year_end_month as number | null) ?? 12;
+    const fyEndDay   = (company.fiscal_year_end_day   as number | null) ?? 31;
 
-    // 1. Get all applicable requirements
-    const { data: requirements, error: reqError } = await supabase
-      .from('minute_book_requirements')
-      .select('*')
-      .or(`framework.eq.${framework},framework.eq.ALL`)
-      .order('sort_order')
+    const [req, events] = await Promise.all([
+      computeRequirementCompleteness(
+        supabase,
+        company.id as string,
+        framework,
+        fyEndMonth,
+        fyEndDay,
+      ),
+      computeEventCompleteness(
+        supabase,
+        company.id as string,
+        (company.incorporation_date as string | null) ?? null,
+      ),
+    ]);
 
-    if (reqError) {
-      return NextResponse.json({ error: reqError.message }, { status: 500 })
-    }
+    // Locked decision 3 — sum numerators and denominators, never average two
+    // scores. Empty events contribute 0/0 → nothing biases combined toward
+    // 100. The event engine's standalone score=100-on-empty special case
+    // does NOT feed this formula.
+    const combinedNum   = req.requirementsWeightedNum + events.eventsWeightedNum;
+    const combinedDenom = req.requirementsTotal       + events.totalActs;
+    const combinedScore = combinedDenom === 0
+      ? 0
+      : Math.round((combinedNum / combinedDenom) * 100);
 
-    // 2. Get all active fiscal years
-    const { data: fiscalYears, error: fyError } = await supabase
-      .from('company_fiscal_years')
-      .select('year')
-      .eq('company_id', company.id)
-      .eq('status', 'active')
-      .order('year', { ascending: false })
+    const requirementsScore = req.requirementsTotal > 0
+      ? Math.round((req.requirementsWeightedNum / req.requirementsTotal) * 100)
+      : 0;
+    // eventsScore = contribution to combined (0 on empty); NOT the standalone route's 100-on-empty UI convenience — do not "fix" to 100.
+    const eventsScore = events.totalActs > 0
+      ? Math.round((events.eventsWeightedNum / events.totalActs) * 100)
+      : 0;
 
-    if (fyError) {
-      return NextResponse.json({ error: fyError.message }, { status: 500 })
-    }
-
-    // 3. Get all company documents with requirement_key
-    //    B5: id, file_url, is_finalized surfaced on ChecklistItem so the client
-    //    can resolve the destructive-replace target without an extra round-trip
-    //    and split the row badge between signed final vs WIP upload.
-    const { data: documents, error: docError } = await supabase
-      .from('documents')
-      .select('id, requirement_key, requirement_year, source, file_url, is_finalized')
-      .eq('company_id', company.id)
-      .eq('status', 'active')
-      .not('requirement_key', 'is', null)
-
-    if (docError) {
-      return NextResponse.json({ error: docError.message }, { status: 500 })
-    }
-
-    // 4. Compute endDate per fiscal year (resolution date stamped on PDFs
-    // generated via Bulk Catch-Up). Year labels are now derived from `year`
-    // alone — see getFiscalYearLabel in lib/fiscal-year-label.ts.
-    const fyFormatted = (fiscalYears || []).map((fy: { year: number }) => ({
-      year: fy.year,
-      endDate: `${fy.year}-${pad2(fyEndMonth)}-${pad2(fyEndDay)}`,
-    }))
-
-    type RawReq = {
-      id: string; requirement_key: string; category: 'foundational' | 'annual'; title_fr: string; title_en: string;
-      description_fr: string | null; description_en: string | null; section: string;
-      sort_order: number; can_generate: boolean; can_upload: boolean;
-    }
-    type RawDoc = {
-      id: string
-      requirement_key: string
-      requirement_year: number | null
-      source: string | null
-      file_url: string | null
-      is_finalized: boolean | null
-    }
-
-    // 5. Build checklist
-    const foundationalReqs = (requirements || []).filter((r: RawReq) => r.category === 'foundational')
-    const annualReqs = (requirements || []).filter((r: RawReq) => r.category === 'annual')
-
-    const checklist: ChecklistItem[] = []
-    let totalRequired = 0
-    let totalUploaded = 0
-    let totalGenerated = 0
-
-    // Foundational items
-    for (const req of foundationalReqs as RawReq[]) {
-      const matchingDoc = (documents || []).find((d: RawDoc) => d.requirement_key === req.requirement_key)
-      const satisfied = !!matchingDoc
-      const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null
-      const isFinalized = matchingDoc?.is_finalized ?? null
-      const state = getDocumentState({ satisfied, source, is_finalized: isFinalized })
-      checklist.push({
-        ...req,
-        year: null,
-        satisfied,
-        source,
-        document_type: requirementToDocType(req.requirement_key, req.section),
-        document_id: matchingDoc?.id ?? null,
-        document_file_url: matchingDoc?.file_url ?? null,
-        document_is_finalized: isFinalized,
-      })
-      totalRequired++
-      if (state === 'téléversé') totalUploaded++
-      else if (state === 'généré') totalGenerated++
-    }
-
-    // Annual items — one set per active fiscal year
-    for (const fy of fyFormatted) {
-      for (const req of annualReqs as RawReq[]) {
-        const matchingDoc = (documents || []).find(
-          (d: RawDoc) => d.requirement_key === req.requirement_key && d.requirement_year === fy.year
-        )
-        const satisfied = !!matchingDoc
-        const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null
-        const isFinalized = matchingDoc?.is_finalized ?? null
-        const state = getDocumentState({ satisfied, source, is_finalized: isFinalized })
-        checklist.push({
-          ...req,
-          year: fy.year,
-          satisfied,
-          source,
-          document_type: requirementToDocType(req.requirement_key, req.section),
-          document_id: matchingDoc?.id ?? null,
-          document_file_url: matchingDoc?.file_url ?? null,
-          document_is_finalized: isFinalized,
-        })
-        totalRequired++
-        if (state === 'téléversé') totalUploaded++
-        else if (state === 'généré') totalGenerated++
-      }
-    }
-
-    const totalSatisfied = totalUploaded + totalGenerated
-    const totalMissing = totalRequired - totalSatisfied
-    const weightedSum =
-      totalUploaded * STATE_WEIGHT['téléversé'] +
-      totalGenerated * STATE_WEIGHT['généré']
-    const score = totalRequired > 0 ? Math.round((weightedSum / totalRequired) * 100) : 0
+    const requirementsSatisfied = req.requirementsUploaded + req.requirementsGenerated;
+    const totalRequired   = req.requirementsTotal + events.totalActs;
+    const totalSatisfied  = requirementsSatisfied + events.totalSatisfied;
+    const totalMissing    = totalRequired - totalSatisfied;
+    const totalUploaded   = req.requirementsUploaded   + events.eventsUploaded;
+    const totalGenerated  = req.requirementsGenerated  + events.eventsGenerated;
 
     const response: CompletenessResponse = {
-      score,
+      score: combinedScore,
       totalRequired,
       totalSatisfied,
       totalMissing,
       totalUploaded,
       totalGenerated,
-      checklist,
-      fiscalYears: fyFormatted,
-    }
+      checklist: req.checklist,
+      fiscalYears: req.fiscalYears,
+      requirementsScore,
+      eventsScore,
+      combinedScore,
+      eventActsTotal: events.totalActs,
+      eventActsSatisfied: events.totalSatisfied,
+    };
 
-    return NextResponse.json(response)
+    return NextResponse.json(response);
   } catch (error) {
-    console.error('Error calculating completeness:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    console.error('Error calculating completeness:', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }
