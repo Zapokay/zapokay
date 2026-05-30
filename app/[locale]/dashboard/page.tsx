@@ -7,12 +7,9 @@ import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
-import { calculateComplianceItems } from '@/lib/compliance/calculateComplianceItems';
-import { getActiveYears } from '@/lib/active-years';
-import { getOldestGap } from '@/lib/priority';
+import { getOldestGap, getGaps } from '@/lib/priority';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
 import MinuteBookCard from '@/components/dashboard/MinuteBookCard'
-import { LegalTerm } from '@/components/ui/LegalTerm';
 import { formatDate, parseLocalDate } from '@/lib/utils';
 
 // ─── Fiscal year history helper ───────────────────────────────────────────────
@@ -59,85 +56,6 @@ function computeFiscalYearHistory(
   return entries
 }
 
-// ─── Static descriptions per rule_key ─────────────────────────────────────────
-
-const ACTION_DESCRIPTIONS: Record<string, { fr: string; en: string }> = {
-  annual_board_resolution: {
-    fr: "Adopter et consigner la résolution du conseil",
-    en: "Adopt and record the board resolution",
-  },
-  annual_shareholder_resolution: {
-    fr: "Tenir l'assemblée annuelle des actionnaires",
-    en: "Hold the annual shareholders meeting",
-  },
-  annual_financial_statements: {
-    fr: "Préparer et approuver les états financiers",
-    en: "Prepare and approve financial statements",
-  },
-  auditor_waiver: {
-    fr: "Faire signer la renonciation à l'auditeur",
-    en: "Obtain signed auditor waiver",
-  },
-  req_annual_update: {
-    fr: "Déposer la mise à jour annuelle au REQ",
-    en: "File annual update with the REQ",
-  },
-  corporations_canada_annual_return: {
-    fr: "Déposer le rapport annuel à Corporations Canada",
-    en: "File annual return with Corporations Canada",
-  },
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fiscalYearLabel(
-  company: { fiscal_year_end_month?: number | null; fiscal_year_end_day?: number | null } | null
-): string {
-  if (!company?.fiscal_year_end_month) return '—';
-  const today = new Date();
-  const fyEndMonth = company.fiscal_year_end_month;
-  const fyEndDay = company.fiscal_year_end_day ?? 31;
-  let fyStart = new Date(today.getFullYear(), fyEndMonth - 1, fyEndDay);
-  if (fyStart > today) {
-    fyStart = new Date(today.getFullYear() - 1, fyEndMonth - 1, fyEndDay);
-  }
-  return `${fyStart.getFullYear()}–${fyStart.getFullYear() + 1}`;
-}
-
-// ─── StatCard ─────────────────────────────────────────────────────────────────
-
-function StatCard({
-  label,
-  value,
-  sub,
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-          {label}
-        </span>
-        <div className="w-8 h-8 rounded-lg bg-[var(--hover)] flex items-center justify-center text-[var(--text-muted)]">
-          {icon}
-        </div>
-      </div>
-      <div
-        className="text-2xl font-bold text-[var(--text-heading)]"
-        style={{ fontFamily: 'Sora, sans-serif' }}
-      >
-        {value}
-      </div>
-      {sub && <div className="text-xs text-[var(--text-muted)] mt-1">{sub}</div>}
-    </div>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage({
@@ -165,11 +83,6 @@ export default async function DashboardPage({
     .eq('user_id', user.id)
     .eq('status', 'active')
     .single();
-
-  const activeYears = company ? await getActiveYears(company.id, supabase) : [];
-  const complianceResult = company
-    ? await calculateComplianceItems(company.id, supabase, undefined, activeYears)
-    : null;
 
   const { data: documents } = await supabase
     .from('documents')
@@ -214,22 +127,16 @@ export default async function DashboardPage({
   const fr = locale === 'fr';
   const firstName = profile.full_name?.split(' ')[0] ?? '';
 
-  // Compliance derived data
-  const urgentCount    = complianceResult?.urgentCount    ?? 0;
-  const pendingCount   = complianceResult?.pendingCount   ?? 0;
-  const compliantCount = complianceResult?.compliantCount ?? 0;
-  const percentage     = complianceResult?.percentage     ?? 0;
-  const total          = complianceResult?.items.length   ?? 0;
-  const actionItems    = complianceResult?.items.filter(i => i.status === 'required' || i.status === 'pending') ?? [];
-  const actionCount    = urgentCount + pendingCount;
-  const frameworkLabel = company?.incorporation_type === 'CBCA' ? 'CBCA' : 'LSAQ';
-  const fyLabel        = fiscalYearLabel(company);
+  // Missing-document gaps — canonical minute_book_requirements path (replaces
+  // the deprecated compliance engine). Ordered foundational-first, then fiscal
+  // oldest→latest. No deadlines/urgency (catalog has no due_date — GAP-F).
+  const gaps = company ? await getGaps(company.id, supabase) : [];
 
   // Prochaine échéance — fed by getOldestGap (foundational first, then oldest active year)
   const nextGap = company ? await getOldestGap(company.id, supabase) : null;
 
   return (
-    <DashboardShell locale={locale} profile={profile} company={company} urgentCount={urgentCount}>
+    <DashboardShell locale={locale} profile={profile} company={company} urgentCount={0}>
       <div className="space-y-8">
 
         {/* Greeting */}
@@ -243,7 +150,7 @@ export default async function DashboardPage({
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Historique card — remplace la card Documents */}
           <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
             <div className="flex items-center justify-between mb-3">
@@ -323,17 +230,6 @@ export default async function DashboardPage({
               </div>
             )}
           </div>
-          <StatCard
-            label={fr ? 'Taux de conformité' : 'Compliance rate'}
-            value={complianceResult ? `${percentage}%` : '—'}
-            sub={fr ? 'obligations remplies' : 'obligations met'}
-            icon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
-            }
-          />
           {/* Prochaine échéance — stat card (fed by getOldestGap) */}
           {(() => {
             // Derive state-specific content
@@ -515,70 +411,52 @@ export default async function DashboardPage({
           {/* Right: stacked blocks — col-span-1 */}
           <div className="flex flex-col gap-4">
 
-            {/* Block 1 — Actions requises (required + pending) */}
+            {/* Block 1 — Actions requises (missing documents from the canonical minute_book_requirements catalog) */}
             <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <h2
                   className="text-sm font-bold text-[var(--text-heading)]"
                   style={{ fontFamily: 'Sora, sans-serif' }}
                 >
-                  {fr ? `Actions requises (${actionCount})` : `Required actions (${actionCount})`}
+                  {fr ? `Actions requises (${gaps.length})` : `Required actions (${gaps.length})`}
                 </h2>
                 <Link
                   href={`/${locale}/dashboard/minute-book/completeness`}
                   className="text-xs font-medium text-[var(--text-link)] hover:underline"
                 >
-                  {fr ? 'Voir tout →' : 'View all →'}
+                  {fr ? `Voir tout (${gaps.length}) →` : `View all (${gaps.length}) →`}
                 </Link>
               </div>
 
-              {actionCount === 0 && percentage === 100 ? (
+              {gaps.length === 0 ? (
                 <p className="text-sm font-medium" style={{ color: 'var(--success-text)' }}>
                   {fr ? 'Tout est en ordre ✓' : 'Everything is in order ✓'}
                 </p>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {actionItems.map(item => {
-                    const title = fr ? item.rule.title_fr : item.rule.title_en;
-                    const dueFormatted = item.due_date
-                      ? formatDate(item.due_date, fr ? 'fr' : 'en', { year: 'numeric', month: 'long', day: 'numeric' })
-                      : '—';
-                    const isRequired = item.status === 'required';
+                  {gaps.slice(0, 5).map(gap => {
+                    const title = fr ? gap.titleFr : gap.titleEn;
+                    const context =
+                      gap.type === 'foundational'
+                        ? (fr ? 'Document fondateur' : 'Foundational document')
+                        : (fr ? `Exercice ${gap.year}` : `FY ${gap.year}`);
                     return (
                       <div
-                        key={item.id}
+                        key={`${gap.requirementKey}-${gap.year ?? 'F'}`}
                         className="rounded-lg p-3"
                         style={{
-                          backgroundColor: isRequired ? 'var(--error-bg)' : 'var(--warning-bg)',
-                          borderLeft: `3px solid ${isRequired ? 'var(--error-border)' : 'var(--warning-border)'}`,
+                          backgroundColor: 'var(--hover)',
+                          borderLeft: '3px solid var(--card-border)',
                         }}
                       >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
-                            style={
-                              isRequired
-                                ? { backgroundColor: 'var(--error-border)', color: 'var(--error-text)' }
-                                : { backgroundColor: 'var(--warning-border)', color: 'var(--warning-text)' }
-                            }
-                          >
-                            {isRequired ? 'URGENT' : (fr ? 'À VENIR' : 'UPCOMING')}
-                          </span>
-                          <p
-                            className="text-xs font-bold truncate"
-                            style={{
-                              fontFamily: 'Sora, sans-serif',
-                              color: isRequired ? 'var(--error-text)' : 'var(--text-heading)',
-                            }}
-                          >
-                            {title}
-                          </p>
-                        </div>
                         <p
-                          className="text-xs font-medium"
-                          style={{ color: isRequired ? 'var(--error-text)' : 'var(--warning-text)' }}
+                          className="text-xs font-bold truncate"
+                          style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text-heading)' }}
                         >
-                          {fr ? `Dû le ${dueFormatted}` : `Due ${dueFormatted}`}
+                          {title}
+                        </p>
+                        <p className="text-xs font-medium text-[var(--text-muted)] mt-0.5">
+                          {context}
                         </p>
                       </div>
                     );
@@ -586,80 +464,6 @@ export default async function DashboardPage({
                 </div>
               )}
             </div>
-
-            {/* Block 2 — Conformité */}
-            {complianceResult && total > 0 && (
-              <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
-                <div className="flex items-center justify-between mb-3">
-                  <h2
-                    className="text-sm font-bold text-[var(--text-heading)]"
-                    style={{ fontFamily: 'Sora, sans-serif' }}
-                  >
-                    {fr
-                      ? <>Conformité <LegalTerm termKey={frameworkLabel === 'CBCA' ? 'cbca' : 'lsaq'} lang="fr" /></>
-                      : <><LegalTerm termKey={frameworkLabel === 'CBCA' ? 'cbca' : 'lsaq'} lang="en" /> Compliance</>}
-                  </h2>
-                  <Link
-                    href={`/${locale}/dashboard/minute-book/completeness`}
-                    className="text-xs font-medium text-[var(--text-link)] hover:underline"
-                  >
-                    {fr ? 'Détails →' : 'Details →'}
-                  </Link>
-                </div>
-
-                {/* Big percentage */}
-                <div
-                  className="leading-none"
-                  style={{
-                    fontFamily: 'Sora, sans-serif',
-                    fontWeight: 800,
-                    fontSize: '48px',
-                    color: 'var(--text-heading)',
-                  }}
-                >
-                  {percentage}%
-                </div>
-                <p className="text-xs text-[var(--text-muted)] mt-1 mb-3">
-                  {fr ? `Exercice ${fyLabel}` : `Fiscal Year ${fyLabel}`}
-                </p>
-
-                {/* Progress bar */}
-                <div className="h-2 rounded-full mb-4" style={{ backgroundColor: 'var(--card-border)' }}>
-                  <div
-                    className="h-2 rounded-full transition-all"
-                    style={{ width: `${percentage}%`, backgroundColor: 'var(--amber-400)' }}
-                  />
-                </div>
-
-                {/* Stats */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: 'var(--success-text)' }}>
-                      {fr ? 'Complétés' : 'Completed'}
-                    </span>
-                    <span className="text-xs font-semibold" style={{ color: 'var(--success-text)' }}>
-                      {compliantCount}/{total}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: 'var(--warning-text)' }}>
-                      {fr ? 'En attente' : 'Pending'}
-                    </span>
-                    <span className="text-xs font-semibold" style={{ color: 'var(--warning-text)' }}>
-                      {pendingCount}/{total}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: 'var(--error-text)' }}>
-                      {fr ? 'À corriger' : 'To fix'}
-                    </span>
-                    <span className="text-xs font-semibold" style={{ color: 'var(--error-text)' }}>
-                      {urgentCount}/{total}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
 
           </div>
         </div>
