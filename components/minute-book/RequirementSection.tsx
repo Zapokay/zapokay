@@ -40,6 +40,9 @@ interface RequirementSectionProps {
   eventActs?: EventActStatus[];
   preferredLanguage?: 'fr' | 'en';
   onEventGenerated?: () => void;
+  /** Brief 2 — forwarded to EventActRow so a user can upload/replace their own
+   *  signed PDF on a lifecycle act. Pure pass-through. */
+  onEventFileSelected?: (file: File, act: EventActStatus, title: string) => Promise<void>;
 }
 
 export default function RequirementSection({
@@ -52,6 +55,7 @@ export default function RequirementSection({
   eventActs,
   preferredLanguage,
   onEventGenerated,
+  onEventFileSelected,
 }: RequirementSectionProps) {
   const tEvents = useTranslations('events');
   const satisfiedCount = items.filter((i) => i.satisfied).length;
@@ -142,6 +146,7 @@ export default function RequirementSection({
                   locale={locale}
                   preferredLanguage={preferredLanguage}
                   onGenerated={onEventGenerated ?? (() => {})}
+                  onEventFileSelected={onEventFileSelected}
                 />
               ))}
             </>

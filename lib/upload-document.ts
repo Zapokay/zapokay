@@ -60,6 +60,18 @@ export interface UploadDocumentParams {
    * the old doc untouched.
    */
   replaceDocumentId?: string;
+  /**
+   * Brief 2 — lifecycle event-row upload. When provided, after the documents
+   * row inserts, an event_documents link row is written at the 4-col grain
+   * (document_id, event_type, event_id, event_phase) so the uploaded doc
+   * satisfies the lifecycle act exactly as a generated one does. ADDITIVE:
+   * every requirement-path caller omits this and behaves identically. Mirrors
+   * the generate orchestrator's link write incl. compensating delete (if the
+   * link insert fails the just-inserted doc is removed). Written BEFORE the
+   * replaceDocumentId cleanup below, so a link failure rolls back the NEW doc
+   * and leaves the replace target intact.
+   */
+  eventLink?: { event_type: string; event_id: string; event_phase: string };
 }
 
 export type UploadResult =
@@ -106,6 +118,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     requirements,
     isFinalized = false,
     replaceDocumentId,
+    eventLink,
   } = params;
 
   // Layer C: PDF magic-number gate (defense-in-depth — see docstring).
@@ -168,6 +181,30 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     // Rollback: remove the orphaned storage object.
     await supabase.storage.from('documents').remove([storagePath]);
     return { ok: false, error: dbError?.message ?? 'Document insert failed' };
+  }
+
+  // 4b. Event-document link (Brief 2 — lifecycle event rows). Mirrors the
+  //     generate orchestrator's pattern (lib/pdf/generate-lifecycle-document.ts)
+  //     including the compensating delete. Runs BEFORE the replace cleanup
+  //     below: if the link insert fails we remove the just-inserted doc +
+  //     storage and return, so the replaceDocumentId target (if any) is left
+  //     intact rather than deleted-then-orphaned.
+  if (eventLink) {
+    const { error: linkError } = await supabase
+      .from('event_documents')
+      .insert({
+        document_id: insertedDoc.id,
+        event_type: eventLink.event_type,
+        event_id: eventLink.event_id,
+        event_phase: eventLink.event_phase,
+        company_id: companyId,
+      });
+    if (linkError) {
+      console.error('[uploadDocument] event_documents link insert failed; rolling back doc:', linkError);
+      await supabase.from('documents').delete().eq('id', insertedDoc.id);
+      await supabase.storage.from('documents').remove([storagePath]);
+      return { ok: false, error: linkError.message };
+    }
   }
 
   // 5. Replace cleanup (Phase B B4) — runs only on insert success. Each step

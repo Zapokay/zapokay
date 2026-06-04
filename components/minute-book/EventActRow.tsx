@@ -10,12 +10,17 @@
  * missing icons and the "À signer" badge stay in lockstep with the
  * requirements rows.
  *
- * Affordance scope (Brief 1 = generate-only):
- *   missing   → [Générer]
- *   généré    → [À signer badge] + [Voir le document] + [Régénérer]
- *   téléversé → [Voir le document]
+ * Affordance scope (Brief 1 generate + Brief 2 upload/replace):
+ *   missing   → [Téléverser] + [Générer]
+ *   généré    → [À signer badge] + [Voir le document] + [Téléverser] + [Régénérer]
+ *   téléversé → [Voir le document] + [Remplacer]
  *
- * Téléverser / Remplacer are Brief 2 — intentionally not rendered here.
+ * Téléverser uploads the user's OWN signed PDF and SUPERSEDES any existing
+ * doc on the act (generated draft or prior upload) via replaceDocumentId —
+ * exactly one event_documents link remains. No deriveDocKey on upload: no
+ * template is rendered, only the act's (event_type, event_id, event_phase)
+ * tuple is linked. The actual upload + link write live in the parent
+ * (CompletenessPage.handleEventFileSelected → uploadDocument).
  *
  * docKey + instrument derivation mirrors DirectorsClient / OfficersClient /
  * ShareholdersClient:
@@ -37,9 +42,9 @@
  * would hit from the Administrateurs page.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Upload } from 'lucide-react';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
@@ -66,6 +71,11 @@ interface EventActRowProps {
   /** Called after a successful generation so the parent refetches the
    *  event-completeness payload and the row flips to "À signer". */
   onGenerated: () => void;
+  /** Brief 2 — called when the user picks a signed PDF to upload/replace on
+   *  this act. The parent (CompletenessPage) owns the upload + event_documents
+   *  link write. `title` is the registry FR legal title the row already
+   *  resolved (same source as the row name), used as the document title. */
+  onEventFileSelected?: (file: File, act: EventActStatus, title: string) => Promise<void>;
 }
 
 interface DocKeyDerivation {
@@ -120,15 +130,21 @@ export default function EventActRow({
   locale,
   preferredLanguage,
   onGenerated,
+  onEventFileSelected,
 }: EventActRowProps) {
   const tDocs = useTranslations('documents');
   const tEvents = useTranslations('events');
+  // Reuse the existing requirement-row upload strings (Téléverser / Remplacer /
+  // uploading) — Brief 2 adds no new upload copy.
+  const tReq = useTranslations('requirementRow');
   // End-reason labels live under directors / officers (already shipped). We
   // pick the right namespace based on the act's event_type.
   const tDirectors = useTranslations('directors');
   const tOfficers = useTranslations('officers');
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const state = getDocumentState({
     satisfied: act.satisfied,
@@ -158,6 +174,10 @@ export default function EventActRow({
   const labelHead =
     registryTitleFr ?? (locale === 'fr' ? act.label_fr : act.label_en);
   const rowLabel = `${labelHead} — ${personName}`;
+
+  // Document title for an uploaded event doc — FR-stable registry title (legal
+  // doc names stay FR per the page convention, independent of UI locale).
+  const docTitle = registryTitleFr ?? act.label_fr;
 
   // Role label resolution. Directors get the canonical role string; officers
   // resolve through the local TITLE_LABELS map (custom titles use the
@@ -218,6 +238,23 @@ export default function EventActRow({
     setDialogOpen(true);
   }
 
+  // Brief 2 — user picked a signed PDF to upload/replace on this act. Reset the
+  // input value so the SAME file can be re-picked after an error.
+  async function handleEventFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f || !onEventFileSelected) return;
+    setIsUploading(true);
+    try {
+      await onEventFileSelected(f, act, docTitle);
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  const uploadButtonClass =
+    'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
+
   return (
     <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
       {/* Left side: state icon + label */}
@@ -264,6 +301,21 @@ export default function EventActRow({
           </a>
         )}
 
+        {/* Brief 2 — Téléverser (upload own signed PDF) on missing + draft rows.
+            On a draft (généré) this SUPERSEDES the draft via the parent's
+            replaceDocumentId. */}
+        {(isMissing || isUnsigned) && onEventFileSelected && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className={uploadButtonClass}
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {isUploading ? tReq('uploadingButton') : tReq('uploadButton')}
+          </button>
+        )}
+
         {(isMissing || isUnsigned) && derivation && (
           <button
             type="button"
@@ -273,6 +325,29 @@ export default function EventActRow({
           >
             {isUnsigned ? tEvents('regenerate') : tEvents('generate')}
           </button>
+        )}
+
+        {/* Brief 2 — Remplacer (replace the already-uploaded signed doc). */}
+        {isSignedFinal && onEventFileSelected && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className={uploadButtonClass}
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {isUploading ? tReq('uploadingButton') : tReq('replace')}
+          </button>
+        )}
+
+        {onEventFileSelected && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            onChange={handleEventFileChange}
+            style={{ display: 'none' }}
+          />
         )}
       </div>
 

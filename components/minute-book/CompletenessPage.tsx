@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { uploadDocument } from '@/lib/upload-document';
 import { useToasts } from '@/components/ui/Toasts';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { fiscalYearForDate } from '@/lib/active-years';
@@ -150,6 +151,70 @@ export default function CompletenessPage({
       setExistingDocumentId(existingDocId);
     },
     [addToast, data, fr],
+  );
+
+  // Brief 2 — lifecycle event-row upload. Unlike the requirement path above
+  // (which opens UploadDocumentModal), events upload DIRECTLY via uploadDocument
+  // with an eventLink — there is no requirement correspondence to collect. The
+  // act's filing year is passed in by the caller (the per-year section knows it;
+  // hors-exercice = null). isFinalized:true — the user is uploading their own
+  // SIGNED doc. When the act already has a doc (generated draft or prior upload),
+  // replaceDocumentId supersedes it: old doc deleted, its event_documents link
+  // cascades, the new upload + link leave exactly one link.
+  const handleEventFileSelected = useCallback(
+    async (file: File, act: EventActStatus, title: string, year: number | null): Promise<void> => {
+      if (file.type !== 'application/pdf') {
+        addToast(fr ? 'Seuls les fichiers PDF sont acceptés.' : 'Only PDF files are accepted.', 'error');
+        return;
+      }
+      if (file.size > MAX_SIZE) {
+        addToast(fr ? 'Le fichier dépasse 20 Mo.' : 'File exceeds 20 MB.', 'error');
+        return;
+      }
+
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        addToast(fr ? 'Session expirée.' : 'Session expired.', 'error');
+        return;
+      }
+
+      const result = await uploadDocument({
+        file,
+        companyId,
+        userId: user.id,
+        supabaseClient: supabase,
+        title,
+        docType: 'resolution',
+        language: preferredLanguage,
+        docYear: year,
+        requirementKey: null,
+        requirementYear: null,
+        framework,
+        requirements: data?.checklist ?? [],
+        isFinalized: true,
+        ...(act.satisfied && act.documentId ? { replaceDocumentId: act.documentId } : {}),
+        eventLink: {
+          event_type: act.event_type,
+          event_id: act.event_id,
+          event_phase: act.event_phase,
+        },
+      });
+
+      if (!result.ok) {
+        addToast(
+          result.error === 'NON_PDF_REJECTED'
+            ? (fr ? 'Seuls les fichiers PDF sont acceptés.' : 'Only PDF files are accepted.')
+            : (fr ? 'Échec du téléversement.' : 'Upload failed.'),
+          'error',
+        );
+        return;
+      }
+
+      addToast(fr ? 'Document téléversé.' : 'Document uploaded.', 'success');
+      fetchEvents();
+    },
+    [addToast, companyId, data, framework, fr, preferredLanguage, fetchEvents, MAX_SIZE],
   );
 
   const foundationalItems: ChecklistItem[] =
@@ -342,6 +407,9 @@ export default function CompletenessPage({
                 eventActs={eventsByYear[year]}
                 preferredLanguage={preferredLanguage}
                 onEventGenerated={fetchEvents}
+                onEventFileSelected={(file, act, title) =>
+                  handleEventFileSelected(file, act, title, year)
+                }
               />
             ))}
 
@@ -355,6 +423,9 @@ export default function CompletenessPage({
                 locale={fr ? 'fr' : 'en'}
                 preferredLanguage={preferredLanguage}
                 onGenerated={fetchEvents}
+                onEventFileSelected={(file, act, title) =>
+                  handleEventFileSelected(file, act, title, null)
+                }
               />
             )}
           </>

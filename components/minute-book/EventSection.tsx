@@ -30,6 +30,8 @@ interface EventSectionProps {
   locale: 'fr' | 'en';
   preferredLanguage: 'fr' | 'en';
   onGenerated: () => void;
+  /** Brief 2 — forwarded to EventActRow for upload/replace on hors-exercice acts. */
+  onEventFileSelected?: (file: File, act: EventActStatus, title: string) => Promise<void>;
 }
 
 export default function EventSection({
@@ -39,6 +41,7 @@ export default function EventSection({
   locale,
   preferredLanguage,
   onGenerated,
+  onEventFileSelected,
 }: EventSectionProps) {
   // Adapter for CompletionBar — its CompletionBarItem reads
   // {satisfied, source, document_is_finalized}. EventActStatus uses the
@@ -95,6 +98,7 @@ export default function EventSection({
               locale={locale}
               preferredLanguage={preferredLanguage}
               onGenerated={onGenerated}
+              onEventFileSelected={onEventFileSelected}
             />
           ))}
         </div>
