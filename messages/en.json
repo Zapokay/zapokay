@@ -147,6 +147,13 @@
     },
     "comingSoon": "Coming soon",
     "minuteBook": "Minute Book",
+    "minuteBookCard": {
+      "heading": "Minute book",
+      "requiredDocs": "{satisfied} / {required} required documents",
+      "missing": "{count, plural, =0 {0 missing} =1 {# missing} other {# missing}}",
+      "viewDetails": "View details",
+      "loadError": "Unable to load data."
+    },
     "company": "Company",
     "stats": {
       "totalDocs": "Documents",
@@ -464,7 +471,17 @@
       },
       "emptySection": "No signed documents in this section",
       "registres": "3 registers",
-      "yearSuffix": "(Fiscal Year {year})"
+      "yearSuffix": "(Fiscal Year {year})",
+      "typeLabels": {
+        "statuts": "Articles",
+        "resolution": "Resolution",
+        "pv": "Minutes",
+        "registre": "Register",
+        "rapport": "Report",
+        "autre": "Document"
+      },
+      "view": "View",
+      "download": "Download"
     },
     "binderExport": {
       "title": "Export Minute Book",

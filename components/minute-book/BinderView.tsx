@@ -14,6 +14,10 @@ interface Section {
 
 export default function BinderView() {
   const t = useTranslations('minuteBook.registers')
+  // Section headings — route (b): localized via key-map off section.key (the
+  // binder API still ships title_fr, but display reads the i18n catalog).
+  // Document/requirement NAMES inside sections stay FR legal (untouched).
+  const tBinder = useTranslations('minuteBook.binder')
   const locale = useLocale()
   const [sections, setSections] = useState<Section[]>([])
   const [directors, setDirectors] = useState<any>(null)
@@ -59,7 +63,7 @@ export default function BinderView() {
           <BinderSection
             key={section.key}
             index={i}
-            title={section.title_fr}
+            title={tBinder(`sections.${section.key}`)}
             documents={[]}
           >
             {directors && (
@@ -131,7 +135,7 @@ export default function BinderView() {
           <BinderSection
             key={section.key}
             index={i}
-            title={section.title_fr}
+            title={tBinder(`sections.${section.key}`)}
             documents={section.documents}
           />
         )

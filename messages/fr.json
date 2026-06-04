@@ -147,6 +147,13 @@
     },
     "comingSoon": "Bientôt disponible",
     "minuteBook": "Livre des minutes",
+    "minuteBookCard": {
+      "heading": "Livre de minutes",
+      "requiredDocs": "{satisfied} / {required} documents requis",
+      "missing": "{count, plural, =0 {0 manquant} =1 {# manquant} other {# manquants}}",
+      "viewDetails": "Voir les détails",
+      "loadError": "Impossible de charger les données."
+    },
     "company": "Entreprise",
     "stats": {
       "totalDocs": "Documents",
@@ -464,7 +471,17 @@
       },
       "emptySection": "Aucun document signé dans cette section",
       "registres": "3 registres",
-      "yearSuffix": "(Exercice {year})"
+      "yearSuffix": "(Exercice {year})",
+      "typeLabels": {
+        "statuts": "Statuts",
+        "resolution": "Résolution",
+        "pv": "PV",
+        "registre": "Registre",
+        "rapport": "Rapport",
+        "autre": "Document"
+      },
+      "view": "Voir",
+      "download": "Télécharger"
     },
     "binderExport": {
       "title": "Exporter le livre de minutes",

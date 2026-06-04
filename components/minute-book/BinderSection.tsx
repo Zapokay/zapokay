@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Eye, Download } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 interface Document {
   id: string
@@ -20,22 +20,18 @@ interface BinderSectionProps {
   children?: React.ReactNode
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('fr-CA', {
+function formatDate(dateStr: string, locale: string) {
+  return new Date(dateStr).toLocaleDateString(locale === 'en' ? 'en-CA' : 'fr-CA', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   })
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  statuts: 'Statuts',
-  resolution: 'Résolution',
-  pv: 'PV',
-  registre: 'Registre',
-  rapport: 'Rapport',
-  autre: 'Document',
-}
+// Document-type category labels are chrome (translatable). Localized via
+// minuteBook.binder.typeLabels; unknown document_type falls back to 'autre'
+// ("Document"). NOT the per-document title (which stays FR legal).
+const TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre']
 
 const spinnerIcon = (
   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -54,6 +50,7 @@ export default function BinderSection({
   const hasContent = documents.length > 0 || !!children
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const t = useTranslations('minuteBook.binder')
+  const locale = useLocale()
 
   function handleView(doc: Document) {
     window.open(`/api/documents/${doc.id}/download?preview=true`, '_blank', 'noopener,noreferrer')
@@ -88,7 +85,7 @@ export default function BinderSection({
         </div>
         <span className="text-sm text-[var(--text-muted)]">
           {children
-            ? '3 registres'
+            ? t('registres')
             : `${documents.length} document${documents.length !== 1 ? 's' : ''}`}
         </span>
       </div>
@@ -108,7 +105,7 @@ export default function BinderSection({
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--card-border)] text-[var(--text-muted)]">
-                  {TYPE_LABELS[doc.document_type || ''] || 'Document'}
+                  {t(`typeLabels.${TYPE_KEYS.includes(doc.document_type ?? '') ? doc.document_type : 'autre'}`)}
                 </span>
                 <span className="text-sm text-[var(--text-body)] truncate">
                   {doc.title}
@@ -117,12 +114,12 @@ export default function BinderSection({
                 </span>
               </div>
               <div className="flex items-center gap-4 shrink-0 ml-4">
-                <span className="text-xs text-[var(--text-muted)]">{formatDate(doc.created_at)}</span>
+                <span className="text-xs text-[var(--text-muted)]">{formatDate(doc.created_at, locale)}</span>
                 <button
                   onClick={() => handleView(doc)}
                   disabled={loadingId !== null}
                   className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors disabled:opacity-50"
-                  title="Voir"
+                  title={t('view')}
                 >
                   <Eye className="w-4 h-4" />
                 </button>
@@ -130,7 +127,7 @@ export default function BinderSection({
                   onClick={() => handleDownload(doc)}
                   disabled={loadingId !== null}
                   className="text-[var(--text-muted)] hover:text-[var(--text-body)] transition-colors disabled:opacity-50"
-                  title="Télécharger"
+                  title={t('download')}
                 >
                   {loadingId === doc.id ? spinnerIcon : <Download className="w-4 h-4" />}
                 </button>

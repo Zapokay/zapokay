@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, ArrowRight } from 'lucide-react';
 import CompletenessBar from '@/components/minute-book/CompletenessBar';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 interface CompletenessData {
   score: number;
@@ -15,6 +15,7 @@ interface CompletenessData {
 
 export default function MinuteBookCard() {
   const locale = useLocale();
+  const t = useTranslations('dashboard.minuteBookCard');
   const [data, setData] = useState<CompletenessData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +42,7 @@ export default function MinuteBookCard() {
       <div className="flex items-center gap-2 mb-4">
         <BookOpen className="h-5 w-5 text-[var(--text-heading)]" />
         <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-          Livre de minutes
+          {t('heading')}
         </span>
       </div>
 
@@ -62,11 +63,11 @@ export default function MinuteBookCard() {
 
           <div className="mt-3 flex items-center justify-between">
             <p className="text-xs text-[var(--text-muted)]">
-              {data.totalSatisfied} / {data.totalRequired} documents requis
+              {t('requiredDocs', { satisfied: data.totalSatisfied, required: data.totalRequired })}
             </p>
             {data.totalMissing > 0 && (
               <span className="text-xs font-medium" style={{ color: 'var(--error-text)' }}>
-                {data.totalMissing} manquants
+                {t('missing', { count: data.totalMissing })}
               </span>
             )}
           </div>
@@ -75,13 +76,13 @@ export default function MinuteBookCard() {
             href={`/${locale}/dashboard/minute-book/completeness`}
             className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[var(--text-link)] hover:underline"
           >
-            Voir les détails
+            {t('viewDetails')}
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </>
       ) : (
         <p className="text-xs text-[var(--text-muted)]">
-          Impossible de charger les données.
+          {t('loadError')}
         </p>
       )}
     </div>
