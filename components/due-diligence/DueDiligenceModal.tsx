@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -130,6 +130,7 @@ export default function DueDiligenceModal({
 }: DueDiligenceModalProps) {
   const router = useRouter();
   const locale = useLocale();
+  const t = useTranslations('minuteBook.dueDiligence');
   const [status, setStatus] = useState<DueDiligenceStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -150,11 +151,11 @@ export default function DueDiligenceModal({
       const data: DueDiligenceStatus = await res.json();
       setStatus(data);
     } catch {
-      setError('Impossible de charger le statut de complétion.');
+      setError(t('loadError'));
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, t]);
 
   useEffect(() => {
     if (isOpen) {
@@ -203,7 +204,7 @@ export default function DueDiligenceModal({
       URL.revokeObjectURL(url);
       onClose();
     } catch {
-      setError("Erreur lors de l'export. Veuillez réessayer.");
+      setError(t('exportError'));
     } finally {
       setExporting(false);
     }
@@ -240,16 +241,16 @@ export default function DueDiligenceModal({
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
-      aria-label="Vérification avant export"
+      aria-label={t('title')}
     >
       <div className="dd-modal">
         {/* Header */}
         <div className="dd-modal__header">
-          <h2 className="dd-modal__title">Vérification avant export</h2>
+          <h2 className="dd-modal__title">{t('title')}</h2>
           <button
             className="dd-modal__close"
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={t('close')}
             type="button"
           >
             ×
@@ -261,13 +262,13 @@ export default function DueDiligenceModal({
           {loading ? (
             <div className="dd-modal__loading">
               <Spinner />
-              <p>Analyse en cours…</p>
+              <p>{t('analyzing')}</p>
             </div>
           ) : error && !status ? (
             <div className="dd-modal__error">
               <p>{error}</p>
               <button onClick={fetchStatus} className="dd-btn dd-btn--ghost" type="button">
-                Réessayer
+                {t('retry')}
               </button>
             </div>
           ) : status ? (
@@ -276,9 +277,9 @@ export default function DueDiligenceModal({
               <div className="dd-score">
                 <ScoreGauge score={status.completionScore} />
                 <p className="dd-score__text">
-                  <strong>{status.completionScore}% complet</strong>
+                  <strong>{t('percentComplete', { score: status.completionScore })}</strong>
                   <span className="dd-score__detail">
-                    {status.totalComplete} / {status.totalRequired} documents
+                    {t('documentsFraction', { complete: status.totalComplete, required: status.totalRequired })}
                   </span>
                 </p>
               </div>
@@ -290,9 +291,7 @@ export default function DueDiligenceModal({
                     ⚠️
                   </span>
                   <p className="dd-warning__text">
-                    Un livre de minutes incomplet ne sera pas accepté lors
-                    d&apos;une acquisition, d&apos;une demande de financement ou
-                    d&apos;une vérification diligente professionnelle.
+                    {t('warning')}
                   </p>
                 </div>
               )}
@@ -301,7 +300,7 @@ export default function DueDiligenceModal({
               {status.missingDocuments.length > 0 && (
                 <div className="dd-missing">
                   <h3 className="dd-missing__title">
-                    Documents manquants ({status.missingDocuments.length})
+                    {t('missingHeader', { count: status.missingDocuments.length })}
                   </h3>
                   <ul className="dd-missing__list">
                     {visibleMissing.map((doc) => (
@@ -310,7 +309,7 @@ export default function DueDiligenceModal({
                         <button
                           className="dd-missing__goto"
                           onClick={() => handleGoToRequirement(doc.key)}
-                          aria-label={`Aller à ${doc.title_fr}`}
+                          aria-label={t('goToAria', { name: doc.title_fr })}
                           type="button"
                         >
                           →
@@ -324,7 +323,7 @@ export default function DueDiligenceModal({
                       onClick={() => setShowAll(true)}
                       type="button"
                     >
-                      + {remainingCount} autres → Voir tout
+                      {t('showMore', { count: remainingCount })}
                     </button>
                   )}
                 </div>
@@ -345,7 +344,7 @@ export default function DueDiligenceModal({
                   }}
                   type="button"
                 >
-                  Compléter mon livre →
+                  {t('completeBook')}
                 </button>
                 <button
                   className="dd-btn dd-btn--ghost"
@@ -355,10 +354,10 @@ export default function DueDiligenceModal({
                 >
                   {exporting ? (
                     <>
-                      <Spinner /> Export en cours…
+                      <Spinner /> {t('exporting')}
                     </>
                   ) : (
-                    `Exporter quand même (${status.completionScore}%)`
+                    t('exportAnyway', { score: status.completionScore })
                   )}
                 </button>
               </div>

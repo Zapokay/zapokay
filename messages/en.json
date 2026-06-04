@@ -483,6 +483,23 @@
       "view": "View",
       "download": "Download"
     },
+    "dueDiligence": {
+      "title": "Export verification",
+      "close": "Close",
+      "analyzing": "Analyzing…",
+      "loadError": "Unable to load completion status.",
+      "exportError": "Export error. Please try again.",
+      "retry": "Retry",
+      "percentComplete": "{score}% complete",
+      "documentsFraction": "{complete} / {required} documents",
+      "warning": "An incomplete minute book will not be accepted during an acquisition, a financing request, or a professional due-diligence review.",
+      "missingHeader": "Missing documents ({count})",
+      "goToAria": "Go to {name}",
+      "showMore": "{count, plural, =0 {} =1 {+ 1 more → View all} other {+ # more → View all}}",
+      "completeBook": "Complete my book →",
+      "exporting": "Exporting…",
+      "exportAnyway": "Export anyway ({score}%)"
+    },
     "binderExport": {
       "title": "Export Minute Book",
       "closeAriaLabel": "Close dialog",

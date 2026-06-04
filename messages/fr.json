@@ -483,6 +483,23 @@
       "view": "Voir",
       "download": "Télécharger"
     },
+    "dueDiligence": {
+      "title": "Vérification avant export",
+      "close": "Fermer",
+      "analyzing": "Analyse en cours…",
+      "loadError": "Impossible de charger le statut de complétion.",
+      "exportError": "Erreur lors de l'export. Veuillez réessayer.",
+      "retry": "Réessayer",
+      "percentComplete": "{score}% complet",
+      "documentsFraction": "{complete} / {required} documents",
+      "warning": "Un livre de minutes incomplet ne sera pas accepté lors d'une acquisition, d'une demande de financement ou d'une vérification diligente professionnelle.",
+      "missingHeader": "Documents manquants ({count})",
+      "goToAria": "Aller à {name}",
+      "showMore": "{count, plural, =0 {} =1 {+ 1 autre → Voir tout} other {+ # autres → Voir tout}}",
+      "completeBook": "Compléter mon livre →",
+      "exporting": "Export en cours…",
+      "exportAnyway": "Exporter quand même ({score}%)"
+    },
     "binderExport": {
       "title": "Exporter le livre de minutes",
       "closeAriaLabel": "Fermer la fenêtre",
