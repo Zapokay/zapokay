@@ -1,7 +1,7 @@
 /**
  * Shared document upload pipeline — used by:
- *   - components/documents/UploadZone.tsx       (Coffre-fort / vault form)
- *   - components/minute-book/* silent upload    (Sprint 9H Phase 4b.4 — TODO)
+ *   - components/documents/UploadDocumentModal.tsx  (vault / requirement upload form)
+ *   - components/minute-book/CompletenessPage.tsx   (lifecycle event-row direct upload)
  *
  * Responsibilities:
  *   1. ASCII-safe storage key (via toStorageSafeName)
@@ -11,14 +11,18 @@
  *   5. On DB failure, roll back the storage object
  *   6. Log 'document_uploaded' activity on success
  *
- * Runtime: although this helper accepts a generic `SupabaseClient` and could in
- * principle run on the server, every current caller passes a *browser* client.
- * The PDF magic-number gate below is therefore client-side defense-in-depth,
- * NOT server-side enforcement — it catches misnamed files that slip past the
- * HTML `accept` attribute and the MIME-string check in UploadZone, but a
- * motivated user can still bypass it. True server-side validation would require
- * an API-route layer or Supabase Storage RLS / Edge-Function hooks — both out
- * of scope as of May 2026.
+ * Runtime: the SupabaseClient is INJECTED by the caller, so this helper is
+ * client-agnostic —
+ *   - browser callers (UploadDocumentModal, CompletenessPage) pass a session
+ *     client; for them the PDF magic-number gate below is client-side
+ *     defense-in-depth (catches misnamed files past the HTML `accept` attr and
+ *     the MIME-string check, but a motivated user can bypass the browser path);
+ *   - the /api/documents/upload route passes a service-role admin client, after
+ *     it has already auth-gated the user, validated company ownership, and run
+ *     the authoritative %PDF byte + size checks server-side (Brief 2a).
+ * The gate below remains defense-in-depth regardless of caller — it is NOT the
+ * authoritative server check; the route owns that. The byte check is shared via
+ * lib/pdf-magic.ts so the two copies cannot drift.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -26,6 +30,7 @@ import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import { toStorageSafeName } from '@/lib/storage-key';
 import { filePathFromFileUrl } from '@/lib/storage-path';
 import { logActivity } from '@/lib/activity-log';
+import { isPdfBytes } from '@/lib/pdf-magic';
 
 export interface UploadDocumentParams {
   file: File;
@@ -122,14 +127,10 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
   } = params;
 
   // Layer C: PDF magic-number gate (defense-in-depth — see docstring).
-  // PDF files start with the bytes 0x25 0x50 0x44 0x46 ('%PDF').
-  const headBytes = new Uint8Array(await file.slice(0, 4).arrayBuffer());
-  const isPdf =
-    headBytes[0] === 0x25 &&
-    headBytes[1] === 0x50 &&
-    headBytes[2] === 0x44 &&
-    headBytes[3] === 0x46;
-  if (!isPdf) {
+  // Shared byte check (lib/pdf-magic.ts) — same source of truth as the
+  // authoritative server-side check in /api/documents/upload.
+  const headBytes = await file.slice(0, 4).arrayBuffer();
+  if (!isPdfBytes(headBytes)) {
     return { ok: false, error: 'NON_PDF_REJECTED' };
   }
 
