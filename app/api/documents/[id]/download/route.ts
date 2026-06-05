@@ -1,6 +1,7 @@
 // app/api/documents/[id]/download/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createSessionClient } from '@/lib/supabase/server';
 import { filePathFromFileUrl } from '@/lib/storage-path';
 import { toStorageSafeName } from '@/lib/storage-key';
 
@@ -12,13 +13,22 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const isPreview = request.nextUrl.searchParams.get('preview') === 'true';
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  // Auth + ownership gate (#10/#2 Brief 1 Task 3). Fetch the documents row with
+  // the user's SESSION client so the company-scoped table RLS (documents_select_own)
+  // applies: a non-owner — or an unauthenticated caller — gets zero rows. We 404
+  // rather than 403 so the endpoint never confirms the existence of other
+  // companies' documents. Service-role is used ONLY for the storage read below,
+  // after ownership is proven by this fetch.
+  const sessionClient = createSessionClient();
+  const {
+    data: { user },
+  } = await sessionClient.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
-    const { data: doc, error } = await supabase
+    const { data: doc, error } = await sessionClient
       .from('documents')
       .select('id, title, file_url, file_name, status')
       .eq('id', params.id)
@@ -33,7 +43,14 @@ export async function GET(
       return NextResponse.json({ error: 'File not found in storage' }, { status: 404 });
     }
 
-    const { data: fileData, error: dlError } = await supabase.storage
+    // Ownership proven above. The service-role client reads the bytes from
+    // storage (unchanged behaviour; bypasses storage RLS, which is fine now
+    // that the requester is confirmed to own the document).
+    const serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data: fileData, error: dlError } = await serviceClient.storage
       .from('documents')
       .download(storagePath);
 
