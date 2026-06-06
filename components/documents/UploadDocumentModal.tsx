@@ -4,8 +4,6 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { AlertTriangle } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { uploadDocument } from '@/lib/upload-document';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 
@@ -254,26 +252,28 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     if (!canSubmit) return;
     setStep('uploading');
     setError('');
-    const supabase = createClient();
-    const result = await uploadDocument({
-      file,
-      companyId,
-      userId,
-      supabaseClient: supabase,
-      title,
-      docType,
-      language,
-      docYear: docYear !== '' ? docYear : null,
-      requirementKey,
-      requirementYear,
-      framework,
-      requirements,
-      // Phase B B5: actual checkbox state — true ⇒ 'téléversé', false ⇒ WIP
-      // upload that the three-state model rebuckets to 'généré' (see
-      // lib/minute-book/state.ts) until the user finalizes via re-upload.
-      isFinalized: isCertified,
-      replaceDocumentId,
-    });
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('companyId', companyId);
+    fd.append('title', title);
+    fd.append('docType', docType);
+    fd.append('language', language);
+    if (docYear !== '' && docYear != null) fd.append('docYear', String(docYear));
+    if (requirementKey) fd.append('requirementKey', requirementKey);
+    if (requirementYear != null) fd.append('requirementYear', String(requirementYear));
+    fd.append('framework', framework);
+    fd.append('requirements', JSON.stringify(requirements));
+    // Phase B B5: actual checkbox state — true ⇒ 'téléversé', false ⇒ WIP
+    // upload that the three-state model rebuckets to 'généré' (see
+    // lib/minute-book/state.ts) until the user finalizes via re-upload.
+    fd.append('isFinalized', String(isCertified));
+    if (replaceDocumentId) fd.append('replaceDocumentId', replaceDocumentId);
+    // No userId field — the route derives it from the session (closes the
+    // trusted-param hole). No eventLink — the requirement/vault path has no
+    // lifecycle link (that path lives in CompletenessPage, Brief 2b-ii).
+
+    const res = await fetch('/api/documents/upload', { method: 'POST', body: fd });
+    const result = await res.json();
 
     if (!result.ok) {
       const msg = fr ? "Erreur lors de l'envoi du fichier." : 'Error uploading file.';
