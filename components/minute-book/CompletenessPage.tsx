@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { uploadDocument } from '@/lib/upload-document';
 import { useToasts } from '@/components/ui/Toasts';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { fiscalYearForDate } from '@/lib/active-years';
@@ -105,7 +104,8 @@ export default function CompletenessPage({
   // Row-driven file pickup. Validates MIME + size, looks up the row's
   // ChecklistItem, lazy-resolves the user id, then opens UploadDocumentModal
   // in row-mode. The modal owns the rest of the pipeline (certification gate,
-  // uploadDocument call with isFinalized=true, success/error sinks).
+  // then POSTs to /api/documents/upload — the authoritative server route — with
+  // isFinalized derived from the certification checkbox; success/error sinks).
   const handleFileSelected = useCallback(
     async (file: File, requirementKey: string, year: number | null): Promise<void> => {
       if (file.type !== 'application/pdf') {
@@ -154,10 +154,12 @@ export default function CompletenessPage({
   );
 
   // Brief 2 — lifecycle event-row upload. Unlike the requirement path above
-  // (which opens UploadDocumentModal), events upload DIRECTLY via uploadDocument
-  // with an eventLink — there is no requirement correspondence to collect. The
-  // act's filing year is passed in by the caller (the per-year section knows it;
-  // hors-exercice = null). isFinalized:true — the user is uploading their own
+  // (which opens UploadDocumentModal), events POST DIRECTLY to
+  // /api/documents/upload (the authoritative server route) with an `eventLink`
+  // FormData field (JSON-encoded) — there is no requirement correspondence to
+  // collect. The event_documents link is written server-side from that eventLink.
+  // The act's filing year is passed in by the caller (the per-year section knows
+  // it; hors-exercice = null). isFinalized:true — the user is uploading their own
   // SIGNED doc. When the act already has a doc (generated draft or prior upload),
   // replaceDocumentId supersedes it: old doc deleted, its event_documents link
   // cascades, the new upload + link leave exactly one link.
@@ -179,27 +181,28 @@ export default function CompletenessPage({
         return;
       }
 
-      const result = await uploadDocument({
-        file,
-        companyId,
-        userId: user.id,
-        supabaseClient: supabase,
-        title,
-        docType: 'resolution',
-        language: preferredLanguage,
-        docYear: year,
-        requirementKey: null,
-        requirementYear: null,
-        framework,
-        requirements: data?.checklist ?? [],
-        isFinalized: true,
-        ...(act.satisfied && act.documentId ? { replaceDocumentId: act.documentId } : {}),
-        eventLink: {
-          event_type: act.event_type,
-          event_id: act.event_id,
-          event_phase: act.event_phase,
-        },
-      });
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('companyId', companyId);
+      formData.append('title', title);
+      formData.append('docType', 'resolution');
+      formData.append('language', preferredLanguage);
+      if (year != null) formData.append('docYear', String(year));
+      formData.append('framework', framework);
+      formData.append('requirements', JSON.stringify(data?.checklist ?? []));
+      formData.append('isFinalized', 'true');
+      formData.append('eventLink', JSON.stringify({
+        event_type: act.event_type,
+        event_id: act.event_id,
+        event_phase: act.event_phase,
+      }));
+      if (act.satisfied && act.documentId) formData.append('replaceDocumentId', act.documentId);
+      // requirementKey/requirementYear omitted (always null on the event path — route reads them as null).
+      // No userId — the route derives it from the session; the getUser() above is UX-only
+      // (preserves the "Session expirée" toast). The route is the sole authority.
+
+      const res = await fetch('/api/documents/upload', { method: 'POST', body: formData });
+      const result = await res.json();
 
       if (!result.ok) {
         addToast(
