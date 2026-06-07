@@ -176,7 +176,6 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
           file={pickedFile}
           mode="vault"
           companyId={companyId}
-          userId={userId}
           framework={framework === 'CBCA' ? 'CBCA' : 'LSA'}
           locale={locale}
           activeFiscalYears={activeFiscalYears}

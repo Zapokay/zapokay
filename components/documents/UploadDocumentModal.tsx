@@ -24,7 +24,6 @@ export interface UploadDocumentModalProps {
    */
   mode: Mode;
   companyId: string;
-  userId: string;
   framework: 'LSA' | 'CBCA';
   /** Used for canonical FR/EN title resolution + subtitle interpolation. */
   locale: string;
@@ -64,7 +63,6 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     file,
     mode,
     companyId,
-    userId,
     framework,
     locale,
     prefill,
@@ -290,7 +288,6 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     canSubmit,
     file,
     companyId,
-    userId,
     title,
     docType,
     language,

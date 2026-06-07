@@ -456,7 +456,6 @@ export default function CompletenessPage({
           file={pickedFile}
           mode="row"
           companyId={companyId}
-          userId={userId}
           framework={framework}
           locale={locale}
           preferredLanguage={preferredLanguage}
