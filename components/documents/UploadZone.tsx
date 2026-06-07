@@ -1,5 +1,6 @@
 'use client';
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
@@ -19,6 +20,7 @@ const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 
 export function UploadZone({ companyId, framework, locale, activeFiscalYears = [], onUploadComplete, onError, preferredLanguage = 'fr' }: UploadZoneProps) {
   const fr = locale === 'fr';
+  const tDocs = useTranslations('documents');
   const [isDragging, setIsDragging] = useState(false);
   const [pickedFile, setPickedFile] = useState<File | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
     // PDF gate is handled in pickFile() so it can route to the educational modal
     // (setShowPdfModal) instead of the generic inline error.
     if (f.size > MAX_SIZE) {
-      return fr ? 'Le fichier dépasse 20 Mo.' : 'File exceeds 20 MB.';
+      return tDocs('tooLarge');
     }
     return null;
   }
@@ -61,7 +63,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      const msg = fr ? "Session expirée." : 'Session expired.';
+      const msg = tDocs('sessionExpired');
       setError(msg);
       onError?.(msg);
       return;

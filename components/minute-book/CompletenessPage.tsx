@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToasts } from '@/components/ui/Toasts';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { fiscalYearForDate } from '@/lib/active-years';
+import { uploadErrorMessageKey } from '@/lib/upload-error-message';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import EventSection from '@/components/minute-book/EventSection';
 import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
@@ -44,6 +45,7 @@ export default function CompletenessPage({
 }: CompletenessPageProps) {
   const fr = locale === 'fr';
   const tEvents = useTranslations('events');
+  const tDocs = useTranslations('documents');
   const [data, setData] = useState<CompletenessResponse | null>(null);
   // #19d Brief 1 — director + officer lifecycle acts grouped by FY. Non-fatal:
   // when the event-completeness fetch fails, this stays null and the page
@@ -109,11 +111,11 @@ export default function CompletenessPage({
   const handleFileSelected = useCallback(
     async (file: File, requirementKey: string, year: number | null): Promise<void> => {
       if (file.type !== 'application/pdf') {
-        addToast(fr ? 'Seuls les fichiers PDF sont acceptés.' : 'Only PDF files are accepted.', 'error');
+        addToast(tDocs('onlyPdf'), 'error');
         return;
       }
       if (file.size > MAX_SIZE) {
-        addToast(fr ? 'Le fichier dépasse 20 Mo.' : 'File exceeds 20 MB.', 'error');
+        addToast(tDocs('tooLarge'), 'error');
         return;
       }
 
@@ -128,7 +130,7 @@ export default function CompletenessPage({
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        addToast(fr ? 'Session expirée.' : 'Session expired.', 'error');
+        addToast(tDocs('sessionExpired'), 'error');
         return;
       }
 
@@ -150,7 +152,7 @@ export default function CompletenessPage({
       setPickedFile(file);
       setExistingDocumentId(existingDocId);
     },
-    [addToast, data, fr],
+    [addToast, data, fr, tDocs, MAX_SIZE],
   );
 
   // Brief 2 — lifecycle event-row upload. Unlike the requirement path above
@@ -166,18 +168,18 @@ export default function CompletenessPage({
   const handleEventFileSelected = useCallback(
     async (file: File, act: EventActStatus, title: string, year: number | null): Promise<void> => {
       if (file.type !== 'application/pdf') {
-        addToast(fr ? 'Seuls les fichiers PDF sont acceptés.' : 'Only PDF files are accepted.', 'error');
+        addToast(tDocs('onlyPdf'), 'error');
         return;
       }
       if (file.size > MAX_SIZE) {
-        addToast(fr ? 'Le fichier dépasse 20 Mo.' : 'File exceeds 20 MB.', 'error');
+        addToast(tDocs('tooLarge'), 'error');
         return;
       }
 
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        addToast(fr ? 'Session expirée.' : 'Session expired.', 'error');
+        addToast(tDocs('sessionExpired'), 'error');
         return;
       }
 
@@ -205,19 +207,14 @@ export default function CompletenessPage({
       const result = await res.json();
 
       if (!result.ok) {
-        addToast(
-          result.error === 'NON_PDF_REJECTED'
-            ? (fr ? 'Seuls les fichiers PDF sont acceptés.' : 'Only PDF files are accepted.')
-            : (fr ? 'Échec du téléversement.' : 'Upload failed.'),
-          'error',
-        );
+        addToast(tDocs(uploadErrorMessageKey(result.error, res.status)), 'error');
         return;
       }
 
       addToast(fr ? 'Document téléversé.' : 'Document uploaded.', 'success');
       fetchEvents();
     },
-    [addToast, companyId, data, framework, fr, preferredLanguage, fetchEvents, MAX_SIZE],
+    [addToast, companyId, data, framework, fr, preferredLanguage, fetchEvents, MAX_SIZE, tDocs],
   );
 
   const foundationalItems: ChecklistItem[] =

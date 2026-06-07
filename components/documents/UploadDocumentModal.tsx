@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { AlertTriangle } from 'lucide-react';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
+import { uploadErrorMessageKey } from '@/lib/upload-error-message';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 
 const DOC_TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre'] as const;
@@ -274,7 +275,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     const result = await res.json();
 
     if (!result.ok) {
-      const msg = fr ? "Erreur lors de l'envoi du fichier." : 'Error uploading file.';
+      const msg = t(uploadErrorMessageKey(result.error, res.status));
       setError(msg);
       onError?.(msg);
       setStep('form');
@@ -298,7 +299,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     requirements,
     isCertified,
     replaceDocumentId,
-    fr,
+    t,
     onError,
     onUploadComplete,
     onClose,

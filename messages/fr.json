@@ -207,6 +207,9 @@
     "toastDeleteError": "Erreur lors de la suppression.",
     "onlyPdf": "Seuls les fichiers PDF sont acceptés.",
     "tooLarge": "Le fichier dépasse 20 Mo.",
+    "uploadFailed": "Échec du téléversement.",
+    "forbidden": "Vous n'avez pas accès à cette société.",
+    "sessionExpired": "Session expirée. Veuillez vous reconnecter.",
     "types": {
       "statuts": "Statuts",
       "resolution": "Résolution",
