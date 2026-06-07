@@ -16,6 +16,7 @@ import TransferShareholdingModal from '@/components/shareholders/TransferShareho
 import EditFormerShareholdingModal from '@/components/shareholders/EditFormerShareholdingModal';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
 import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
+import { getDocumentState } from '@/lib/minute-book/state';
 import { formatDate } from '@/lib/utils';
 import type {
   CompanyPerson,
@@ -71,7 +72,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
   // keyed by `${event_type}|${event_id}|${event_phase}` — mirrors DirectorsClient
   // pattern. Used to flip Generate→Voir + show "À signer" badge once a doc
   // has been generated for a given act.
-  const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null }>>(new Map());
+  const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>>(new Map());
   const [showTooltip, setShowTooltip] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -140,13 +141,15 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
       const res = await fetch('/api/minute-book/event-completeness');
       if (res.ok) {
         const payload = (await res.json()) as {
-          acts?: Array<{ event_type: string; event_id: string; event_phase: string; satisfied: boolean; documentId: string | null }>;
+          acts?: Array<{ event_type: string; event_id: string; event_phase: string; satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>;
         };
-        const m = new Map<string, { satisfied: boolean; documentId: string | null }>();
+        const m = new Map<string, { satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>();
         for (const a of payload.acts ?? []) {
           m.set(`${a.event_type}|${a.event_id}|${a.event_phase}`, {
             satisfied: a.satisfied,
             documentId: a.documentId,
+            documentSource: a.documentSource,
+            documentIsFinalized: a.documentIsFinalized,
           });
         }
         setActsMap(m);
@@ -411,11 +414,18 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                           : `shareholding|${sh.id}|cessation`;
                         const act = actsMap.get(key);
                         if (act?.satisfied && act.documentId) {
+                          const state = getDocumentState({
+                            satisfied: act.satisfied,
+                            source: act.documentSource,
+                            is_finalized: act.documentIsFinalized,
+                          });
                           return (
                             <>
-                              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
-                                {tDocs('toSignBadge')}
-                              </span>
+                              {state === 'généré' && (
+                                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
+                                  {tDocs('toSignBadge')}
+                                </span>
+                              )}
                               <a
                                 href={`/api/documents/${act.documentId}/download?preview=true`}
                                 target="_blank"

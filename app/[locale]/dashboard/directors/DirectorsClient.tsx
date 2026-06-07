@@ -17,6 +17,7 @@ import AddDirectorModal from '@/components/directors/AddDirectorModal';
 import RemoveDirectorModal from '@/components/directors/RemoveDirectorModal';
 import EditFormerDirectorModal from '@/components/directors/EditFormerDirectorModal';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
+import { getDocumentState } from '@/lib/minute-book/state';
 import { formatDate } from '@/lib/utils';
 import type {
   CompanyPerson,
@@ -62,7 +63,7 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
   // #19d Brief 2b — per-row lifecycle act state (from event-completeness)
   // keyed by `${event_type}|${event_id}|${event_phase}`. Each former row's
   // departure act is looked up here to decide button vs draft-state.
-  const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null }>>(new Map());
+  const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>>(new Map());
   // Generate-dialog target: the mandate row that opened the dialog.
   const [generatingFor, setGeneratingFor] = useState<DirectorWithPerson | null>(null);
 
@@ -126,13 +127,15 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
       const res = await fetch('/api/minute-book/event-completeness');
       if (res.ok) {
         const payload = (await res.json()) as {
-          acts?: Array<{ event_type: string; event_id: string; event_phase: string; satisfied: boolean; documentId: string | null }>;
+          acts?: Array<{ event_type: string; event_id: string; event_phase: string; satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>;
         };
-        const m = new Map<string, { satisfied: boolean; documentId: string | null }>();
+        const m = new Map<string, { satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>();
         for (const a of payload.acts ?? []) {
           m.set(`${a.event_type}|${a.event_id}|${a.event_phase}`, {
             satisfied: a.satisfied,
             documentId: a.documentId,
+            documentSource: a.documentSource,
+            documentIsFinalized: a.documentIsFinalized,
           });
         }
         setActsMap(m);
@@ -340,11 +343,18 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
                           const key = `director_mandate|${m.id}|departure`;
                           const act = actsMap.get(key);
                           if (act?.satisfied && act.documentId) {
+                            const state = getDocumentState({
+                              satisfied: act.satisfied,
+                              source: act.documentSource,
+                              is_finalized: act.documentIsFinalized,
+                            });
                             return (
                               <>
-                                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
-                                  {tDocs('toSignBadge')}
-                                </span>
+                                {state === 'généré' && (
+                                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
+                                    {tDocs('toSignBadge')}
+                                  </span>
+                                )}
                                 <a
                                   href={`/api/documents/${act.documentId}/download?preview=true`}
                                   target="_blank"
