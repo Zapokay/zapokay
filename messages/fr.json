@@ -607,7 +607,9 @@
     "loading": "Chargement…",
     "today": "Aujourd'hui",
     "yesterday": "Hier",
-    "eventsCount": "{count, plural, =0 {Aucun événement enregistré} =1 {1 événement enregistré} other {# événements enregistrés}}"
+    "eventsCount": "{count, plural, =0 {Aucun événement enregistré} =1 {1 événement enregistré} other {# événements enregistrés}}",
+    "documentUploaded": "Document téléversé : {name}{yearSuffix}",
+    "documentGenerated": "Document généré : {name}{yearSuffix}"
   },
   "lifecycle": {
     "_locale": "fr",

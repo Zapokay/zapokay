@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { Eye, Download } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
 
 interface Document {
   id: string
@@ -12,7 +11,6 @@ interface Document {
   created_at: string
   file_url?: string
   document_year?: number | null
-  language?: string | null
 }
 
 interface BinderSectionProps {
@@ -112,7 +110,7 @@ export default function BinderSection({
                 <span className="text-sm text-[var(--text-body)] truncate">
                   {doc.title}
                   {doc.document_year != null &&
-                    ` (${getFiscalYearLabel(doc.document_year, doc.language ?? 'fr')})`}
+                    ` ${t('yearSuffix', { year: doc.document_year })}`}
                 </span>
               </div>
               <div className="flex items-center gap-4 shrink-0 ml-4">

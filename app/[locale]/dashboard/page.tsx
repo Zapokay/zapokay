@@ -265,7 +265,7 @@ export default async function DashboardPage({
                   year: 'numeric',
                 });
               } else {
-                bigValueNode = profile.preferred_language === 'en' ? `FY ${nextGap.year}` : `Exercice ${nextGap.year}`;
+                bigValueNode = fr ? `Exercice ${nextGap.year}` : `FY ${nextGap.year}`;
               }
             } else if (isComplete) {
               bigValueNode = '✓';
@@ -439,7 +439,7 @@ export default async function DashboardPage({
                     const context =
                       gap.type === 'foundational'
                         ? (fr ? 'Document fondateur' : 'Foundational document')
-                        : (profile.preferred_language === 'en' ? `FY ${gap.year}` : `Exercice ${gap.year}`);
+                        : (fr ? `Exercice ${gap.year}` : `FY ${gap.year}`);
                     return (
                       <div
                         key={`${gap.requirementKey}-${gap.year ?? 'F'}`}
