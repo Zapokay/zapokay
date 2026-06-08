@@ -168,16 +168,22 @@ export default function EventActRow({
   // share* acts, which are filtered out upstream) or whose registry entry
   // somehow goes missing — fall back to the engine's localized category
   // label so the row never renders empty.
-  const registryTitleFr = derivation
-    ? LIFECYCLE_TEMPLATES[derivation.docKey]?.titleFr
+  // #156 — the title follows the document's language (`documents.language`)
+  // when a doc exists, else the user's preferred_language; NEVER the UI locale
+  // (which stays for chrome only). titleFr/titleEn both exist in the registry.
+  const titleLang = act.documentLanguage ?? preferredLanguage;
+  const registryTitle = derivation
+    ? (titleLang === 'en'
+        ? LIFECYCLE_TEMPLATES[derivation.docKey]?.titleEn
+        : LIFECYCLE_TEMPLATES[derivation.docKey]?.titleFr)
     : undefined;
   const labelHead =
-    registryTitleFr ?? (locale === 'fr' ? act.label_fr : act.label_en);
+    registryTitle ?? (titleLang === 'en' ? act.label_en : act.label_fr);
   const rowLabel = `${labelHead} — ${personName}`;
 
-  // Document title for an uploaded event doc — FR-stable registry title (legal
-  // doc names stay FR per the page convention, independent of UI locale).
-  const docTitle = registryTitleFr ?? act.label_fr;
+  // Document title for an event doc — follows the document's language (#156),
+  // independent of UI locale.
+  const docTitle = registryTitle ?? (titleLang === 'en' ? act.label_en : act.label_fr);
 
   // Role label resolution. Directors get the canonical role string; officers
   // resolve through the local TITLE_LABELS map (custom titles use the

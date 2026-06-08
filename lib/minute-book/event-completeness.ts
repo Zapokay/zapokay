@@ -84,6 +84,7 @@ export interface EventActStatus {
   officerCustomTitle: string | null;
   documentSource: 'uploaded' | 'generated' | null;
   documentIsFinalized: boolean | null;
+  documentLanguage: string | null;
 }
 
 export interface EventCompletenessResponse {
@@ -173,13 +174,14 @@ interface RawEventDoc {
   event_id: string;
   event_phase: EventPhase;
   // Embed shape — single-FK relation returns an object, not an array.
-  document: { source: string | null; is_finalized: boolean | null } | null;
+  document: { source: string | null; is_finalized: boolean | null; language: string | null } | null;
 }
 
 interface SatisfiedEntry {
   documentId: string;
   source: 'uploaded' | 'generated' | null;
   isFinalized: boolean | null;
+  language: string | null;
 }
 
 export async function computeEventCompleteness(
@@ -225,7 +227,7 @@ export async function computeEventCompleteness(
     // render téléversé vs généré without an extra round-trip.
     supabase
       .from('event_documents')
-      .select('document_id, event_type, event_id, event_phase, document:documents(source, is_finalized)')
+      .select('document_id, event_type, event_id, event_phase, document:documents(source, is_finalized, language)')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false }),
   ]);
@@ -261,6 +263,7 @@ export async function computeEventCompleteness(
         documentId: ed.document_id,
         source: rawSource === 'uploaded' || rawSource === 'generated' ? rawSource : null,
         isFinalized: ed.document?.is_finalized ?? null,
+        language: ed.document?.language ?? null,
       });
     }
   }
@@ -302,6 +305,7 @@ export async function computeEventCompleteness(
       officerCustomTitle: meta?.officerCustomTitle ?? null,
       documentSource: entry?.source ?? null,
       documentIsFinalized: entry?.isFinalized ?? null,
+      documentLanguage: entry?.language ?? null,
     });
   };
 

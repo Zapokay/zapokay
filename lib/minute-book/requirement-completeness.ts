@@ -42,6 +42,7 @@ export interface ChecklistItem {
   document_id?: string | null;
   document_file_url?: string | null;
   document_is_finalized?: boolean | null;
+  document_language?: string | null;
 }
 
 export interface RequirementCompletenessResult {
@@ -89,7 +90,7 @@ export async function computeRequirementCompleteness(
   //    and split the row badge between signed final vs WIP upload.
   const { data: documents, error: docError } = await supabase
     .from('documents')
-    .select('id, requirement_key, requirement_year, source, file_url, is_finalized')
+    .select('id, requirement_key, requirement_year, source, file_url, is_finalized, language')
     .eq('company_id', companyId)
     .eq('status', 'active')
     .not('requirement_key', 'is', null);
@@ -115,6 +116,7 @@ export async function computeRequirementCompleteness(
     source: string | null;
     file_url: string | null;
     is_finalized: boolean | null;
+    language: string | null;
   };
 
   // 5. Build checklist
@@ -142,6 +144,7 @@ export async function computeRequirementCompleteness(
       document_id: matchingDoc?.id ?? null,
       document_file_url: matchingDoc?.file_url ?? null,
       document_is_finalized: isFinalized,
+      document_language: matchingDoc?.language ?? null,
     });
     requirementsTotal++;
     if (state === 'téléversé') requirementsUploaded++;
@@ -167,6 +170,7 @@ export async function computeRequirementCompleteness(
         document_id: matchingDoc?.id ?? null,
         document_file_url: matchingDoc?.file_url ?? null,
         document_is_finalized: isFinalized,
+        document_language: matchingDoc?.language ?? null,
       });
       requirementsTotal++;
       if (state === 'téléversé') requirementsUploaded++;

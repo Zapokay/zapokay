@@ -111,7 +111,7 @@ export default function RequirementSection({
             <RequirementRow
               key={`${item.requirement_key}-${item.year ?? 'f'}`}
               requirementKey={item.requirement_key}
-              titleFr={item.title_fr}
+              titleFr={(item.document_language ?? preferredLanguage) === 'en' ? item.title_en : item.title_fr}
               descriptionFr={item.description_fr}
               satisfied={item.satisfied}
               source={item.source}
