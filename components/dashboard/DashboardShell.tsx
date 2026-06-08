@@ -288,7 +288,9 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
             <button
               className="text-xs text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors bg-transparent border-none cursor-pointer"
               onClick={() => {
-                supabase.from('users').update({ preferred_language: otherLocale }).eq('id', profile.id);
+                // Two-Layer (CLAUDE.md §3): the UI locale toggle changes ONLY the URL/UI
+                // locale. It must NOT mutate users.preferred_language (the document
+                // generation language) — that changes only via Settings (#156 A3).
                 const newPath = pathname.replace(`/${locale}/`, `/${otherLocale}/`);
                 router.replace(newPath);
               }}

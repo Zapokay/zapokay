@@ -60,7 +60,7 @@ Status column to be filled in by Dom.
 | Dirigeants | ACTIVE | Critical path (Phase 10F/10G temporal registry UX) |
 | Actionnaires | ACTIVE | Critical path (Phase 10F/10G temporal registry UX). Flipped 2026-05-22 following `docs/audit-people-surfaces-2026-05-22.md` first full audit closure. |
 | Historique | _TBD_ | |
-| Paramètres | _TBD_ | |
+| Paramètres | ACTIVE | Settings surface; sole mutator of users.preferred_language (saveProfile). Flipped 2026-06-08 following #156 A3 (preferred_language warning box + UI-toggle decouple). |
 
 ### Authenticated app — non-sidebar surfaces
 

@@ -348,6 +348,16 @@ export function SettingsClient({
               <option value="en">English</option>
             </select>
           </div>
+          {lang !== initialLang && (
+            <p
+              className="text-xs mt-2 px-3 py-2 rounded-lg"
+              style={{ backgroundColor: 'var(--warning-bg)', color: 'var(--warning-text)', border: '1px solid var(--warning-border)' }}
+            >
+              ⚠️ {fr
+                ? 'Changer votre langue préférée affecte les documents générés à partir de maintenant et les titres des documents pas encore générés. Les documents déjà générés gardent leur langue — votre livre pourrait alors contenir deux langues.'
+                : 'Changing your preferred language affects documents generated from now on and the titles of documents not yet generated. Documents already generated keep their language — your minute book may then contain two languages.'}
+            </p>
+          )}
           <div className="flex items-center gap-3 pt-1">
             <button
               onClick={saveProfile}
