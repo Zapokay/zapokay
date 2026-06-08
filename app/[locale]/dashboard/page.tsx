@@ -255,7 +255,7 @@ export default async function DashboardPage({
             let bigValueStyle: React.CSSProperties = { fontFamily: 'Sora, sans-serif' };
 
             if (isFoundational && nextGap) {
-              bigValueNode = fr ? nextGap.titleFr : nextGap.titleEn;
+              bigValueNode = profile.preferred_language === 'en' ? nextGap.titleEn : nextGap.titleFr;
               bigValueClass = 'text-lg font-bold text-[var(--text-heading)] leading-snug';
             } else if (isAnnual && nextGap) {
               if (nextGap.dueDate) {
@@ -265,7 +265,7 @@ export default async function DashboardPage({
                   year: 'numeric',
                 });
               } else {
-                bigValueNode = fr ? `Exercice ${nextGap.year}` : `FY ${nextGap.year}`;
+                bigValueNode = profile.preferred_language === 'en' ? `FY ${nextGap.year}` : `Exercice ${nextGap.year}`;
               }
             } else if (isComplete) {
               bigValueNode = '✓';
@@ -279,7 +279,7 @@ export default async function DashboardPage({
             if (isFoundational) {
               subtitle = fr ? 'À corriger en priorité' : 'Priority action';
             } else if (isAnnual && nextGap) {
-              subtitle = fr ? nextGap.titleFr : nextGap.titleEn;
+              subtitle = profile.preferred_language === 'en' ? nextGap.titleEn : nextGap.titleFr;
             } else if (isComplete) {
               subtitle = fr ? 'Tout est en ordre' : 'All in order';
             } else {
@@ -435,11 +435,11 @@ export default async function DashboardPage({
               ) : (
                 <div className="flex flex-col gap-3">
                   {gaps.slice(0, 5).map(gap => {
-                    const title = fr ? gap.titleFr : gap.titleEn;
+                    const title = profile.preferred_language === 'en' ? gap.titleEn : gap.titleFr;
                     const context =
                       gap.type === 'foundational'
                         ? (fr ? 'Document fondateur' : 'Foundational document')
-                        : (fr ? `Exercice ${gap.year}` : `FY ${gap.year}`);
+                        : (profile.preferred_language === 'en' ? `FY ${gap.year}` : `Exercice ${gap.year}`);
                     return (
                       <div
                         key={`${gap.requirementKey}-${gap.year ?? 'F'}`}
