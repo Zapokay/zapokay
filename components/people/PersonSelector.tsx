@@ -5,12 +5,13 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import {
   UserPlus,
+  Building2,
   ChevronDown,
   Check,
   Search,
   X,
 } from 'lucide-react';
-import type { CompanyPerson } from '@/lib/supabase/people-types';
+import type { CompanyPerson, ShareholderEntity } from '@/lib/supabase/people-types';
 
 // =============================================================================
 // Types
@@ -50,6 +51,16 @@ interface PersonSelectorProps {
   label?: string;
   /** Error message */
   error?: string;
+  /** When provided, renders a second footer link signalling the parent to switch
+   *  to entity (company/trust) creation. PersonSelector stays an identity picker —
+   *  the PersonSelectorValue contract is untouched; this is a fire-and-forget signal. */
+  onAddEntity?: () => void;
+  /** Opt-in: when true, ALSO list existing shareholder_entities inline. Default
+   *  false → no entity fetch, so the other PersonSelector callers are unaffected. */
+  includeEntities?: boolean;
+  /** Fired when an existing entity row is picked. Does NOT flow through value/
+   *  onChange — the PersonSelectorValue contract stays person-only (parallel path). */
+  onSelectEntity?: (entity: ShareholderEntity) => void;
 }
 
 // =============================================================================
@@ -83,12 +94,16 @@ export default function PersonSelector({
   defaultToNew = false,
   label,
   error,
+  onAddEntity,
+  includeEntities = false,
+  onSelectEntity,
 }: PersonSelectorProps) {
   const t = useTranslations('people');
   const supabase = createClient();
 
   // ---- State ----------------------------------------------------------------
   const [people, setPeople] = useState<CompanyPerson[]>([]);
+  const [entities, setEntities] = useState<ShareholderEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,6 +139,20 @@ export default function PersonSelector({
     }
     fetchPeople();
   }, [companyId, supabase]);
+
+  // ---- Fetch existing entities (opt-in) -------------------------------------
+  useEffect(() => {
+    if (!includeEntities) return;
+    async function fetchEntities() {
+      const { data } = await supabase
+        .from('shareholder_entities')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('legal_name');
+      if (data) setEntities(data as ShareholderEntity[]);
+    }
+    fetchEntities();
+  }, [companyId, supabase, includeEntities]);
 
   // ---- Click outside to close dropdown --------------------------------------
   useEffect(() => {
@@ -331,9 +360,38 @@ export default function PersonSelector({
                       )}
                     </button>
                   ))}
+
+                {/* Existing entities (opt-in) — squircle avatar + "Entité" tag */}
+                {!loading && includeEntities &&
+                  entities
+                    .filter((e) => !searchQuery || e.legal_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map((entity) => (
+                      <button
+                        key={entity.id}
+                        type="button"
+                        onClick={() => {
+                          onSelectEntity?.(entity);
+                          setDropdownOpen(false);
+                          setSearchQuery('');
+                        }}
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-700/50"
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-[11px] font-bold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                          {getInitials(entity.legal_name)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm text-zinc-900 dark:text-zinc-100">
+                            {entity.legal_name}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                          {t('entityBadge')}
+                        </span>
+                      </button>
+                    ))}
               </div>
 
-              {/* "Add new person" button */}
+              {/* "Add new person" + optional "Add a company / trust" buttons */}
               <div className="border-t border-zinc-100 p-2 dark:border-zinc-700">
                 <button
                   type="button"
@@ -343,6 +401,19 @@ export default function PersonSelector({
                   <UserPlus className="h-4 w-4" />
                   {t('addNewPerson')}
                 </button>
+                {onAddEntity && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      onAddEntity();
+                    }}
+                    className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                  >
+                    <Building2 className="h-4 w-4" />
+                    {t('addEntity')}
+                  </button>
+                )}
               </div>
             </div>
           )}

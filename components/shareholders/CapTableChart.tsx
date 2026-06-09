@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import type {
   ShareholdingWithDetails,
 } from '@/lib/supabase/people-types';
+import { holderName } from '@/lib/minute-book/holder-name';
 
 // =============================================================================
 // Types
@@ -79,18 +80,18 @@ export default function CapTableChart({
     const map = new Map<string, { name: string; quantity: number }>();
 
     shareholdings.forEach((sh) => {
-      // Atom 2: aggregate by primary holder's person_id; entity-holder rows
-      // (no person_id) are skipped here per Q-R-G2-B (entity-aware cap-table
-      // surfacing deferred to atom 3+). Display name uses transitional
-      // `.person` field with sentinel for forward-compat diagnostics.
-      const personId = sh.holders?.[0]?.person_id ?? null;
-      if (personId === null) return;
-      const existing = map.get(personId);
+      // Atom 3: aggregate by a unified holder key (person_id OR entity_id) and
+      // resolve the display name via holderName() (person full_name or entity
+      // legal_name), so entity-holders get a slice + legend row.
+      const h0 = sh.holders?.[0];
+      const key = h0?.person_id ?? h0?.entity_id ?? null;
+      if (key === null) return;
+      const existing = map.get(key);
       if (existing) {
         existing.quantity += sh.quantity;
       } else {
-        map.set(personId, {
-          name: sh.person?.full_name ?? '(unknown holder)',
+        map.set(key, {
+          name: holderName(sh.holders) ?? '(unknown holder)',
           quantity: sh.quantity,
         });
       }

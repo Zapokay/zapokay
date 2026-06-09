@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X, Loader2 } from 'lucide-react';
 import type { ShareholdingWithDetails, ShareClass } from '@/lib/supabase/people-types';
+import { holderName } from '@/lib/minute-book/holder-name';
 
 interface EditShareholdingModalProps {
   shareholding: ShareholdingWithDetails;
@@ -89,7 +90,7 @@ export default function EditShareholdingModal({
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             {locale === 'fr' ? 'Modifier les actions' : 'Edit shareholding'}
             <span className="ml-2 text-sm font-normal text-zinc-500">
-              — {shareholding.person?.full_name ?? '(unknown holder)'}
+              — {holderName(shareholding.holders) ?? '(unknown holder)'}
             </span>
           </h2>
           <button

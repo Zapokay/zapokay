@@ -184,30 +184,25 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
   const totalIssued = useMemo(() => currentShareholdings.reduce((sum, s) => sum + s.quantity, 0), [currentShareholdings]);
 
-  const shareholdingsByPerson = useMemo(() => {
-    const map = new Map<string, ShareholdingWithDetails[]>();
-    // Atom 2: group by primary holder's person_id. Entity-holder rows yield
-    // a null key and are skipped here; not exercised in atom 2's deployed
-    // state (individual-only). Entity-aware grouping is atom 3+ scope.
+  // Atom 3: group active holdings by a unified holder key (person_id OR
+  // entity_id) so entity-holders render a card like persons. Each group keeps
+  // the resolved personId (null for entities) for director/officer lookups.
+  const shareholderGroups = useMemo(() => {
+    const map = new Map<string, { key: string; personId: string | null; holdings: ShareholdingWithDetails[] }>();
+    const order: string[] = [];
     currentShareholdings.forEach((sh) => {
-      const personId = sh.holders?.[0]?.person_id ?? null;
-      if (personId === null) return;
-      const list = map.get(personId) || [];
-      list.push(sh);
-      map.set(personId, list);
+      const h0 = sh.holders?.[0];
+      const key = h0?.person_id ?? h0?.entity_id ?? null;
+      if (key === null) return;
+      let group = map.get(key);
+      if (!group) {
+        group = { key, personId: h0?.person_id ?? null, holdings: [] };
+        map.set(key, group);
+        order.push(key);
+      }
+      group.holdings.push(sh);
     });
-    return map;
-  }, [currentShareholdings]);
-
-  const shareholderPersonIds = useMemo(() => {
-    const seen = new Set<string>();
-    const ids: string[] = [];
-    currentShareholdings.forEach((sh) => {
-      const personId = sh.holders?.[0]?.person_id ?? null;
-      if (personId === null) return;
-      if (!seen.has(personId)) { seen.add(personId); ids.push(personId); }
-    });
-    return ids;
+    return order.map((k) => map.get(k)!);
   }, [currentShareholdings]);
 
   const nextCertificateNumber = useMemo(() => {
@@ -305,13 +300,13 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
               {locale === 'fr' ? 'Actionnaires' : 'Shareholders'}
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              {shareholderPersonIds.map((personId) => (
+              {shareholderGroups.map((group) => (
                 <ShareholderCard
-                  key={personId}
-                  shareholdings={shareholdingsByPerson.get(personId) || []}
+                  key={group.key}
+                  shareholdings={group.holdings}
                   totalIssuedShares={totalIssued}
-                  directorMandates={getDirectorMandatesForPerson(personId)}
-                  officerAppointments={getOfficerAppointmentsForPerson(personId)}
+                  directorMandates={group.personId ? getDirectorMandatesForPerson(group.personId) : []}
+                  officerAppointments={group.personId ? getOfficerAppointmentsForPerson(group.personId) : []}
                   onEdit={(sh) => setEditingShareholding(sh)}
                   onEndShareholding={(sh) => setEndingShareholding(sh)}
                   getIssuanceAct={(id) => actsMap.get(`shareholding|${id}|issuance`)}

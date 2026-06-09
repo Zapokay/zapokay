@@ -120,13 +120,17 @@ export default function ShareholderCard({
     );
   }
 
-  // Atom 2: ShareholdingWithDetails.person is nullable (Q-R-G2-C transitional).
-  // In practice unreachable here — ShareholdersClient.tsx's shareholderPersonIds
-  // already filters out null-person rows upstream. The guard is a type-honesty
-  // formality, removed in atom 3 when the card is rebuilt for entity holders.
-  if (shareholdings.length === 0 || !shareholdings[0].person) return null;
-
-  const person = shareholdings[0].person;
+  // Atom 3: resolve identity from the primary holder by kind (person | entity).
+  if (shareholdings.length === 0) return null;
+  const holder = shareholdings[0].holders?.[0] ?? null;
+  const isEntity = holder?.holder_type === 'entity';
+  const entity = holder?.entity ?? null;
+  const person = holder?.person ?? shareholdings[0].person ?? null;
+  if (!isEntity && !person) return null; // individual with no person → unrenderable
+  const displayName = isEntity ? (entity?.legal_name ?? '—') : (person?.full_name ?? '—');
+  const descriptorLabelKey = isEntity && entity?.entity_descriptor
+    ? ({ corporation: 'descriptorCorporation', holding: 'descriptorHolding', nonprofit: 'descriptorNonprofit' } as const)[entity.entity_descriptor]
+    : null;
   const totalQuantity = shareholdings.reduce((sum, s) => sum + s.quantity, 0);
   const pct = totalIssuedShares > 0 ? Math.round((totalQuantity / totalIssuedShares) * 100) : 0;
 
@@ -158,16 +162,26 @@ export default function ShareholderCard({
       {/* Avatar + info */}
       <div className="flex items-start gap-4">
         <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold"
+          className={`flex h-12 w-12 shrink-0 items-center justify-center text-base font-bold ${isEntity ? 'rounded-xl' : 'rounded-full'}`}
           style={{ background: 'var(--person-avatar-bg)', color: 'var(--person-avatar-text)' }}
         >
-          {getInitials(person.full_name)}
+          {getInitials(displayName)}
         </div>
 
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold text-[var(--text-heading)]">
-            {person.full_name}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="truncate text-base font-semibold text-[var(--text-heading)]">
+              {displayName}
+            </h3>
+            {isEntity && (
+              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                {t('entityBadge')}
+              </span>
+            )}
+          </div>
+          {isEntity && descriptorLabelKey && (
+            <p className="text-xs text-[var(--text-muted)]">{t(descriptorLabelKey)}</p>
+          )}
           <p className="mt-0.5 text-sm text-[var(--text-muted)]">
             {totalQuantity.toLocaleString(locale === 'fr' ? 'fr-CA' : 'en-CA')}{' '}
             {locale === 'fr' ? 'actions' : 'shares'}{' '}
