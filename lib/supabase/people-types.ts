@@ -140,10 +140,13 @@ export type ShareholdingInsert =
 // ---------------------------------------------------------------------------
 export type ShareholderEntityType = 'trust' | 'corporation';
 
+export type EntityDescriptor = 'corporation' | 'holding' | 'nonprofit';
+
 export interface ShareholderEntity {
   id: string;
   company_id: string;
   entity_type: ShareholderEntityType;
+  entity_descriptor: EntityDescriptor | null;
   legal_name: string;
   jurisdiction: string | null;
   entity_number: string | null;
