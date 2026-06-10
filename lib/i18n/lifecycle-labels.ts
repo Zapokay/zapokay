@@ -23,6 +23,7 @@
 
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
+import type { ShareholderEntitySignatoryRole } from '@/lib/supabase/people-types';
 
 export type LifecycleLocale = 'fr' | 'en';
 export type EndReasonScope = 'director' | 'officer' | 'shareholder';
@@ -152,4 +153,28 @@ export function getOfficerTitleLabel(
     throw new Error(`getOfficerTitleLabel: unknown title "${title}"`);
   }
   return entry[locale];
+}
+
+/**
+ * Signatory-role labels for entity signatories (Atom 3 Slice 2b-ii). Reuses the
+ * canonical OFFICER_TITLE_LABELS for the 4 overlapping roles (single source per
+ * §8.48 — reference, not copy) + 'trustee'. 'custom' is modal chrome: its select
+ * option label + the free-text custom_role are i18n / user content, not this map.
+ */
+const SIGNATORY_ROLE_LABELS: Record<
+  Exclude<ShareholderEntitySignatoryRole, 'custom'>,
+  Record<LifecycleLocale, string>
+> = {
+  trustee:        { fr: 'Fiduciaire', en: 'Trustee' },
+  president:      OFFICER_TITLE_LABELS.president,
+  vice_president: OFFICER_TITLE_LABELS.vice_president,
+  secretary:      OFFICER_TITLE_LABELS.secretary,
+  treasurer:      OFFICER_TITLE_LABELS.treasurer,
+};
+
+export function getSignatoryRoleLabel(
+  role: Exclude<ShareholderEntitySignatoryRole, 'custom'>,
+  locale: LifecycleLocale,
+): string {
+  return SIGNATORY_ROLE_LABELS[role][locale];
 }

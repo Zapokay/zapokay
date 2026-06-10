@@ -3,16 +3,43 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
-import { X, Zap, Loader2 } from 'lucide-react';
+import { X, Zap, Loader2, Plus } from 'lucide-react';
 import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
-import type { ShareClass, ShareholderEntityType, EntityDescriptor, ShareholderEntity } from '@/lib/supabase/people-types';
+import type { ShareClass, ShareholderEntityType, EntityDescriptor, ShareholderEntity, ShareholderEntitySignatoryRole } from '@/lib/supabase/people-types';
+import { getSignatoryRoleLabel } from '@/lib/i18n/lifecycle-labels';
 import { logActivity } from '@/lib/activity-log';
 
 // =============================================================================
 // Types
 // =============================================================================
+
+// Slice 2b-ii — one signatory form row (new-entity branch only).
+type SignatoryFormRow = {
+  key: string;
+  personValue: PersonSelectorValue | null;
+  role: '' | ShareholderEntitySignatoryRole; // '' = unpicked (force-pick per §8.36)
+  customRole: string;
+  startDate: string; // 'YYYY-MM-DD', '' = unpicked
+};
+
+// Named roles for the select (5); 'custom' is a separate option below them.
+const SIGNATORY_ROLES: Exclude<ShareholderEntitySignatoryRole, 'custom'>[] = [
+  'trustee', 'president', 'vice_president', 'secretary', 'treasurer',
+];
+
+// Force-pick (§8.36): a row is complete only with a person, a role, a custom_role
+// when role==='custom', and a start date. Zero rows is valid (additive picker).
+function signatoryRowsComplete(rows: SignatoryFormRow[]): boolean {
+  return rows.every(
+    (r) =>
+      r.personValue !== null &&
+      r.role !== '' &&
+      (r.role !== 'custom' || r.customRole.trim() !== '') &&
+      r.startDate !== '',
+  );
+}
 
 interface IssueSharesModalProps {
   companyId: string;
@@ -67,6 +94,8 @@ export default function IssueSharesModal({
   const [entAddressPostal, setEntAddressPostal] = useState('');
   // Existing-entity selection (parallel path — not a new entity, reuse entity_id).
   const [selectedExistingEntity, setSelectedExistingEntity] = useState<ShareholderEntity | null>(null);
+  // Slice 2b-ii — signatory rows for the NEW-entity branch (0 allowed; additive).
+  const [signatoryRows, setSignatoryRows] = useState<SignatoryFormRow[]>([]);
 
   // Update default share class if list changes
   useEffect(() => {
@@ -86,6 +115,10 @@ export default function IssueSharesModal({
       }
       if (entityType === 'corporation' && !entityNumber.trim()) {
         setError(t('errorNeq'));
+        return;
+      }
+      if (!signatoryRowsComplete(signatoryRows)) {
+        setError(t('signatoryIncomplete'));
         return;
       }
     } else if (!personValue) {
@@ -127,8 +160,43 @@ export default function IssueSharesModal({
         holderName = selectedExistingEntity.legal_name;
         holderDetails = { entity_id: selectedExistingEntity.id };
       } else if (entityMode) {
-        // Call 1 — atomic entity + (zero) signatories. entity_descriptor is sent
-        // only for corporations ('' → NULL for trusts, satisfying the Slice-1 CHECK).
+        // Slice 2b-ii: resolve each signatory row's person_id (INSERT new persons
+        // first, mirroring the person-path shape). Widens the non-atomic window
+        // (N person INSERTs + entity + shareholding) — tracked as Queue #161, accepted.
+        const p_signatories: Array<{ person_id: string; role: string; custom_role: string | null; start_date: string }> = [];
+        for (const r of signatoryRows) {
+          let sigPersonId: string;
+          if (r.personValue!.mode === 'new') {
+            const { data: np, error: npErr } = await supabase
+              .from('company_people')
+              .insert({
+                company_id: companyId,
+                full_name: r.personValue!.fullName,
+                email: r.personValue!.email || null,
+                phone: r.personValue!.phone || null,
+                address_line1: r.personValue!.addressLine1 || null,
+                address_city: r.personValue!.addressCity || null,
+                address_province: r.personValue!.addressProvince || null,
+                address_postal_code: r.personValue!.addressPostalCode || null,
+                address_country: r.personValue!.addressCountry,
+                is_canadian_resident: r.personValue!.isCanadianResident,
+              })
+              .select('id')
+              .single();
+            if (npErr || !np) throw new Error(npErr?.message || 'Failed to create signatory person');
+            sigPersonId = np.id;
+          } else {
+            sigPersonId = r.personValue!.personId;
+          }
+          p_signatories.push({
+            person_id: sigPersonId,
+            role: r.role,
+            custom_role: r.role === 'custom' ? r.customRole.trim() : null,
+            start_date: r.startDate,
+          });
+        }
+
+        // Call 1 — atomic entity + its signatory roster (0..N).
         const { data: entityId, error: entErr } = await supabase.rpc('create_entity_with_signatories', {
           p_entity: {
             company_id: companyId,
@@ -143,7 +211,7 @@ export default function IssueSharesModal({
             address_province: entAddressProvince,
             address_postal_code: entAddressPostal.trim(),
           },
-          p_signatories: [],
+          p_signatories,
         });
         if (entErr) throw new Error(entErr.message);
         holders = [{ holder_type: 'entity', entity_id: entityId as string }];
@@ -218,6 +286,7 @@ export default function IssueSharesModal({
   }, [
     personValue,
     selectedExistingEntity,
+    signatoryRows,
     entityMode,
     entityType,
     legalName,
@@ -448,8 +517,103 @@ export default function IssueSharesModal({
                 </div>
               </div>
 
-              {/* Signatories come in Slice 2b-ii — visible, deliberate absence */}
-              <p className="text-[11px] text-zinc-400">{t('signatoriesNote')}</p>
+              {/* Signatories (Slice 2b-ii) — 0 allowed; additive, force-pick per row */}
+              <div className="space-y-3 border-t border-amber-200/60 pt-3 dark:border-amber-800/40">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                  {t('signatoriesTitle')}
+                </p>
+                {signatoryRows.map((row) => (
+                  <div
+                    key={row.key}
+                    className="space-y-2 rounded-md border border-amber-200/70 bg-white/50 p-3 dark:border-amber-800/40 dark:bg-zinc-800/30"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <PersonSelector
+                          companyId={companyId}
+                          value={row.personValue}
+                          onChange={(pv) =>
+                            setSignatoryRows((rows) => rows.map((r) => (r.key === row.key ? { ...r, personValue: pv } : r)))
+                          }
+                          label={t('person')}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={t('removeSignatory')}
+                        onClick={() => setSignatoryRows((rows) => rows.filter((r) => r.key !== row.key))}
+                        className="mt-1 shrink-0 rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                          {t('role')} <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={row.role}
+                          onChange={(e) =>
+                            setSignatoryRows((rows) =>
+                              rows.map((r) => (r.key === row.key ? { ...r, role: e.target.value as SignatoryFormRow['role'] } : r)),
+                            )
+                          }
+                          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="">{t('rolePlaceholder')}</option>
+                          {SIGNATORY_ROLES.map((rk) => (
+                            <option key={rk} value={rk}>{getSignatoryRoleLabel(rk, locale)}</option>
+                          ))}
+                          <option value="custom">{t('customRoleOption')}</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                          {t('signatoryStartDate')} <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={row.startDate}
+                          max={new Date().toISOString().split('T')[0]}
+                          onChange={(e) =>
+                            setSignatoryRows((rows) => rows.map((r) => (r.key === row.key ? { ...r, startDate: e.target.value } : r)))
+                          }
+                          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </div>
+                    </div>
+                    {row.role === 'custom' && (
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                          {t('customRoleLabel')} <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={row.customRole}
+                          onChange={(e) =>
+                            setSignatoryRows((rows) => rows.map((r) => (r.key === row.key ? { ...r, customRole: e.target.value } : r)))
+                          }
+                          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSignatoryRows((rows) => [
+                      ...rows,
+                      { key: crypto.randomUUID(), personValue: null, role: '', customRole: '', startDate: '' },
+                    ])
+                  }
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('addSignatory')}
+                </button>
+              </div>
             </div>
           )}
 
@@ -584,7 +748,7 @@ export default function IssueSharesModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || shareClasses.length === 0 || !issueDate || (selectedExistingEntity ? false : entityMode ? !legalName.trim() : !personValue)}
+            disabled={saving || shareClasses.length === 0 || !issueDate || (selectedExistingEntity ? false : entityMode ? (!legalName.trim() || !signatoryRowsComplete(signatoryRows)) : !personValue)}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
