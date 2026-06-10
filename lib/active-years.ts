@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { parseLocalDate } from '@/lib/utils'
 
 export async function getActiveYears(
   companyId: string,
@@ -31,7 +32,7 @@ export function fiscalYearForDate(
   fiscalYearEndMonth: number,
   fiscalYearEndDay: number
 ): number {
-  const d = new Date(dateISO);
+  const d = parseLocalDate(dateISO); // TZ-safe: bare YYYY-MM-DD must parse as LOCAL midnight (#159 / §8.54 chokepoint), else a FY-first-day rolls back to the prior FY in UTC-negative zones
   const year = d.getFullYear();
   const month = d.getMonth() + 1; // 1-12
   const day = d.getDate();
