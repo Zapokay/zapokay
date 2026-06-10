@@ -7,17 +7,28 @@
 // plumbing the `year` prop through (GenerateDocumentButton → SignatoriesModal).
 // See also /api/documents/signatories/route.ts for the matching backend TODO.
 import { useState, useEffect } from 'react';
-import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
+import { useTranslations } from 'next-intl';
+import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 
-interface PersonOption extends Signatory {
-  selected: boolean;
+/** A block plus modal-local selection state. Selection is per-block: an entity
+ *  selects as ONE unit (its signers travel together — Atom 3 Slice 4 D2). */
+type SelectableBlock = SignatoryBlock & { selected: boolean };
+
+/** Stable selection key. Entity blocks key on entityId, individuals on id —
+ *  disjoint UUID spaces, and a dual-capacity person (D4) yields two rows
+ *  (one individual, one entity-signer) that toggle independently. */
+function blockKey(b: SignatoryBlock): string {
+  return b.type === 'entity' ? `entity:${b.entityId}` : `individual:${b.id}`;
 }
 
 interface SignatoriesModalProps {
   companyId: string;
   requirementKey: string;
   allRequired?: boolean;
-  onConfirm: (signatories: Signatory[]) => void;
+  /** Document language — drives the signature-block role labels returned by the
+   *  route (independent of UI locale; Two-Layer model, CLAUDE.md §3). */
+  documentLanguage?: 'fr' | 'en';
+  onConfirm: (signatories: SignatoryBlock[]) => void;
   onClose: () => void;
   locale?: string;
 }
@@ -26,27 +37,29 @@ export function SignatoriesModal({
   companyId,
   requirementKey,
   allRequired = false,
+  documentLanguage = 'fr',
   onConfirm,
   onClose,
   locale = 'fr',
 }: SignatoriesModalProps) {
   const fr = locale === 'fr';
-  const [people, setPeople] = useState<PersonOption[]>([]);
+  const tDocs = useTranslations('documents');
+  const [blocks, setBlocks] = useState<SelectableBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchSignatories() {
       try {
-        const params = new URLSearchParams({ companyId, requirementKey });
+        const params = new URLSearchParams({ companyId, requirementKey, language: documentLanguage });
         const res = await fetch(`/api/documents/signatories?${params}`);
         const data = await res.json();
         if (!res.ok || data.error) {
           setFetchError(data.error ?? (fr ? 'Erreur de chargement.' : 'Loading error.'));
           return;
         }
-        setPeople(
-          (data.signatories as Signatory[]).map((s) => ({ ...s, selected: true }))
+        setBlocks(
+          (data.signatories as SignatoryBlock[]).map((b) => ({ ...b, selected: true }))
         );
       } catch {
         setFetchError(fr ? 'Erreur réseau.' : 'Network error.');
@@ -55,21 +68,28 @@ export function SignatoriesModal({
       }
     }
     fetchSignatories();
-  }, [companyId, requirementKey, fr]);
+  }, [companyId, requirementKey, documentLanguage, fr]);
 
-  function toggle(id: string) {
+  function toggle(key: string) {
     if (allRequired) return;
-    setPeople((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, selected: !p.selected } : p))
+    setBlocks((prev) =>
+      prev.map((b) => (blockKey(b) === key ? { ...b, selected: !b.selected } : b))
     );
   }
 
   function handleConfirm() {
-    const selected = people.filter((p) => p.selected);
-    onConfirm(selected.map(({ id, name, role }) => ({ id, name, role })));
+    const selected = blocks.filter((b) => b.selected);
+    // Strip modal-local `selected`; emit clean SignatoryBlock[] (entity blocks
+    // carry all their signers).
+    onConfirm(
+      selected.map((b) => {
+        const { selected: _omit, ...block } = b;
+        return block as SignatoryBlock;
+      })
+    );
   }
 
-  const selectedCount = people.filter((p) => p.selected).length;
+  const selectedCount = blocks.filter((b) => b.selected).length;
 
   return (
     <div
@@ -152,41 +172,70 @@ export function SignatoriesModal({
             </div>
           )}
 
-          {!loading && !fetchError && people.length === 0 && (
+          {!loading && !fetchError && blocks.length === 0 && (
             <p style={{ fontSize: '14px', color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
               {fr ? 'Aucun signataire trouvé.' : 'No signatories found.'}
             </p>
           )}
 
-          {!loading && !fetchError && people.map((person) => (
-            <label
-              key={person.id}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '12px',
-                padding: '10px 12px', borderRadius: '8px', marginBottom: '6px',
-                border: '1px solid var(--card-border)',
-                cursor: allRequired ? 'default' : 'pointer',
-                background: person.selected ? 'var(--info-bg)' : 'transparent',
-                transition: 'background 120ms',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={person.selected}
-                disabled={allRequired}
-                onChange={() => toggle(person.id)}
-                style={{ width: '16px', height: '16px', accentColor: 'var(--text-heading)', cursor: allRequired ? 'default' : 'pointer' }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                  {person.name}
+          {!loading && !fetchError && blocks.map((block) => {
+            const key = blockKey(block);
+            return (
+              <label
+                key={key}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '12px',
+                  padding: '10px 12px', borderRadius: '8px', marginBottom: '6px',
+                  border: '1px solid var(--card-border)',
+                  cursor: allRequired ? 'default' : 'pointer',
+                  background: block.selected ? 'var(--info-bg)' : 'transparent',
+                  transition: 'background 120ms',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={block.selected}
+                  disabled={allRequired}
+                  onChange={() => toggle(key)}
+                  style={{ width: '16px', height: '16px', marginTop: '2px', accentColor: 'var(--text-heading)', cursor: allRequired ? 'default' : 'pointer' }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {block.type === 'individual' ? (
+                    <>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                        {block.name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        {block.role}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        {block.legalName}
+                      </div>
+                      {block.signers.length > 0 ? (
+                        <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          {block.signers.map((s) => (
+                            <div key={s.id} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                              {fr ? 'Par' : 'Per'} : {s.name} — {s.roleLabel}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{
+                          marginTop: '4px', fontSize: '12px', lineHeight: 1.4,
+                          color: 'var(--warning-text, var(--text-muted))',
+                        }}>
+                          {tDocs('entityNoSignatoriesNote')}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {person.role}
-                </div>
-              </div>
-            </label>
-          ))}
+              </label>
+            );
+          })}
         </div>
 
         {/* Footer */}

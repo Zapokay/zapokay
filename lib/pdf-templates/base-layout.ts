@@ -210,6 +210,23 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
   .sig-title { font-size: 11px; color: ${COLORS.gray}; }
   .sig-date { font-size: 10px; color: ${COLORS.lightGray}; margin-top: 0.2em; }
 
+  /* Atom 3 Slice 4 — grouped entity signature blocks (spec §4.2.1) */
+  .sig-entry-entity { margin-bottom: 2em; }
+  .sig-entity-name {
+    font-weight: 700; font-size: 13px;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    margin-bottom: 0.8em;
+  }
+  .sig-par { margin-bottom: 0.9em; }
+  .sig-par-line { font-size: 12px; }
+  .sig-par-label { font-size: 12px; }
+  .sig-line-inline {
+    display: inline-block; width: 180px;
+    border-top: 1px solid ${COLORS.black};
+    margin-left: 0.4em; vertical-align: middle;
+  }
+  .sig-par-name { font-size: 11px; color: ${COLORS.gray}; margin: 0.25em 0 0 2.5em; }
+
   /* ── Table styles ── */
   table.register {
     width: 100%;

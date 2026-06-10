@@ -4,19 +4,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { generatePdfDocument } from '@/lib/pdf/generatePdfDocument';
-import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
+import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 
 export async function POST(request: NextRequest) {
   try {
-    const { companyId, requirementKey, signatories, year, resolutionDate } =
+    const { companyId, requirementKey, signatories, year, resolutionDate, language } =
       (await request.json()) as {
         companyId: string;
         requirementKey: string;
-        signatories?: Signatory[];
+        signatories?: SignatoryBlock[];
         /** Optional — fiscal year for annual requirements. Omitted for foundational. */
         year?: number;
         /** Optional — ISO date (YYYY-MM-DD) to stamp on the document. */
         resolutionDate?: string;
+        /** Optional — document language (Two-Layer model). Defaults to 'fr'. */
+        language?: 'fr' | 'en';
       };
 
     if (!companyId || !requirementKey) {
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest) {
       year,
       resolutionDate,
       signatories,
+      language,
     });
 
     if (!result.ok) {

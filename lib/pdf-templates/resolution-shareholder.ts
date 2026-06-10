@@ -1,6 +1,6 @@
 import { baseLayoutHTML, escapeHtml } from './base-layout';
 import { signatureBlocksHTML } from './signature-blocks';
-import type { Signatory } from './signature-blocks';
+import type { SignatoryBlock } from './signature-blocks';
 
 export interface ShareholderResolutionData {
   companyName: string;
@@ -11,7 +11,7 @@ export interface ShareholderResolutionData {
   shareholders: { name: string; shares: number; class?: string }[];
   resolutions: { number: number; title: string; body: string }[];
   language: 'fr' | 'en' | 'bilingual';
-  signatories?: Signatory[];
+  signatories?: SignatoryBlock[];
 }
 
 const LABELS = {

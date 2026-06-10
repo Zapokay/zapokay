@@ -1,13 +1,15 @@
 'use client';
 import { useState } from 'react';
-import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
+import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 
 interface GenerateParams {
   companyId: string;
   requirementKey: string;
   /** Fiscal year for annual requirements. Null/undefined for foundational. */
   year?: number | null;
-  signatories?: Signatory[];
+  /** Document language (Two-Layer model). Defaults to 'fr' server-side. */
+  language?: 'fr' | 'en';
+  signatories?: SignatoryBlock[];
 }
 
 interface GenerateResult {

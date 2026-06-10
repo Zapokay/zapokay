@@ -4,13 +4,20 @@ import { Sparkles } from 'lucide-react';
 import { SignatoriesModal } from './SignatoriesModal';
 import { useGenerateWithSignatories } from './useGenerateWithSignatories';
 import { getSignatoryType, isAllSignatoriesRequired } from '@/lib/requirement-map';
-import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
+import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 
 interface GenerateDocumentButtonProps {
   companyId: string;
   requirementKey: string;
   /** Fiscal year for annual requirements. Null/undefined for foundational. */
   year?: number | null;
+  /**
+   * Document language for the generated PDF + its signature-block role labels.
+   * DISTINCT from `locale` (UI chrome): the Two-Layer model (CLAUDE.md §3) keeps
+   * document language independent of UI locale — never pass `locale` here.
+   * Defaults to 'fr'; EN ships dormant until a parent wires preferred_language (#2).
+   */
+  documentLanguage?: 'fr' | 'en';
   onSuccess?: (documentId: string, fileName: string) => void;
   locale?: string;
   /** Optional label override */
@@ -28,6 +35,7 @@ export function GenerateDocumentButton({
   companyId,
   requirementKey,
   year,
+  documentLanguage = 'fr',
   onSuccess,
   locale = 'fr',
   label,
@@ -49,21 +57,23 @@ export function GenerateDocumentButton({
     if (needsModal) {
       setIsFetching(true);
       try {
-        const params = new URLSearchParams({ companyId, requirementKey });
+        const params = new URLSearchParams({ companyId, requirementKey, language: documentLanguage });
         const res = await fetch(`/api/documents/signatories?${params}`);
         const data = await res.json();
         if (!res.ok) {
           setPreCheckError(fr ? 'Erreur lors du chargement des signataires.' : 'Error loading signatories.');
           return;
         }
-        const fetched = data.signatories as Signatory[];
+        // Block count: a single entity (even with N signers) is one block and
+        // still skips the modal — its signers travel as a unit.
+        const fetched = data.signatories as SignatoryBlock[];
         if (fetched.length === 0) {
           setPreCheckError(NO_SIGNATORIES_ERROR[signatoryType] ?? 'Aucun signataire enregistré.');
           return;
         }
         if (fetched.length === 1) {
-          // Single signatory — no need for selection, generate immediately
-          const result = await generate({ companyId, requirementKey, year, signatories: fetched });
+          // Single signatory block — no need for selection, generate immediately
+          const result = await generate({ companyId, requirementKey, year, language: documentLanguage, signatories: fetched });
           if (result) onSuccess?.(result.documentId, result.fileName);
           return;
         }
@@ -74,14 +84,14 @@ export function GenerateDocumentButton({
         setIsFetching(false);
       }
     } else {
-      const result = await generate({ companyId, requirementKey, year });
+      const result = await generate({ companyId, requirementKey, year, language: documentLanguage });
       if (result) onSuccess?.(result.documentId, result.fileName);
     }
   }
 
-  async function handleConfirm(signatories: Signatory[]) {
+  async function handleConfirm(signatories: SignatoryBlock[]) {
     setShowModal(false);
-    const result = await generate({ companyId, requirementKey, year, signatories });
+    const result = await generate({ companyId, requirementKey, year, language: documentLanguage, signatories });
     if (result) onSuccess?.(result.documentId, result.fileName);
   }
 
@@ -141,6 +151,7 @@ export function GenerateDocumentButton({
           companyId={companyId}
           requirementKey={requirementKey}
           allRequired={allRequired}
+          documentLanguage={documentLanguage}
           onConfirm={handleConfirm}
           onClose={() => setShowModal(false)}
           locale={locale}

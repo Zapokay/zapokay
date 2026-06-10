@@ -10,6 +10,7 @@ import {
   coverPageHTML,
 } from '@/lib/pdf-templates';
 import type { BoardResolutionData, ShareholderResolutionData, CoverPageData } from '@/lib/pdf-templates';
+import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 
 interface BoardResolutionInput {
   companyName: string;
@@ -20,7 +21,7 @@ interface BoardResolutionInput {
   language?: 'fr' | 'en' | 'bilingual';
   directors?: { name: string; title: string }[];
   resolutions?: { number: number; title: string; body: string }[];
-  signatories?: { id: string; name: string; role: string }[];
+  signatories?: SignatoryBlock[];
 }
 
 interface ShareholderResolutionInput {
@@ -32,7 +33,7 @@ interface ShareholderResolutionInput {
   language?: 'fr' | 'en' | 'bilingual';
   shareholders?: { name: string; shares: number; shareClass?: string; class?: string }[];
   resolutions?: { number: number; title: string; body: string }[];
-  signatories?: { id: string; name: string; role: string }[];
+  signatories?: SignatoryBlock[];
 }
 
 interface CoverPageInput {

@@ -25,7 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { logActivity } from '@/lib/activity-log';
 import { generatePDF } from '@/lib/pdf/generatePDF';
-import type { Signatory } from '@/lib/pdf-templates/signature-blocks';
+import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 
 /* ------------------------------------------------------------------ */
 /*  Requirement → document type mapping                                */
@@ -112,7 +112,7 @@ export interface GeneratePdfDocumentParams {
   resolutionDate?: string;
   /** Optional caller-provided signatory override. When present, replaces the
    *  current-state DB-resolved signature block in the rendered PDF. */
-  signatories?: Signatory[];
+  signatories?: SignatoryBlock[];
   /** Document language. Defaults to 'fr'. */
   language?: 'fr' | 'en';
 }
