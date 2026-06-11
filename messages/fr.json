@@ -585,7 +585,8 @@
         "closeAriaLabel": "Fermer la fenêtre",
         "disclaimer": {
           "heading": "Signataires actuels uniquement",
-          "body": "Les signataires affichés correspondent aux administrateurs et actionnaires actuels. Vérifiez qu'ils étaient bien en poste à la date de chaque résolution avant signature."
+          "body": "Les signataires affichés correspondent aux administrateurs et actionnaires actuels. Vérifiez qu'ils étaient bien en poste à la date de chaque résolution avant signature.",
+          "entityNote": "Les entités sans signataires enregistrés recevront une ligne de signature à remplir à la main."
         },
         "yearGroup": {
           "title": "Exercice {year}",

@@ -423,6 +423,9 @@ export default function BulkCatchUpModal({
               <p className="mt-1 text-sm text-[var(--warning-text)]">
                 {t('modal.disclaimer.body')}
               </p>
+              <p className="mt-1 text-sm text-[var(--warning-text)]">
+                {t('modal.disclaimer.entityNote')}
+              </p>
             </div>
 
             {/* Year groups */}

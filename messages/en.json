@@ -585,7 +585,8 @@
         "closeAriaLabel": "Close dialog",
         "disclaimer": {
           "heading": "Current signatories only",
-          "body": "The signatories shown reflect current directors and shareholders. For documents dated to past fiscal years, verify that the listed signatories were actually in office on the resolution date."
+          "body": "The signatories shown reflect current directors and shareholders. For documents dated to past fiscal years, verify that the listed signatories were actually in office on the resolution date.",
+          "entityNote": "Entities with no registered signatories will receive a blank signature line to complete by hand."
         },
         "yearGroup": {
           "title": "Fiscal Year {year}",

@@ -14,11 +14,19 @@
  */
 
 export const dynamic = 'force-dynamic';
+// 2026-06-10 Data-Cache incident (#164): supabase-js PostgREST reads flow through
+// Next's patched on-disk fetch cache, which survives server restarts; `force-dynamic`
+// alone is INSUFFICIENT. Force no-store so the per-batch signatory/roster reads
+// resolved here are always live — without it the stale-roster bug reappears here.
+export const fetchCache = 'force-no-store';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { generatePdfDocument } from '@/lib/pdf/generatePdfDocument';
+import { getSignatoryType } from '@/lib/requirement-map';
+import { resolveSignatoryBlocks } from '@/lib/documents/resolve-signatory-blocks';
+import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -30,7 +38,11 @@ interface BulkItem {
   resolutionDate: string; // YYYY-MM-DD
 }
 
-export type BulkErrorCode = 'not_found' | 'cannot_generate' | 'internal';
+export type BulkErrorCode =
+  | 'not_found'
+  | 'cannot_generate'
+  | 'internal'
+  | 'signatory_resolution_failed';
 
 export type BulkGenerateResult =
   | {
@@ -185,12 +197,48 @@ export async function POST(request: NextRequest) {
     }
     const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
 
+    /* ---------- Per-batch signatory memo (data can't change mid-batch) ---------- */
+    // Atom 3 Slice 5 — resolve the grouped signatory roster ONCE per signatoryType
+    // for the whole batch (≤2 types: board / shareholder), not per item. The PROMISE
+    // is cached synchronously before any await, so concurrent workers share one
+    // in-flight query. A rejected resolution fails only that type's items (per-item
+    // isolation); the batch continues.
+    const signatoryCache = new Map<'board' | 'shareholder', Promise<SignatoryBlock[]>>();
+    const resolveFor = (st: 'board' | 'shareholder'): Promise<SignatoryBlock[]> => {
+      let p = signatoryCache.get(st);
+      if (!p) {
+        p = resolveSignatoryBlocks(supabaseAdmin, company.id, st, 'fr');
+        signatoryCache.set(st, p);
+      }
+      return p;
+    };
+
     /* ---------- Fan out, concurrency-limited, order-preserving ---------- */
     const results: BulkGenerateResult[] = await runWithConcurrency(
       items,
       CONCURRENCY,
       async (item): Promise<BulkGenerateResult> => {
         try {
+          // Atom 3 Slice 5 — resolve grouped signatory blocks (board/shareholder)
+          // so catch-up resolutions get the same blocks as the interactive path.
+          // Non-resolution keys (signatoryType null) pass no signatories. Language
+          // is the uniform 'fr' default (Two-Layer; EN dormant until #2 — D5-3).
+          const st = getSignatoryType(item.requirementKey);
+          let signatories: SignatoryBlock[] | undefined;
+          if (st) {
+            try {
+              signatories = await resolveFor(st);
+            } catch (sigErr) {
+              console.error('[bulk-generate] Signatory resolution failed:', sigErr);
+              return {
+                ok: false,
+                error: 'Erreur lors de la résolution des signataires.',
+                errorCode: 'signatory_resolution_failed',
+                requirementKey: item.requirementKey,
+                fiscalYear: item.fiscalYear,
+              };
+            }
+          }
           const res = await generatePdfDocument({
             supabaseAdmin,
             userId: user.id,
@@ -198,6 +246,8 @@ export async function POST(request: NextRequest) {
             requirementKey: item.requirementKey,
             year: item.fiscalYear,
             resolutionDate: item.resolutionDate,
+            signatories,
+            language: 'fr',
           });
           if (res.ok) {
             return {
