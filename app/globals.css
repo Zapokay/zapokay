@@ -460,6 +460,46 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   gap: 10px;
 }
 
+/* ─── Language toggle (#146 — shared, pixel-identical across all surfaces) ─── */
+.lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--neutral-100);
+  border: 1px solid var(--card-border);
+}
+.lang-toggle__chip {
+  height: 28px;
+  line-height: 28px;
+  padding: 0 11px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.lang-toggle__chip:hover:not(.lang-toggle__chip--active) {
+  color: var(--text-heading);
+  background: var(--hover);
+}
+.lang-toggle__chip--active {
+  background: var(--navy-900);
+  color: #FFFFFF;
+  cursor: default;
+}
+[data-theme="dark"] .lang-toggle__chip--active {
+  background: var(--amber-400);
+  color: var(--navy-900);
+}
+
 .page-content {
   flex: 1;
   overflow-y: auto;

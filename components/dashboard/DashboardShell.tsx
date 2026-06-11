@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CompanySwitcher } from '@/components/dashboard/CompanySwitcher';
 import { YearPicker } from '@/components/ui/YearPicker';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 import type { UserProfile, Company } from '@/lib/types';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -105,8 +106,6 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
   }
 
   const initials = profile.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? 'DR';
-  const otherLocale = locale === 'fr' ? 'en' : 'fr';
-  const otherLabel = locale === 'fr' ? 'EN' : 'FR';
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--page-bg)]">
@@ -285,18 +284,7 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
               />
             )}
 
-            <button
-              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors bg-transparent border-none cursor-pointer"
-              onClick={() => {
-                // Two-Layer (CLAUDE.md §3): the UI locale toggle changes ONLY the URL/UI
-                // locale. It must NOT mutate users.preferred_language (the document
-                // generation language) — that changes only via Settings (#156 A3).
-                const newPath = pathname.replace(`/${locale}/`, `/${otherLocale}/`);
-                router.replace(newPath);
-              }}
-            >
-              {otherLabel}
-            </button>
+            <LanguageToggle />
           </div>
         </div>
 

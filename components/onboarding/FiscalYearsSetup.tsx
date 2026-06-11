@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { computeDefaultActiveYears } from '@/lib/active-years'
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
+import LanguageToggle from '@/components/ui/LanguageToggle'
 
 interface FiscalYearsSetupProps {
   locale: string
@@ -135,24 +136,7 @@ export function FiscalYearsSetup({
           <a href="#" style={{ fontSize: '12px', color: 'var(--text-secondary)', textDecoration: 'none' }}>
             {fr ? 'Aide' : 'Help'}
           </a>
-          <div style={{ display: 'flex', gap: '2px' }}>
-            {(['fr', 'en'] as const).map(lang => (
-              <a
-                key={lang}
-                href={`/${lang}/onboarding/fiscal-years`}
-                style={{
-                  padding: '3px 8px', fontSize: '10px', fontWeight: 600,
-                  borderRadius: '5px', border: '1px solid #E6E4DE',
-                  cursor: 'pointer', transition: 'all 120ms',
-                  background: locale === lang ? '#1C1A17' : 'white',
-                  color: locale === lang ? 'white' : '#7A7066',
-                  textDecoration: 'none',
-                }}
-              >
-                {lang.toUpperCase()}
-              </a>
-            ))}
-          </div>
+          <LanguageToggle />
         </div>
       </header>
 

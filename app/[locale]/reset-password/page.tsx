@@ -1,11 +1,9 @@
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { getTranslations } from 'next-intl/server';
-import Link from 'next/link';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 
 export default async function ResetPasswordPage({ params: { locale } }: { params: { locale: string } }) {
   const t = await getTranslations('auth.resetPassword');
-  const otherLocale = locale === 'fr' ? 'en' : 'fr';
-  const otherLabel = locale === 'fr' ? 'EN' : 'FR';
   const fr = locale === 'fr';
 
   return (
@@ -59,12 +57,9 @@ export default async function ResetPasswordPage({ params: { locale } }: { params
 
       {/* Right panel */}
       <div className="flex-1 flex flex-col items-center justify-center min-h-screen px-8 py-12 bg-[var(--page-bg)] relative">
-        <Link
-          href={`/${otherLocale}/reset-password`}
-          className="absolute top-6 right-6 text-xs text-[var(--text-muted)] hover:text-[var(--text-heading)] transition-colors"
-        >
-          {otherLabel}
-        </Link>
+        <div className="absolute top-6 right-6">
+          <LanguageToggle />
+        </div>
         <div className="w-full max-w-md">
           <h1 className="font-sora text-2xl font-semibold text-[var(--text-heading)] mb-1">{t('title')}</h1>
           <p className="text-sm text-[var(--text-muted)] mb-8">{t('subtitle')}</p>

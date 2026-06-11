@@ -12,6 +12,7 @@ import StepOfficers, { type OnboardingOfficers } from './StepOfficers';
 import StepCelebration from './StepCelebration';
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 
 interface OnboardingFlowProps {
   locale: string;
@@ -302,24 +303,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
           <a href="#" style={{ fontSize: '12px', color: 'var(--text-secondary)', textDecoration: 'none' }}>
             {fr ? 'Aide' : 'Help'}
           </a>
-          {/* Lang toggle */}
-          <div style={{ display: 'flex', gap: '2px' }}>
-            {(['fr', 'en'] as const).map(lang => (
-              <button
-                key={lang}
-                onClick={() => setData(d => ({ ...d, language: lang }))}
-                style={{
-                  padding: '3px 8px', fontSize: '10px', fontWeight: 600,
-                  borderRadius: '5px', border: '1px solid #E6E4DE',
-                  cursor: 'pointer', transition: 'all 120ms',
-                  background: activeLocale === lang ? '#1C1A17' : 'white',
-                  color: activeLocale === lang ? 'white' : '#7A7066',
-                }}
-              >
-                {lang.toUpperCase()}
-              </button>
-            ))}
-          </div>
+          <LanguageToggle />
         </div>
       </header>
 
