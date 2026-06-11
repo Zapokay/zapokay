@@ -1,4 +1,5 @@
 'use client';
+import { useRouter, usePathname } from 'next/navigation';
 import type { OnboardingData, Language } from '@/lib/types';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import frMessages from '@/messages/fr.json';
@@ -13,14 +14,20 @@ interface StepProps {
 }
 
 export function StepLanguage({ data, setData, onNext, locale }: StepProps) {
-  const fr = data.language === 'fr' || locale === 'fr';
-  // Static-import pattern (see project_onboarding_dual_locale memory):
-  // useTranslations() reads URL locale and would diverge from `fr` boolean above
-  // when user toggles language via the OnboardingFlow header pill.
+  const router = useRouter();
+  const pathname = usePathname();
+  // #146 (option iii): step-1 display follows the URL locale, like every other step.
+  const fr = locale === 'fr';
+  // Static-import pattern (see project_onboarding_dual_locale memory): mirror the URL
+  // locale without a render-time useTranslations() dependency.
   const ob = (fr ? frMessages : enMessages).onboarding;
 
   function select(lang: Language) {
+    // Sets the document-language preference (→ preferred_language) AND navigates so the
+    // onboarding display follows the pick (#146 option iii), using the same path-rewrite
+    // as LanguageToggle. The draft write-effect persists data.language before the async nav.
     setData(d => ({ ...d, language: lang }));
+    if (lang !== locale) router.replace(pathname.replace(`/${locale}/`, `/${lang}/`));
   }
 
   const globeIcon = (

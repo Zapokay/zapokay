@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Language, OnboardingData } from '@/lib/types';
@@ -23,17 +23,57 @@ interface OnboardingFlowProps {
 const TOTAL_STEPS = 8;
 const today = new Date().toISOString().split('T')[0];
 
+// #146 Phase D: in-progress onboarding draft persisted to sessionStorage so input
+// survives a locale switch (URL nav remounts the flow) AND a page refresh. Per-user
+// key; a corrupt or old-version draft is discarded (try/catch + version gate) and
+// never crashes onboarding.
+const DRAFT_VERSION = 1;
+
+interface OnboardingDraft {
+  v: number;
+  step: number;
+  data: OnboardingData;
+  companyId: string | null;
+  incorporationDate: string;
+  directors: OnboardingDirector[];
+  shareholders: OnboardingShareholder[];
+  officers: OnboardingOfficers;
+}
+
+function onboardingDraftKey(userId: string) {
+  return `zapokay:onboarding-draft:${userId}`;
+}
+
+function readOnboardingDraft(userId: string): OnboardingDraft | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(onboardingDraftKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.v === DRAFT_VERSION ? (parsed as OnboardingDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [step, setStep] = useState(1);
+  // #146 Phase D: read any saved draft ONCE at mount. The lazy initializers below
+  // restore it on the FIRST render (no flash). data.language is restored from the draft
+  // (the step-1 document-language pick) so it survives the toggle/radio navigation;
+  // onboarding CONTENT follows the URL locale regardless (activeLocale, below).
+  const [draft] = useState<OnboardingDraft | null>(() => readOnboardingDraft(userId));
+
+  const [step, setStep] = useState(() => draft?.step ?? 1);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // BUG 5 fix: always default to French
-  const [data, setData] = useState<OnboardingData>({
-    language: 'fr',
+  // No draft → default the document-language preference to the URL locale (#146 B3),
+  // not a hardcoded 'fr'. The step-1 radio is the only user control that changes it.
+  const [data, setData] = useState<OnboardingData>(() => draft?.data ?? {
+    language: locale as Language,
     company: {
       legalName: '',
       incorporationType: 'LSAQ',
@@ -46,21 +86,35 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
     officer: { fullName: '', role: 'director', startDate: today },
   });
 
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [incorporationDate, setIncorporationDate] = useState(today);
+  const [companyId, setCompanyId] = useState<string | null>(() => draft?.companyId ?? null);
+  const [incorporationDate, setIncorporationDate] = useState(() => draft?.incorporationDate ?? today);
 
-  const [directors, setDirectors] = useState<OnboardingDirector[]>([]);
-  const [shareholders, setShareholders] = useState<OnboardingShareholder[]>([]);
-  const [officers, setOfficers] = useState<OnboardingOfficers>({
+  const [directors, setDirectors] = useState<OnboardingDirector[]>(() => draft?.directors ?? []);
+  const [shareholders, setShareholders] = useState<OnboardingShareholder[]>(() => draft?.shareholders ?? []);
+  const [officers, setOfficers] = useState<OnboardingOfficers>(() => draft?.officers ?? {
     presidentName: '',
     secretaryName: '',
     treasurerName: '',
   });
 
-  // BUG 2 fix: use user's selected language, not URL locale
-  const activeLocale = data.language || (locale as Language);
+  // #146 (option iii): onboarding CONTENT follows the URL locale. data.language is
+  // the independent document-language preference (→ preferred_language), set ONLY by
+  // the step-1 radio — the UI/URL toggle must never write it (CLAUDE.md §3 Two-Layer).
+  const activeLocale = locale as Language;
   const fr = activeLocale === 'fr';
   const stepLabels = (activeLocale === 'fr' ? frMessages : enMessages).onboarding.stepLabels;
+
+  // #146 Phase D: persist the draft on every state commit. React batches the setState
+  // calls, so this is one coalesced write per commit — not per keystroke.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const payload: OnboardingDraft = { v: DRAFT_VERSION, step, data, companyId, incorporationDate, directors, shareholders, officers };
+    try {
+      window.sessionStorage.setItem(onboardingDraftKey(userId), JSON.stringify(payload));
+    } catch {
+      /* sessionStorage full/unavailable — draft is best-effort, never blocks onboarding */
+    }
+  }, [userId, step, data, companyId, incorporationDate, directors, shareholders, officers]);
 
   // ── Step 3 → 4: save company + province to DB ────────────────────────────
   async function handleProvinceContinue() {
@@ -79,23 +133,26 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
           ? 'LSA'
           : data.company.incorporationType;
 
-      const { data: company, error } = await supabase
-        .from('companies')
-        .insert({
-          user_id: userId,
-          legal_name_fr: data.company.legalName,
-          legal_name_en: data.company.legalName,
-          incorporation_type: dbType,
-          incorporation_number: data.company.incorporationNumber || null,
-          neq: data.company.incorporationNumber || null,
-          incorporation_date: data.company.incorporationDate || null,
-          province: data.company.province,
-          fiscal_year_end_month: data.company.fiscalYearEndMonth,
-          fiscal_year_end_day: data.company.fiscalYearEndDay,
-          status: 'active',
-        })
-        .select()
-        .single();
+      const companyPayload = {
+        user_id: userId,
+        legal_name_fr: data.company.legalName,
+        legal_name_en: data.company.legalName,
+        incorporation_type: dbType,
+        incorporation_number: data.company.incorporationNumber || null,
+        neq: data.company.incorporationNumber || null,
+        incorporation_date: data.company.incorporationDate || null,
+        province: data.company.province,
+        fiscal_year_end_month: data.company.fiscalYearEndMonth,
+        fiscal_year_end_day: data.company.fiscalYearEndDay,
+        status: 'active',
+      };
+
+      // #146 Phase E: if a draft restored an existing companyId (user switched locale or
+      // refreshed AFTER step 3 created the row), UPDATE that row instead of inserting a
+      // second company — prevents a duplicate company on resume.
+      const { data: company, error } = companyId
+        ? await supabase.from('companies').update(companyPayload).eq('id', companyId).select().single()
+        : await supabase.from('companies').insert(companyPayload).select().single();
 
       if (error) throw error;
 
@@ -274,8 +331,10 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
       preferred_language: data.language,
       onboarding_completed: true,
     });
-    router.push(`/${data.language}/onboarding/fiscal-years`);
-  }, [userId, data.language, supabase, router]);
+    // #146 Phase D: onboarding done — clear the draft so a fresh start can't resurrect it.
+    try { window.sessionStorage.removeItem(onboardingDraftKey(userId)); } catch {}
+    router.push(`/${locale}/onboarding/fiscal-years`);
+  }, [userId, data.language, locale, supabase, router]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--page-bg)' }}>

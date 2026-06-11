@@ -100,7 +100,7 @@
     },
     "step1Title": "Choisissez votre langue",
     "step1Subtitle": "Vous pourrez changer cela à tout moment.",
-    "languageNote": "Cette langue sera utilisée pour l'interface ET les documents que ZapOkay génère pour vous (résolutions, certificats, etc.). Vous pourrez changer chacune indépendamment plus tard dans Paramètres pour la génération de documents et en haut à droite pour la langue de l'interface.",
+    "languageNote": "C'est la langue des documents que ZapOkay génère pour vous — résolutions, certificats, etc. — que vous pourrez modifier plus tard dans les Paramètres. La langue de l'interface est indépendante : changez-la à tout moment avec le sélecteur en haut à droite.",
     "incorporationDatePlaceholder": "AAAA-MM-JJ",
     "incorporationDateRequired": "La date de constitution est requise",
     "incorporationDateFuture": "La date de constitution ne peut pas être dans le futur",
