@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export async function POST(request: NextRequest) {
   const { neq } = (await request.json()) as { neq?: string };
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ exists: false }, { status: 500 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createServiceClient();
 
   const { data } = await supabase
     .from('companies')

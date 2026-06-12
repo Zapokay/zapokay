@@ -20,7 +20,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import { generateLifecycleDocument } from '@/lib/pdf/generate-lifecycle-document';
 
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
-    const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAdmin = createServiceClient();
 
     /* ---------- Delegate ---------- */
 

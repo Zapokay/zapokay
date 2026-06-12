@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 import { filePathFromFileUrl } from '@/lib/storage-path';
 
 interface SummaryKeyPoint {
@@ -58,10 +58,7 @@ export async function POST(req: NextRequest) {
     if (!serviceKey) {
       return NextResponse.json({ error: 'summary_unavailable' }, { status: 422 })
     }
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceKey
-    );
+    const supabaseAdmin = createServiceClient();
     const { data: signedData, error: signedError } = await supabaseAdmin
       .storage
       .from('documents')

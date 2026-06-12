@@ -16,7 +16,7 @@ export const fetchCache = 'force-no-store';
 // per-fiscal-year join) to the mandates + shareholdings tables.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 import { getSignatoryType, isAllSignatoriesRequired } from '@/lib/requirement-map';
 import {
   resolveSignatoryBlocks,
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createServiceClient();
 
   // Atom 3 Slice 5 — block-building moved VERBATIM into the shared resolver
   // (lib/documents/resolve-signatory-blocks.ts) so bulk-generate resolves the

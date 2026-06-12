@@ -1,6 +1,6 @@
 // app/api/documents/[id]/download/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 import { createClient as createSessionClient } from '@/lib/supabase/server';
 import { filePathFromFileUrl } from '@/lib/storage-path';
 import { toStorageSafeName } from '@/lib/storage-key';
@@ -46,10 +46,7 @@ export async function GET(
     // Ownership proven above. The service-role client reads the bytes from
     // storage (unchanged behaviour; bypasses storage RLS, which is fine now
     // that the requester is confirmed to own the document).
-    const serviceClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const serviceClient = createServiceClient();
     const { data: fileData, error: dlError } = await serviceClient.storage
       .from('documents')
       .download(storagePath);

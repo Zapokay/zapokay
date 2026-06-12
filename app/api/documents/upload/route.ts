@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import { uploadDocument, type UploadDocumentParams } from '@/lib/upload-document';
 import { isPdfBytes } from '@/lib/pdf-magic';
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json({ ok: false, error: 'Server misconfigured' }, { status: 500 });
     }
-    const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAdmin = createServiceClient();
 
     /* ---------- Reuse the shared pipeline wholesale (no reimplementation) ---------- */
     const result = await uploadDocument({

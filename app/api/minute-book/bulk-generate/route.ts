@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import { generatePdfDocument } from '@/lib/pdf/generatePdfDocument';
 import { getSignatoryType } from '@/lib/requirement-map';
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
-    const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAdmin = createServiceClient();
 
     /* ---------- Per-batch signatory memo (data can't change mid-batch) ---------- */
     // Atom 3 Slice 5 — resolve the grouped signatory roster ONCE per signatoryType

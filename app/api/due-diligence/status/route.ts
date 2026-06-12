@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 
 /* ------------------------------------------------------------------ */
 /*  Keys pouvant être générés automatiquement (vraies clés DB)         */
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createServiceClient();
 
     /* ---------- Récupérer le framework de l'entreprise ---------- */
 
