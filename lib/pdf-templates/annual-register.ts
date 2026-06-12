@@ -132,6 +132,11 @@ export function annualRegisterHTML(data: AnnualRegisterData): string {
   return baseLayoutHTML({
     companyName: data.companyName,
     neq: data.neq,
+    // ⚠️ #74 / §8.31 — `l.title` is a HARDCODED title that shadows the authoritative document title.
+    // This template is currently DEAD CODE (no caller; not dispatched by generatePDF.ts). If/when a
+    // register-PDF surface is wired up, do NOT ship this as-is: plumb the real document title in
+    // (registers are NOT requirement docs, so there's no title_fr/title_en to mirror d81be61 — the
+    // title source is a design decision to make then). Shipping `l.title` live = the #17 bug, reborn.
     documentTitle: l.title,
     documentSubtitle: l.subtitle(data.fiscalYear),
     bodyContent,

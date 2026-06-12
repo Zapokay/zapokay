@@ -106,18 +106,14 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
               className="bg-[var(--card-bg)] rounded-xl max-w-md w-full p-6 shadow-2xl"
             >
               <h3 className="text-base font-semibold text-[var(--text-body)] mb-3">
-                {fr ? 'Format PDF requis' : 'PDF format required'}
+                {tDocs('pdfRequired.title')}
               </h3>
               <div className="space-y-3 text-sm text-[var(--text-body)]">
                 <p>
-                  {fr
-                    ? "Les documents de votre livre de minutes doivent être en format PDF pour assurer la lisibilité à long terme, l'intégrité des archives et la conformité légale. D'autres formats (.docx, .pages, images) ne peuvent pas être acceptés."
-                    : 'Documents in your minute book must be PDFs to ensure long-term legibility, archive integrity, and legal compliance. Other formats (.docx, .pages, images) cannot be accepted.'}
+                  {tDocs('pdfRequired.body1')}
                 </p>
                 <p>
-                  {fr
-                    ? 'Pour convertir : ouvrez votre document et utilisez «\u00A0Enregistrer au format PDF\u00A0» ou «\u00A0Imprimer en PDF\u00A0».'
-                    : "To convert: open your document and use 'Save as PDF' or 'Print to PDF'."}
+                  {tDocs('pdfRequired.body2')}
                 </p>
               </div>
               <div className="flex justify-end mt-5">
@@ -125,7 +121,7 @@ export function UploadZone({ companyId, framework, locale, activeFiscalYears = [
                   onClick={() => setShowPdfModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--navy-600)] text-white hover:bg-[var(--navy-800)] transition-colors"
                 >
-                  {fr ? 'Compris' : 'Got it'}
+                  {tDocs('pdfRequired.gotIt')}
                 </button>
               </div>
             </div>

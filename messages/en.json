@@ -213,6 +213,12 @@
     "sessionExpired": "Session expired. Please sign in again.",
     "yearRequired": "Please select the fiscal year for this annual document.",
     "titleRequired": "Please enter a document title.",
+    "pdfRequired": {
+      "title": "PDF format required",
+      "body1": "Documents in your minute book must be PDFs to ensure long-term legibility, archive integrity, and legal compliance. Other formats (.docx, .pages, images) cannot be accepted.",
+      "body2": "To convert: open your document and use 'Save as PDF' or 'Print to PDF'.",
+      "gotIt": "Got it"
+    },
     "types": {
       "statuts": "Articles",
       "resolution": "Resolution",
@@ -494,7 +500,32 @@
     "settings": "Settings",
     "signOut": "Sign out"
   },
+  "generate": {
+    "missingParams": "Missing required information.",
+    "serverError": "Server configuration error. Please try again later.",
+    "cannotGenerate": "This document can't be generated automatically.",
+    "companyNotFound": "Company not found.",
+    "sessionExpired": "Session expired. Please sign in again.",
+    "generationFailed": "Document generation failed. Please try again.",
+    "networkError": "Network error. Please try again."
+  },
   "minuteBook": {
+    "completeness": {
+      "title": "Completeness",
+      "requirementNotFound": "Requirement not found.",
+      "documentUploaded": "Document uploaded.",
+      "exportBook": "Export book",
+      "complete": "complete",
+      "uploaded": "uploaded",
+      "toSign": "to sign",
+      "missing": "missing",
+      "legendSignedUploaded": "Signed and uploaded",
+      "legendToSign": "To sign",
+      "legendToGenerate": "To generate or upload",
+      "loadError": "Unable to load minute book.",
+      "foundingDocuments": "Founding documents",
+      "noDocumentsForYear": "No documents for this fiscal year. Use the catch-up assistant to generate the missing resolutions."
+    },
     "tabs": {
       "completude": "Completeness",
       "livre": "Binder"

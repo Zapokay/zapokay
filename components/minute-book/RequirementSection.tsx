@@ -58,6 +58,7 @@ export default function RequirementSection({
   onEventFileSelected,
 }: RequirementSectionProps) {
   const tEvents = useTranslations('events');
+  const tMB = useTranslations('minuteBook');
   const satisfiedCount = items.filter((i) => i.satisfied).length;
   const totalCount = items.length;
 
@@ -102,8 +103,7 @@ export default function RequirementSection({
             <div className="mx-4 my-3 flex items-start gap-3 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3">
               <AlertTriangle className="h-5 w-5 text-[var(--warning-text)] flex-shrink-0 mt-0.5" />
               <p className="text-sm text-[var(--warning-text)]">
-                Aucun document pour cet exercice. Utilisez l&apos;assistant de
-                rattrapage pour générer les résolutions manquantes.
+                {tMB('completeness.noDocumentsForYear')}
               </p>
             </div>
           )}
@@ -113,6 +113,7 @@ export default function RequirementSection({
               requirementKey={item.requirement_key}
               titleFr={(item.document_language ?? preferredLanguage) === 'en' ? item.title_en : item.title_fr}
               descriptionFr={item.description_fr}
+              descriptionEn={item.description_en}
               satisfied={item.satisfied}
               source={item.source}
               documentIsFinalized={item.document_is_finalized}

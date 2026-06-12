@@ -213,6 +213,12 @@
     "sessionExpired": "Session expirée. Veuillez vous reconnecter.",
     "yearRequired": "Veuillez sélectionner l'exercice de ce document annuel.",
     "titleRequired": "Veuillez saisir un titre de document.",
+    "pdfRequired": {
+      "title": "Format PDF requis",
+      "body1": "Les documents de votre livre de minutes doivent être en format PDF pour assurer la lisibilité à long terme, l'intégrité des archives et la conformité légale. D'autres formats (.docx, .pages, images) ne peuvent pas être acceptés.",
+      "body2": "Pour convertir : ouvrez votre document et utilisez « Enregistrer au format PDF » ou « Imprimer en PDF ».",
+      "gotIt": "Compris"
+    },
     "types": {
       "statuts": "Statuts",
       "resolution": "Résolution",
@@ -494,7 +500,32 @@
     "settings": "Paramètres",
     "signOut": "Déconnexion"
   },
+  "generate": {
+    "missingParams": "Informations requises manquantes.",
+    "serverError": "Erreur de configuration du serveur. Veuillez réessayer plus tard.",
+    "cannotGenerate": "Ce document ne peut pas être généré automatiquement.",
+    "companyNotFound": "Entreprise introuvable.",
+    "sessionExpired": "Session expirée. Veuillez vous reconnecter.",
+    "generationFailed": "Échec de la génération du document. Veuillez réessayer.",
+    "networkError": "Erreur réseau. Veuillez réessayer."
+  },
   "minuteBook": {
+    "completeness": {
+      "title": "Complétude",
+      "requirementNotFound": "Exigence introuvable.",
+      "documentUploaded": "Document téléversé.",
+      "exportBook": "Exporter le livre",
+      "complete": "complet",
+      "uploaded": "téléversés",
+      "toSign": "à signer",
+      "missing": "manquants",
+      "legendSignedUploaded": "Signé et téléversé",
+      "legendToSign": "À signer",
+      "legendToGenerate": "À générer ou à téléverser",
+      "loadError": "Impossible de charger le livre de minutes.",
+      "foundingDocuments": "Documents fondateurs",
+      "noDocumentsForYear": "Aucun document pour cet exercice. Utilisez l'assistant de rattrapage pour générer les résolutions manquantes."
+    },
     "tabs": {
       "completude": "Complétude",
       "livre": "Livre"

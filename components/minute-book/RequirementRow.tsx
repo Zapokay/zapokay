@@ -10,6 +10,7 @@ interface RequirementRowProps {
   requirementKey: string;
   titleFr: string;
   descriptionFr: string | null;
+  descriptionEn: string | null;
   satisfied: boolean;
   source?: 'uploaded' | 'generated' | null;
   /**
@@ -37,6 +38,7 @@ export default function RequirementRow({
   requirementKey,
   titleFr,
   descriptionFr,
+  descriptionEn,
   satisfied,
   source,
   documentIsFinalized,
@@ -51,6 +53,10 @@ export default function RequirementRow({
   const t = useTranslations('requirementRow');
   const tDocs = useTranslations('documents');
   const [showDescription, setShowDescription] = useState(false);
+  // #149 — the requirement description is catalog CHROME (the seed provides both
+  // description_fr AND description_en), so it follows the UI locale — unlike the
+  // document title above, which follows the doc's generation language (Two-Layer).
+  const description = locale === 'en' ? descriptionEn : descriptionFr;
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -110,7 +116,7 @@ export default function RequirementRow({
           >
             {titleFr}
           </span>
-          {descriptionFr && (
+          {description && (
             <button
               type="button"
               onMouseEnter={() => setShowDescription(true)}
@@ -120,7 +126,7 @@ export default function RequirementRow({
               <Info className="h-4 w-4" />
               {showDescription && (
                 <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs text-[var(--text-body)] shadow-lg">
-                  {descriptionFr}
+                  {description}
                 </div>
               )}
             </button>

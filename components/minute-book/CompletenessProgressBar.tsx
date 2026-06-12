@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 interface CompletenessProgressBarProps {
   score: number;
   /** When true, render an inline "{score}% complete/complet" label above the bar. */
@@ -14,14 +16,13 @@ interface CompletenessProgressBarProps {
 export default function CompletenessProgressBar({
   score,
   showLabel = false,
-  locale,
 }: CompletenessProgressBarProps) {
-  const fr = locale === 'fr';
+  const tMB = useTranslations('minuteBook');
   return (
     <div className="max-w-2xl">
       {showLabel && (
         <p className="text-sm text-[var(--text-muted)] mb-2">
-          {score}% {fr ? 'complet' : 'complete'}
+          {score}% {tMB('completeness.complete')}
         </p>
       )}
       <div className="h-2 bg-[var(--card-border)] rounded-full overflow-hidden">

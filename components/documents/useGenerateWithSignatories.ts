@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
+import { generateErrorMessageKey } from '@/lib/generate-error-message';
 
 interface GenerateParams {
   companyId: string;
@@ -20,6 +22,7 @@ interface GenerateResult {
 export function useGenerateWithSignatories() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslations('generate');
 
   async function generate(params: GenerateParams): Promise<GenerateResult | null> {
     setIsGenerating(true);
@@ -38,12 +41,12 @@ export function useGenerateWithSignatories() {
       });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error ?? 'Erreur lors de la génération.');
+        setError(t(generateErrorMessageKey(data.error, res.status)));
         return null;
       }
       return { documentId: data.documentId, fileName: data.fileName };
     } catch {
-      setError('Erreur réseau.');
+      setError(t('networkError'));
       return null;
     } finally {
       setIsGenerating(false);

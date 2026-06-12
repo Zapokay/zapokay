@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     if (!companyId || !requirementKey) {
       return NextResponse.json(
-        { success: false, error: 'companyId et requirementKey sont requis.' },
+        { success: false, error: 'MISSING_PARAMS' },
         { status: 400 },
       );
     }
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        { success: false, error: 'UNAUTHORIZED' },
         { status: 401 },
       );
     }
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json(
-        { success: false, error: 'Configuration Supabase manquante.' },
+        { success: false, error: 'SERVER_MISCONFIGURED' },
         { status: 500 },
       );
     }
@@ -69,18 +69,18 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       if (result.canGenerate === false) {
         return NextResponse.json(
-          { success: false, canGenerate: false, error: result.error },
+          { success: false, canGenerate: false, error: 'CANNOT_GENERATE' },
           { status: 400 },
         );
       }
       if (result.notFound) {
         return NextResponse.json(
-          { success: false, error: result.error },
+          { success: false, error: 'COMPANY_NOT_FOUND' },
           { status: 404 },
         );
       }
       return NextResponse.json(
-        { success: false, error: result.error },
+        { success: false, error: 'GENERATION_FAILED' },
         { status: 500 },
       );
     }
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[generate-item] Full error:', error);
     return NextResponse.json(
-      { success: false, error: 'Erreur interne du serveur.' },
+      { success: false, error: 'INTERNAL_ERROR' },
       { status: 500 },
     );
   }

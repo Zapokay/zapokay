@@ -46,6 +46,7 @@ export default function CompletenessPage({
   const fr = locale === 'fr';
   const tEvents = useTranslations('events');
   const tDocs = useTranslations('documents');
+  const tMB = useTranslations('minuteBook');
   const [data, setData] = useState<CompletenessResponse | null>(null);
   // #19d Brief 1 — director + officer lifecycle acts grouped by FY. Non-fatal:
   // when the event-completeness fetch fails, this stays null and the page
@@ -123,7 +124,7 @@ export default function CompletenessPage({
         i => i.requirement_key === requirementKey && (i.year ?? null) === (year ?? null),
       );
       if (!item) {
-        addToast(fr ? 'Exigence introuvable.' : 'Requirement not found.', 'error');
+        addToast(tMB('completeness.requirementNotFound'), 'error');
         return;
       }
 
@@ -152,7 +153,7 @@ export default function CompletenessPage({
       setPickedFile(file);
       setExistingDocumentId(existingDocId);
     },
-    [addToast, data, fr, tDocs, MAX_SIZE],
+    [addToast, data, tMB, tDocs, MAX_SIZE],
   );
 
   // Brief 2 — lifecycle event-row upload. Unlike the requirement path above
@@ -211,10 +212,10 @@ export default function CompletenessPage({
         return;
       }
 
-      addToast(fr ? 'Document téléversé.' : 'Document uploaded.', 'success');
+      addToast(tMB('completeness.documentUploaded'), 'success');
       fetchEvents();
     },
-    [addToast, companyId, data, framework, fr, preferredLanguage, fetchEvents, MAX_SIZE, tDocs],
+    [addToast, companyId, data, framework, tMB, preferredLanguage, fetchEvents, MAX_SIZE, tDocs],
   );
 
   const foundationalItems: ChecklistItem[] =
@@ -315,7 +316,7 @@ export default function CompletenessPage({
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[var(--text-heading)]" style={{ fontFamily: 'Sora, sans-serif' }}>
-            {fr ? 'Complétude' : 'Completeness'}
+            {tMB('completeness.title')}
           </h1>
           <div className="flex items-center gap-3">
             <BulkCatchUpButton
@@ -328,20 +329,20 @@ export default function CompletenessPage({
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border-[1.5px] border-[var(--card-hover-border)] text-[var(--text-heading)] bg-transparent transition-colors hover:bg-[var(--hover)]"
               style={{ fontFamily: 'DM Sans, sans-serif' }}
             >
-              ↓ {fr ? 'Exporter le livre' : 'Export book'}
+              ↓ {tMB('completeness.exportBook')}
             </button>
           </div>
         </div>
         {!loading && data && (
           <>
             <p className="text-sm text-[var(--text-muted)] mt-1">
-              {data.score}% {fr ? 'complet' : 'complete'}
+              {data.score}% {tMB('completeness.complete')}
               {' · '}
-              {data.totalUploaded} {fr ? 'téléversés' : 'uploaded'}
+              {data.totalUploaded} {tMB('completeness.uploaded')}
               {' · '}
-              {data.totalGenerated} {fr ? 'à signer' : 'to sign'}
+              {data.totalGenerated} {tMB('completeness.toSign')}
               {' · '}
-              {data.totalMissing} {fr ? 'manquants' : 'missing'}
+              {data.totalMissing} {tMB('completeness.missing')}
             </p>
             <div className="mt-3">
               <CompletenessProgressBar score={data.score} locale={locale} />
@@ -349,7 +350,7 @@ export default function CompletenessPage({
             <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] mt-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
-                {fr ? 'Signé et téléversé' : 'Signed and uploaded'}
+                {tMB('completeness.legendSignedUploaded')}
               </span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1.5">
@@ -357,12 +358,12 @@ export default function CompletenessPage({
                   <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
                   <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
                 </svg>
-                {fr ? 'À signer' : 'To sign'}
+                {tMB('completeness.legendToSign')}
               </span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <XCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
-                {fr ? 'À générer ou à téléverser' : 'To generate or upload'}
+                {tMB('completeness.legendToGenerate')}
               </span>
             </div>
           </>
@@ -378,7 +379,7 @@ export default function CompletenessPage({
         )}
         {!loading && !data && (
           <p className="text-sm text-[var(--text-muted)]">
-            {fr ? 'Impossible de charger le livre de minutes.' : 'Unable to load minute book.'}
+            {tMB('completeness.loadError')}
           </p>
         )}
 
@@ -386,7 +387,7 @@ export default function CompletenessPage({
           <>
             {foundationalItems.length > 0 && (
               <RequirementSection
-                title={fr ? 'Documents fondateurs' : 'Founding documents'}
+                title={tMB('completeness.foundingDocuments')}
                 items={foundationalItems}
                 companyId={companyId}
                 locale={fr ? 'fr' : 'en'}
