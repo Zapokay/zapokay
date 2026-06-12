@@ -453,6 +453,8 @@
     "endedOn": "Terminé le {date}",
     "noHistory": "Aucun historique",
     "editEntry": "Modifier l'entrée",
+    "transferLockedBanner": "Cette détention a pris fin à la suite d'un transfert d'actions. Ses détails sont gérés par le transfert et ne peuvent pas être modifiés ici.",
+    "transferLockedBannerDated": "Cette détention a pris fin à la suite d'un transfert d'actions le {date}. Ses détails sont gérés par le transfert et ne peuvent pas être modifiés ici.",
     "endReasons": {
       "redemption": "Rachat",
       "cancellation": "Annulation",

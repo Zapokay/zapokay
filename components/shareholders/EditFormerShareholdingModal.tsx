@@ -28,6 +28,7 @@ import type {
 } from '@/lib/supabase/people-types';
 import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
 import { logActivity } from '@/lib/activity-log';
+import { formatDate } from '@/lib/utils';
 
 // =============================================================================
 // End-reason options (labels resolved via t('endReasons.{value}')) — force-pick
@@ -48,6 +49,8 @@ const END_REASON_VALUES: CessationReason[] = [
 
 interface EditFormerShareholdingModalProps {
   shareholding: ShareholdingWithDetails;
+  isTransfer: boolean;
+  transferDate?: string | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -58,6 +61,8 @@ interface EditFormerShareholdingModalProps {
 
 export default function EditFormerShareholdingModal({
   shareholding,
+  isTransfer,
+  transferDate,
   onClose,
   onSuccess,
 }: EditFormerShareholdingModalProps) {
@@ -82,9 +87,20 @@ export default function EditFormerShareholdingModal({
     holderName(shareholding.holders as unknown as RawHolder[]) ??
     (locale === 'fr' ? '(détenteur inconnu)' : '(unknown holder)');
 
+  // #139 — formatted transfer date for the read-only banner (null when the
+  // parent couldn't resolve a share_transfers row). formatDate is the date
+  // chokepoint (§8.28/§8.54) — never bare new Date().
+  const transferDateLabel = transferDate ? formatDate(transferDate, locale) : null;
+
   // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async () => {
     setError(null);
+
+    // #139 — transfer-ended holdings are fully read-only: end_date/end_reason
+    // are owned by the share_transfers record, and editing here would desync
+    // the holding from transfer_date. Save is already disabled in the UI; this
+    // early return makes the shareholdings.update below unreachable for them.
+    if (isTransfer) return;
 
     if (!endReason) {
       setError(
@@ -150,7 +166,7 @@ export default function EditFormerShareholdingModal({
     } finally {
       setSaving(false);
     }
-  }, [issueDate, endDate, endReason, shareholding, supabase, onSuccess, locale, displayName]);
+  }, [isTransfer, issueDate, endDate, endReason, shareholding, supabase, onSuccess, locale, displayName]);
 
   // ---- Render ---------------------------------------------------------------
   return (
@@ -178,6 +194,17 @@ export default function EditFormerShareholdingModal({
 
         {/* Body */}
         <div className="space-y-5 px-6 py-5">
+          {/* #139 — transfer-locked read-only notice. Matches the amber notice
+              convention used in IssueSharesModal (stock Tailwind amber palette).
+              Points to the share transfer record that owns this holding's end
+              details. */}
+          {isTransfer && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/10 dark:text-amber-300">
+              {transferDateLabel
+                ? t('transferLockedBannerDated', { date: transferDateLabel })
+                : t('transferLockedBanner')}
+            </div>
+          )}
           {/* Holder (read-only) */}
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -207,12 +234,18 @@ export default function EditFormerShareholdingModal({
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               {t('issueDate')}
             </label>
-            <input
-              type="date"
-              value={issueDate}
-              onChange={(e) => setIssueDate(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            />
+            {isTransfer ? (
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100">
+                {formatDate(issueDate, locale)}
+              </div>
+            ) : (
+              <input
+                type="date"
+                value={issueDate}
+                onChange={(e) => setIssueDate(e.target.value)}
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            )}
           </div>
 
           {/* End date */}
@@ -220,12 +253,18 @@ export default function EditFormerShareholdingModal({
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               {t('endDate')}
             </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            />
+            {isTransfer ? (
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100">
+                {endDate ? formatDate(endDate, locale) : '—'}
+              </div>
+            ) : (
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            )}
           </div>
 
           {/* End reason — force-pick */}
@@ -233,22 +272,28 @@ export default function EditFormerShareholdingModal({
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               {t('endReason')}
             </label>
-            <select
-              value={endReason}
-              onChange={(e) =>
-                setEndReason(e.target.value as CessationReason | '')
-              }
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            >
-              <option value="">
-                {locale === 'fr' ? '— Sélectionner —' : '— Select —'}
-              </option>
-              {END_REASON_VALUES.map((value) => (
-                <option key={value} value={value}>
-                  {t(`endReasons.${value}`)}
+            {isTransfer ? (
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100">
+                {t(`endReasons.${shareholding.end_reason}`)}
+              </div>
+            ) : (
+              <select
+                value={endReason}
+                onChange={(e) =>
+                  setEndReason(e.target.value as CessationReason | '')
+                }
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              >
+                <option value="">
+                  {locale === 'fr' ? '— Sélectionner —' : '— Select —'}
                 </option>
-              ))}
-            </select>
+                {END_REASON_VALUES.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`endReasons.${value}`)}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Error */}
@@ -272,7 +317,7 @@ export default function EditFormerShareholdingModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !endReason}
+            disabled={saving || !endReason || isTransfer}
             className="flex items-center gap-2 rounded-lg bg-[var(--amber-400)] px-5 py-2 text-sm font-semibold text-[var(--cta-text)] shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

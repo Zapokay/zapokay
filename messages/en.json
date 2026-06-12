@@ -453,6 +453,8 @@
     "endedOn": "Ended {date}",
     "noHistory": "No history",
     "editEntry": "Edit entry",
+    "transferLockedBanner": "This holding was ended by a share transfer. Its details are managed by the transfer record and can't be edited here.",
+    "transferLockedBannerDated": "This holding was ended by a share transfer on {date}. Its details are managed by the transfer record and can't be edited here.",
     "endReasons": {
       "redemption": "Redemption",
       "cancellation": "Cancellation",

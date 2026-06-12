@@ -527,6 +527,8 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
       {editingFormerShareholding && (
         <EditFormerShareholdingModal
           shareholding={editingFormerShareholding}
+          isTransfer={editingFormerShareholding.end_reason === 'transfer'}
+          transferDate={transferByFromShId.get(editingFormerShareholding.id)?.transfer_date ?? null}
           onClose={() => setEditingFormerShareholding(null)}
           onSuccess={() => { setEditingFormerShareholding(null); fetchData(); }}
         />
