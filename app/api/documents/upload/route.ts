@@ -90,6 +90,28 @@ export async function POST(request: NextRequest) {
     const isFinalized = str('isFinalized') === 'true';
     const replaceDocumentId = str('replaceDocumentId') || undefined;
 
+    /* ---------- Body-content validation (Brief #4 — server safety-nets) ----------
+       Both guards close the raw-API / future-caller hole; the two UI callers
+       (UploadDocumentModal, CompletenessPage) already send valid data, so these
+       never fire on normal traffic. Structured codes only (no inline FR/EN) —
+       mapped to copy client-side via lib/upload-error-message.ts. */
+    const title = str('title');
+    const docYear = numOrNull('docYear');
+    const requirementYear = numOrNull('requirementYear');
+
+    // Guard 1 — year-required-for-annual. requirementYear non-null is the only
+    // false-positive-safe annual signal (the annual/foundational/lifecycle
+    // category is NOT on the upload contract; foundational + hors-exercice docs
+    // are legitimately yearless). Presence check only — NOT docYear === requirementYear
+    // (the UI already sends them in agreement; equality could reject unvalidated edges).
+    if (requirementYear !== null && docYear === null) {
+      return NextResponse.json({ ok: false, error: 'YEAR_REQUIRED_FOR_ANNUAL' }, { status: 400 });
+    }
+    // Guard 2 — title must be non-empty after trim (uploadDocument writes title.trim()).
+    if (!title.trim()) {
+      return NextResponse.json({ ok: false, error: 'TITLE_REQUIRED' }, { status: 400 });
+    }
+
     /* ---------- Service-role admin client (mirror generate-item) ---------- */
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -104,12 +126,12 @@ export async function POST(request: NextRequest) {
       companyId,
       userId: user.id,            // SESSION-derived, never the body (Adjustment 2)
       supabaseClient: supabaseAdmin,
-      title: str('title'),
+      title,
       docType: str('docType'),
       language: str('language'),
-      docYear: numOrNull('docYear'),
+      docYear,
       requirementKey: str('requirementKey') || null,
-      requirementYear: numOrNull('requirementYear'),
+      requirementYear,
       framework,
       requirements,
       isFinalized,

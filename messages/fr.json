@@ -211,6 +211,8 @@
     "uploadFailed": "Échec du téléversement.",
     "forbidden": "Vous n'avez pas accès à cette société.",
     "sessionExpired": "Session expirée. Veuillez vous reconnecter.",
+    "yearRequired": "Veuillez sélectionner l'exercice de ce document annuel.",
+    "titleRequired": "Veuillez saisir un titre de document.",
     "types": {
       "statuts": "Statuts",
       "resolution": "Résolution",

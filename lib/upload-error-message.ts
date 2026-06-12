@@ -13,6 +13,8 @@
  * Mapping (see route.ts error vocabulary):
  *   - 'NON_PDF_REJECTED'          → 'onlyPdf'        (400 — magic-byte gate)
  *   - 'FILE_TOO_LARGE'            → 'tooLarge'       (400 — > 20 MB)
+ *   - 'YEAR_REQUIRED_FOR_ANNUAL'  → 'yearRequired'   (400 — Brief #4 Guard 1)
+ *   - 'TITLE_REQUIRED'            → 'titleRequired'  (400 — Brief #4 Guard 2)
  *   - status 403 / 'Forbidden'    → 'forbidden'      (cross-tenant / ownership)
  *   - status 401 / 'Unauthorized' → 'sessionExpired' (no/expired session)
  *   - anything else (incl. raw    → 'uploadFailed'   (generic fallback)
@@ -21,6 +23,8 @@
 export function uploadErrorMessageKey(errorCode?: string, status?: number): string {
   if (errorCode === 'NON_PDF_REJECTED') return 'onlyPdf';
   if (errorCode === 'FILE_TOO_LARGE') return 'tooLarge';
+  if (errorCode === 'YEAR_REQUIRED_FOR_ANNUAL') return 'yearRequired';
+  if (errorCode === 'TITLE_REQUIRED') return 'titleRequired';
   if (status === 403 || errorCode === 'Forbidden') return 'forbidden';
   if (status === 401 || errorCode === 'Unauthorized') return 'sessionExpired';
   return 'uploadFailed';
