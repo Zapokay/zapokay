@@ -292,6 +292,11 @@ RESOLVED THAT:
 Adopted on {{resolutionDate}}.`,
   },
 
+  // ⚠️ YELLOW — PENDING LAWYER GREEN — DO NOT SHIP UNVALIDATED.
+  // The transfer-restrictions recital below (FR "a vérifié que ce transfert est conforme
+  // aux restrictions" / EN "has verified that this transfer complies with the restrictions")
+  // is Harvey-prepared content (Form A, 2026-06-12) awaiting external-lawyer validation.
+  // Pre-launch only. A pre-launch grep for "PENDING LAWYER GREEN" must return ZERO before ship.
   share_transfer: {
     docKey: 'share_transfer',
     instrument: 'board',
@@ -312,6 +317,8 @@ RECONNAISSANT UN TRANSFERT D'ACTIONS
 
 ATTENDU QUE {{transferorName}} a transféré {{quantity}} action(s) de catégorie {{shareClassName}} à {{transfereeName}} en date du {{transferDate}}{{considerationClause}};
 
+ATTENDU QUE le conseil d'administration a vérifié que ce transfert est conforme aux restrictions au transfert d'actions applicables à la société, le cas échéant (notamment toute clause d'agrément, droit de premier refus, convention entre actionnaires ou restriction prévue aux statuts);
+
 ATTENDU QUE le conseil d'administration souhaite reconnaître ce transfert et mettre à jour les registres de la société en conséquence;
 
 IL EST RÉSOLU :
@@ -329,6 +336,8 @@ BOARD RESOLUTION
 ACKNOWLEDGING A SHARE TRANSFER
 
 WHEREAS {{transferorName}} transferred {{quantity}} share(s) of class {{shareClassName}} to {{transfereeName}} on {{transferDate}}{{considerationClause}};
+
+WHEREAS the board of directors has verified that this transfer complies with the restrictions on the transfer of shares applicable to the corporation, if any (including any approval requirement, right of first refusal, shareholders' agreement, or restriction set out in the articles);
 
 WHEREAS the board of directors wishes to acknowledge this transfer and update the company's registers accordingly;
 
