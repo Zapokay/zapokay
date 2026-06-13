@@ -72,7 +72,10 @@ async function getBrowser(): Promise<Browser> {
  * Generate a PDF buffer from a self-contained HTML string.
  * Fonts must be loaded via @import inside the HTML <style>.
  */
-export async function generatePDF(html: string): Promise<Buffer> {
+export async function generatePDF(
+  html: string,
+  footer?: { docName: string; companyLabel: string; dateLabel: string },
+): Promise<Buffer> {
   const browser = await getBrowser();
   const page = await browser.newPage();
 
@@ -82,8 +85,17 @@ export async function generatePDF(html: string): Promise<Buffer> {
     const pdf = await page.pdf({
       format: 'Letter',
       printBackground: true,
-      displayHeaderFooter: false,
-      margin: { top: '3.5cm', right: '0', bottom: '2cm', left: '0' },
+      // Footer present (resolutions) → Puppeteer bottom-pinned footer + the
+      // smaller top margin (the header now flows in-table via <thead>). Footer
+      // absent (e.g. cover page) → unchanged behaviour, including the old margins.
+      displayHeaderFooter: !!footer,
+      ...(footer
+        ? {
+            headerTemplate: '<span></span>', // empty — header is in-table (thead)
+            footerTemplate: `<div style="width:100%; font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,sans-serif; font-size:9px; color:#A09A93; padding:0.7cm 2.5cm 0; display:flex; align-items:center; justify-content:space-between; border-top:1px solid #E0D9CE;"><span>${footer.docName}</span><span>${footer.companyLabel}</span><span>${footer.dateLabel}</span></div>`,
+          }
+        : {}),
+      margin: { top: footer ? '1.2cm' : '3.5cm', right: '0', bottom: '2cm', left: '0' },
     });
 
     return Buffer.from(pdf);

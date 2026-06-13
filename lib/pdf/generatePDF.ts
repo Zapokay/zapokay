@@ -11,6 +11,34 @@ import {
 } from '@/lib/pdf-templates';
 import type { BoardResolutionData, ShareholderResolutionData, CoverPageData } from '@/lib/pdf-templates';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
+import { escapeHtml } from '@/lib/pdf-templates/base-layout';
+
+/** Footer payload for the Puppeteer footerTemplate (bottom-pinned per page).
+ *  Values are pre-escaped here since they are interpolated into footer HTML. */
+interface FooterPayload {
+  docName: string;
+  companyLabel: string;
+  dateLabel: string;
+}
+
+function buildFooter(d: {
+  companyName: string;
+  documentTitle: string;
+  resolutionDate: string;
+  language?: 'fr' | 'en' | 'bilingual';
+}): FooterPayload {
+  const en = d.language === 'en';
+  // FR/EN footer labels — duplicated from base-layout per the WA amendment; the
+  // base-layout copies had zero remaining readers once the in-HTML footer was
+  // removed, so they were dropped there (grep-confirmed).
+  const confidential = en ? 'Confidential — Internal Use' : 'Confidentiel — Usage interne';
+  const generatedOnLabel = en ? 'Generated on' : 'Généré le';
+  return {
+    docName: escapeHtml(d.documentTitle),
+    companyLabel: `${escapeHtml(d.companyName)} — ${confidential}`,
+    dateLabel: d.resolutionDate ? `${generatedOnLabel} ${escapeHtml(d.resolutionDate)}` : '',
+  };
+}
 
 interface BoardResolutionInput {
   companyName: string;
@@ -21,6 +49,8 @@ interface BoardResolutionInput {
   language?: 'fr' | 'en' | 'bilingual';
   directors?: { name: string; title: string }[];
   resolutions?: { number: number; title: string; body: string }[];
+  /** Lifecycle (b1-ii): verbatim free-text body rendered as paragraphs. */
+  freeTextBody?: string;
   signatories?: SignatoryBlock[];
 }
 
@@ -33,6 +63,8 @@ interface ShareholderResolutionInput {
   language?: 'fr' | 'en' | 'bilingual';
   shareholders?: { name: string; shares: number; shareClass?: string; class?: string }[];
   resolutions?: { number: number; title: string; body: string }[];
+  /** Lifecycle (b1-ii): verbatim free-text body rendered as paragraphs. */
+  freeTextBody?: string;
   signatories?: SignatoryBlock[];
 }
 
@@ -53,6 +85,7 @@ interface GeneratePDFInput {
 
 export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buffer> {
   let html: string;
+  let footer: FooterPayload | undefined;
 
   switch (type) {
     case 'board-resolution': {
@@ -66,9 +99,11 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
         language: d.language ?? 'fr',
         directors: d.directors ?? [],
         resolutions: d.resolutions ?? [],
+        freeTextBody: d.freeTextBody,
         signatories: d.signatories,
       };
       html = boardResolutionHTML(tmplData);
+      footer = buildFooter(d);
       break;
     }
 
@@ -88,9 +123,11 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
         language: d.language ?? 'fr',
         shareholders,
         resolutions: (data as ShareholderResolutionInput).resolutions ?? [],
+        freeTextBody: d.freeTextBody,
         signatories: d.signatories,
       };
       html = shareholderResolutionHTML(tmplData);
+      footer = buildFooter(d);
       break;
     }
 
@@ -112,5 +149,5 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
       throw new Error(`generatePDF: type inconnu "${type}"`);
   }
 
-  return renderPDF(html);
+  return renderPDF(html, footer);
 }

@@ -10,6 +10,9 @@ export interface BoardResolutionData {
   fiscalYear: string | null;
   directors: { name: string; title: string }[];
   resolutions: { number: number; title: string; body: string }[];
+  /** Lifecycle (b1-ii): when set, render this verbatim body as paragraphs and
+   *  skip the clause-array chrome. Founding/annual leave it undefined. */
+  freeTextBody?: string;
   language: 'fr' | 'en' | 'bilingual';
   signatories?: SignatoryBlock[];
 }
@@ -64,7 +67,27 @@ export function boardResolutionHTML(data: BoardResolutionData): string {
         </div>
       </div>`;
 
-  const bodyContent = `
+  // Lifecycle docKeys pass a verbatim free-text body (b1-ii): render it as
+  // paragraphs split on blank lines, and SKIP the clause-array chrome (the
+  // "N. title" wrapper + the central "IL EST RÉSOLU" heading) — the lifecycle
+  // template body already carries its own. Founding/annual leave freeTextBody
+  // undefined and keep the clause-array path unchanged.
+  // (Blank-line separator built via fromCharCode to avoid newline-escape
+  // ambiguity in source tooling; equals splitting on "\n\n" at runtime.)
+  const paraBreak = String.fromCharCode(10) + String.fromCharCode(10);
+  const freeTextHtml = data.freeTextBody
+    ? `<div class="lifecycle-body">${data.freeTextBody
+        .split(paraBreak)
+        .map((para) => `<p>${escapeHtml(para)}</p>`)
+        .join('')}</div>`
+    : '';
+
+  const bodyContent = data.freeTextBody
+    ? `
+    ${freeTextHtml}
+    ${signaturesHtml}
+  `
+    : `
     <div class="resolved">${l.resolved}</div>
     ${resolutionsHtml}
     ${signaturesHtml}

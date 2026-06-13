@@ -24,14 +24,9 @@ const COLORS = {
 } as const;
 
 export function baseLayoutHTML(data: BaseLayoutData): string {
-  const confidential =
-    data.language === 'en'
-      ? 'Confidential — Internal Use'
-      : 'Confidentiel — Usage interne';
-
-  const generatedOnLabel =
-    data.language === 'en' ? 'Generated on' : 'Généré le';
-
+  // The footer is rendered as a Puppeteer footerTemplate (bottom-pinned on every
+  // page), built in lib/pdf/generatePDF.ts — the FR/EN footer labels live there
+  // now. base-layout owns only the in-table running header (thead) + content.
   return /* html */ `<!DOCTYPE html>
 <html lang="${data.language === 'en' ? 'en' : 'fr'}">
 <head>
@@ -55,33 +50,29 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     print-color-adjust: exact;
   }
 
-  .page {
-    position: relative;
-    width: 8.5in;
-    /* Top padding reserves space for the fixed header (~2cm + buffer);
-       bottom padding reserves space for the fixed footer (~1.3cm + buffer). */
-    padding: 3cm 2.5cm 2cm;
+  /* Page table: <thead> repeats the header band on every printed page (Chrome
+     table-header-group); tbody content flows below it → automatic per-page
+     header clearance. Stays in the page font-context so Aria fonts apply. */
+  .page-table { width: 100%; border-collapse: collapse; }
+  thead { display: table-header-group; }
+  /* Clearance below the repeating header rule lives on the THEAD cell so it
+     travels with the repeated header on EVERY page (a tbody-cell top padding
+     would only apply on page 1, leaving continuation pages tight). */
+  thead td { padding-bottom: 0.6cm; }
+  tbody td {
+    /* 2.5cm horizontal inset (previously carried by .page). No top padding —
+       per-page clearance comes from thead td above, uniform on every page. */
+    padding: 0 2.5cm 0;
+    vertical-align: top;
   }
 
-  /* ── Header ── */
-  .header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+  /* ── Running header band (inside <thead>, repeats per printed page) ── */
+  .header-band {
     padding: 1.2cm 2.5cm 0.6cm;
+    border-bottom: 1px solid ${COLORS.separator};
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-  }
-  .header::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 2.5cm;
-    right: 2.5cm;
-    height: 1px;
-    background: ${COLORS.separator};
   }
   .header-left .logo {
     font-family: 'Sora', sans-serif;
@@ -110,27 +101,8 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     margin-top: 2px;
   }
 
-  /* ── Footer ── */
-  .footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 0.5cm 2.5cm 0.8cm;
-    display: flex;
-    justify-content: space-between;
-    font-size: 9px;
-    color: ${COLORS.lightGray};
-  }
-  .footer::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 2.5cm;
-    right: 2.5cm;
-    height: 1px;
-    background: ${COLORS.separator};
-  }
+  /* ── Footer ── rendered as a Puppeteer footerTemplate (bottom-pinned on every
+     page), built in lib/pdf/generatePDF.ts. No in-HTML footer element here. */
 
   /* ── Title block ── */
   .title-block { text-align: center; margin-top: 16px; margin-bottom: 1.5em; }
@@ -177,6 +149,14 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     text-indent: 0;
     padding-left: 1.5em;
     margin-top: 0.3em;
+  }
+  /* Lifecycle free-text body (b1-ii): verbatim resolution prose rendered as
+     paragraphs. Dedicated class — founding/annual never use it. */
+  .lifecycle-body p {
+    margin: 0 0 1em;
+  }
+  .lifecycle-body p:last-child {
+    margin-bottom: 0;
   }
 
   /* ── Signature block ── */
@@ -252,32 +232,32 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
 </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="header">
-    <div class="header-left"></div>
-    <div class="header-right">
-      <div class="company">${escapeHtml(data.companyName)}</div>
-      ${data.neq ? `<div class="neq">NEQ ${escapeHtml(data.neq)}</div>` : ''}
-    </div>
-  </div>
+  <!-- Running header via <thead> (repeats per printed page); footer via
+       Puppeteer footerTemplate (lib/pdf/generatePDF.ts). -->
+  <table class="page-table">
+    <thead>
+      <tr><td>
+        <div class="header-band">
+          <div class="header-left"></div>
+          <div class="header-right">
+            <div class="company">${escapeHtml(data.companyName)}</div>
+            ${data.neq ? `<div class="neq">NEQ ${escapeHtml(data.neq)}</div>` : ''}
+          </div>
+        </div>
+      </td></tr>
+    </thead>
+    <tbody>
+      <tr><td>
+        <div class="title-block">
+          <h1>${escapeHtml(data.documentTitle)}</h1>
+          ${data.documentSubtitle ? `<div class="subtitle">${escapeHtml(data.documentSubtitle)}</div>` : ''}
+          <div class="sep"></div>
+        </div>
 
-  <!-- Content -->
-  <div class="page">
-    <div class="title-block">
-      <h1>${escapeHtml(data.documentTitle)}</h1>
-      ${data.documentSubtitle ? `<div class="subtitle">${escapeHtml(data.documentSubtitle)}</div>` : ''}
-      <div class="sep"></div>
-    </div>
-
-    ${data.bodyContent}
-  </div>
-
-  <!-- Footer -->
-  <div class="footer">
-    <span>${escapeHtml(data.footerDocName)}</span>
-    <span>${escapeHtml(data.companyName)} — ${confidential}</span>
-    <span>${data.effectiveDate ? `${generatedOnLabel} ${escapeHtml(data.effectiveDate)}` : ''}</span>
-  </div>
+        ${data.bodyContent}
+      </td></tr>
+    </tbody>
+  </table>
 </body>
 </html>`;
 }

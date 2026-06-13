@@ -640,7 +640,7 @@ export async function generateLifecycleDocument(
       fiscalYear: null,
       language,
       ...(entry.instrument === 'board' ? { directors } : { shareholders }),
-      resolutions: [filled.resolution],
+      freeTextBody: filled.resolution.body,
     },
   });
 
