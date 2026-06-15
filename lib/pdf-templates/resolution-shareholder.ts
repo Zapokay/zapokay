@@ -57,7 +57,7 @@ export function shareholderResolutionHTML(data: ShareholderResolutionData): stri
 
   const signaturesHtml = data.signatories && data.signatories.length > 0
     ? signatureBlocksHTML(data.signatories, data.language)
-    : `<div class="signatures">
+    : `<div class="signatures-keep"><div class="signatures">
         <div class="sig-col">
           <div class="sig-label">${l.sigLabel}</div>
           ${data.shareholders.map((s) => `
@@ -68,7 +68,7 @@ export function shareholderResolutionHTML(data: ShareholderResolutionData): stri
             <div class="sig-date">${l.date}: _______________</div>
           </div>`).join('')}
         </div>
-      </div>`;
+      </div></div>`;
 
   // Lifecycle docKeys pass a verbatim free-text body (b1-ii): render it as
   // paragraphs split on blank lines, and SKIP the clause-array chrome (the
@@ -88,12 +88,10 @@ export function shareholderResolutionHTML(data: ShareholderResolutionData): stri
   const bodyContent = data.freeTextBody
     ? `
     ${freeTextHtml}
-    ${signaturesHtml}
   `
     : `
     <div class="resolved">${l.resolved}</div>
     ${resolutionsHtml}
-    ${signaturesHtml}
   `;
 
   return baseLayoutHTML({
@@ -103,6 +101,7 @@ export function shareholderResolutionHTML(data: ShareholderResolutionData): stri
     documentSubtitle: data.fiscalYear !== null ? l.subtitle(data.fiscalYear) : undefined,
     effectiveDate: data.resolutionDate,
     bodyContent,
+    signaturesHtml,
     footerDocName: data.documentTitle,
     language: data.language,
   });

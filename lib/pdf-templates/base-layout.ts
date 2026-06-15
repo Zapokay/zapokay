@@ -10,6 +10,8 @@ export interface BaseLayoutData {
    */
   effectiveDate?: string;
   bodyContent: string;
+  /** Signature block markup, rendered in its own table row so it breaks as a unit. Optional — callers with no signatures (e.g. registers) omit it. */
+  signaturesHtml?: string;
   footerDocName: string;
   language: 'fr' | 'en' | 'bilingual';
 }
@@ -55,6 +57,7 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
      header clearance. Stays in the page font-context so Aria fonts apply. */
   .page-table { width: 100%; border-collapse: collapse; }
   thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
   /* Clearance below the repeating header rule lives on the THEAD cell so it
      travels with the repeated header on EVERY page (a tbody-cell top padding
      would only apply on page 1, leaving continuation pages tight). */
@@ -65,6 +68,8 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     padding: 0 2.5cm 0;
     vertical-align: top;
   }
+  tr.sig-row { break-inside: avoid; page-break-inside: avoid; }
+      .footer-reserve { height: 0.8cm; padding: 0; }
 
   /* ── Running header band (inside <thead>, repeats per printed page) ── */
   .header-band {
@@ -160,12 +165,15 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
   }
 
   /* ── Signature block ── */
+  .signatures-keep {
+    margin-top: 3em;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
   .signatures {
     display: flex;
     flex-wrap: wrap;
     gap: 2em;
-    margin-top: 3em;
-    page-break-inside: avoid;
   }
   .sig-col {
     flex: 1;
@@ -256,7 +264,11 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
 
         ${data.bodyContent}
       </td></tr>
+        ${data.signaturesHtml ? `<tr class="sig-row"><td>${data.signaturesHtml}</td></tr>` : ''}
     </tbody>
+      <tfoot>
+        <tr><td class="footer-reserve">&nbsp;</td></tr>
+      </tfoot>
   </table>
 </body>
 </html>`;

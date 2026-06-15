@@ -100,7 +100,7 @@ export function signatureBlocksHTML(
     language === 'en' ? 'Authorized Signatures' : 'Signatures autorisées';
 
   return `
-    <div class="signatures" style="margin-top: 3em;">
+    <div class="signatures-keep"><div class="signatures">
       <div class="sig-col">
         <div class="sig-label">${sectionLabel}</div>
         ${leftCol.map(renderEntry).join('')}
@@ -110,5 +110,5 @@ export function signatureBlocksHTML(
         <div class="sig-label">&nbsp;</div>
         ${rightCol.map(renderEntry).join('')}
       </div>` : ''}
-    </div>`;
+    </div></div>`;
 }
