@@ -26,6 +26,7 @@ import { randomUUID } from 'node:crypto';
 import { logActivity } from '@/lib/activity-log';
 import { generatePDF } from '@/lib/pdf/generatePDF';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
+import { fiscalYearForDate } from '@/lib/active-years';
 
 /* ------------------------------------------------------------------ */
 /*  Requirement → document type mapping                                */
@@ -59,7 +60,7 @@ interface Resolution {
   body: string;
 }
 
-function getResolutionsForType(resolutionType: string): Resolution[] {
+function getResolutionsForType(resolutionType: string, isBackfill: boolean = false): Resolution[] {
   const map: Record<string, Resolution[]> = {
     founding_board: [
       { number: 1, title: 'Adoption des statuts',                  body: 'Les statuts de constitution de la société sont pris en note et versés au registre.' },
@@ -85,7 +86,14 @@ function getResolutionsForType(resolutionType: string): Resolution[] {
       { number: 1, title: 'Dispense de vérificateur',              body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur." },
     ],
   };
-  return map[resolutionType] ?? [{ number: 1, title: 'Résolution', body: 'La résolution est adoptée.' }];
+  const resolutions = map[resolutionType] ?? [{ number: 1, title: 'Résolution', body: 'La résolution est adoptée.' }];
+  // #175: confirmatory back-fill branch scaffold. Both arms return the EXISTING
+  // bodies for now — wording is a separate build. Wired only to prove the seam;
+  // the rendered document is identical to today regardless of isBackfill.
+  if (isBackfill) {
+    return resolutions;
+  }
+  return resolutions;
 }
 
 function mapToDocumentType(_type: 'board-resolution' | 'shareholder-resolution'): 'resolution' {
@@ -160,7 +168,7 @@ export async function generatePdfDocument(
   // 3. Load company.
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('id, legal_name_fr, neq, incorporation_type')
+    .select('id, legal_name_fr, neq, incorporation_type, fiscal_year_end_month, fiscal_year_end_day')
     .eq('id', companyId)
     .single();
 
@@ -171,7 +179,7 @@ export async function generatePdfDocument(
   // 4. Current-state directors (active mandates).
   const { data: directorMandates } = await supabaseAdmin
     .from('director_mandates')
-    .select('id, company_people(id, full_name)')
+    .select('id, appointment_date, company_people(id, full_name)')
     .eq('company_id', companyId)
     .eq('is_active', true);
 
@@ -223,6 +231,35 @@ export async function generatePdfDocument(
       ? resolutionDate
       : now.toISOString().split('T')[0];
 
+  // 6b. #175 confirmatory back-fill DETECTION (detection only — wording is a
+  // separate build; the rendered output below is unchanged regardless of the
+  // result). A resolution is a confirmatory back-fill when the CURRENT board
+  // postdates the resolution's target fiscal year: i.e. ANY active director was
+  // appointed in a fiscal year strictly AFTER effectiveYear
+  // (max(appointmentFY) > effectiveYear is the locked trigger).
+  const fyEndMonth = (company as { fiscal_year_end_month: number | null }).fiscal_year_end_month;
+  const fyEndDay = (company as { fiscal_year_end_day: number | null }).fiscal_year_end_day;
+  const appointmentFYs: number[] = [];
+  let isBackfill = false;
+  if (fyEndMonth == null || fyEndDay == null) {
+    // Strict: never default to Dec-31 (mirrors generate-lifecycle-document's
+    // error-if-missing posture). Onboarding forces FYE, so this only fires for
+    // legacy/fixture/import rows — surface it rather than silently mis-frame.
+    console.warn(`[#175 backfill-detection] company=${companyId} missing fiscal_year_end_month/day — isBackfill forced false`);
+  } else {
+    for (const d of directorMandates ?? []) {
+      const appt = (d as { appointment_date: string | null }).appointment_date;
+      if (!appt) {
+        console.warn(`[#175 backfill-detection] director mandate ${(d as { id: string }).id} has null appointment_date — skipped from trigger`);
+        continue;
+      }
+      const apptFY = fiscalYearForDate(appt, fyEndMonth, fyEndDay);
+      appointmentFYs.push(apptFY);
+      if (apptFY > effectiveYear) isBackfill = true;
+    }
+  }
+  console.log(`[#175 backfill-detection] company=${companyId} type=${mapping.resolutionType} targetYear=${effectiveYear} appointmentFYs=${JSON.stringify(appointmentFYs)} isBackfill=${isBackfill}`);
+
   const templateData = {
     companyName: company.legal_name_fr,
     neq: company.neq,
@@ -233,7 +270,7 @@ export async function generatePdfDocument(
     framework: company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
     directors: activeDirectors,
     shareholders: activeShareholders,
-    resolutions: getResolutionsForType(mapping.resolutionType),
+    resolutions: getResolutionsForType(mapping.resolutionType, isBackfill),
     signatories: signatories && signatories.length > 0 ? signatories : undefined,
   };
 
