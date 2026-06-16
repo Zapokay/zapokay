@@ -12,6 +12,7 @@ import {
 import type { BoardResolutionData, ShareholderResolutionData, CoverPageData } from '@/lib/pdf-templates';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 import { escapeHtml } from '@/lib/pdf-templates/base-layout';
+import { formatDate } from '@/lib/utils';
 
 /** Footer payload for the Puppeteer footerTemplate (bottom-pinned per page).
  *  Values are pre-escaped here since they are interpolated into footer HTML. */
@@ -33,10 +34,14 @@ function buildFooter(d: {
   // removed, so they were dropped there (grep-confirmed).
   const confidential = en ? 'Confidential — Internal Use' : 'Confidentiel — Usage interne';
   const generatedOnLabel = en ? 'Generated on' : 'Généré le';
+  // #178 — the "Generated on / Généré le" footer shows the REAL generation date
+  // (render-time today), locale-formatted via the §8.28 formatDate chokepoint.
+  // NOT d.resolutionDate — that is the adoption date and stays in the body.
+  const generationDate = formatDate(new Date().toISOString().slice(0, 10), en ? 'en' : 'fr');
   return {
     docName: escapeHtml(d.documentTitle),
     companyLabel: `${escapeHtml(d.companyName)} — ${confidential}`,
-    dateLabel: d.resolutionDate ? `${generatedOnLabel} ${escapeHtml(d.resolutionDate)}` : '',
+    dateLabel: `${generatedOnLabel} ${escapeHtml(generationDate)}`,
   };
 }
 
