@@ -122,6 +122,7 @@ export default function RequirementSection({
               year={item.year}
               companyId={companyId}
               locale={locale}
+              documentLanguage={preferredLanguage === 'en' ? 'en' : 'fr'}
               onFileSelected={onFileSelected}
               onGenerated={onGenerated}
             />

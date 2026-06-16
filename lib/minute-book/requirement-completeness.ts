@@ -93,7 +93,11 @@ export async function computeRequirementCompleteness(
     .select('id, requirement_key, requirement_year, source, file_url, is_finalized, language')
     .eq('company_id', companyId)
     .eq('status', 'active')
-    .not('requirement_key', 'is', null);
+    .not('requirement_key', 'is', null)
+    // #75/§8.55 — newest-first so the .find() binds (req[+year]) to the LATEST
+    // active doc when regenerations leave duplicates (#135 not yet evicting).
+    // Mirrors the event-completeness.ts event_documents ordering fix (#134).
+    .order('created_at', { ascending: false });
   if (docError) throw docError;
 
   // 4. Compute endDate per fiscal year (resolution date stamped on PDFs

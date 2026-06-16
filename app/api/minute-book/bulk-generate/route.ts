@@ -172,6 +172,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    /* ---------- #75 — document generation language (Two-Layer model) ----------
+     * Per the 2026-06-16 decision, bulk generation/regeneration follows the
+     * user's current preferred_language (no per-doc sticky read). Defaults 'fr'. */
+    const { data: profile } = await supabase
+      .from('users')
+      .select('preferred_language')
+      .eq('id', user.id)
+      .single();
+    const docLanguage: 'fr' | 'en' = profile?.preferred_language === 'en' ? 'en' : 'fr';
+
     /* ---------- Resolve user's active company (same query as page.tsx) ---------- */
     const { data: company } = await supabase
       .from('companies')
@@ -247,7 +257,7 @@ export async function POST(request: NextRequest) {
             year: item.fiscalYear,
             resolutionDate: item.resolutionDate,
             signatories,
-            language: 'fr',
+            language: docLanguage,
           });
           if (res.ok) {
             return {

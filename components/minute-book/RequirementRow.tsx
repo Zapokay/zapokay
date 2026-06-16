@@ -30,6 +30,13 @@ interface RequirementRowProps {
    * use useTranslations() and pick up locale from next-intl context.
    */
   locale: 'fr' | 'en';
+  /**
+   * #75 — the document's GENERATION language (Two-Layer model: the doc's stored
+   * language if it exists, else the user's preferred_language). DISTINCT from
+   * `locale` (UI chrome). Threaded into GenerateDocumentButton.documentLanguage
+   * so generated/regenerated resolutions render in the correct language.
+   */
+  documentLanguage: 'fr' | 'en';
   onFileSelected?: (file: File, requirementKey: string, year: number | null) => Promise<void>;
   onGenerated?: () => void;
 }
@@ -47,6 +54,7 @@ export default function RequirementRow({
   year,
   companyId,
   locale,
+  documentLanguage,
   onFileSelected,
   onGenerated,
 }: RequirementRowProps) {
@@ -179,6 +187,7 @@ export default function RequirementRow({
                 year={year}
                 onSuccess={onGenerated}
                 locale={locale}
+                documentLanguage={documentLanguage}
                 className={buttonClass}
               />
             )}
@@ -210,6 +219,7 @@ export default function RequirementRow({
                 year={year}
                 onSuccess={onGenerated}
                 locale={locale}
+                documentLanguage={documentLanguage}
                 label={t('regenerate')}
                 className={buttonClass}
               />
