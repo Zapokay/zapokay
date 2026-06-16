@@ -56,44 +56,54 @@ const REQUIREMENT_MAP: Record<string, DocMapping> = {
 
 interface Resolution {
   number: number;
-  title: string;
-  body: string;
+  title: string;       // FR
+  body: string;        // FR
+  title_en: string;    // EN
+  body_en: string;     // EN
 }
 
-function getResolutionsForType(resolutionType: string, isBackfill: boolean = false): Resolution[] {
+function getResolutionsForType(resolutionType: string, isBackfill: boolean = false, language: 'fr' | 'en' = 'fr'): Resolution[] {
+  // #75 EN translations — YELLOW / PENDING LAWYER GREEN (translation inherits FR validation status)
   const map: Record<string, Resolution[]> = {
     founding_board: [
-      { number: 1, title: 'Adoption des statuts',                  body: 'Les statuts de constitution de la société sont pris en note et versés au registre.' },
-      { number: 2, title: 'Adoption du règlement intérieur',       body: "Le règlement intérieur n° 1 régissant les affaires internes de la société est adopté et versé au registre." },
-      { number: 3, title: "Fixation de l'exercice financier",      body: "L'exercice financier de la société est fixé conformément aux statuts déposés." },
+      { number: 1, title: 'Adoption des statuts',                  body: 'Les statuts de constitution de la société sont pris en note et versés au registre.', title_en: 'Adoption of Articles', body_en: 'The articles of incorporation of the corporation are noted and entered into the register.' },
+      { number: 2, title: 'Adoption du règlement intérieur',       body: "Le règlement intérieur n° 1 régissant les affaires internes de la société est adopté et versé au registre.", title_en: 'Adoption of By-laws', body_en: 'By-law No. 1 governing the internal affairs of the corporation is adopted and entered into the register.' },
+      { number: 3, title: "Fixation de l'exercice financier",      body: "L'exercice financier de la société est fixé conformément aux statuts déposés.", title_en: 'Establishment of the Financial Year', body_en: 'The financial year of the corporation is established in accordance with the articles filed.' },
     ],
     founding_shareholder: [
-      { number: 1, title: 'Ratification du règlement intérieur',   body: "Le règlement intérieur n° 1 adopté par le conseil d'administration est ratifié." },
-      { number: 2, title: "Élection du conseil d'administration",  body: "Les administrateurs nommés sont élus jusqu'à la prochaine assemblée annuelle des actionnaires." },
-      { number: 3, title: 'Dispense de vérificateur',              body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours." },
+      { number: 1, title: 'Ratification du règlement intérieur',   body: "Le règlement intérieur n° 1 adopté par le conseil d'administration est ratifié.", title_en: 'Ratification of By-laws', body_en: 'By-law No. 1 adopted by the board of directors is ratified.' },
+      { number: 2, title: "Élection du conseil d'administration",  body: "Les administrateurs nommés sont élus jusqu'à la prochaine assemblée annuelle des actionnaires.", title_en: 'Election of the Board of Directors', body_en: 'The directors named are elected to hold office until the next annual meeting of shareholders.' },
+      { number: 3, title: 'Dispense de vérificateur',              body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours.", title_en: 'Waiver of Auditor', body_en: 'In accordance with applicable law, the shareholders unanimously consent not to appoint an auditor for the current financial year.' },
     ],
     share_subscription: [
-      { number: 1, title: 'Souscription et émission des actions',  body: "Le conseil autorise l'émission et la souscription des actions conformément aux résolutions initiales." },
+      { number: 1, title: 'Souscription et émission des actions',  body: "Le conseil autorise l'émission et la souscription des actions conformément aux résolutions initiales.", title_en: 'Subscription and Issuance of Shares', body_en: 'The board authorizes the issuance and subscription of shares in accordance with the initial resolutions.' },
     ],
     annual_board: [
-      { number: 1, title: 'Approbation des états financiers',      body: "Les états financiers de l'exercice sont approuvés par le conseil d'administration." },
+      { number: 1, title: 'Approbation des états financiers',      body: "Les états financiers de l'exercice sont approuvés par le conseil d'administration.", title_en: 'Approval of Financial Statements', body_en: 'The financial statements for the financial year are approved by the board of directors.' },
     ],
     annual_shareholder: [
-      { number: 1, title: 'Approbation des états financiers',      body: "Les états financiers de l'exercice sont approuvés par les actionnaires." },
-      { number: 2, title: 'Dispense de vérificateur',              body: "Les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours." },
+      { number: 1, title: 'Approbation des états financiers',      body: "Les états financiers de l'exercice sont approuvés par les actionnaires.", title_en: 'Approval of Financial Statements', body_en: 'The financial statements for the financial year are approved by the shareholders.' },
+      { number: 2, title: 'Dispense de vérificateur',              body: "Les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours.", title_en: 'Waiver of Auditor', body_en: 'The shareholders unanimously consent not to appoint an auditor for the current financial year.' },
     ],
     auditor_waiver: [
-      { number: 1, title: 'Dispense de vérificateur',              body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur." },
+      { number: 1, title: 'Dispense de vérificateur',              body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur.", title_en: 'Waiver of Auditor', body_en: 'In accordance with applicable law, the shareholders unanimously consent not to appoint an auditor.' },
     ],
   };
-  const resolutions = map[resolutionType] ?? [{ number: 1, title: 'Résolution', body: 'La résolution est adoptée.' }];
+  const base = map[resolutionType] ?? [{ number: 1, title: 'Résolution', body: 'La résolution est adoptée.', title_en: 'Resolution', body_en: 'The resolution is adopted.' }];
+  // #75: resolve title/body by document language so the shells render the right
+  // locale (shells read .title/.body verbatim — no shell change needed).
+  const resolved = base.map((r) => ({
+    ...r,
+    title: language === 'en' ? r.title_en : r.title,
+    body: language === 'en' ? r.body_en : r.body,
+  }));
   // #175: confirmatory back-fill branch scaffold. Both arms return the EXISTING
   // bodies for now — wording is a separate build. Wired only to prove the seam;
   // the rendered document is identical to today regardless of isBackfill.
   if (isBackfill) {
-    return resolutions;
+    return resolved;
   }
-  return resolutions;
+  return resolved;
 }
 
 function mapToDocumentType(_type: 'board-resolution' | 'shareholder-resolution'): 'resolution' {
@@ -270,7 +280,7 @@ export async function generatePdfDocument(
     framework: company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
     directors: activeDirectors,
     shareholders: activeShareholders,
-    resolutions: getResolutionsForType(mapping.resolutionType, isBackfill),
+    resolutions: getResolutionsForType(mapping.resolutionType, isBackfill, language),
     signatories: signatories && signatories.length > 0 ? signatories : undefined,
   };
 
