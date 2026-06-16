@@ -393,6 +393,7 @@ export default function CompletenessPage({
                 locale={fr ? 'fr' : 'en'}
                 onFileSelected={handleFileSelected}
                 onGenerated={fetchData}
+                preferredLanguage={preferredLanguage}
               />
             )}
 

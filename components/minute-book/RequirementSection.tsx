@@ -38,7 +38,7 @@ interface RequirementSectionProps {
    * requirements refetch wired to `onGenerated`).
    */
   eventActs?: EventActStatus[];
-  preferredLanguage?: 'fr' | 'en';
+  preferredLanguage: 'fr' | 'en';
   onEventGenerated?: () => void;
   /** Brief 2 — forwarded to EventActRow so a user can upload/replace their own
    *  signed PDF on a lifecycle act. Pure pass-through. */
