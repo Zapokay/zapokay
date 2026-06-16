@@ -284,17 +284,20 @@ export async function generatePdfDocument(
     signatories: signatories && signatories.length > 0 ? signatories : undefined,
   };
 
-  // 7. Render PDF.
-  const pdfBuffer = await generatePDF({
-    type: mapping.type,
-    data: templateData,
-  });
-
-  // 8. Upload to storage.
+  // 7. Mint the durable documents.id BEFORE render (#172): the same UUID is
+  // persisted as documents.id below, so the value stamped into the footer ==
+  // the stored row id. The mint has no dependency on the rendered buffer.
   const documentId = randomUUID();
   const fileName = `${documentId}.pdf`;
   const storagePath = `${companyId}/${fileName}`;
 
+  // 8. Render PDF.
+  const pdfBuffer = await generatePDF({
+    type: mapping.type,
+    data: { ...templateData, documentId },
+  });
+
+  // 9. Upload to storage.
   const { error: uploadError } = await supabaseAdmin.storage
     .from('documents')
     .upload(storagePath, pdfBuffer, {
@@ -307,7 +310,7 @@ export async function generatePdfDocument(
     return { ok: false, error: 'Erreur lors du téléversement du document.' };
   }
 
-  // 9. Insert documents row.
+  // 10. Insert documents row.
   const { data: document, error: docInsertError } = await supabaseAdmin
     .from('documents')
     .insert({

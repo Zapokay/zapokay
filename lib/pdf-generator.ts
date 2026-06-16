@@ -74,7 +74,7 @@ async function getBrowser(): Promise<Browser> {
  */
 export async function generatePDF(
   html: string,
-  footer?: { docName: string; companyLabel: string; dateLabel: string },
+  footer?: { docName: string; companyLabel: string; dateLabel: string; docId: string; pageLabel: string },
 ): Promise<Buffer> {
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -92,7 +92,7 @@ export async function generatePDF(
       ...(footer
         ? {
             headerTemplate: '<span></span>', // empty — header is in-table (thead)
-            footerTemplate: `<div style="width:100%; font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,sans-serif; font-size:9px; color:#A09A93; padding:0.7cm 2.5cm 0; display:flex; align-items:center; justify-content:space-between; border-top:1px solid #E0D9CE;"><span>${footer.docName}</span><span>${footer.companyLabel}</span><span>${footer.dateLabel}</span></div>`,
+            footerTemplate: `<div style="width:100%; font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,sans-serif; font-size:9px; color:#A09A93; padding:0.45cm 2.5cm 0; border-top:1px solid #E0D9CE;"><div style="display:flex; align-items:center; justify-content:space-between;"><span>${footer.docName}</span><span>${footer.companyLabel}</span><span>${footer.dateLabel}</span></div><div style="display:flex; align-items:center; justify-content:space-between; margin-top:3px;"><span>${footer.docId}</span><span>${footer.pageLabel}</span></div></div>`,
           }
         : {}),
       margin: { top: footer ? '1.2cm' : '3.5cm', right: '0', bottom: '2cm', left: '0' },

@@ -628,9 +628,18 @@ export async function generateLifecycleDocument(
   const pdfType =
     entry.instrument === 'board' ? 'board-resolution' : 'shareholder-resolution';
 
+  // Mint the durable documents.id BEFORE render (#172): the same UUID is
+  // persisted as documents.id below, so the footer-stamped value == the stored
+  // row id. The mint has no dependency on the rendered buffer — pure reorder.
+  const documentId = randomUUID();
+  const fileName = `${documentId}.pdf`;
+  const storagePath = `${companyId}/${fileName}`;
+
   const pdfBuffer = await generatePDF({
     type: pdfType,
     data: {
+      // #172 — durable documents.id stamped into the footer (== stored row id).
+      documentId,
       companyName: company.legal_name_fr,
       neq: company.neq ?? undefined,
       documentTitle: filled.resolution.title,
@@ -645,10 +654,6 @@ export async function generateLifecycleDocument(
   });
 
   /* -------- Upload to storage --------------------------------------------- */
-
-  const documentId = randomUUID();
-  const fileName = `${documentId}.pdf`;
-  const storagePath = `${companyId}/${fileName}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from('documents')

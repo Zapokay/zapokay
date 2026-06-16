@@ -20,6 +20,12 @@ interface FooterPayload {
   docName: string;
   companyLabel: string;
   dateLabel: string;
+  /** #172 — opaque, durable documents.id (== stored row id). Full UUID, never
+   *  truncated; the verification service resolves the full value. */
+  docId: string;
+  /** #172 — locale-correct "Page … of/sur …" wrapper around Puppeteer's magic
+   *  pageNumber/totalPages spans (substituted per page at render). */
+  pageLabel: string;
 }
 
 function buildFooter(d: {
@@ -27,6 +33,7 @@ function buildFooter(d: {
   documentTitle: string;
   resolutionDate: string;
   language?: 'fr' | 'en' | 'bilingual';
+  documentId: string;
 }): FooterPayload {
   const en = d.language === 'en';
   // FR/EN footer labels — duplicated from base-layout per the WA amendment; the
@@ -38,10 +45,18 @@ function buildFooter(d: {
   // (render-time today), locale-formatted via the §8.28 formatDate chokepoint.
   // NOT d.resolutionDate — that is the adoption date and stays in the body.
   const generationDate = formatDate(new Date().toISOString().slice(0, 10), en ? 'en' : 'fr');
+  // #172 — page-count: Puppeteer substitutes <span class="pageNumber|totalPages">
+  // per page. The spans carry no font of their own → they inherit the footer
+  // container's 9px. The "Page … of/sur …" wording is OUR locale string and is
+  // intentionally NOT escaped (it carries trusted magic-class HTML).
+  const ofWord = en ? 'of' : 'sur';
+  const pageLabel = `Page <span class="pageNumber"></span> ${ofWord} <span class="totalPages"></span>`;
   return {
     docName: escapeHtml(d.documentTitle),
     companyLabel: `${escapeHtml(d.companyName)} — ${confidential}`,
     dateLabel: `${generatedOnLabel} ${escapeHtml(generationDate)}`,
+    docId: escapeHtml(d.documentId),
+    pageLabel,
   };
 }
 
@@ -57,6 +72,8 @@ interface BoardResolutionInput {
   /** Lifecycle (b1-ii): verbatim free-text body rendered as paragraphs. */
   freeTextBody?: string;
   signatories?: SignatoryBlock[];
+  /** #172 — durable documents.id stamped into the footer (== stored row id). */
+  documentId: string;
 }
 
 interface ShareholderResolutionInput {
@@ -71,6 +88,8 @@ interface ShareholderResolutionInput {
   /** Lifecycle (b1-ii): verbatim free-text body rendered as paragraphs. */
   freeTextBody?: string;
   signatories?: SignatoryBlock[];
+  /** #172 — durable documents.id stamped into the footer (== stored row id). */
+  documentId: string;
 }
 
 interface CoverPageInput {
