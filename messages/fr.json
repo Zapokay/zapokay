@@ -352,7 +352,9 @@
       "term_expired": "Fin de mandat"
     },
     "generateResolution": "Générer la résolution",
-    "viewDocument": "Voir le document"
+    "viewDocument": "Voir le document",
+    "generateAppointmentResolution": "Générer la résolution de nomination",
+    "viewInCompleteness": "Voir dans Complétude"
   },
   "officers": {
     "_locale": "fr",
@@ -397,7 +399,9 @@
       "term_expired": "Fin de mandat"
     },
     "generateResolution": "Générer la résolution",
-    "viewDocument": "Voir le document"
+    "viewDocument": "Voir le document",
+    "generateAppointmentResolution": "Générer la résolution de nomination",
+    "viewInCompleteness": "Voir dans Complétude"
   },
   "shareholders": {
     "_locale": "fr",

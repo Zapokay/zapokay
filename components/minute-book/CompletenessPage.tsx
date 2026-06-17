@@ -235,13 +235,18 @@ export default function CompletenessPage({
     .map(Number)
     .sort((a, b) => b - a);
 
-  // #19d Brief 1 — group director + officer DEPARTURE acts by the fiscal
-  // year that CONTAINS act.date. Appointments are out of scope for this
-  // slice (Administrateurs / Dirigeants surface no appointment-resolution
-  // affordance today; Complétude mirrors that surface). Acts whose computed
-  // year isn't in the page's active-fiscal-years set fall into the
-  // "unclassified" bucket (mirrors the orchestrator's findability guard:
-  // never render a phantom year section the user can't see elsewhere).
+  // #19d Brief 1 — group director + officer lifecycle acts by the fiscal
+  // year that CONTAINS act.date. Acts whose computed year isn't in the
+  // page's active-fiscal-years set fall into the "unclassified" bucket
+  // (mirrors the orchestrator's findability guard: never render a phantom
+  // year section the user can't see elsewhere).
+  //
+  // #19d Brief 2c — director + officer APPOINTMENT acts are now admitted
+  // alongside departures: the Administrateurs / Dirigeants active cards
+  // surface a "Générer la résolution de nomination" trigger (founder-gated
+  // to appointment_date > incorporation_date), so Complétude mirrors that
+  // surface. The engine already emits + scores appointment acts (#19c);
+  // this filter just stops excluding them.
   //
   // #19d Phase 3 (cessation + issuance + transfer) — shareholding cessation,
   // shareholding issuance, AND share_transfer acts are admitted on the same
@@ -257,6 +262,9 @@ export default function CompletenessPage({
       const isDirectorOrOfficerDeparture =
         (act.event_type === 'director_mandate' || act.event_type === 'officer_appointment') &&
         act.event_phase === 'departure';
+      const isDirectorOrOfficerAppointment =
+        (act.event_type === 'director_mandate' || act.event_type === 'officer_appointment') &&
+        act.event_phase === 'appointment';
       const isShareholdingCessation =
         act.event_type === 'shareholding' && act.event_phase === 'cessation';
       const isShareholdingIssuance =
@@ -265,6 +273,7 @@ export default function CompletenessPage({
         act.event_type === 'share_transfer' && act.event_phase === 'transfer';
       if (
         !isDirectorOrOfficerDeparture &&
+        !isDirectorOrOfficerAppointment &&
         !isShareholdingCessation &&
         !isShareholdingIssuance &&
         !isShareTransfer

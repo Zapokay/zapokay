@@ -352,7 +352,9 @@
       "term_expired": "Term expired"
     },
     "generateResolution": "Generate resolution",
-    "viewDocument": "View document"
+    "viewDocument": "View document",
+    "generateAppointmentResolution": "Generate appointment resolution",
+    "viewInCompleteness": "View in Completeness"
   },
   "officers": {
     "_locale": "en",
@@ -397,7 +399,9 @@
       "term_expired": "Term ended"
     },
     "generateResolution": "Generate resolution",
-    "viewDocument": "View document"
+    "viewDocument": "View document",
+    "generateAppointmentResolution": "Generate appointment resolution",
+    "viewInCompleteness": "View in Completeness"
   },
   "shareholders": {
     "_locale": "en",

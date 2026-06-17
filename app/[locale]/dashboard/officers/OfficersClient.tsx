@@ -70,6 +70,10 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
   const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>>(new Map());
   // Generate-dialog target: the appointment row that opened the dialog.
   const [generatingFor, setGeneratingFor] = useState<OfficerWithPerson | null>(null);
+  // #19d Brief 2c — appointment-resolution dialog target (active cards). Kept
+  // SEPARATE from generatingFor (departure path): the appointment dialog props
+  // differ (docKey/instrument, eventDate from appointment_date, no reasonLabel).
+  const [generatingAppointmentFor, setGeneratingAppointmentFor] = useState<OfficerWithPerson | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -260,6 +264,11 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
               onEdit={() => setShowAddModal(true)}
               onReplace={(o) => setReplacingOfficer(o)}
               onRemove={(o) => setRemovingOfficer(o)}
+              incorporationDate={incorporationDate}
+              appointmentResolutionExists={
+                actsMap.get(`officer_appointment|${officer.id}|appointment`)?.satisfied === true
+              }
+              onGenerateAppointment={(o) => setGeneratingAppointmentFor(o)}
             />
           ))}
         </div>
@@ -448,6 +457,28 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
             language={preferredLanguage}
             onClose={() => setGeneratingFor(null)}
             onSuccess={() => { setGeneratingFor(null); fetchData(); }}
+          />
+        );
+      })()}
+      {generatingAppointmentFor && companyId && (() => {
+        const titleLabel =
+          generatingAppointmentFor.title === 'custom'
+            ? (generatingAppointmentFor.custom_title && generatingAppointmentFor.custom_title.length > 0
+                ? generatingAppointmentFor.custom_title
+                : t('customTitle'))
+            : TITLE_LABELS[generatingAppointmentFor.title]?.[locale] ?? generatingAppointmentFor.title;
+        return (
+          <GenerateLifecycleResolutionDialog
+            companyId={companyId}
+            docKey="officer_appointment"
+            instrument="board"
+            eventId={generatingAppointmentFor.id}
+            personName={generatingAppointmentFor.person.full_name}
+            roleLabel={titleLabel}
+            eventDate={generatingAppointmentFor.appointment_date}
+            language={preferredLanguage}
+            onClose={() => setGeneratingAppointmentFor(null)}
+            onSuccess={() => { setGeneratingAppointmentFor(null); fetchData(); }}
           />
         );
       })()}

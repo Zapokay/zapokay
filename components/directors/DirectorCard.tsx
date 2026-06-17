@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { MapPin, Pencil, UserMinus, Flag, ChevronDown, ChevronRight } from 'lucide-react';
 import type {
@@ -26,6 +27,12 @@ interface DirectorCardProps {
   endedMandates: DirectorMandate[];
   onEdit: (director: DirectorWithPerson) => void;
   onRemove: (director: DirectorWithPerson) => void;
+  /** Company incorporation date — founder gate: appointment button shows only when appointment_date is strictly after. */
+  incorporationDate: string | null;
+  /** True when an appointment resolution already exists for this mandate (event_documents row, any source). */
+  appointmentResolutionExists: boolean;
+  /** Opens the appointment-resolution dialog for this director. */
+  onGenerateAppointment: (director: DirectorWithPerson) => void;
 }
 
 // =============================================================================
@@ -59,13 +66,26 @@ export default function DirectorCard({
   endedMandates,
   onEdit,
   onRemove,
+  incorporationDate,
+  appointmentResolutionExists,
+  onGenerateAppointment,
 }: DirectorCardProps) {
   const t = useTranslations('directors');
+  const router = useRouter();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const [historyExpanded, setHistoryExpanded] = useState<boolean>(() => false);
 
   const { person } = director;
   const totalShares = shareholdings.reduce((sum, s) => sum + s.quantity, 0);
+
+  // #19d Brief 2c — founder gate. Mirrors lib/minute-book/event-completeness.ts
+  // afterIncorp (strictly-after; false when incorporation_date is null): the
+  // appointment-resolution affordance shows ONLY for post-incorporation
+  // appointments. Founders (appointed at incorporation) are covered by the
+  // founding resolutions and the engine emits no appointment act for them.
+  const isPostIncorporation =
+    !!incorporationDate &&
+    new Date(director.appointment_date).getTime() > new Date(incorporationDate).getTime();
 
   // Build "Aussi :" roles line
   const otherRoles: string[] = [];
@@ -228,6 +248,24 @@ export default function DirectorCard({
           <UserMinus className="h-3.5 w-3.5" />
           {t('remove')}
         </button>
+        {isPostIncorporation &&
+          (appointmentResolutionExists ? (
+            <button
+              type="button"
+              onClick={() => router.push(`/${locale}/dashboard/minute-book/completeness`)}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+            >
+              {t('viewInCompleteness')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onGenerateAppointment(director)}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--amber-500,#F59E0B)] transition-colors hover:bg-[var(--amber-50,#FFF8E7)]"
+            >
+              {t('generateAppointmentResolution')}
+            </button>
+          ))}
       </div>
     </div>
   );

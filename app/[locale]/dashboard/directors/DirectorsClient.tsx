@@ -66,6 +66,10 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
   const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>>(new Map());
   // Generate-dialog target: the mandate row that opened the dialog.
   const [generatingFor, setGeneratingFor] = useState<DirectorWithPerson | null>(null);
+  // #19d Brief 2c — appointment-resolution dialog target (active cards). Kept
+  // SEPARATE from generatingFor (departure path): the appointment dialog props
+  // differ (docKey/instrument, eventDate from appointment_date, no reasonLabel).
+  const [generatingAppointmentFor, setGeneratingAppointmentFor] = useState<DirectorWithPerson | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -268,6 +272,11 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
               endedMandates={getEndedMandatesForPerson(director.person_id)}
               onEdit={(d) => { setEditingDirector(d); setShowAddModal(true); }}
               onRemove={(d) => setRemovingDirector(d)}
+              incorporationDate={incorporationDate}
+              appointmentResolutionExists={
+                actsMap.get(`director_mandate|${director.id}|appointment`)?.satisfied === true
+              }
+              onGenerateAppointment={(d) => setGeneratingAppointmentFor(d)}
             />
           ))}
         </div>
@@ -446,6 +455,20 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
           />
         );
       })()}
+      {generatingAppointmentFor && companyId && (
+        <GenerateLifecycleResolutionDialog
+          companyId={companyId}
+          docKey="director_appointment"
+          instrument="shareholder"
+          eventId={generatingAppointmentFor.id}
+          personName={generatingAppointmentFor.person.full_name}
+          roleLabel={locale === 'fr' ? 'Administrateur' : 'Director'}
+          eventDate={generatingAppointmentFor.appointment_date}
+          language={preferredLanguage}
+          onClose={() => setGeneratingAppointmentFor(null)}
+          onSuccess={() => { setGeneratingAppointmentFor(null); fetchData(); }}
+        />
+      )}
     </div>
   );
 }
