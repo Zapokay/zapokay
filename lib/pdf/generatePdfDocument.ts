@@ -62,34 +62,103 @@ interface Resolution {
   body_en: string;     // EN
 }
 
-function getResolutionsForType(resolutionType: string, isBackfill: boolean = false, language: 'fr' | 'en' = 'fr'): Resolution[] {
-  // #75 EN translations — YELLOW / PENDING LAWYER GREEN (translation inherits FR validation status)
-  const map: Record<string, Resolution[]> = {
-    founding_board: [
-      { number: 1, title: 'Adoption des statuts',                  body: 'Les statuts de constitution de la société sont pris en note et versés au registre.', title_en: 'Adoption of Articles', body_en: 'The articles of incorporation of the corporation are noted and entered into the register.' },
-      { number: 2, title: 'Adoption du règlement intérieur',       body: "Le règlement intérieur n° 1 régissant les affaires internes de la société est adopté et versé au registre.", title_en: 'Adoption of By-laws', body_en: 'By-law No. 1 governing the internal affairs of the corporation is adopted and entered into the register.' },
-      { number: 3, title: "Fixation de l'exercice financier",      body: "L'exercice financier de la société est fixé conformément aux statuts déposés.", title_en: 'Establishment of the Financial Year', body_en: 'The financial year of the corporation is established in accordance with the articles filed.' },
-    ],
-    founding_shareholder: [
-      { number: 1, title: 'Ratification du règlement intérieur',   body: "Le règlement intérieur n° 1 adopté par le conseil d'administration est ratifié.", title_en: 'Ratification of By-laws', body_en: 'By-law No. 1 adopted by the board of directors is ratified.' },
-      { number: 2, title: "Élection du conseil d'administration",  body: "Les administrateurs nommés sont élus jusqu'à la prochaine assemblée annuelle des actionnaires.", title_en: 'Election of the Board of Directors', body_en: 'The directors named are elected to hold office until the next annual meeting of shareholders.' },
-      { number: 3, title: 'Dispense de vérificateur',              body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours.", title_en: 'Waiver of Auditor', body_en: 'In accordance with applicable law, the shareholders unanimously consent not to appoint an auditor for the current financial year.' },
-    ],
-    share_subscription: [
-      { number: 1, title: 'Souscription et émission des actions',  body: "Le conseil autorise l'émission et la souscription des actions conformément aux résolutions initiales.", title_en: 'Subscription and Issuance of Shares', body_en: 'The board authorizes the issuance and subscription of shares in accordance with the initial resolutions.' },
-    ],
-    annual_board: [
-      { number: 1, title: 'Approbation des états financiers',      body: "Les états financiers de l'exercice sont approuvés par le conseil d'administration.", title_en: 'Approval of Financial Statements', body_en: 'The financial statements for the financial year are approved by the board of directors.' },
-    ],
-    annual_shareholder: [
-      { number: 1, title: 'Approbation des états financiers',      body: "Les états financiers de l'exercice sont approuvés par les actionnaires.", title_en: 'Approval of Financial Statements', body_en: 'The financial statements for the financial year are approved by the shareholders.' },
-      { number: 2, title: 'Dispense de vérificateur',              body: "Les actionnaires consentent unanimement à ne pas nommer de vérificateur pour l'exercice en cours.", title_en: 'Waiver of Auditor', body_en: 'The shareholders unanimously consent not to appoint an auditor for the current financial year.' },
-    ],
-    auditor_waiver: [
-      { number: 1, title: 'Dispense de vérificateur',              body: "Conformément à la loi applicable, les actionnaires consentent unanimement à ne pas nommer de vérificateur.", title_en: 'Waiver of Auditor', body_en: 'In accordance with applicable law, the shareholders unanimously consent not to appoint an auditor.' },
-    ],
+// ⚠️ YELLOW — PENDING LAWYER GREEN — DO NOT SHIP UNVALIDATED
+// Auditor-waiver canonical clause. Harvey-verdicted 2026-06-17 (LSAQ art.239 / CBCA s.163).
+// Founding year-free variant ("premier exercice financier") = YELLOW micro-variant,
+// Harvey one-line confirm queued. EN bodies #75 YELLOW.
+// Pre-launch grep for "PENDING LAWYER GREEN" must return zero.
+function auditorWaiverClauseFor(
+  framework: 'CBCA' | 'LSA',
+  yearPhraseFr: string,
+  yearPhraseEn: string,
+): Omit<Resolution, 'number'> {
+  if (framework === 'CBCA') {
+    return {
+      title: 'Dispense de vérificateur',
+      body: `Conformément à l'article 163 de la Loi canadienne sur les sociétés par actions (L.R.C. (1985), ch. C-44), la Société n'étant pas une société ayant fait appel au public, tous les actionnaires de la Société, y compris ceux qui ne sont pas par ailleurs fondés à voter, consentent unanimement à ne pas nommer de vérificateur ${yearPhraseFr}. La présente dispense n'a effet que jusqu'à la prochaine assemblée annuelle des actionnaires.`,
+      title_en: 'Waiver of Auditor',
+      body_en: `In accordance with section 163 of the Canada Business Corporations Act (R.S.C. 1985, c. C-44), the Corporation not being a distributing corporation, all shareholders of the Corporation, including shareholders not otherwise entitled to vote, unanimously consent not to appoint an auditor ${yearPhraseEn}. This waiver is valid only until the next annual meeting of shareholders.`,
+    };
+  }
+  // 'LSA' — non-CBCA catch-all (Loi sur les sociétés par actions du Québec)
+  return {
+    title: 'Dispense de vérificateur',
+    body: `Conformément à l'article 239 de la Loi sur les sociétés par actions (RLRQ, c. S-31.1), la Société n'étant pas un émetteur assujetti, tous les actionnaires de la Société, y compris les détenteurs d'actions ne comportant pas le droit de vote, consentent unanimement à ne pas nommer de vérificateur ${yearPhraseFr}. La présente dispense n'a effet que jusqu'à la prochaine assemblée annuelle des actionnaires.`,
+    title_en: 'Waiver of Auditor',
+    body_en: `In accordance with section 239 of the Business Corporations Act (CQLR, c. S-31.1), the Corporation not being a reporting issuer, all shareholders of the Corporation, including holders of shares not carrying the right to vote, unanimously consent not to appoint an auditor ${yearPhraseEn}. This waiver is valid only until the next annual meeting of shareholders.`,
   };
-  const base = map[resolutionType] ?? [{ number: 1, title: 'Résolution', body: 'La résolution est adoptée.', title_en: 'Resolution', body_en: 'The resolution is adopted.' }];
+}
+
+// Year-naming variant — annual_shareholder + standalone auditor_waiver. HARD GUARD:
+// a year-naming waiver must never silently inherit a defaulted year.
+function auditorWaiverClause(framework: 'CBCA' | 'LSA', fiscalYear?: string): Omit<Resolution, 'number'> {
+  if (!fiscalYear) {
+    throw new Error('auditorWaiverClause: fiscalYear required — refusing to default a year-naming waiver');
+  }
+  return auditorWaiverClauseFor(
+    framework,
+    `pour l'exercice financier ${fiscalYear}`,
+    `for the financial year ${fiscalYear}`,
+  );
+}
+
+// Year-free founding variant — founding_shareholder item #3 only. Names no specific
+// year ("premier exercice financier"); no guard by design.
+function auditorWaiverClauseFounding(framework: 'CBCA' | 'LSA'): Omit<Resolution, 'number'> {
+  return auditorWaiverClauseFor(framework, 'pour le premier exercice financier', 'for the first financial year');
+}
+
+function getResolutionsForType(
+  resolutionType: string,
+  isBackfill: boolean = false,
+  language: 'fr' | 'en' = 'fr',
+  framework: 'CBCA' | 'LSA' = 'LSA',
+  fiscalYear?: string,
+): Resolution[] {
+  // #75 EN translations — YELLOW / PENDING LAWYER GREEN (translation inherits FR validation status)
+  // #18 Blocker B — LAZY arm construction: build ONLY the requested arm. The
+  // auditor-waiver helpers run solely for the arm actually returned, so foundational
+  // document types (fiscalYear null) never reach the year-naming guard.
+  let base: Resolution[];
+  switch (resolutionType) {
+    case 'founding_board':
+      base = [
+        { number: 1, title: 'Adoption des statuts',                  body: 'Les statuts de constitution de la société sont pris en note et versés au registre.', title_en: 'Adoption of Articles', body_en: 'The articles of incorporation of the corporation are noted and entered into the register.' },
+        { number: 2, title: 'Adoption du règlement intérieur',       body: "Le règlement intérieur n° 1 régissant les affaires internes de la société est adopté et versé au registre.", title_en: 'Adoption of By-laws', body_en: 'By-law No. 1 governing the internal affairs of the corporation is adopted and entered into the register.' },
+        { number: 3, title: "Fixation de l'exercice financier",      body: "L'exercice financier de la société est fixé conformément aux statuts déposés.", title_en: 'Establishment of the Financial Year', body_en: 'The financial year of the corporation is established in accordance with the articles filed.' },
+      ];
+      break;
+    case 'founding_shareholder':
+      base = [
+        { number: 1, title: 'Ratification du règlement intérieur',   body: "Le règlement intérieur n° 1 adopté par le conseil d'administration est ratifié.", title_en: 'Ratification of By-laws', body_en: 'By-law No. 1 adopted by the board of directors is ratified.' },
+        { number: 2, title: "Élection du conseil d'administration",  body: "Les administrateurs nommés sont élus jusqu'à la prochaine assemblée annuelle des actionnaires.", title_en: 'Election of the Board of Directors', body_en: 'The directors named are elected to hold office until the next annual meeting of shareholders.' },
+        { number: 3, ...auditorWaiverClauseFounding(framework) },
+      ];
+      break;
+    case 'share_subscription':
+      base = [
+        { number: 1, title: 'Souscription et émission des actions',  body: "Le conseil autorise l'émission et la souscription des actions conformément aux résolutions initiales.", title_en: 'Subscription and Issuance of Shares', body_en: 'The board authorizes the issuance and subscription of shares in accordance with the initial resolutions.' },
+      ];
+      break;
+    case 'annual_board':
+      base = [
+        { number: 1, title: 'Approbation des états financiers',      body: "Les états financiers de l'exercice sont approuvés par le conseil d'administration.", title_en: 'Approval of Financial Statements', body_en: 'The financial statements for the financial year are approved by the board of directors.' },
+      ];
+      break;
+    case 'annual_shareholder':
+      base = [
+        { number: 1, title: 'Approbation des états financiers',      body: "Les états financiers de l'exercice sont approuvés par les actionnaires.", title_en: 'Approval of Financial Statements', body_en: 'The financial statements for the financial year are approved by the shareholders.' },
+        { number: 2, ...auditorWaiverClause(framework, fiscalYear) },
+      ];
+      break;
+    case 'auditor_waiver':
+      base = [
+        { number: 1, ...auditorWaiverClause(framework, fiscalYear) },
+      ];
+      break;
+    default:
+      base = [{ number: 1, title: 'Résolution', body: 'La résolution est adoptée.', title_en: 'Resolution', body_en: 'The resolution is adopted.' }];
+  }
   // #75: resolve title/body by document language so the shells render the right
   // locale (shells read .title/.body verbatim — no shell change needed).
   const resolved = base.map((r) => ({
@@ -270,17 +339,20 @@ export async function generatePdfDocument(
   }
   console.log(`[#175 backfill-detection] company=${companyId} type=${mapping.resolutionType} targetYear=${effectiveYear} appointmentFYs=${JSON.stringify(appointmentFYs)} isBackfill=${isBackfill}`);
 
+  const frameworkValue: 'CBCA' | 'LSA' = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
+  const fiscalYearValue: string | undefined = isFoundational ? undefined : String(effectiveYear);
+
   const templateData = {
     companyName: company.legal_name_fr,
     neq: company.neq,
     documentTitle,
     resolutionDate: effectiveResolutionDate,
-    fiscalYear: isFoundational ? null : String(effectiveYear),
+    fiscalYear: fiscalYearValue ?? null,
     language,
-    framework: company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
+    framework: frameworkValue,
     directors: activeDirectors,
     shareholders: activeShareholders,
-    resolutions: getResolutionsForType(mapping.resolutionType, isBackfill, language),
+    resolutions: getResolutionsForType(mapping.resolutionType, isBackfill, language, frameworkValue, fiscalYearValue),
     signatories: signatories && signatories.length > 0 ? signatories : undefined,
   };
 
