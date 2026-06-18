@@ -73,7 +73,7 @@ export default function IssueSharesModal({
   const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);
   const [shareClassId, setShareClassId] = useState(shareClasses[0]?.id || '');
   const [quantity, setQuantity] = useState('100');
-  const [pricePerShare, setPricePerShare] = useState('');
+  const [pricePerShare, setPricePerShare] = useState('1');
   const [issueDate, setIssueDate] = useState(''); // Atom 3 polish: empty by default (both paths)
   const [certificateNumber, setCertificateNumber] = useState(
     String(nextCertificateNumber).padStart(3, '0')
@@ -138,14 +138,17 @@ export default function IssueSharesModal({
       setError(t('errorIssueDate'));
       return;
     }
+    const priceNum = parseFloat(pricePerShare);
+    if (!pricePerShare.trim() || !Number.isFinite(priceNum) || priceNum < 0) {
+      setError(t('errorPrice'));
+      return;
+    }
 
     setSaving(true);
     setError(null);
 
     try {
-      const price = pricePerShare.trim()
-        ? parseFloat(pricePerShare)
-        : null;
+      const price = parseFloat(pricePerShare);
       const selectedClass = shareClasses.find((sc) => sc.id === shareClassId);
       const shareClassName = selectedClass?.name || '';
 
@@ -685,7 +688,7 @@ export default function IssueSharesModal({
                 />
               </div>
               <p className="mt-1 text-[11px] text-zinc-400">
-                {locale === 'fr' ? 'Optionnel — utile pour les dossiers fiscaux' : 'Optional — useful for tax records'}
+                {locale === 'fr' ? 'Prix par action (1 $ par défaut si inconnu)' : 'Price per share ($1 default if unknown)'}
               </p>
             </div>
           </div>

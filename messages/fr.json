@@ -421,6 +421,7 @@
     "errorShareClass": "Veuillez sélectionner une classe d'actions.",
     "errorQuantity": "Le nombre d'actions doit être supérieur à 0.",
     "errorIssueDate": "La date d'émission est requise.",
+    "errorPrice": "Le prix par action est requis et doit être un nombre positif.",
     "holderLabel": "Personne / Société",
     "selectHolder": "Sélectionner une personne / société",
     "entityBadge": "Entité",
@@ -608,10 +609,12 @@
         "shareClass": "Catégorie",
         "quantity": "Qté",
         "certificate": "Cert.",
-        "issueDate": "Émission"
+        "issueDate": "Émission",
+        "statedCapital": "Capital déclaré"
       },
       "residentYes": "Oui",
-      "residentNo": "Non"
+      "residentNo": "Non",
+      "missingConsideration": "{count, plural, =0 {Aucune émission sans contrepartie inscrite} =1 {1 émission sans contrepartie inscrite} other {# émissions sans contrepartie inscrite}}"
     },
     "bulkCatchUp": {
       "button": {

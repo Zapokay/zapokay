@@ -23,22 +23,25 @@ export default function BinderView() {
   const [directors, setDirectors] = useState<any>(null)
   const [officers, setOfficers] = useState<any>(null)
   const [shareholders, setShareholders] = useState<any>(null)
+  const [statedCapital, setStatedCapital] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [binderRes, dirRes, offRes, shRes] = await Promise.all([
+        const [binderRes, dirRes, offRes, shRes, scRes] = await Promise.all([
           fetch('/api/minute-book/binder?scope=finalized'),
           fetch('/api/registers/directors'),
           fetch('/api/registers/officers'),
           fetch('/api/registers/shareholders'),
+          fetch('/api/registers/stated-capital'),
         ])
         const binderData = await binderRes.json()
         setSections(binderData.sections || [])
         setDirectors(await dirRes.json())
         setOfficers(await offRes.json())
         setShareholders(await shRes.json())
+        setStatedCapital(await scRes.json())
       } catch (err) {
         console.error('Failed to load binder data', err)
       } finally {
@@ -128,6 +131,36 @@ export default function BinderView() {
                   ...e,
                   certificate_number: e.certificate_number || '—',
                 }))}
+              />
+            )}
+
+            {statedCapital && (
+              <RegisterCard
+                title={locale === 'en' ? statedCapital.register_title_en : statedCapital.register_title_fr}
+                emptyMessage={t('emptyRegister')}
+                columns={[
+                  { key: 'class_name', label: t('columns.shareClass') },
+                  { key: 'stated_capital', label: t('columns.statedCapital') },
+                ]}
+                rows={(statedCapital.entries || []).map((e: any) => ({
+                  ...e,
+                  stated_capital: new Intl.NumberFormat(
+                    locale === 'en' ? 'en-CA' : 'fr-CA',
+                    { style: 'currency', currency: e.currency || 'CAD' }
+                  ).format(e.stated_capital ?? 0),
+                }))}
+                citation={locale === 'en' ? statedCapital.citation_en : statedCapital.citation_fr}
+                footnote={(() => {
+                  const missing = (statedCapital.entries || []).reduce(
+                    (sum: number, e: any) => sum + (e.issuances_missing_price || 0),
+                    0
+                  )
+                  return missing > 0 ? (
+                    <p className="text-[11px] text-amber-600">
+                      {t('missingConsideration', { count: missing })}
+                    </p>
+                  ) : undefined
+                })()}
               />
             )}
           </BinderSection>

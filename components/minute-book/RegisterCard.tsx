@@ -1,10 +1,14 @@
 'use client'
 
+import type { ReactNode } from 'react'
+
 interface RegisterCardProps {
   title: string
   columns: { key: string; label: string }[]
   rows: Record<string, any>[]
   emptyMessage?: string
+  citation?: string
+  footnote?: ReactNode
 }
 
 export default function RegisterCard({
@@ -12,6 +16,8 @@ export default function RegisterCard({
   columns,
   rows,
   emptyMessage = 'Aucune donnée enregistrée',
+  citation,
+  footnote,
 }: RegisterCardProps) {
   return (
     <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] overflow-hidden">
@@ -49,6 +55,15 @@ export default function RegisterCard({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {(footnote || citation) && (
+        <div className="px-5 py-3 border-t border-[var(--card-border)] space-y-1.5">
+          {footnote}
+          {/* ⚠️ YELLOW — PENDING LAWYER GREEN — stated-capital citation (art.68 LSAQ / s.26 CBCA) */}
+          {citation && (
+            <p className="text-[11px] italic text-[var(--text-muted)]">{citation}</p>
+          )}
         </div>
       )}
     </div>
