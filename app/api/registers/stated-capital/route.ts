@@ -102,15 +102,15 @@ export async function GET() {
   const isCBCA = company.incorporation_type === 'CBCA'
   // ⚠️ YELLOW — PENDING LAWYER GREEN — stated-capital citation (art.68 LSAQ / s.26 CBCA), unverified.
   const citation_fr = isCBCA
-    ? 'Compte de capital déclaré tenu en vertu de l\'art. 26 LCSA.'
+    ? 'Compte capital déclaré tenu en vertu de l\'art. 26 LCSA.'
     : 'Compte de capital-actions émis et payé tenu en vertu de l\'art. 68 LSAQ.'
   const citation_en = isCBCA
     ? 'Stated capital account maintained under CBCA s. 26.'
     : 'Issued and paid-up share capital account maintained under LSAQ art. 68.'
 
   return NextResponse.json({
-    register_title_fr: 'Compte de capital-actions émis et payé',
-    register_title_en: 'Issued and Paid-Up Share Capital Account',
+    register_title_fr: isCBCA ? 'Compte capital déclaré' : 'Compte de capital-actions émis et payé',
+    register_title_en: isCBCA ? 'Stated Capital Account' : 'Issued and Paid-Up Share Capital Account',
     citation_fr,
     citation_en,
     entries,
