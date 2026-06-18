@@ -2,12 +2,13 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { createClient } from '@/lib/supabase/server';
+import { getUserWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentTypePill } from '@/components/documents/DocumentTypePill';
 import { LanguageBadge } from '@/components/documents/LanguageBadge';
-import { getOldestGap, getGaps } from '@/lib/priority';
+import { getGaps, type UrgentGap } from '@/lib/priority';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
 import MinuteBookCard from '@/components/dashboard/MinuteBookCard'
 import { formatDate, parseLocalDate } from '@/lib/utils';
@@ -65,16 +66,8 @@ export default async function DashboardPage({
 }) {
   const supabase = createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getUserWithProfile();
   if (!user) redirect(`/${locale}/login`);
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single();
   if (!profile?.onboarding_completed) redirect(`/${locale}/onboarding`);
 
   const { data: company } = await supabase
@@ -84,24 +77,32 @@ export default async function DashboardPage({
     .eq('status', 'active')
     .single();
 
-  const { data: documents } = await supabase
-    .from('documents')
-    .select('*')
-    .eq('company_id', company?.id ?? '')
-    .order('created_at', { ascending: false });
+  // Independent reads, all gated only on company.id — run concurrently instead
+  // of one-by-one. getGaps is computed ONCE here; nextGap is derived from its
+  // result (was a second getOldestGap() call that re-ran the entire engine).
+  const [documentsRes, fiscalYearsRes, gaps] = await Promise.all([
+    supabase
+      .from('documents')
+      .select('*')
+      .eq('company_id', company?.id ?? '')
+      .order('created_at', { ascending: false }),
+    company
+      ? supabase
+          .from('company_fiscal_years')
+          .select('year, status')
+          .eq('company_id', company.id)
+          .eq('status', 'active')
+          .order('year', { ascending: false })
+      : Promise.resolve({ data: [] as { year: number; status: string }[] }),
+    company ? getGaps(company.id, supabase) : Promise.resolve<UrgentGap[]>([]),
+  ]);
 
-  const allDocs = documents ?? [];
+  const allDocs = documentsRes.data ?? [];
   const recentDocs = allDocs.slice(0, 5);
-
-  // Fetch tracked fiscal years from company_fiscal_years
-  const { data: trackedFiscalYears } = company
-    ? await supabase
-        .from('company_fiscal_years')
-        .select('year, status')
-        .eq('company_id', company.id)
-        .eq('status', 'active')
-        .order('year', { ascending: false })
-    : { data: [] };
+  const trackedFiscalYears = fiscalYearsRes.data;
+  // Prochaine échéance — highest-priority gap = first of the already-ordered
+  // getGaps result (foundational first, then oldest active year).
+  const nextGap = gaps[0] ?? null;
 
   // Build history entries from tracked years + docs
   const docsByYear: Record<number, Set<string>> = {};
@@ -126,14 +127,6 @@ export default async function DashboardPage({
 
   const fr = locale === 'fr';
   const firstName = profile.full_name?.split(' ')[0] ?? '';
-
-  // Missing-document gaps — canonical minute_book_requirements path (replaces
-  // the deprecated compliance engine). Ordered foundational-first, then fiscal
-  // oldest→latest. No deadlines/urgency (catalog has no due_date — GAP-F).
-  const gaps = company ? await getGaps(company.id, supabase) : [];
-
-  // Prochaine échéance — fed by getOldestGap (foundational first, then oldest active year)
-  const nextGap = company ? await getOldestGap(company.id, supabase) : null;
 
   return (
     <DashboardShell locale={locale} profile={profile} company={company} urgentCount={0}>
@@ -230,7 +223,7 @@ export default async function DashboardPage({
               </div>
             )}
           </div>
-          {/* Prochaine échéance — stat card (fed by getOldestGap) */}
+          {/* Prochaine échéance — stat card (fed by gaps[0]) */}
           {(() => {
             // Derive state-specific content
             const isFoundational = nextGap?.type === 'foundational';
