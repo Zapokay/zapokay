@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUserWithProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { SettingsClient } from '@/components/dashboard/SettingsClient'
@@ -25,21 +26,12 @@ export default async function SettingsPage({
 }) {
   const supabase = createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user, profile } = await getUserWithProfile()
   if (!user) redirect(`/${locale}/login`)
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single()
   if (!profile?.onboarding_completed) redirect(`/${locale}/onboarding`)
 
   // Get auth user email
-  const { data: { user: authUser } } = await supabase.auth.getUser()
-  const email = authUser?.email ?? ''
+  const email = user.email ?? ''
 
   const { data: company } = await supabase
     .from('companies')

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { createClient } from '@/lib/supabase/server';
+import { getUserWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentsClient } from '@/app/[locale]/dashboard/minute-book/documents/DocumentsClient';
@@ -14,16 +15,8 @@ export default async function DocumentsPage({
 }) {
   const supabase = createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getUserWithProfile();
   if (!user) redirect(`/${locale}/login`);
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single();
   if (!profile?.onboarding_completed) redirect(`/${locale}/onboarding`);
 
   const { data: company } = await supabase

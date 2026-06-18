@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { FiscalYearsSetup } from '@/components/onboarding/FiscalYearsSetup'
 
@@ -9,9 +10,7 @@ export default async function FiscalYearsPage({
 }) {
   const supabase = createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) redirect(`/${locale}/login`)
 
   const { data: company } = await supabase
