@@ -30,6 +30,7 @@ export default async function DocumentsPage({
     .from('documents')
     .select('*')
     .eq('company_id', company?.id ?? '')
+    .eq('status', 'active')
     .order('created_at', { ascending: false });
 
   const { data: fiscalYearsData } = company

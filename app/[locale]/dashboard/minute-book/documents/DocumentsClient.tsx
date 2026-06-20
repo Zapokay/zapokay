@@ -86,6 +86,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
       .from('documents')
       .select('*')
       .eq('company_id', company.id)
+      .eq('status', 'active')
       .order('created_at', { ascending: false });
     if (data) setDocuments(data as VaultDocument[]);
   }, [company?.id, supabase]);
