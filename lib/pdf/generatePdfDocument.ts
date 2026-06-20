@@ -382,6 +382,33 @@ export async function generatePdfDocument(
     return { ok: false, error: 'Erreur lors du téléversement du document.' };
   }
 
+  // #135 draft supersede: evict prior unsigned drafts for this exact
+  // requirement+year so (re)generate replaces instead of accumulating. Year-scoped:
+  // annual docs across different fiscal years are distinct and must NOT evict each
+  // other. Finalized/signed rows are NEVER touched (deliberate replace is a separate,
+  // confirmed Part-4 flow). The year branch mirrors the insert's OWN spread condition
+  // (hasYear && !isFoundational, line below) EXACTLY so it targets the same
+  // requirement_year the new row will carry (NULL for foundational / no-year).
+  {
+    let supersedeQuery = supabaseAdmin
+      .from('documents')
+      .update({ status: 'superseded' })
+      .eq('company_id', companyId)
+      .eq('requirement_key', requirementKey)
+      .eq('status', 'active')
+      .eq('is_finalized', false)
+      .in('signature_status', ['draft', 'pending_signature']);
+    supersedeQuery = (hasYear && !isFoundational)
+      ? supersedeQuery.eq('requirement_year', effectiveYear)
+      : supersedeQuery.is('requirement_year', null);
+    const { error: supersedeError } = await supersedeQuery;
+    if (supersedeError) {
+      // Non-fatal: never block generation on a supersede failure. The new row still
+      // inserts; worst case a stale draft lingers (cleanable).
+      console.error('[#135] draft supersede failed (non-fatal):', supersedeError);
+    }
+  }
+
   // 10. Insert documents row.
   const { data: document, error: docInsertError } = await supabaseAdmin
     .from('documents')
