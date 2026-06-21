@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/purge-superseded", "schedule": "0 4 * * *" }
+  ]
+}

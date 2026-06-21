@@ -393,7 +393,7 @@ export async function generatePdfDocument(
   {
     let supersedeQuery = supabaseAdmin
       .from('documents')
-      .update({ status: 'superseded' })
+      .update({ status: 'superseded', superseded_at: new Date().toISOString() })
       .eq('company_id', companyId)
       .eq('requirement_key', requirementKey)
       .eq('status', 'active')
