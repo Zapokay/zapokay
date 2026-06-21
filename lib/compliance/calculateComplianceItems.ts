@@ -121,7 +121,7 @@ export async function calculateComplianceItems(
     .from('documents')
     .select('id, document_type, uploaded_at, created_at')
     .eq('company_id', companyId)
-    .neq('status', 'archived')
+    .eq('status', 'active')
 
   const docs = documents ?? []
 

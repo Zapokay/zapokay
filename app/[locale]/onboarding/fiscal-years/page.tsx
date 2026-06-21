@@ -31,6 +31,7 @@ export default async function FiscalYearsPage({
     .from('documents')
     .select('document_year')
     .eq('company_id', company.id)
+    .eq('status', 'active')
 
   const documentYears = (documents ?? [])
     .map((d: { document_year: number | null }) => d.document_year)

@@ -85,6 +85,7 @@ export default async function DashboardPage({
       .from('documents')
       .select('*')
       .eq('company_id', company?.id ?? '')
+      .eq('status', 'active')
       .order('created_at', { ascending: false }),
     company
       ? supabase
