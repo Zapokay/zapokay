@@ -27,6 +27,7 @@ export default function ShareClassModal({
   const isEdit = !!shareClass;
 
   const [name, setName] = useState(shareClass?.name ?? '');
+  const [nameEn, setNameEn] = useState(shareClass?.name_en ?? '');
   const [type, setType] = useState<'common' | 'preferred'>(shareClass?.type ?? 'common');
   const [votingRights, setVotingRights] = useState(shareClass?.voting_rights ?? true);
   const [votesPerShare, setVotesPerShare] = useState(String(shareClass?.votes_per_share ?? 1));
@@ -48,6 +49,7 @@ export default function ShareClassModal({
     const payload = {
       company_id: companyId,
       name: name.trim(),
+      name_en: nameEn.trim() || null,
       type,
       voting_rights: votingRights,
       votes_per_share: votingRights ? Math.max(1, parseInt(votesPerShare) || 1) : 0,
@@ -121,6 +123,21 @@ export default function ShareClassModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={locale === 'fr' ? 'Ex. Actions ordinaires' : 'E.g. Common shares'}
+              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          </div>
+
+          {/* Name (EN) — optional; rendered in English-language documents */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              {locale === 'fr' ? 'Nom (anglais)' : 'Name (English)'}{' '}
+              <span className="text-zinc-400">{locale === 'fr' ? '— optionnel' : '— optional'}</span>
+            </label>
+            <input
+              type="text"
+              value={nameEn}
+              onChange={(e) => setNameEn(e.target.value)}
+              placeholder="Ex. Common shares"
               className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
           </div>

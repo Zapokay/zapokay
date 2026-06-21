@@ -43,6 +43,7 @@ import { logActivity } from '@/lib/activity-log';
 import { fiscalYearForDate } from '@/lib/active-years';
 import { generatePDF } from '@/lib/pdf/generatePDF';
 import { fillLifecycleResolution } from '@/lib/pdf/lifecycle-template-engine';
+import { pickShareClassName } from '@/lib/pdf/share-class-name';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
 import { formatDate } from '@/lib/utils';
 import {
@@ -152,7 +153,7 @@ export async function generateLifecycleDocument(
 
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('id, legal_name_fr, neq, incorporation_type, fiscal_year_end_month, fiscal_year_end_day')
+    .select('id, legal_name_fr, legal_name_en, neq, incorporation_type, fiscal_year_end_month, fiscal_year_end_day')
     .eq('id', companyId)
     .single();
   if (companyError || !company) {
@@ -211,7 +212,7 @@ export async function generateLifecycleDocument(
         person: { full_name: string | null } | null;
         entity: { legal_name: string | null } | null;
       }> | null;
-      share_classes: { name: string } | null;
+      share_classes: { name: string; name_en: string | null } | null;
     };
 
     const { data: shRow, error: shError } = await supabaseAdmin
@@ -222,7 +223,7 @@ export async function generateLifecycleDocument(
           person:company_people(full_name),
           entity:shareholder_entities(legal_name)
         ),
-        share_classes(name)
+        share_classes(name, name_en)
       `)
       .eq('id', eventId)
       .eq('company_id', companyId)
@@ -251,7 +252,9 @@ export async function generateLifecycleDocument(
       null;
 
     shareholdingShares = shRow.quantity;
-    const className = shRow.share_classes?.name;
+    const className = language === 'en'
+      ? (shRow.share_classes?.name_en ?? shRow.share_classes?.name)
+      : shRow.share_classes?.name;
     if (!className) {
       throw new Error(
         `generateLifecycleDocument: share class missing for shareholding ${eventId}`,
@@ -280,7 +283,7 @@ export async function generateLifecycleDocument(
           person: { full_name: string | null } | null;
           entity: { legal_name: string | null } | null;
         }> | null;
-        share_classes: { name: string } | null;
+        share_classes: { name: string; name_en: string | null } | null;
       } | null;
       to_shareholding: {
         id: string;
@@ -305,7 +308,7 @@ export async function generateLifecycleDocument(
             person:company_people(full_name),
             entity:shareholder_entities(legal_name)
           ),
-          share_classes(name)
+          share_classes(name, name_en)
         ),
         to_shareholding:shareholdings!to_shareholding_id(
           id,
@@ -359,7 +362,9 @@ export async function generateLifecycleDocument(
 
     transferQuantity = trRow.quantity_transferred;
 
-    const className = trRow.from_shareholding.share_classes?.name;
+    const className = language === 'en'
+      ? (trRow.from_shareholding.share_classes?.name_en ?? trRow.from_shareholding.share_classes?.name)
+      : trRow.from_shareholding.share_classes?.name;
     if (!className) {
       throw new Error(
         `generateLifecycleDocument: share class missing for share_transfer ${eventId} source shareholding`,
@@ -445,7 +450,7 @@ export async function generateLifecycleDocument(
   /* -------- Build the fill context ---------------------------------------- */
 
   const ctx: Record<string, string> = {
-    companyName: company.legal_name_fr,
+    companyName: language === 'en' ? (company.legal_name_en ?? company.legal_name_fr) : company.legal_name_fr,
     neq: company.neq ?? '',
     effectiveDate: formatDate(effectiveDateIso, language),
     resolutionDate: formatDate(resolutionDate, language),
@@ -567,7 +572,7 @@ export async function generateLifecycleDocument(
           person:company_people(id, full_name),
           entity:shareholder_entities(id, legal_name, entity_type)
         ),
-        share_classes(name)
+        share_classes(name, name_en)
       `)
       .eq('company_id', companyId)
       .is('end_date', null);
@@ -586,7 +591,7 @@ export async function generateLifecycleDocument(
       return {
         name,
         shares: s.quantity as number,
-        shareClass: (s.share_classes as unknown as { name: string } | null)?.name ?? 'A',
+        shareClass: pickShareClassName(s.share_classes, language),
       };
     });
   }
@@ -640,7 +645,7 @@ export async function generateLifecycleDocument(
     data: {
       // #172 — durable documents.id stamped into the footer (== stored row id).
       documentId,
-      companyName: company.legal_name_fr,
+      companyName: language === 'en' ? (company.legal_name_en ?? company.legal_name_fr) : company.legal_name_fr,
       neq: company.neq ?? undefined,
       documentTitle: filled.resolution.title,
       resolutionDate: formatDate(resolutionDate, language),

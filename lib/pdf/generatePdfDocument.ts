@@ -27,6 +27,7 @@ import { logActivity } from '@/lib/activity-log';
 import { generatePDF } from '@/lib/pdf/generatePDF';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 import { fiscalYearForDate } from '@/lib/active-years';
+import { pickShareClassName } from '@/lib/pdf/share-class-name';
 
 /* ------------------------------------------------------------------ */
 /*  Requirement → document type mapping                                */
@@ -247,7 +248,7 @@ export async function generatePdfDocument(
   // 3. Load company.
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('id, legal_name_fr, neq, incorporation_type, fiscal_year_end_month, fiscal_year_end_day')
+    .select('id, legal_name_fr, legal_name_en, neq, incorporation_type, fiscal_year_end_month, fiscal_year_end_day')
     .eq('id', companyId)
     .single();
 
@@ -280,7 +281,7 @@ export async function generatePdfDocument(
         person:company_people(id, full_name),
         entity:shareholder_entities(id, legal_name, entity_type)
       ),
-      share_classes(name)
+      share_classes(name, name_en)
     `)
     .eq('company_id', companyId)
     .is('end_date', null);
@@ -297,7 +298,7 @@ export async function generatePdfDocument(
     return {
       name: shareholderName,
       shares: s.quantity as number,
-      shareClass: (s.share_classes as unknown as { name: string } | null)?.name ?? 'A',
+      shareClass: pickShareClassName(s.share_classes, language),
     };
   });
 
@@ -343,7 +344,7 @@ export async function generatePdfDocument(
   const fiscalYearValue: string | undefined = isFoundational ? undefined : String(effectiveYear);
 
   const templateData = {
-    companyName: company.legal_name_fr,
+    companyName: language === 'en' ? (company.legal_name_en ?? company.legal_name_fr) : company.legal_name_fr,
     neq: company.neq,
     documentTitle,
     resolutionDate: effectiveResolutionDate,

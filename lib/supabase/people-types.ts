@@ -93,6 +93,7 @@ export interface ShareClass {
   id: string;
   company_id: string;
   name: string;
+  name_en: string | null;
   type: ShareClassType;
   voting_rights: boolean;
   votes_per_share: number;
