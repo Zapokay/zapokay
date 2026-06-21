@@ -28,7 +28,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import { toStorageSafeName } from '@/lib/storage-key';
-import { filePathFromFileUrl } from '@/lib/storage-path';
 import { logActivity } from '@/lib/activity-log';
 import { isPdfBytes } from '@/lib/pdf-magic';
 
@@ -208,60 +207,26 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     }
   }
 
-  // 5. Replace cleanup (Phase B B4) — runs only on insert success. Each step
-  //    is non-fatal: from the user's perspective the new doc is in place,
-  //    which is what matters. Orphaned rows/objects are logged for a future
-  //    sweep. See JSDoc on `replaceDocumentId` for sequence rationale.
+  // 5. Replace retire (Part 4, #135) — runs only on insert success. The new
+  //    doc is committed above; flip the replaced row to 'superseded' + stamp
+  //    superseded_at so the Part-3 cron purge reclaims it (row + storage
+  //    object) after the 10-day buffer. We deliberately do NOT delete the
+  //    storage object here — the superseded row still references its file_url
+  //    until the buffer elapses. Non-fatal: a failure leaves the old row
+  //    active (a lingering duplicate), never blocks the user's new doc. This
+  //    is a user-confirmed replace, so it intentionally supersedes finals too
+  //    (no is_finalized guard — that guard belongs to auto-supersede only).
   if (replaceDocumentId) {
-    const { data: oldDoc, error: oldFetchErr } = await supabase
+    const { error: supersedeErr } = await supabase
       .from('documents')
-      .select('file_url')
-      .eq('id', replaceDocumentId)
-      .maybeSingle();
-
-    if (oldFetchErr || !oldDoc) {
+      .update({ status: 'superseded', superseded_at: new Date().toISOString() })
+      .eq('id', replaceDocumentId);
+    if (supersedeErr) {
       console.error(
-        '[uploadDocument] Replace target lookup failed (orphan possible):',
+        '[uploadDocument] Replace supersede failed (old doc left active):',
         replaceDocumentId,
-        oldFetchErr,
+        supersedeErr,
       );
-    } else {
-      const { error: oldDeleteErr } = await supabase
-        .from('documents')
-        .delete()
-        .eq('id', replaceDocumentId);
-      if (oldDeleteErr) {
-        console.error(
-          '[uploadDocument] Old document row delete failed (orphan):',
-          replaceDocumentId,
-          oldDeleteErr,
-        );
-      } else if (oldDoc.file_url) {
-        // B5-edit-8 — defense-in-depth: current writers persist a relative
-        // storage key in file_url, so this normalization is a no-op in
-        // practice today. The wrap covers legacy rows that may carry a
-        // full Supabase public/signed URL (data drift) and any future
-        // producer that accidentally writes one. Symmetric with
-        // DocumentsClient.tsx vault-delete which already wraps.
-        const oldStoragePath = filePathFromFileUrl(oldDoc.file_url);
-        if (!oldStoragePath) {
-          console.warn(
-            '[uploadDocument] Old file_url could not be normalized to a storage path; skipping storage.remove (orphan possible):',
-            oldDoc.file_url,
-          );
-        } else {
-          const { error: oldStorageErr } = await supabase.storage
-            .from('documents')
-            .remove([oldStoragePath]);
-          if (oldStorageErr) {
-            console.error(
-              '[uploadDocument] Old storage object remove failed (orphan):',
-              oldStoragePath,
-              oldStorageErr,
-            );
-          }
-        }
-      }
     }
   }
 

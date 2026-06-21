@@ -12,7 +12,7 @@ const DOC_TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'au
 const LANGUAGE_KEYS = ['fr', 'en', 'bilingual'] as const;
 
 type Mode = 'vault' | 'row';
-type Step = 'form' | 'uploading' | 'done';
+type Step = 'form' | 'confirm' | 'uploading' | 'done';
 
 export interface UploadDocumentModalProps {
   isOpen: boolean;
@@ -241,14 +241,33 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     };
   }, [isOpen]);
 
+  // -- Final-replace detection (Part 4, #135) — Vault path only. A CERTIFIED
+  //    upload onto a "correspond à" requirement that ALREADY holds a final
+  //    must be confirmed before it supersedes that final. Draft replaces and
+  //    non-vault paths are unaffected. selectedReq is derived from the already
+  //    -fetched completeness checklist, so detection needs no extra fetch. --
+  const isFinalConflict =
+    mode === 'vault' &&
+    isCertified &&
+    !!selectedReq?.satisfied &&
+    selectedReq?.document_is_finalized === true;
+  const detectedFinalId = isFinalConflict ? (selectedReq?.document_id ?? undefined) : undefined;
+
   // -- Submit gate --
   // Phase B B5: certification is no longer mandatory. The checkbox is still
   // rendered and toggleable; its state determines `is_finalized` at insert
-  // time (B5-edit-4 below). Submit gate is now: title non-empty + form step.
-  const canSubmit = !!title.trim() && step === 'form';
+  // time (B5-edit-4 below). Title non-empty; allow the form step AND the
+  // final-replace confirm step (the confirm button re-enters handleSubmit).
+  const canSubmit = !!title.trim() && (step === 'form' || step === 'confirm');
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (opts?: { confirmed?: boolean }) => {
     if (!canSubmit) return;
+    // Final-replace gate (Vault): divert to the confirm step unless the user
+    // already confirmed via the confirm view. Never POST while diverting.
+    if (isFinalConflict && !opts?.confirmed) {
+      setStep('confirm');
+      return;
+    }
     setStep('uploading');
     setError('');
     const fd = new FormData();
@@ -266,7 +285,11 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     // upload that the three-state model rebuckets to 'généré' (see
     // lib/minute-book/state.ts) until the user finalizes via re-upload.
     fd.append('isFinalized', String(isCertified));
-    if (replaceDocumentId) fd.append('replaceDocumentId', replaceDocumentId);
+    // Single source for the replace target: the explicit prop (Completeness
+    // row path) OR the Vault-detected existing final id (Part 4). Either way
+    // it flows into the Pass-B supersede in uploadDocument.
+    const effectiveReplaceId = replaceDocumentId ?? detectedFinalId;
+    if (effectiveReplaceId) fd.append('replaceDocumentId', effectiveReplaceId);
     // No userId field — the route derives it from the session (closes the
     // trusted-param hole). No eventLink — the requirement/vault path has no
     // lifecycle link (that path lives in CompletenessPage, Brief 2b-ii).
@@ -299,6 +322,8 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     requirements,
     isCertified,
     replaceDocumentId,
+    isFinalConflict,
+    detectedFinalId,
     t,
     onError,
     onUploadComplete,
@@ -362,6 +387,30 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
               </h4>
               <p className="mt-1 text-sm text-[var(--warning-text)]">
                 {t('upload.replaceWarningBody')}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Final-replace confirm (Part 4, #135) — Vault certified upload over an
+            existing final. Same amber treatment as the B4 replace warning;
+            distinct copy (the old final is retired, with a 10-day undo). The
+            actions row below owns the Annuler / Remplacer buttons. */}
+        {step === 'confirm' && (
+          <div
+            role="alert"
+            className="mb-4 flex items-start gap-3 rounded-lg border border-[var(--amber-400)] bg-[var(--warning-bg)] p-4"
+          >
+            <AlertTriangle
+              className="h-5 w-5 text-[var(--warning-text)] flex-shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
+            <div>
+              <h4 className="text-sm font-semibold text-[var(--warning-text)]">
+                {t('upload.finalReplaceTitle')}
+              </h4>
+              <p className="mt-1 text-sm text-[var(--warning-text)]">
+                {t('upload.finalReplaceBody')}
               </p>
             </div>
           </div>
@@ -524,7 +573,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
         <div className="flex gap-3 pt-5">
           <button
             type="button"
-            onClick={onClose}
+            onClick={step === 'confirm' ? () => setStep('form') : onClose}
             disabled={step === 'uploading'}
             className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-[var(--card-border)] text-[var(--text-body)] bg-[var(--card-bg)] hover:bg-[var(--page-bg)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
@@ -532,13 +581,13 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
           </button>
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => handleSubmit(step === 'confirm' ? { confirmed: true } : undefined)}
             disabled={!canSubmit}
             className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--navy-600)] text-white hover:bg-[var(--navy-800)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {step === 'uploading'
               ? t('upload.submitting')
-              : isReplace
+              : step === 'confirm' || isReplace
                 ? t('upload.replaceSubmit')
                 : t('upload.submit')}
           </button>
