@@ -256,7 +256,7 @@ export default function CompletenessPage({
   // this filter stays declarative — no end_reason gating needed here.
   const activeYearSet = new Set(sortedYears);
   const eventsByYear: Record<number, EventActStatus[]> = {};
-  const eventsUnclassified: EventActStatus[] = [];
+  const eventsUnclassifiedByYear: Record<number, EventActStatus[]> = {};
   if (events) {
     for (const act of events) {
       const isDirectorOrOfficerDeparture =
@@ -285,10 +285,19 @@ export default function CompletenessPage({
         if (!eventsByYear[fy]) eventsByYear[fy] = [];
         eventsByYear[fy].push(act);
       } else {
-        eventsUnclassified.push(act);
+        if (!eventsUnclassifiedByYear[fy]) eventsUnclassifiedByYear[fy] = [];
+        eventsUnclassifiedByYear[fy].push(act);
       }
     }
   }
+
+  // Hors-exercice events grouped by their (already-computed) fiscal year,
+  // newest-first. Only years that actually have events appear (no phantom
+  // year headers). Display grouping only — keys on the event's fy, never on
+  // document_year, so the docs stay put regardless of any year stamp.
+  const unclassifiedYears = Object.keys(eventsUnclassifiedByYear)
+    .map(Number)
+    .sort((a, b) => b - a);
 
   // Bulk Catch-Up: build per-year groups of annual missing items
   // (filters out foundational; modal owns canGenerate-driven checkbox state).
@@ -424,20 +433,31 @@ export default function CompletenessPage({
               />
             ))}
 
-            {/* Hors-exercice acts have no fiscal-year box to live in —
-                render the standalone EventSection card here for that bucket. */}
-            {eventsUnclassified.length > 0 && (
-              <EventSection
-                title={tEvents('sectionUnclassified')}
-                acts={eventsUnclassified}
-                companyId={companyId}
-                locale={fr ? 'fr' : 'en'}
-                preferredLanguage={preferredLanguage}
-                onGenerated={fetchEvents}
-                onEventFileSelected={(file, act, title) =>
-                  handleEventFileSelected(file, act, title, null)
-                }
-              />
+            {/* Hors-exercice acts have no fiscal-year box to live in. Group them
+                by their computed fiscal year under a kept umbrella heading; one
+                collapsible EventSection per year (newest-first). Uploads KEEP
+                year=null to preserve the Vault Unclassified findability invariant
+                (matches generate-lifecycle-document.ts' deliberate null stamp). */}
+            {unclassifiedYears.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-sora font-semibold text-[var(--text-heading)] text-base">
+                  {tEvents('sectionUnclassified')}
+                </h3>
+                {unclassifiedYears.map((year) => (
+                  <EventSection
+                    key={year}
+                    title={getFiscalYearLabel(year, locale)}
+                    acts={eventsUnclassifiedByYear[year]}
+                    companyId={companyId}
+                    locale={fr ? 'fr' : 'en'}
+                    preferredLanguage={preferredLanguage}
+                    onGenerated={fetchEvents}
+                    onEventFileSelected={(file, act, title) =>
+                      handleEventFileSelected(file, act, title, null)
+                    }
+                  />
+                ))}
+              </div>
             )}
           </>
         )}
