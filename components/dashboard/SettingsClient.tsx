@@ -111,6 +111,10 @@ export function SettingsClient({
     'w-full px-3 py-2 rounded-lg text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors'
   const selectClass =
     'w-full px-3 py-2 rounded-lg text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors'
+  // Regime label: internal enum 'LSA'/'CBCA' → user-facing proper noun. Matches the
+  // app-wide `=== 'CBCA' ? 'CBCA' : 'LSAQ'` pattern (compliance/page.tsx:85,
+  // StepConfirmation.tsx:32). Locale-invariant proper nouns — no i18n key needed.
+  const incorpTypeLabel = (v: string) => (v === 'CBCA' ? 'CBCA' : 'LSAQ')
 
   const sectionTitle: React.CSSProperties = {
     fontFamily: "'Sora', sans-serif",
@@ -449,11 +453,14 @@ export function SettingsClient({
                 </button>
               </div>
               {unlockedFields.has('incorporationType') ? (
-                <input
+                <select
                   value={editIncorpType}
                   onChange={e => setEditIncorpType(e.target.value)}
-                  className={inputClass}
-                />
+                  className={selectClass}
+                >
+                  <option value="LSA">LSAQ</option>
+                  <option value="CBCA">CBCA</option>
+                </select>
               ) : (
                 <div
                   className="px-3 py-2 rounded-lg text-sm border"
@@ -464,7 +471,7 @@ export function SettingsClient({
                     opacity: 0.7,
                   }}
                 >
-                  {editIncorpType}
+                  {incorpTypeLabel(editIncorpType)}
                 </div>
               )}
             </div>
