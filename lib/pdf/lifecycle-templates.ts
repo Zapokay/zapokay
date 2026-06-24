@@ -611,6 +611,67 @@ RESOLVED THAT:
 3. Any director of the Corporation is authorized to do all things necessary to give effect to this resolution.
 
 Adopted by the board of directors on {{resolutionDate}}.`,
+    // YELLOW - PENDING LAWYER GREEN. Harvey-verdicted 2026-06-24 (LSAQ art. 116 / CBCA s. 121,
+    // + C.c.Q. art. 2175/2176/2178 mandate background, NOT in body). Officer cessation, single
+    // instrument, NO fork. Citation in CLAUSE 1 (art. 116/s. 121 - same power as appointment).
+    // Q0: clause-1 verb is ENCOMPASSING ('constatée ou, selon le cas, prononcée' / 'acknowledged
+    // or, as applicable, effected by the board') - covers passive cessation AND active board
+    // revocation (the board is the mandant per C.c.Q. 2175/2176), avoiding a fork. Recital prints
+    // endReason as plain fact, uncited. Clause 2 by-law/register kept neutral. effectiveDate may
+    // precede resolutionDate (Harvey Q3). Header/closing normalized to written-resolution form.
+    // OPEN [PRIORITE AVOCAT, RED]: clause-2 REQ/LPLE (P-44.1) filing basis unverified (neutral
+    // pending Harvey LPLE round). Officers have NO right-to-be-heard (contrast directors) - no-fork
+    // defensible. Mandataire reasonable-notice/indemnity is employment/contract law, out of scope.
+    regimeBodies: {
+      lsa: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE {{personName}} a cessé d'occuper le poste de {{officerTitle}} de la Société, pour le motif suivant : {{endReason}}, prenant effet le {{effectiveDate}};
+
+IL EST RÉSOLU :
+
+1. QUE la cessation des fonctions de {{personName}} à titre de {{officerTitle}} de la Société, prenant effet le {{effectiveDate}}, soit et est par les présentes constatée ou, selon le cas, prononcée par le conseil d'administration, conformément à l'article 116 de la Loi sur les sociétés par actions (RLRQ, c. S-31.1);
+2. QUE les registres de la Société soient mis à jour en conséquence;
+3. QUE tout administrateur de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS {{personName}} has ceased to hold office as {{officerTitle}} of the Corporation, for the following reason: {{endReason}}, effective {{effectiveDate}};
+
+RESOLVED THAT:
+
+1. The cessation of {{personName}} as {{officerTitle}} of the Corporation, effective {{effectiveDate}}, is hereby acknowledged or, as applicable, effected by the board of directors, in accordance with section 116 of the Business Corporations Act (CQLR, c. S-31.1);
+2. The records of the Corporation be updated accordingly;
+3. Any director of the Corporation is authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+      cbca: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE {{personName}} a cessé d'occuper le poste de {{officerTitle}} de la Société, pour le motif suivant : {{endReason}}, prenant effet le {{effectiveDate}};
+
+IL EST RÉSOLU :
+
+1. QUE la cessation des fonctions de {{personName}} à titre de {{officerTitle}} de la Société, prenant effet le {{effectiveDate}}, soit et est par les présentes constatée ou, selon le cas, prononcée par le conseil d'administration, conformément à l'article 121 de la Loi canadienne sur les sociétés par actions (L.R.C. (1985), ch. C-44);
+2. QUE les registres de la Société soient mis à jour en conséquence;
+3. QUE tout administrateur de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS {{personName}} has ceased to hold office as {{officerTitle}} of the Corporation, for the following reason: {{endReason}}, effective {{effectiveDate}};
+
+RESOLVED THAT:
+
+1. The cessation of {{personName}} as {{officerTitle}} of the Corporation, effective {{effectiveDate}}, is hereby acknowledged or, as applicable, effected by the board of directors, in accordance with section 121 of the Canada Business Corporations Act (R.S.C. 1985, c. C-44);
+2. The records of the Corporation be updated accordingly;
+3. Any director of the Corporation is authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+    },
   },
 
   share_issuance: {
