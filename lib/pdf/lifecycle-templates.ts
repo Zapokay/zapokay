@@ -67,6 +67,15 @@ export interface LifecycleSatisfies {
   event_phase: LifecycleEventPhase;
 }
 
+/**
+ * A complete per-locale body pair for one regime override. Both locales are
+ * required (see the `regimeBodies` doc on LifecycleTemplateEntry).
+ */
+export interface LifecycleRegimeBody {
+  fr: string;
+  en: string;
+}
+
 export interface LifecycleTemplateEntry {
   docKey: string;
   instrument: LifecycleInstrument;
@@ -76,8 +85,25 @@ export interface LifecycleTemplateEntry {
   requiredVars: readonly string[];
   titleFr: string;
   titleEn: string;
+  /** Shared / default body. Renders for ANY framework UNLESS a per-framework
+   *  override below is present. REQUIRED — this is also the fallback. */
   bodyFr: string;
   bodyEn: string;
+  /**
+   * OPTIONAL per-framework body overrides. `bodyFr`/`bodyEn` above stay the
+   * shared DEFAULT and the FALLBACK. A regime override here is used ONLY when
+   * present for the company's framework; absent → the shared body renders,
+   * byte-identical to a framework-blind entry. This is how a regime-divergent
+   * docKey carries per-framework wording — statutory citation AND regime-specific
+   * defined terms (e.g. « émetteur assujetti » LSA vs « société ayant fait appel
+   * au public » CBCA) — mirroring the auditor-waiver's whole-body branch.
+   * Each regime key, when given, MUST supply BOTH fr + en (no locale-asymmetric
+   * override: a regime that diverges in FR diverges in EN too).
+   */
+  regimeBodies?: {
+    cbca?: LifecycleRegimeBody;
+    lsa?: LifecycleRegimeBody;
+  };
 }
 
 export const LIFECYCLE_TEMPLATES: Readonly<Record<string, LifecycleTemplateEntry>> = {

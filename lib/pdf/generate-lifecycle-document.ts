@@ -10,7 +10,7 @@
  *      by eventId. Reject soft-deleted rows.
  *   4. Build the fill context (companyName, neq, personName, optional
  *      officerTitle and endReason, formatted effectiveDate / resolutionDate)
- *      and call `fillLifecycleResolution(docKey, ctx, locale)`.
+ *      and call `fillLifecycleResolution(docKey, ctx, locale, framework)`.
  *   5. Load the current-state roster appropriate to the registry entry's
  *      instrument ('board' → active directors; 'shareholder' → active
  *      shareholders) for the resolution shell.
@@ -539,7 +539,7 @@ export async function generateLifecycleDocument(
 
   /* -------- Fill resolution via Brief 1 engine ---------------------------- */
 
-  const filled = fillLifecycleResolution(docKey, ctx, language);
+  const filled = fillLifecycleResolution(docKey, ctx, language, framework);
 
   /* -------- Load current-state roster for the shell ----------------------- */
   // 'board' instrument → active directors signature block.

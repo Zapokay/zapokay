@@ -95,6 +95,9 @@ function substitute(text: string, vars: Record<string, string>): string {
  *                composes `neqClause` from it. Extra unrecognized keys are
  *                ignored (substitution only fires on registered {{tokens}}).
  * @param locale  'fr' or 'en'. Selects bodyFr/titleFr or bodyEn/titleEn.
+ * @param framework 'CBCA' | 'LSA'. Selects a per-framework body override from
+ *                entry.regimeBodies when present; otherwise the shared
+ *                bodyFr/bodyEn renders (fallback). Title is locale-only.
  * @returns       Filled resolution shape `{ number: 1, title, body }` plus
  *                docKey, locale, instrument, and the satisfies tuple — ready
  *                for downstream wiring to event_documents and the existing
@@ -106,6 +109,7 @@ export function fillLifecycleResolution(
   docKey: string,
   ctx: Record<string, string>,
   locale: LifecycleLocale,
+  framework: 'CBCA' | 'LSA',
 ): FilledLifecycleResolution {
   const entry = LIFECYCLE_TEMPLATES[docKey];
   if (!entry) {
@@ -124,7 +128,14 @@ export function fillLifecycleResolution(
   };
 
   const title = locale === 'fr' ? entry.titleFr : entry.titleEn;
-  const body = locale === 'fr' ? entry.bodyFr : entry.bodyEn;
+  // Regime-aware body select WITH FALLBACK: per-framework override IF present for
+  // this framework, ELSE shared bodyFr/bodyEn. No regimeBodies (all 8 today) →
+  // shared body → byte-identical to pre-upgrade output. Title stays locale-only.
+  const regimeBody =
+    framework === 'CBCA' ? entry.regimeBodies?.cbca : entry.regimeBodies?.lsa;
+  const body = regimeBody
+    ? (locale === 'fr' ? regimeBody.fr : regimeBody.en)
+    : (locale === 'fr' ? entry.bodyFr : entry.bodyEn);
 
   const filledTitle = substitute(title, vars);
   const filledBody = substitute(body, vars);
