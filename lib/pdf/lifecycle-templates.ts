@@ -521,6 +521,65 @@ RESOLVED THAT:
 3. Any director of the Corporation is authorized to do all things necessary to give effect to this resolution.
 
 Adopted by the board of directors on {{resolutionDate}}.`,
+    // YELLOW - PENDING LAWYER GREEN. Harvey-verdicted 2026-06-24 (LSAQ art. 116 / CBCA s. 121).
+    // Board appoints officers; single instrument, no fork. Citation in CLAUSE 1 (board's
+    // appointment power), per Harvey (parallel to director_departure). Clause 2 by-law reference
+    // kept generic (Harvey Q2 OK as-is). effectiveDate unconstrained (present/future/past all
+    // valid for an appointment - Harvey Q3). Header/closing normalized to written-resolution
+    // board form (art. 140 LSAQ / s. 117 CBCA recognize written = meeting - Harvey Q5).
+    // OPEN [RED, lawyer]: officer consent/acceptance-of-mandate (Tab 5 dependency, same as
+    // directors - Harvey Q6); art. 118 al.3 LSAQ (principal-officer appt non-delegable to a
+    // committee) noted - no impact, instrument is a board resolution. Not final pre-lawyer.
+    regimeBodies: {
+      lsa: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE le conseil d'administration juge opportun de pourvoir au poste de {{officerTitle}};
+
+IL EST RÉSOLU :
+
+1. QUE {{personName}} soit et est par les présentes nommé(e) au poste de {{officerTitle}} de la Société, à compter du {{effectiveDate}}, conformément à l'article 116 de la Loi sur les sociétés par actions (RLRQ, c. S-31.1);
+2. QUE {{personName}} exerce les fonctions et pouvoirs rattachés à ce poste conformément aux règlements de la Société et aux directives du conseil d'administration;
+3. QUE tout administrateur de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS the board of directors considers it appropriate to fill the office of {{officerTitle}};
+
+RESOLVED THAT:
+
+1. {{personName}} is hereby appointed as {{officerTitle}} of the Corporation, effective {{effectiveDate}}, in accordance with section 116 of the Business Corporations Act (CQLR, c. S-31.1);
+2. {{personName}} shall carry out the duties and powers of that office in accordance with the by-laws of the Corporation and the directions of the board of directors;
+3. Any director of the Corporation is authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+      cbca: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE le conseil d'administration juge opportun de pourvoir au poste de {{officerTitle}};
+
+IL EST RÉSOLU :
+
+1. QUE {{personName}} soit et est par les présentes nommé(e) au poste de {{officerTitle}} de la Société, à compter du {{effectiveDate}}, conformément à l'article 121 de la Loi canadienne sur les sociétés par actions (L.R.C. (1985), ch. C-44);
+2. QUE {{personName}} exerce les fonctions et pouvoirs rattachés à ce poste conformément aux règlements de la Société et aux directives du conseil d'administration;
+3. QUE tout administrateur de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS the board of directors considers it appropriate to fill the office of {{officerTitle}};
+
+RESOLVED THAT:
+
+1. {{personName}} is hereby appointed as {{officerTitle}} of the Corporation, effective {{effectiveDate}}, in accordance with section 121 of the Canada Business Corporations Act (R.S.C. 1985, c. C-44);
+2. {{personName}} shall carry out the duties and powers of that office in accordance with the by-laws of the Corporation and the directions of the board of directors;
+3. Any director of the Corporation is authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+    },
   },
 
   officer_departure: {
