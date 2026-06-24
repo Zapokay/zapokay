@@ -202,6 +202,104 @@ Adopted on {{resolutionDate}} by the shareholders of the Corporation.`,
     },
   },
 
+  director_appointment_vacancy: {
+    docKey: 'director_appointment_vacancy',
+    instrument: 'board',
+    satisfies: { event_type: 'director_mandate', event_phase: 'appointment' },
+    requiredVars: ['companyName', 'personName', 'effectiveDate', 'resolutionDate'],
+    titleFr: "Nomination d'un administrateur (vacance)",
+    titleEn: 'Appointment of a Director (Vacancy)',
+    // ⚠️ YELLOW — PENDING LAWYER GREEN. Harvey-verdicted 2026-06-24 (voie 2, board fills a
+    // vacancy: art. 145 LSAQ / s. 111 CBCA). Board instrument (directors sign). The common
+    // SME mid-year-replacement case. Threshold: quorum of directors. Term-of-office uses the
+    // by-reference phrasing (Harvey Q3). OPEN [PRIORITÉ AVOCAT]: lawyer to confirm voie 2 is
+    // required as a distinct document (vs. shareholder election covering all arrivals).
+    bodyFr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QU'une vacance est survenue au sein du conseil d'administration de la Société;
+
+ATTENDU QUE les administrateurs, agissant avec quorum, jugent opportun de combler cette vacance;
+
+IL EST RÉSOLU :
+
+1. QUE {{personName}} soit et est par les présentes nommé(e) administrateur de la Société pour combler la vacance, à compter du {{effectiveDate}};
+2. QUE {{personName}} demeure en fonction pour la durée prévue au règlement intérieur de la Société, conformément à la loi applicable;
+3. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte et à signer tout document nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+    bodyEn: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS a vacancy has arisen on the board of directors of the Corporation;
+
+WHEREAS the directors, acting with a quorum, consider it advisable to fill that vacancy;
+
+RESOLVED THAT:
+
+1. {{personName}} is hereby appointed as a director of the Corporation to fill the vacancy, effective {{effectiveDate}};
+2. {{personName}} shall hold office for the term provided in the by-laws of the Corporation, in accordance with applicable law;
+3. Any director or officer of the Corporation is authorized to do all things and sign all documents necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+    regimeBodies: {
+      lsa: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE, conformément à l'article 145 de la Loi sur les sociétés par actions (RLRQ, c. S-31.1), les administrateurs peuvent, s'il y a quorum, combler toute vacance survenue au sein du conseil;
+
+ATTENDU QU'une vacance est survenue au sein du conseil d'administration de la Société;
+
+IL EST RÉSOLU :
+
+1. QUE {{personName}} soit et est par les présentes nommé(e) administrateur de la Société pour combler la vacance, à compter du {{effectiveDate}};
+2. QUE {{personName}} demeure en fonction pour la durée prévue au règlement intérieur de la Société, conformément à la loi applicable;
+3. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte et à signer tout document nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS, pursuant to section 145 of the Business Corporations Act (CQLR, c. S-31.1), the directors may, if there is a quorum, fill any vacancy occurring on the board;
+
+WHEREAS a vacancy has arisen on the board of directors of the Corporation;
+
+RESOLVED THAT:
+
+1. {{personName}} is hereby appointed as a director of the Corporation to fill the vacancy, effective {{effectiveDate}};
+2. {{personName}} shall hold office for the term provided in the by-laws of the Corporation, in accordance with applicable law;
+3. Any director or officer of the Corporation is authorized to do all things and sign all documents necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+      cbca: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE, conformément à l'article 111 de la Loi canadienne sur les sociétés par actions (L.R.C. (1985), ch. C-44), un quorum d'administrateurs peut combler une vacance survenue au sein du conseil;
+
+ATTENDU QU'une vacance est survenue au sein du conseil d'administration de la Société;
+
+IL EST RÉSOLU :
+
+1. QUE {{personName}} soit et est par les présentes nommé(e) administrateur de la Société pour combler la vacance, à compter du {{effectiveDate}};
+2. QUE {{personName}} demeure en fonction pour la durée prévue au règlement intérieur de la Société, conformément à la loi applicable;
+3. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte et à signer tout document nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS, pursuant to section 111 of the Canada Business Corporations Act (R.S.C. 1985, c. C-44), a quorum of directors may fill a vacancy occurring on the board;
+
+WHEREAS a vacancy has arisen on the board of directors of the Corporation;
+
+RESOLVED THAT:
+
+1. {{personName}} is hereby appointed as a director of the Corporation to fill the vacancy, effective {{effectiveDate}};
+2. {{personName}} shall hold office for the term provided in the by-laws of the Corporation, in accordance with applicable law;
+3. Any director or officer of the Corporation is authorized to do all things and sign all documents necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+    },
+  },
+
   director_departure: {
     docKey: 'director_departure',
     instrument: 'board',
