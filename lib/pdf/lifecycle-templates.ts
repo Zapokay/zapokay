@@ -121,7 +121,7 @@ ATTENDU QUE les actionnaires jugent opportun de nommer une personne supplémenta
 IL EST RÉSOLU :
 
 1. QUE {{personName}} soit et est par les présentes élu(e) administrateur de la Société, à compter du {{effectiveDate}};
-2. QUE {{personName}} demeure en fonction jusqu'à la clôture de la prochaine assemblée annuelle des actionnaires ou jusqu'à ce que son mandat prenne fin conformément à la loi et aux règlements de la Société;
+2. QUE {{personName}} demeure en fonction pour la durée prévue au règlement intérieur de la Société, conformément à la loi applicable;
 3. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte et à signer tout document nécessaire pour donner effet à la présente résolution.
 
 Adoptée le {{resolutionDate}}.`,
@@ -132,10 +132,74 @@ WHEREAS the shareholders consider it appropriate to appoint an additional person
 RESOLVED THAT:
 
 1. {{personName}} is hereby elected as a director of the Corporation, effective {{effectiveDate}};
-2. {{personName}} shall hold office until the close of the next annual meeting of shareholders or until they cease to hold office in accordance with the law and the by-laws of the Corporation;
+2. {{personName}} shall hold office for the term provided in the by-laws of the Corporation, in accordance with applicable law;
 3. Any director or officer of the Corporation is authorized to do all things and sign all documents necessary to give effect to this resolution.
 
 Adopted on {{resolutionDate}}.`,
+    // ⚠️ YELLOW — PENDING LAWYER GREEN. Harvey-verdicted 2026-06-24 (voie 1, shareholder
+    // election: LSAQ art. 110 / CBCA s. 106; term-of-office corrected to by-reference per
+    // Harvey Q3). OPEN [PRIORITÉ AVOCAT]: director arrival has a SECOND path — board fills
+    // a vacancy (art. 145 LSAQ / s. 111 CBCA) — the common SME mid-year-replacement case,
+    // NOT covered by this shareholder-election doc. Voie 2 is a separate docKey (board
+    // instrument), pending build + lawyer confirmation it's required.
+    regimeBodies: {
+      lsa: {
+        fr: `RÉSOLUTION ÉCRITE DES ACTIONNAIRES DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE, conformément à l'article 110 de la Loi sur les sociétés par actions (RLRQ, c. S-31.1), les administrateurs de la Société sont élus par les actionnaires;
+
+ATTENDU QUE les actionnaires jugent opportun d'élire une personne supplémentaire à titre d'administrateur;
+
+IL EST RÉSOLU :
+
+1. QUE {{personName}} soit et est par les présentes élu(e) administrateur de la Société, à compter du {{effectiveDate}};
+2. QUE {{personName}} demeure en fonction pour la durée prévue au règlement intérieur de la Société, conformément à la loi applicable;
+3. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte et à signer tout document nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les actionnaires de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE SHAREHOLDERS OF {{companyName}}{{neqClause}}
+
+WHEREAS, pursuant to section 110 of the Business Corporations Act (CQLR, c. S-31.1), the directors of the Corporation are elected by the shareholders;
+
+WHEREAS the shareholders consider it advisable to elect an additional person as a director;
+
+RESOLVED THAT:
+
+1. {{personName}} is hereby elected as a director of the Corporation, effective {{effectiveDate}};
+2. {{personName}} shall hold office for the term provided in the by-laws of the Corporation, in accordance with applicable law;
+3. Any director or officer of the Corporation is authorized to do all things and sign all documents necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the shareholders of the Corporation.`,
+      },
+      cbca: {
+        fr: `RÉSOLUTION ÉCRITE DES ACTIONNAIRES DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE, conformément à l'article 106 de la Loi canadienne sur les sociétés par actions (L.R.C. (1985), ch. C-44), les actionnaires élisent les administrateurs de la Société par résolution ordinaire;
+
+ATTENDU QUE les actionnaires jugent opportun d'élire une personne supplémentaire à titre d'administrateur;
+
+IL EST RÉSOLU :
+
+1. QUE {{personName}} soit et est par les présentes élu(e) administrateur de la Société, à compter du {{effectiveDate}};
+2. QUE {{personName}} demeure en fonction pour la durée prévue au règlement intérieur de la Société, conformément à la loi applicable;
+3. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte et à signer tout document nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les actionnaires de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE SHAREHOLDERS OF {{companyName}}{{neqClause}}
+
+WHEREAS, pursuant to section 106 of the Canada Business Corporations Act (R.S.C. 1985, c. C-44), the shareholders elect the directors of the Corporation by ordinary resolution;
+
+WHEREAS the shareholders consider it advisable to elect an additional person as a director;
+
+RESOLVED THAT:
+
+1. {{personName}} is hereby elected as a director of the Corporation, effective {{effectiveDate}};
+2. {{personName}} shall hold office for the term provided in the by-laws of the Corporation, in accordance with applicable law;
+3. Any director or officer of the Corporation is authorized to do all things and sign all documents necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the shareholders of the Corporation.`,
+      },
+    },
   },
 
   director_departure: {
