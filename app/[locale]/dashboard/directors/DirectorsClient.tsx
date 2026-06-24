@@ -460,6 +460,26 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
           companyId={companyId}
           docKey="director_appointment"
           instrument="shareholder"
+          docKeyOptions={[
+            {
+              value: 'election',
+              docKey: 'director_appointment',
+              instrument: 'shareholder',
+              labelFr: 'Élu par les actionnaires',
+              labelEn: 'Elected by the shareholders',
+              hintFr: 'Cas habituel — les actionnaires ont élu cet administrateur (assemblée ou élection annuelle).',
+              hintEn: 'The usual case — the shareholders elected this director (at a meeting or annual election).',
+            },
+            {
+              value: 'vacancy',
+              docKey: 'director_appointment_vacancy',
+              instrument: 'board',
+              labelFr: 'Nommé par le conseil (vacance)',
+              labelEn: 'Appointed by the board (vacancy)',
+              hintFr: 'Un administrateur a quitté en cours de mandat et le conseil a nommé un remplaçant pour combler la vacance.',
+              hintEn: 'A director left mid-term and the board appointed a replacement to fill the vacancy.',
+            },
+          ]}
           eventId={generatingAppointmentFor.id}
           personName={generatingAppointmentFor.person.full_name}
           roleLabel={locale === 'fr' ? 'Administrateur' : 'Director'}

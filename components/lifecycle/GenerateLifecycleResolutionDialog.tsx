@@ -36,6 +36,7 @@ export interface LifecycleDialogProps {
   docKey:
     // director family
     | 'director_appointment'
+    | 'director_appointment_vacancy'
     | 'director_departure'
     | 'director_removal'
     // officer family
@@ -46,6 +47,22 @@ export interface LifecycleDialogProps {
     | 'share_cessation'
     | 'share_transfer';
   instrument: 'board' | 'shareholder';
+  /**
+   * Optional generate-time docKey choices. When present (length > 0) the dialog
+   * renders a radio picker and derives the effective docKey + instrument from the
+   * SELECTED option (POSTing the chosen docKey). When ABSENT, the dialog uses the
+   * single docKey/instrument props and behaves byte-identically — the existing
+   * non-appointment render sites pass no options.
+   */
+  docKeyOptions?: Array<{
+    value: string;
+    labelFr: string;
+    labelEn: string;
+    hintFr: string;
+    hintEn: string;
+    docKey: LifecycleDialogProps['docKey'];
+    instrument: 'board' | 'shareholder';
+  }>;
   eventId: string;
   /**
    * Person/holder display label. For director_* and officer_* docKeys this is
@@ -80,6 +97,7 @@ export default function GenerateLifecycleResolutionDialog({
   companyId,
   docKey,
   instrument,
+  docKeyOptions,
   eventId,
   personName,
   roleLabel,
@@ -100,6 +118,19 @@ export default function GenerateLifecycleResolutionDialog({
   const [resolutionDate, setResolutionDate] = useState<string>(today);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Generate-time docKey choice. Defaults to the first option (election is listed
+  // first). Empty / unused when no docKeyOptions are passed.
+  const [selectedDocKeyValue, setSelectedDocKeyValue] = useState<string>(
+    docKeyOptions?.[0]?.value ?? '',
+  );
+
+  // SINGLE SOURCE for docKey + instrument. With a picker present, both come from
+  // the SELECTED option; otherwise they fall back to the single props — so with
+  // no docKeyOptions every consumer (POST, body, signedBy, heading) reads exactly
+  // the prop values and renders byte-identically to today.
+  const selectedOption = docKeyOptions?.find((o) => o.value === selectedDocKeyValue);
+  const effectiveDocKey = selectedOption?.docKey ?? docKey;
+  const effectiveInstrument = selectedOption?.instrument ?? instrument;
 
   async function handleGenerate() {
     setError(null);
@@ -110,7 +141,7 @@ export default function GenerateLifecycleResolutionDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
-          docKey,
+          docKey: effectiveDocKey,
           eventId,
           resolutionDate,
           language,
@@ -132,16 +163,16 @@ export default function GenerateLifecycleResolutionDialog({
     }
   }
 
-  const body = instrument === 'board' ? t('bodyBoard') : t('bodyShareholder');
+  const body = effectiveInstrument === 'board' ? t('bodyBoard') : t('bodyShareholder');
   const signedBy =
-    instrument === 'board' ? t('signedByBoard') : t('signedByShareholders');
+    effectiveInstrument === 'board' ? t('signedByBoard') : t('signedByShareholders');
 
   // Role-label heading derived from the docKey family prefix. Explicit mapping
   // (not docKey.startsWith('officer') ? ... : ...) so adding a future family
   // is a single new arm rather than re-debugging a ternary fall-through.
-  const roleLabelHeading = docKey.startsWith('officer')
+  const roleLabelHeading = effectiveDocKey.startsWith('officer')
     ? t('roleOfficer')
-    : docKey.startsWith('share')
+    : effectiveDocKey.startsWith('share')
       ? t('roleShareholder')
       : t('roleDirector');
 
@@ -224,6 +255,44 @@ export default function GenerateLifecycleResolutionDialog({
               removal case where active shareholders aren't loaded on the
               Administrateurs page). */}
           <div className="text-xs text-[var(--text-muted)]">{signedBy}</div>
+
+          {/* Generate-time docKey picker — only when options are passed (e.g.
+              director appointment: shareholder election vs board vacancy fill).
+              Absent for all other callers → byte-identical render. */}
+          {docKeyOptions && docKeyOptions.length > 0 && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                {uiLocale === 'fr'
+                  ? 'Comment cet administrateur a-t-il été nommé ?'
+                  : 'How was this director appointed?'}
+              </label>
+              <div className="space-y-2">
+                {docKeyOptions.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 bg-white p-3 text-sm transition-colors hover:border-amber-400 dark:border-zinc-700 dark:bg-zinc-800"
+                  >
+                    <input
+                      type="radio"
+                      name="docKeyChoice"
+                      value={opt.value}
+                      checked={selectedDocKeyValue === opt.value}
+                      onChange={() => setSelectedDocKeyValue(opt.value)}
+                      className="mt-0.5"
+                    />
+                    <span className="flex flex-col gap-0.5">
+                      <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {uiLocale === 'fr' ? opt.labelFr : opt.labelEn}
+                      </span>
+                      <span className="text-xs text-[var(--text-muted)]">
+                        {uiLocale === 'fr' ? opt.hintFr : opt.hintEn}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Resolution date */}
           <div>
