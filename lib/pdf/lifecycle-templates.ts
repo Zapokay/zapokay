@@ -697,6 +697,87 @@ Adoptée le {{resolutionDate}}.`,
 RESOLVED THAT the issuance of {{shares}} share(s) of {{shareClass}} to {{holderName}}{{pricePhraseEn}}, effective {{effectiveDate}}, is hereby acknowledged and ratified by the board of directors of the corporation.
 
 Adopted on {{resolutionDate}}.`,
+    // YELLOW - PENDING LAWYER GREEN. Harvey-verdicted 2026-06-24 (REBUILD: genre changed from
+    // thin ratification to board AUTHORIZATION - Harvey Q0 confirmed authorization is REQUIRED,
+    // art. 52 LSAQ / s. 25 CBCA; ratification reserved for retrospective/back-fill #175 case).
+    // Clause 1 cites issuance power. Clause 3 credits the stated-capital account, regime-swapped:
+    // LSAQ 'compte de capital-actions émis et payé' art. 69 / CBCA 'stated capital account' s. 26
+    // (aligns with the A-SC register). REGIME DIVERGENCE on clause 2 (Harvey Q3, verified): CBCA
+    // s. 25(3) requires full payment before issue -> asserts 'fully paid' (always true federally,
+    // Harvey-verified wording); LSAQ art. 53 ALLOWS unpaid issuance -> clause 2 is NEUTRAL (no
+    // paid claim) = MAX-DRAFTED, PENDING HARVEY CONFIRM on the exact neutral wording. This is the
+    // first docKey where LSA/CBCA bodies diverge in SUBSTANCE, not just citation.
+    // OPEN [RED, lawyer]: LSAQ clause-2 neutral wording (Max-drafted); fully-paid attestation to
+    // be captured at certify-time (Piece 2, certify-modal checkbox - separate build); pre-emptive
+    // rights art. 55 LSAQ light [PRIORITE] (issuance to a 3rd party may be challengeable if
+    // statuts/convention grant pre-emption - user warning TBD). effectiveDate: no strict
+    // constraint (CBCA ties issue to payment per s.25(3)).
+    regimeBodies: {
+      lsa: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE le conseil d'administration juge opportun d'émettre des actions du capital-actions de la Société à {{holderName}};
+
+IL EST RÉSOLU :
+
+1. QUE la Société émette {{shares}} action(s) de {{shareClass}} à {{holderName}}{{pricePhraseFr}}, à compter du {{effectiveDate}}, conformément à l'article 52 de la Loi sur les sociétés par actions (RLRQ, c. S-31.1);
+
+2. QUE ces actions soient émises et inscrites à titre d'actions de la catégorie {{shareClass}} de la Société;
+
+3. QUE ces actions soient inscrites au registre des valeurs mobilières de la Société et que le compte de capital-actions émis et payé soit crédité en conséquence, conformément à l'article 69 de la Loi sur les sociétés par actions;
+
+4. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS the board of directors considers it appropriate to issue shares of the capital of the Corporation to {{holderName}};
+
+RESOLVED THAT:
+
+1. The Corporation issue {{shares}} share(s) of {{shareClass}} to {{holderName}}{{pricePhraseEn}}, effective {{effectiveDate}}, in accordance with section 52 of the Business Corporations Act (CQLR, c. S-31.1);
+
+2. Such shares be issued and recorded as shares of the {{shareClass}} class of the Corporation;
+
+3. Such shares be entered in the securities register of the Corporation and the issued and paid-up share-capital account be credited accordingly, in accordance with section 69 of the Business Corporations Act (CQLR, c. S-31.1);
+
+4. Any director or officer of the Corporation be authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+      cbca: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE le conseil d'administration juge opportun d'émettre des actions du capital-actions de la Société à {{holderName}};
+
+IL EST RÉSOLU :
+
+1. QUE la Société émette {{shares}} action(s) de {{shareClass}} à {{holderName}}{{pricePhraseFr}}, à compter du {{effectiveDate}}, conformément à l'article 25 de la Loi canadienne sur les sociétés par actions (L.R.C. (1985), ch. C-44);
+
+2. QUE ces actions soient émises à titre d'actions entièrement libérées, la contrepartie correspondant à leur prix d'émission ayant été reçue par la Société;
+
+3. QUE ces actions soient inscrites au registre des valeurs mobilières de la Société et que le compte capital déclaré soit crédité en conséquence, conformément à l'article 26 de la Loi canadienne sur les sociétés par actions;
+
+4. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS the board of directors considers it appropriate to issue shares of the capital of the Corporation to {{holderName}};
+
+RESOLVED THAT:
+
+1. The Corporation issue {{shares}} share(s) of {{shareClass}} to {{holderName}}{{pricePhraseEn}}, effective {{effectiveDate}}, in accordance with section 25 of the Canada Business Corporations Act (R.S.C. 1985, c. C-44);
+
+2. Such shares be issued as fully paid shares, the consideration corresponding to their issue price having been received by the Corporation;
+
+3. Such shares be entered in the securities register of the Corporation and the stated capital account be credited accordingly, in accordance with section 26 of the Canada Business Corporations Act (R.S.C. 1985, c. C-44);
+
+4. Any director or officer of the Corporation be authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+    },
   },
 
   share_cessation: {
