@@ -198,6 +198,77 @@ RESOLVED THAT:
 3. Any officer of the Corporation is authorized to do all things necessary to give effect to this resolution, including any update filing with the enterprise registrar.
 
 Adopted on {{resolutionDate}}.`,
+    // ⚠️ YELLOW — PENDING LAWYER GREEN. Harvey-verdicted 2026-06-21 (LSAQ art. 144/150,
+    // CBCA s. 109/110; threshold = ordinary resolution; right-to-be-heard acknowledged).
+    // OPEN [PRIORITÉ AVOCAT]: written-resolution validity for shareholder removal given
+    // the meeting + right-to-be-heard architecture (art. 150 LSAQ / s. 110 CBCA) — the
+    // FORM may need to change to meeting-mode; do NOT treat wording as final pre-lawyer.
+    regimeBodies: {
+      lsa: {
+        fr: `RÉSOLUTION ÉCRITE DES ACTIONNAIRES DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE, conformément à l'article 144 de la Loi sur les sociétés par actions (RLRQ, c. S-31.1), les actionnaires d'une société peuvent destituer un administrateur par résolution ordinaire;
+
+ATTENDU QUE l'administrateur visé a, conformément à l'article 150 de cette loi, le droit d'être informé de la destitution proposée et d'y faire valoir ses observations;
+
+ATTENDU QUE les actionnaires souhaitent exercer ce pouvoir à l'égard de {{personName}};
+
+IL EST RÉSOLU :
+
+1. QUE {{personName}} soit et est par les présentes destitué(e) de ses fonctions d'administrateur de la Société, à compter du {{effectiveDate}};
+2. QUE les registres de la Société soient mis à jour en conséquence;
+3. QUE tout dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution, y compris toute formalité de mise à jour auprès du registre des entreprises.
+
+Adoptée le {{resolutionDate}} par les actionnaires de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE SHAREHOLDERS OF {{companyName}}{{neqClause}}
+
+WHEREAS, pursuant to section 144 of the Business Corporations Act (CQLR, c. S-31.1), the shareholders of a corporation may remove a director by ordinary resolution;
+
+WHEREAS the director concerned has, pursuant to section 150 of that Act, the right to be informed of the proposed removal and to make representations;
+
+WHEREAS the shareholders wish to exercise that power with respect to {{personName}};
+
+RESOLVED THAT:
+
+1. {{personName}} is hereby removed from office as a director of the Corporation, effective {{effectiveDate}};
+2. The records of the Corporation be updated accordingly;
+3. Any officer of the Corporation is authorized to do all things necessary to give effect to this resolution, including any update filing with the enterprise registrar.
+
+Adopted on {{resolutionDate}} by the shareholders of the Corporation.`,
+      },
+      cbca: {
+        fr: `RÉSOLUTION ÉCRITE DES ACTIONNAIRES DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE, conformément à l'article 109 de la Loi canadienne sur les sociétés par actions (L.R.C. (1985), ch. C-44), les actionnaires d'une société peuvent, par résolution ordinaire, destituer un administrateur;
+
+ATTENDU QUE l'administrateur visé a, conformément à l'article 110 de cette loi, le droit d'être informé de la destitution proposée et d'y faire valoir ses observations;
+
+ATTENDU QUE les actionnaires souhaitent exercer ce pouvoir à l'égard de {{personName}};
+
+IL EST RÉSOLU :
+
+1. QUE {{personName}} soit et est par les présentes destitué(e) de ses fonctions d'administrateur de la Société, à compter du {{effectiveDate}};
+2. QUE les registres de la Société soient mis à jour en conséquence;
+3. QUE tout dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les actionnaires de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE SHAREHOLDERS OF {{companyName}}{{neqClause}}
+
+WHEREAS, pursuant to section 109 of the Canada Business Corporations Act (R.S.C. 1985, c. C-44), the shareholders of a corporation may, by ordinary resolution, remove a director;
+
+WHEREAS the director concerned has, pursuant to section 110 of that Act, the right to be informed of the proposed removal and to make representations;
+
+WHEREAS the shareholders wish to exercise that power with respect to {{personName}};
+
+RESOLVED THAT:
+
+1. {{personName}} is hereby removed from office as a director of the Corporation, effective {{effectiveDate}};
+2. The records of the Corporation be updated accordingly;
+3. Any officer of the Corporation is authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the shareholders of the Corporation.`,
+      },
+    },
   },
 
   officer_appointment: {
