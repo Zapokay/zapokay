@@ -329,6 +329,65 @@ RESOLVED THAT:
 3. Any director or officer of the Corporation is authorized to do all things necessary to give effect to this resolution.
 
 Adopted on {{resolutionDate}}.`,
+    // YELLOW - PENDING LAWYER GREEN. Harvey-verdicted 2026-06-24 (LSAQ art. 142,
+    // + context art. 108/143; CBCA s. 108). Generic board constatation covers all four
+    // non-revocation modes (resignation/term-end/death/disqualification) - NO mode branch.
+    // Citation in CLAUSE 1 (qualifies the board's act of acknowledgment), NOT the recital -
+    // deliberate: citing the CAUSE would over-assert for death, which art. 142 LSAQ does not
+    // name (Harvey Q5). effectiveDate MAY precede resolutionDate (no constraint).
+    // OPEN [PRIORITE AVOCAT, RED]: clause 2 REQ/registry filing basis + deadline (LPLE / P-44.1)
+    // unverified - clause 2 kept NEUTRAL pending Harvey LPLE round. Not final pre-lawyer;
+    // death-citation asymmetry (QC) also for lawyer confirmation.
+    regimeBodies: {
+      lsa: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE {{personName}} a cessé d'occuper le poste d'administrateur de la Société, pour le motif suivant : {{endReason}}, prenant effet le {{effectiveDate}};
+
+IL EST RÉSOLU :
+
+1. QUE la fin du mandat de {{personName}} à titre d'administrateur de la Société, prenant effet le {{effectiveDate}}, soit et est par les présentes constatée, conformément à l'article 142 de la Loi sur les sociétés par actions (RLRQ, c. S-31.1);
+2. QUE les registres de la Société soient mis à jour en conséquence;
+3. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS {{personName}} has ceased to hold office as a director of the Corporation, for the following reason: {{endReason}}, effective {{effectiveDate}};
+
+RESOLVED THAT:
+
+1. The cessation of {{personName}} as a director of the Corporation, effective {{effectiveDate}}, is hereby acknowledged, in accordance with section 142 of the Business Corporations Act (CQLR, c. S-31.1);
+2. The records of the Corporation be updated accordingly;
+3. Any director or officer of the Corporation is authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+      cbca: {
+        fr: `RÉSOLUTION ÉCRITE DES ADMINISTRATEURS DE {{companyName}}{{neqClause}}
+
+ATTENDU QUE {{personName}} a cessé d'occuper le poste d'administrateur de la Société, pour le motif suivant : {{endReason}}, prenant effet le {{effectiveDate}};
+
+IL EST RÉSOLU :
+
+1. QUE la fin du mandat de {{personName}} à titre d'administrateur de la Société, prenant effet le {{effectiveDate}}, soit et est par les présentes constatée, conformément à l'article 108 de la Loi canadienne sur les sociétés par actions (L.R.C. (1985), ch. C-44);
+2. QUE les registres de la Société soient mis à jour en conséquence;
+3. QUE tout administrateur ou dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
+
+Adoptée le {{resolutionDate}} par les administrateurs de la Société.`,
+        en: `WRITTEN RESOLUTION OF THE DIRECTORS OF {{companyName}}{{neqClause}}
+
+WHEREAS {{personName}} has ceased to hold office as a director of the Corporation, for the following reason: {{endReason}}, effective {{effectiveDate}};
+
+RESOLVED THAT:
+
+1. The cessation of {{personName}} as a director of the Corporation, effective {{effectiveDate}}, is hereby acknowledged, in accordance with section 108 of the Canada Business Corporations Act (R.S.C. 1985, c. C-44);
+2. The records of the Corporation be updated accordingly;
+3. Any director or officer of the Corporation is authorized to do all things necessary to give effect to this resolution.
+
+Adopted on {{resolutionDate}} by the directors of the Corporation.`,
+      },
+    },
   },
 
   director_removal: {
