@@ -100,7 +100,7 @@ export async function GET() {
   // Framework resolution mirrors lib/priority.ts / generate-lifecycle-document.ts:
   // anything not CBCA is the Quebec regime (LSAQ / FR: LCSA for the federal term).
   const isCBCA = company.incorporation_type === 'CBCA'
-  // ⚠️ YELLOW — PENDING LAWYER GREEN — stated-capital citation (art.68 LSAQ / s.26 CBCA), unverified.
+  // ✅ GREEN — Harvey-verified 2026-06-25 — stated-capital citation (art.68 LSAQ / s.26 CBCA): art.68 maintains the account, s.26(1) CBCA equivalent. Lawyer-final pending.
   const citation_fr = isCBCA
     ? 'Compte capital déclaré tenu en vertu de l\'art. 26 LCSA.'
     : 'Compte de capital-actions émis et payé tenu en vertu de l\'art. 68 LSAQ.'

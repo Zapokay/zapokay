@@ -405,7 +405,7 @@ IL EST RÉSOLU :
 
 1. QUE {{personName}} soit et est par les présentes destitué(e) de ses fonctions d'administrateur de la Société, à compter du {{effectiveDate}};
 2. QUE les registres de la Société soient mis à jour en conséquence;
-3. QUE tout dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution, y compris toute formalité de mise à jour auprès du registre des entreprises.
+3. QUE tout dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
 
 Adoptée le {{resolutionDate}}.`,
     bodyEn: `WRITTEN RESOLUTION OF THE SHAREHOLDERS OF {{companyName}}{{neqClause}}
@@ -416,7 +416,7 @@ RESOLVED THAT:
 
 1. {{personName}} is hereby removed from office as a director of the Corporation, effective {{effectiveDate}};
 2. The records of the Corporation be updated accordingly;
-3. Any officer of the Corporation is authorized to do all things necessary to give effect to this resolution, including any update filing with the enterprise registrar.
+3. Any officer of the Corporation is authorized to do all things necessary to give effect to this resolution.
 
 Adopted on {{resolutionDate}}.`,
     // ⚠️ YELLOW — PENDING LAWYER GREEN. Harvey-verdicted 2026-06-21 (LSAQ art. 144/150,
@@ -438,7 +438,7 @@ IL EST RÉSOLU :
 
 1. QUE {{personName}} soit et est par les présentes destitué(e) de ses fonctions d'administrateur de la Société, à compter du {{effectiveDate}};
 2. QUE les registres de la Société soient mis à jour en conséquence;
-3. QUE tout dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution, y compris toute formalité de mise à jour auprès du registre des entreprises.
+3. QUE tout dirigeant de la Société soit autorisé à accomplir tout acte nécessaire pour donner effet à la présente résolution.
 
 Adoptée le {{resolutionDate}} par les actionnaires de la Société.`,
         en: `WRITTEN RESOLUTION OF THE SHAREHOLDERS OF {{companyName}}{{neqClause}}
@@ -453,7 +453,7 @@ RESOLVED THAT:
 
 1. {{personName}} is hereby removed from office as a director of the Corporation, effective {{effectiveDate}};
 2. The records of the Corporation be updated accordingly;
-3. Any officer of the Corporation is authorized to do all things necessary to give effect to this resolution, including any update filing with the enterprise registrar.
+3. Any officer of the Corporation is authorized to do all things necessary to give effect to this resolution.
 
 Adopted on {{resolutionDate}} by the shareholders of the Corporation.`,
       },
