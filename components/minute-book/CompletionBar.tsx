@@ -14,6 +14,7 @@ interface CompletionBarItem {
    * getStateForChecklistItem.
    */
   document_is_finalized?: boolean | null;
+  can_generate?: boolean | null;
 }
 
 interface CompletionBarProps {

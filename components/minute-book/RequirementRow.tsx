@@ -73,7 +73,7 @@ export default function RequirementRow({
   // rather than re-deriving the rules inline. The booleans below are pure
   // adapters from the canonical state to the row's two visual concerns:
   // icon (3-way) and badge (binary "needs signature").
-  const state = getDocumentState({ satisfied, source, is_finalized: documentIsFinalized });
+  const state = getDocumentState({ satisfied, source, is_finalized: documentIsFinalized, can_generate: canGenerate });
   const isSignedFinal = state === 'téléversé';
   const isUnsigned = state === 'généré'; // generated OR uploaded-WIP
 

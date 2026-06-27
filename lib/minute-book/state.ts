@@ -59,6 +59,7 @@ interface StateInput {
    * ('téléversé') for callers that don't yet thread the field.
    */
   is_finalized?: boolean | null;
+  can_generate?: boolean | null;
 }
 
 /**
@@ -71,6 +72,9 @@ export function getDocumentState(item: StateInput): DocumentState {
   // source === 'uploaded' (or null/undefined drift fallback): split on is_finalized.
   // Explicit false → WIP upload, treated as 'généré'. Anything else (true,
   // null, undefined) → 'téléversé'.
+  // Upload-only docs (can_generate === false) are complete on upload — nothing to sign
+  // (REQ annual update = online transmission + accusé). is_finalized irrelevant for upload-only.
+  if (item.source === 'uploaded' && item.is_finalized === false && item.can_generate === false) return 'téléversé';
   if (item.source === 'uploaded' && item.is_finalized === false) return 'généré';
   return 'téléversé';
 }
@@ -94,10 +98,12 @@ export function getStateForChecklistItem(item: {
   satisfied: boolean;
   source?: 'uploaded' | 'generated' | null;
   document_is_finalized?: boolean | null;
+  can_generate?: boolean | null;
 }): DocumentState {
   return getDocumentState({
     satisfied: item.satisfied,
     source: item.source,
     is_finalized: item.document_is_finalized,
+    can_generate: item.can_generate,
   });
 }

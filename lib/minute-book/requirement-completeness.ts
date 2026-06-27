@@ -138,7 +138,7 @@ export async function computeRequirementCompleteness(
     const satisfied = !!matchingDoc;
     const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
     const isFinalized = matchingDoc?.is_finalized ?? null;
-    const state = getDocumentState({ satisfied, source, is_finalized: isFinalized });
+    const state = getDocumentState({ satisfied, source, is_finalized: isFinalized, can_generate: req.can_generate });
     checklist.push({
       ...req,
       year: null,
@@ -164,7 +164,7 @@ export async function computeRequirementCompleteness(
       const satisfied = !!matchingDoc;
       const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
       const isFinalized = matchingDoc?.is_finalized ?? null;
-      const state = getDocumentState({ satisfied, source, is_finalized: isFinalized });
+      const state = getDocumentState({ satisfied, source, is_finalized: isFinalized, can_generate: req.can_generate });
       checklist.push({
         ...req,
         year: fy.year,
