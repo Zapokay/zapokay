@@ -6,8 +6,62 @@ import { createClient } from '@/lib/supabase/server';
 import { uploadDocument, type UploadDocumentParams } from '@/lib/upload-document';
 import { isPdfBytes } from '@/lib/pdf-magic';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
+import { computeDefaultActiveYears } from '@/lib/active-years';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const MAX_SIZE = 20971520; // 20 MB — mirrors the `documents` bucket file_size_limit
+
+async function ensureHoldYearIfOutOfWindow(
+  supabaseAdmin: SupabaseClient,
+  company: {
+    incorporation_date: string | null;
+    fiscal_year_end_month: number | null;
+    fiscal_year_end_day: number | null;
+  },
+  companyId: string,
+  docYear: number,
+): Promise<void> {
+  try {
+    const activeWindow = computeDefaultActiveYears(
+      company.incorporation_date,
+      company.fiscal_year_end_month ?? 12,
+      company.fiscal_year_end_day ?? 31,
+    );
+    if (activeWindow.includes(docYear)) return;
+
+    const { data: existing } = await supabaseAdmin
+      .from('company_fiscal_years')
+      .select('id, status')
+      .eq('company_id', companyId)
+      .eq('year', docYear)
+      .maybeSingle();
+
+    if (!existing) {
+      const holdRow: {
+        company_id: string;
+        year: number;
+        status: string;
+      } = {
+        company_id: companyId,
+        year: docYear,
+        status: 'hold',
+      };
+      await supabaseAdmin.from('company_fiscal_years').insert(holdRow);
+    } else if (existing.status === 'archived') {
+      const promote: {
+        status: string;
+      } = {
+        status: 'hold',
+      };
+      await supabaseAdmin
+        .from('company_fiscal_years')
+        .update(promote)
+        .eq('id', existing.id);
+    }
+  } catch (e) {
+    console.warn('[documents/upload] hold-year ensure failed (non-fatal):', e);
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +86,7 @@ export async function POST(request: NextRequest) {
        here — RLS-scoped session select AND an explicit user_id match. */
     const { data: ownedCompany, error: ownErr } = await supabase
       .from('companies')
-      .select('id')
+      .select('id, incorporation_date, fiscal_year_end_month, fiscal_year_end_day')
       .eq('id', companyId)
       .eq('user_id', user.id)
       .maybeSingle();
@@ -144,6 +198,20 @@ export async function POST(request: NextRequest) {
       // from the helper's gate; map it to 400 anyway, everything else is internal.
       const status = result.error === 'NON_PDF_REJECTED' ? 400 : 500;
       return NextResponse.json({ ok: false, error: result.error }, { status });
+    }
+
+    // Hold-only vault import - out-of-window year gets a lazy hold row (non-fatal).
+    if (docYear !== null) {
+      await ensureHoldYearIfOutOfWindow(
+        supabaseAdmin,
+        {
+          incorporation_date: ownedCompany.incorporation_date as string | null,
+          fiscal_year_end_month: ownedCompany.fiscal_year_end_month as number | null,
+          fiscal_year_end_day: ownedCompany.fiscal_year_end_day as number | null,
+        },
+        ownedCompany.id,
+        docYear,
+      );
     }
 
     return NextResponse.json({ ok: true, documentId: result.documentId });

@@ -258,7 +258,13 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   // rendered and toggleable; its state determines `is_finalized` at insert
   // time (B5-edit-4 below). Title non-empty; allow the form step AND the
   // final-replace confirm step (the confirm button re-enters handleSubmit).
-  const canSubmit = !!title.trim() && (step === 'form' || step === 'confirm');
+  // Vault mandatory year (3b): when the FY field is shown (vault, has years,
+  // not foundational) a real fiscal year must be picked. Row mode + foundational
+  // (field hidden / year auto-set) and requirement-selected vault (year
+  // auto-set, select disabled) all satisfy this without a manual pick.
+  const fyFieldShown = mode === 'vault' && activeFiscalYears.length > 0 && !isFoundational;
+  const yearMissing = fyFieldShown && docYear === '';
+  const canSubmit = !!title.trim() && !yearMissing && (step === 'form' || step === 'confirm');
 
   const handleSubmit = useCallback(async (opts?: { confirmed?: boolean }) => {
     if (!canSubmit) return;
@@ -505,7 +511,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                 disabled={!!requirementKey}
                 className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <option value="">{t('upload.fiscalYearNone')}</option>
+                <option value="" disabled>{t('upload.fiscalYearPlaceholder')}</option>
                 {activeFiscalYears.map((y) => (
                   <option key={y} value={y}>
                     {getFiscalYearLabel(y, locale)}

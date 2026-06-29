@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentsClient } from '@/app/[locale]/dashboard/minute-book/documents/DocumentsClient';
 import type { VaultDocument } from '@/components/documents/DocumentRow';
+import { computeFiscalYearRange } from '@/lib/active-years';
 
 export default async function DocumentsPage({
   params: { locale },
@@ -43,6 +44,17 @@ export default async function DocumentsPage({
     : { data: [] };
   const fiscalYears = (fiscalYearsData ?? []).map((fy: { year: number }) => fy.year);
 
+  // Vault upload year picker: incorporation FY -> current FY (UNCAPPED), so
+  // out-of-window archive years are selectable (classified as hold on upload).
+  // Modal-only; the banner + fiscalYearsConfigured stay on the active set.
+  const vaultYearRange = company
+    ? computeFiscalYearRange(
+        (company.incorporation_date as string | null) ?? null,
+        (company.fiscal_year_end_month as number | null) ?? 12,
+        (company.fiscal_year_end_day as number | null) ?? 31,
+      ).reverse()
+    : [];
+
   // Foundational requirement keys for this company's framework.
   // Mirrors the framework filter used in /api/minute-book/completeness.
   const framework = company?.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
@@ -71,7 +83,9 @@ export default async function DocumentsPage({
         company={company}
         initialDocuments={(documents ?? []) as VaultDocument[]}
         fiscalYearsConfigured={fiscalYears.length > 0}
-        activeFiscalYears={fiscalYears}
+        activeFiscalYears={vaultYearRange}
+        // activeFiscalYears now carries the FULL incorporation->current range
+        // (vault offers archive years); the prop rename is a Tier-4 follow-up.
         foundationalRequirementKeys={foundationalRequirementKeys}
         preferredLanguage={(profile?.preferred_language as 'fr' | 'en') ?? 'fr'}
       />

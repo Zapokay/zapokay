@@ -238,6 +238,7 @@
       "modalSubtitleRow": "Upload the signed version for: {requirement}",
       "fiscalYear": "Fiscal Year",
       "fiscalYearNone": "— No fiscal year —",
+      "fiscalYearPlaceholder": "You must select a fiscal year",
       "correspondsTo": "This document corresponds to:",
       "correspondsToOptional": "Select a required document (optional)",
       "certify": "I certify this document is final and signed by all required parties.",

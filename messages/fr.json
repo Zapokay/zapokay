@@ -238,6 +238,7 @@
       "modalSubtitleRow": "Téléversez la version signée pour : {requirement}",
       "fiscalYear": "Exercice fiscal",
       "fiscalYearNone": "— Aucun exercice —",
+      "fiscalYearPlaceholder": "Vous devez sélectionner un exercice",
       "correspondsTo": "Ce document correspond à :",
       "correspondsToOptional": "Sélectionner un document requis (optionnel)",
       "certify": "Je certifie que ce document est final et signé par toutes les parties requises.",
