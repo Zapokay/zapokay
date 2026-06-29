@@ -5,6 +5,7 @@ import {
   type ChecklistItem,
 } from '@/lib/minute-book/requirement-completeness';
 import { computeEventCompleteness } from '@/lib/minute-book/event-completeness';
+import { computeHoldYears, type HoldYear } from '@/lib/minute-book/hold-years';
 
 // Re-export ChecklistItem for backward compat — multiple consumers
 // (CompletenessPage, RequirementSection, UploadDocumentModal, upload-document)
@@ -42,6 +43,7 @@ export interface CompletenessResponse {
   combinedScore: number;
   eventActsTotal: number;
   eventActsSatisfied: number;
+  holdYears: HoldYear[];
 }
 
 export async function GET() {
@@ -72,7 +74,7 @@ export async function GET() {
     const fyEndMonth = (company.fiscal_year_end_month as number | null) ?? 12;
     const fyEndDay   = (company.fiscal_year_end_day   as number | null) ?? 31;
 
-    const [req, events] = await Promise.all([
+    const [req, events, holdYears] = await Promise.all([
       computeRequirementCompleteness(
         supabase,
         company.id as string,
@@ -85,6 +87,7 @@ export async function GET() {
         company.id as string,
         (company.incorporation_date as string | null) ?? null,
       ),
+      computeHoldYears(supabase, company.id as string),
     ]);
 
     // Locked decision 3 — sum numerators and denominators, never average two
@@ -126,6 +129,7 @@ export async function GET() {
       combinedScore,
       eventActsTotal: events.totalActs,
       eventActsSatisfied: events.totalSatisfied,
+      holdYears,
     };
 
     return NextResponse.json(response);

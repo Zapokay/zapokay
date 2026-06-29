@@ -194,6 +194,9 @@
     "emptyVault": "No documents",
     "emptyVaultSub": "Start by dropping a file above.",
     "view": "View",
+    "archiveBadge": "Archive",
+    "archiveBadgeSigned": "Signed archive",
+    "replace": "Replace",
     "download": "Download",
     "delete": "Delete",
     "deleteTitle": "Delete this document?",
@@ -532,6 +535,7 @@
       "legendToGenerate": "To generate or upload",
       "loadError": "Unable to load minute book.",
       "foundingDocuments": "Founding documents",
+      "archivesQualifier": "Archives",
       "noDocumentsForYear": "No documents for this fiscal year. Use the catch-up assistant to generate the missing resolutions."
     },
     "tabs": {

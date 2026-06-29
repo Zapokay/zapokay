@@ -194,6 +194,9 @@
     "emptyVault": "Aucun document",
     "emptyVaultSub": "Commencez par déposer un fichier ci-dessus.",
     "view": "Voir",
+    "archiveBadge": "Archive",
+    "archiveBadgeSigned": "Archive signée",
+    "replace": "Remplacer",
     "download": "Télécharger",
     "delete": "Supprimer",
     "deleteTitle": "Supprimer ce document ?",
@@ -532,6 +535,7 @@
       "legendToGenerate": "À générer ou à téléverser",
       "loadError": "Impossible de charger le livre de minutes.",
       "foundingDocuments": "Documents fondateurs",
+      "archivesQualifier": "Archives",
       "noDocumentsForYear": "Aucun document pour cet exercice. Utilisez l'assistant de rattrapage pour générer les résolutions manquantes."
     },
     "tabs": {

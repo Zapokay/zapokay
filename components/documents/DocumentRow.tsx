@@ -20,6 +20,7 @@ export interface VaultDocument {
   source?: string | null;
   requirement_key?: string | null;
   minute_book_section?: string | null;
+  is_finalized?: boolean | null;
 }
 
 interface DocumentRowProps {

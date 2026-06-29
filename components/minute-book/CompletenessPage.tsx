@@ -9,6 +9,7 @@ import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { fiscalYearForDate } from '@/lib/active-years';
 import { uploadErrorMessageKey } from '@/lib/upload-error-message';
 import RequirementSection from '@/components/minute-book/RequirementSection';
+import ArchiveSection from '@/components/minute-book/ArchiveSection';
 import EventSection from '@/components/minute-book/EventSection';
 import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
@@ -23,6 +24,7 @@ import type {
   ChecklistItem,
 } from '@/app/api/minute-book/completeness/route';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
+import type { VaultDocument } from '@/components/documents/DocumentRow';
 
 interface CompletenessPageProps {
   locale: string;
@@ -216,6 +218,56 @@ export default function CompletenessPage({
       fetchEvents();
     },
     [addToast, companyId, data, framework, tMB, preferredLanguage, fetchEvents, MAX_SIZE, tDocs],
+  );
+
+  const handleHoldFileSelected = useCallback(
+    async (doc: VaultDocument, file: File): Promise<void> => {
+      if (file.type !== 'application/pdf') {
+        addToast(tDocs('onlyPdf'), 'error');
+        return;
+      }
+      if (file.size > MAX_SIZE) {
+        addToast(tDocs('tooLarge'), 'error');
+        return;
+      }
+
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        addToast(tDocs('sessionExpired'), 'error');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('companyId', companyId);
+      formData.append('title', doc.title);
+      formData.append('docType', doc.document_type);
+      formData.append('language', doc.language);
+      if (doc.document_year != null) formData.append('docYear', String(doc.document_year));
+      formData.append('framework', framework);
+      formData.append('requirements', JSON.stringify(data?.checklist ?? []));
+      // Preserve certification — a file-swap replace is not a re-certify moment.
+      formData.append('isFinalized', String(doc.is_finalized === true));
+      formData.append('replaceDocumentId', doc.id);
+      // No eventLink (not an event); no requirementKey/requirementYear (hold docs
+      // are requirement_key=null). The route derives userId from the session.
+
+      const res = await fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await res.json();
+
+      if (!result.ok) {
+        addToast(tDocs(uploadErrorMessageKey(result.error, res.status)), 'error');
+        return;
+      }
+
+      addToast(tMB('completeness.documentUploaded'), 'success');
+      fetchData();
+    },
+    [addToast, companyId, data, framework, tMB, fetchData, MAX_SIZE, tDocs],
   );
 
   const foundationalItems: ChecklistItem[] =
@@ -459,6 +511,16 @@ export default function CompletenessPage({
                 ))}
               </div>
             )}
+
+            {(data.holdYears ?? []).map((hy) => (
+              <ArchiveSection
+                key={hy.year}
+                year={hy.year}
+                documents={hy.documents}
+                locale={locale}
+                onReplace={handleHoldFileSelected}
+              />
+            ))}
           </>
         )}
       </div>
