@@ -39,7 +39,7 @@ export default function ArchiveSection({ year, documents, locale, onReplace }: A
             ) : (
               <ChevronRight className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />
             )}
-            <h3 className="font-sora font-semibold text-[var(--text-muted)] text-base">
+            <h3 className="font-sora font-semibold text-[var(--text-body)] text-base">
               {getFiscalYearLabel(year, locale)}
             </h3>
             {/* Muted "· Archives" qualifier — its own span, NOT concatenated into the label. */}
