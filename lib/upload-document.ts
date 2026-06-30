@@ -101,7 +101,7 @@ function resolveMinuteBookSection(
     pv: 'resolutions',
     registre: 'registres',
     rapport: 'avis',
-    autre: 'statuts',
+    autre: 'autres',
   };
   return fallback[docType] ?? null;
 }

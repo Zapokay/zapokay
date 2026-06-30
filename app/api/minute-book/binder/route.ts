@@ -10,6 +10,7 @@ const SECTIONS = [
   { key: 'dirigeants', title_fr: 'Dirigeants' },
   { key: 'actionnaires', title_fr: 'Actionnaires et certificats' },
   { key: 'registres', title_fr: 'Registres corporatifs' },
+  { key: 'autres', title_fr: 'Autres documents' },
 ] as const
 
 const DOC_TYPE_SECTION_MAP: Record<string, string> = {
@@ -18,13 +19,13 @@ const DOC_TYPE_SECTION_MAP: Record<string, string> = {
   pv: 'resolutions',
   registre: 'registres',
   rapport: 'avis',
-  autre: 'statuts',
+  autre: 'autres',
 }
 
 function resolveSection(doc: any): string {
   if (doc.minute_book_section) return doc.minute_book_section
   if (doc.minute_book_requirements?.section) return doc.minute_book_requirements.section
-  return DOC_TYPE_SECTION_MAP[doc.document_type] || 'statuts'
+  return DOC_TYPE_SECTION_MAP[doc.document_type] || 'autres'
 }
 
 export async function GET(request: NextRequest) {

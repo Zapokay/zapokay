@@ -556,7 +556,8 @@
         "administrateurs": "Administrateurs",
         "dirigeants": "Dirigeants",
         "actionnaires": "Actionnaires et certificats",
-        "registres": "Registres corporatifs"
+        "registres": "Registres corporatifs",
+        "autres": "Autres documents"
       },
       "emptySection": "Aucun document signé dans cette section",
       "registres": "3 registres",
