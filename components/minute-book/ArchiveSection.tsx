@@ -22,7 +22,7 @@ export default function ArchiveSection({ year, documents, locale, onReplace }: A
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="bg-[var(--page-bg)] rounded-xl border border-[var(--card-border)] border-l-[3px] border-l-[var(--card-border)]">
+    <div className="bg-[var(--archive-box-bg)] rounded-xl border border-[var(--archive-box-bd)] border-l-[3px] border-l-[var(--text-muted)]">
       {/* Section header — entire row clickable (cloned from RequirementSection) */}
       <button
         type="button"
