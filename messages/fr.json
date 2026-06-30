@@ -247,7 +247,7 @@
       "correspondsTo": "Ce document correspond à :",
       "correspondsToOptional": "Sélectionner un document requis (optionnel)",
       "certify": "Je certifie que ce document est final et signé par toutes les parties requises.",
-      "certifyHelp": "Cochez cette case si le document est final et signé. Sinon, le document sera ajouté à la complétude comme brouillon.",
+      "certifyHelp": "Cochez cette case si le document est final et signé, ou final sans signature requise. Sinon, le document sera ajouté à la complétude comme brouillon.",
       "submit": "Téléverser",
       "submitting": "Envoi en cours…",
       "replaceWarningTitle": "Remplacer le document existant?",

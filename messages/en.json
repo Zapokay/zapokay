@@ -247,7 +247,7 @@
       "correspondsTo": "This document corresponds to:",
       "correspondsToOptional": "Select a required document (optional)",
       "certify": "I certify this document is final and signed by all required parties.",
-      "certifyHelp": "Check this box if the document is final and signed. Otherwise, the document will be added to completeness as a draft.",
+      "certifyHelp": "Check this box if the document is final and signed or final with no signature required. Otherwise, the document will be added to completeness as a draft.",
       "submit": "Upload",
       "submitting": "Uploading…",
       "replaceWarningTitle": "Replace existing document?",
