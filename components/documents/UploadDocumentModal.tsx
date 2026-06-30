@@ -51,6 +51,12 @@ export interface UploadDocumentModalProps {
    * Single neutral copy for both 'uploaded' and 'generated' source rows.
    */
   replaceDocumentId?: string;
+  /**
+   * Selects the replace-warning copy. 'archive' (Complétude archive rows) uses
+   * archive-appropriate keys; default 'requirement' keeps the existing copy so
+   * current callers render unchanged.
+   */
+  replaceContext?: 'requirement' | 'archive';
   /** Resolves with the new document id on successful upload. */
   onUploadComplete: (documentId: string) => void;
   /** Optional error sink for parents that own toast UX. */
@@ -72,8 +78,13 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     replaceDocumentId,
     onUploadComplete,
     onError,
+    replaceContext,
   } = props;
   const isReplace = !!replaceDocumentId;
+  const warnTitleKey =
+    replaceContext === 'archive' ? 'upload.archiveReplaceWarningTitle' : 'upload.replaceWarningTitle';
+  const warnBodyKey =
+    replaceContext === 'archive' ? 'upload.archiveReplaceWarningBody' : 'upload.replaceWarningBody';
 
   const fr = locale === 'fr';
   const t = useTranslations('documents');
@@ -389,10 +400,10 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
             />
             <div>
               <h4 className="text-sm font-semibold text-[var(--warning-text)]">
-                {t('upload.replaceWarningTitle')}
+                {t(warnTitleKey)}
               </h4>
               <p className="mt-1 text-sm text-[var(--warning-text)]">
-                {t('upload.replaceWarningBody')}
+                {t(warnBodyKey)}
               </p>
             </div>
           </div>

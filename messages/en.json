@@ -252,6 +252,8 @@
       "submitting": "Uploading…",
       "replaceWarningTitle": "Replace existing document?",
       "replaceWarningBody": "A copy of this document is already attached to this row. Uploading this new file will make the previous copy no longer available. If you change your mind, you can regenerate a fresh template to sign using the \"Generate\" button.",
+      "archiveReplaceWarningTitle": "Replace this archive document?",
+      "archiveReplaceWarningBody": "A copy of this document is already imported. Uploading a new file will make the previous copy unavailable.",
       "replaceSubmit": "Replace",
       "finalReplaceTitle": "Replace the final document",
       "finalReplaceBody": "A final document already exists for this requirement. Uploading this will replace it: the old final document will be retired from the minute book. This action can be undone for 10 days."

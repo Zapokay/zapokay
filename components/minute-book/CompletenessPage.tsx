@@ -65,6 +65,11 @@ export default function CompletenessPage({
   // directly off the ChecklistItem.document_id field (B5-edit-2 surfaced it
   // server-side), replacing B4-edit-4's on-demand documents lookup.
   const [existingDocumentId, setExistingDocumentId] = useState<string | null>(null);
+  // Archive-replace (Piece-4 follow-up #1): opens the certify-capable modal
+  // (replaceContext="archive") for a hold-year doc. Distinct from the
+  // requirement modal state above — archive docs have no ChecklistItem.
+  const [holdReplaceDoc, setHoldReplaceDoc] = useState<VaultDocument | null>(null);
+  const [holdReplaceFile, setHoldReplaceFile] = useState<File | null>(null);
   const { addToast, ToastStack } = useToasts();
 
   const fetchData = useCallback(async () => {
@@ -238,36 +243,15 @@ export default function CompletenessPage({
         return;
       }
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('companyId', companyId);
-      formData.append('title', doc.title);
-      formData.append('docType', doc.document_type);
-      formData.append('language', doc.language);
-      if (doc.document_year != null) formData.append('docYear', String(doc.document_year));
-      formData.append('framework', framework);
-      formData.append('requirements', JSON.stringify(data?.checklist ?? []));
-      // Preserve certification — a file-swap replace is not a re-certify moment.
-      formData.append('isFinalized', String(doc.is_finalized === true));
-      formData.append('replaceDocumentId', doc.id);
-      // No eventLink (not an event); no requirementKey/requirementYear (hold docs
-      // are requirement_key=null). The route derives userId from the session.
-
-      const res = await fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const result = await res.json();
-
-      if (!result.ok) {
-        addToast(tDocs(uploadErrorMessageKey(result.error, res.status)), 'error');
-        return;
-      }
-
-      addToast(tMB('completeness.documentUploaded'), 'success');
-      fetchData();
+      // Open the certify-capable replace modal instead of a direct POST: the
+      // modal's certification checkbox now owns isFinalized, giving an
+      // uncertified archive doc a path to become certified (and reach the
+      // finalized binder) on replace. No isFinalized set here.
+      setUserId(user.id);
+      setHoldReplaceDoc(doc);
+      setHoldReplaceFile(file);
     },
-    [addToast, companyId, data, framework, tMB, fetchData, MAX_SIZE, tDocs],
+    [addToast, tDocs, MAX_SIZE],
   );
 
   const foundationalItems: ChecklistItem[] =
@@ -587,6 +571,35 @@ export default function CompletenessPage({
                     : `Document added to "${base}"${yearSuffix}.`),
               'success',
             );
+            void fetchData();
+          }}
+          onError={(msg) => addToast(msg, 'error')}
+        />
+      )}
+
+      {holdReplaceFile && holdReplaceDoc && userId && (
+        <UploadDocumentModal
+          isOpen={true}
+          file={holdReplaceFile}
+          mode="row"
+          companyId={companyId}
+          framework={framework}
+          locale={locale}
+          preferredLanguage={holdReplaceDoc.language === 'en' ? 'en' : 'fr'}
+          prefill={{
+            docType: holdReplaceDoc.document_type,
+            docYear: holdReplaceDoc.document_year,
+            title: holdReplaceDoc.title,
+          }}
+          replaceDocumentId={holdReplaceDoc.id}
+          replaceContext="archive"
+          onClose={() => {
+            setHoldReplaceDoc(null);
+            setHoldReplaceFile(null);
+          }}
+          onUploadComplete={() => {
+            setHoldReplaceDoc(null);
+            setHoldReplaceFile(null);
             void fetchData();
           }}
           onError={(msg) => addToast(msg, 'error')}

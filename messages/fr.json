@@ -252,6 +252,8 @@
       "submitting": "Envoi en cours…",
       "replaceWarningTitle": "Remplacer le document existant?",
       "replaceWarningBody": "Une copie de ce document est déjà associée à cette ligne. En téléversant ce nouveau fichier, l'ancienne copie ne sera plus disponible. Si vous changez d'idée, vous pourrez régénérer un nouveau modèle à signer en utilisant le bouton « Générer ».",
+      "archiveReplaceWarningTitle": "Remplacer ce document d'archive ?",
+      "archiveReplaceWarningBody": "Une copie de ce document est déjà importée. Téléverser un nouveau fichier rendra la copie précédente indisponible.",
       "replaceSubmit": "Remplacer",
       "finalReplaceTitle": "Remplacer le document final",
       "finalReplaceBody": "Un document final existe déjà pour cette exigence. Le téléverser le remplacera : l'ancien document final sera retiré du livre de minutes. Cette action peut être annulée pendant 10 jours."
