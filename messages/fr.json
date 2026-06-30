@@ -240,7 +240,7 @@
     "upload": {
       "modalTitle": "Téléverser un document",
       "modalSubtitleVault": "Classifiez ce document avant de l'ajouter au coffre-fort.",
-      "modalSubtitleRow": "Téléversez la version signée pour : {requirement}",
+      "modalSubtitleRow": "Téléversez la version finale pour : {requirement}",
       "fiscalYear": "Exercice fiscal",
       "fiscalYearNone": "— Aucun exercice —",
       "fiscalYearPlaceholder": "Vous devez sélectionner un exercice",

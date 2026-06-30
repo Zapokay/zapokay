@@ -240,7 +240,7 @@
     "upload": {
       "modalTitle": "Upload a document",
       "modalSubtitleVault": "Classify this document before adding it to the vault.",
-      "modalSubtitleRow": "Upload the signed version for: {requirement}",
+      "modalSubtitleRow": "Upload the final version for: {requirement}",
       "fiscalYear": "Fiscal Year",
       "fiscalYearNone": "— No fiscal year —",
       "fiscalYearPlaceholder": "You must select a fiscal year",
