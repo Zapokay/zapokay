@@ -22,7 +22,7 @@ export default function ArchiveSection({ year, documents, locale, onReplace }: A
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)]">
+    <div className="bg-[var(--page-bg)] rounded-xl border border-[var(--card-border)] border-l-[3px] border-l-[var(--card-border)]">
       {/* Section header — entire row clickable (cloned from RequirementSection) */}
       <button
         type="button"
@@ -39,7 +39,7 @@ export default function ArchiveSection({ year, documents, locale, onReplace }: A
             ) : (
               <ChevronRight className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />
             )}
-            <h3 className="font-sora font-semibold text-[var(--text-heading)] text-base">
+            <h3 className="font-sora font-semibold text-[var(--text-muted)] text-base">
               {getFiscalYearLabel(year, locale)}
             </h3>
             {/* Muted "· Archives" qualifier — its own span, NOT concatenated into the label. */}

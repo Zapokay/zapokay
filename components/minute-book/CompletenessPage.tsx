@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { Archive, CheckCircle2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useToasts } from '@/components/ui/Toasts';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
@@ -434,6 +434,11 @@ export default function CompletenessPage({
               <span className="inline-flex items-center gap-1.5">
                 <XCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
                 {tMB('completeness.legendToGenerate')}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Archive className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--row-state-archive)' }} aria-hidden="true" />
+                {tMB('completeness.legendArchive')}
               </span>
             </div>
           </>

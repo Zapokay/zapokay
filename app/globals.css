@@ -150,6 +150,8 @@ body {
   --error-bg: #F5EEEE;
   --error-border: #C9A5A5;
   --error-text: #6B1E1E;
+  --row-state-archive: #8A857B;
+  --row-state-archive-certified: #5A6B52;
   --info-bg: #EEF1F7;
   --info-border: #9EB0C9;
   --info-text: #1E3D6B;
@@ -298,6 +300,8 @@ body {
   --error-bg: rgba(212,160,160,0.10);
   --error-border: rgba(212,160,160,0.16);
   --error-text: #D4A0A0;
+  --row-state-archive: rgba(255, 255, 255, 0.42);
+  --row-state-archive-certified: #9CB592;
   --info-bg: rgba(148,180,212,0.10);
   --info-border: rgba(148,180,212,0.16);
   --info-text: #94B4D4;

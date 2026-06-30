@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Eye, Upload } from 'lucide-react';
+import { Archive, Eye, Upload } from 'lucide-react';
 import type { VaultDocument } from '@/components/documents/DocumentRow';
 
 interface ArchiveDocRowProps {
@@ -53,26 +53,19 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
 
   return (
     <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
-      {/* Left: title + neutral archive chip */}
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-sm text-[var(--text-muted)] truncate">
-          {doc.title}
-        </span>
+      {/* Left: archive icon + title + state label */}
+      <div className="flex items-center gap-3 min-w-0">
+        <Archive
+          className="h-5 w-5 flex-shrink-0"
+          style={{ color: isSigned ? 'var(--row-state-archive-certified)' : 'var(--row-state-archive)' }}
+          aria-hidden="true"
+        />
+        <span className="text-sm text-[var(--text-muted)] truncate">{doc.title}</span>
         <span
-          className="flex-shrink-0"
-          style={{
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '.06em',
-            textTransform: 'uppercase' as const,
-            background: 'var(--page-bg)',
-            color: 'var(--text-muted)',
-            border: '1px solid var(--card-border)',
-            borderRadius: '20px',
-            padding: '2px 8px',
-          }}
+          className="text-xs flex-shrink-0"
+          style={isSigned ? { color: 'var(--row-state-archive-certified)' } : { color: 'var(--text-muted)' }}
         >
-          {isSigned ? tDocs('archiveBadgeSigned') : tDocs('archiveBadge')}
+          {isSigned ? tDocs('archivedCertifiedLabel') : tDocs('archivedLabel')}
         </span>
       </div>
 
