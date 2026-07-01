@@ -49,6 +49,10 @@ import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLi
 import { getDocumentState } from '@/lib/minute-book/state';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
+import { obligationsForDocKey } from '@/lib/obligations/req-obligations';
+import { formatDate, addDays } from '@/lib/utils';
+import { ObligationMarker } from '@/components/ui/ObligationMarker';
+import { ObligationModal } from '@/components/ui/ObligationModal';
 
 // Mirrors OfficersClient.tsx TITLE_LABELS — kept local per the same Tier-3
 // extraction follow-up. lib/i18n/lifecycle-labels.ts has a server-side
@@ -177,8 +181,10 @@ export default function EventActRow({
   // pick the right namespace based on the act's event_type.
   const tDirectors = useTranslations('directors');
   const tOfficers = useTranslations('officers');
+  const tObl = useTranslations('obligationNotice');
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [obligationOpen, setObligationOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -193,6 +199,11 @@ export default function EventActRow({
 
   const personName = act.personName ?? '—';
   const derivation = deriveDocKey(act);
+  const reqObligations = obligationsForDocKey(derivation?.docKey);
+  const reqDeadline =
+    reqObligations.length > 0 && act.date
+      ? formatDate(addDays(act.date, 30), locale)
+      : null;
 
   // Row label uses the canonical FR resolution title from the template
   // registry (single source of truth — same string that the generated PDF
@@ -298,9 +309,10 @@ export default function EventActRow({
     'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
 
   return (
+    <div>
     <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
       {/* Left side: state icon + label */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex items-start gap-3 flex-1 min-w-0">
         {isMissing ? (
           <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
         ) : isSignedFinal ? (
@@ -315,13 +327,22 @@ export default function EventActRow({
             <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
           </svg>
         )}
-        <span
-          className={`text-sm truncate ${
-            act.satisfied ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'
-          }`}
-        >
-          {rowLabel}
-        </span>
+        <div className="flex flex-col gap-1 min-w-0">
+          <span
+            className={`text-sm truncate ${
+              act.satisfied ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'
+            }`}
+          >
+            {rowLabel}
+          </span>
+          {reqObligations.length > 0 && reqDeadline && (
+            <ObligationMarker
+              label={tObl('marker.label')}
+              deadline={reqDeadline}
+              onClick={() => setObligationOpen(true)}
+            />
+          )}
+        </div>
       </div>
 
       {/* Right side: state-driven affordances */}
@@ -410,6 +431,24 @@ export default function EventActRow({
             setDialogOpen(false);
             onGenerated();
           }}
+        />
+      )}
+    </div>
+      {obligationOpen && (
+        <ObligationModal
+          open={obligationOpen}
+          onClose={() => setObligationOpen(false)}
+          title={tObl('req.title')}
+          subtitle={rowLabel}
+          deadlineLabel={tObl('modal.deadlineLabel')}
+          deadline={reqDeadline ?? ''}
+          body={tObl('req.body', { deadline: reqDeadline ?? '' })}
+          legalRef={tObl('modal.legalRef')}
+          howToLabel={tObl('modal.howToLabel')}
+          comingSoonTitle={tObl('help.comingSoonTitle')}
+          comingSoonBadge={tObl('help.comingSoonBadge')}
+          comingSoonBody={tObl('help.comingSoon')}
+          ackLabel={tObl('footerAck')}
         />
       )}
     </div>

@@ -721,5 +721,27 @@
     "generating": "Génération…",
     "errorGeneric": "Erreur lors de la génération du document.",
     "errorNetwork": "Erreur réseau."
+  },
+  "obligationNotice": {
+    "req": {
+      "title": "Déclaration à produire au Registraire des entreprises",
+      "body": "Ce changement doit être déclaré au Registraire des entreprises du Québec dans les 30 jours, soit au plus tard le {deadline}. La résolution consigne la décision interne mais ne remplace pas cette déclaration obligatoire."
+    },
+    "help": {
+      "title": "Comment déclarer ce changement",
+      "comingSoon": "Un guide détaillé arrive bientôt.",
+      "close": "Fermer",
+      "comingSoonTitle": "Guide détaillé",
+      "comingSoonBadge": "À venir"
+    },
+    "marker": {
+      "label": "Formalité à produire"
+    },
+    "modal": {
+      "deadlineLabel": "À déclarer au plus tard le",
+      "legalRef": "art. 41 LPLE · défaut passible d'amende",
+      "howToLabel": "Comment déclarer"
+    },
+    "footerAck": "Compris"
   }
 }

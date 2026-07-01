@@ -721,5 +721,27 @@
     "generating": "Generating…",
     "errorGeneric": "Error generating the document.",
     "errorNetwork": "Network error."
+  },
+  "obligationNotice": {
+    "req": {
+      "title": "Filing required with the Registraire des entreprises",
+      "body": "This change must be declared to Québec's Registraire des entreprises within 30 days — by {deadline} at the latest. The resolution records the internal decision but does not replace this required filing."
+    },
+    "help": {
+      "title": "How to declare this change",
+      "comingSoon": "A detailed guide is coming soon.",
+      "close": "Close",
+      "comingSoonTitle": "Step-by-step guide",
+      "comingSoonBadge": "Coming soon"
+    },
+    "marker": {
+      "label": "Filing required"
+    },
+    "modal": {
+      "deadlineLabel": "Must be filed no later than",
+      "legalRef": "s. 41 LPLE · non-filing may incur a fine",
+      "howToLabel": "How to file"
+    },
+    "footerAck": "Got it"
   }
 }
