@@ -28,8 +28,8 @@ export type ExposureClass = 'external' | 'internal';
 export interface Obligation {
   id: string;                    // stable, feeder-namespaced: "completeness:annual_board_resolution:2025"
   source: ObligationSource;
-  titleFr: string;
-  titleEn: string;
+  titleFr: string | null;  // null = label not yet available (lawyer-pending REQ copy); UI supplies label from i18n
+  titleEn: string | null;  // null = label not yet available (lawyer-pending REQ copy); UI supplies label from i18n
   descriptionFr: string | null;
   descriptionEn: string | null;
   status: ObligationStatus;
