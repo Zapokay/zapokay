@@ -18,7 +18,7 @@
  * the ranker consumes an already-merged, deduped stream.
  */
 
-import type { Obligation, ObligationAction } from './obligation';
+import type { Obligation, ObligationAction, ObligationLiveness } from './obligation';
 
 export interface RankedObligation extends Obligation {
   rank: number;              // 1-based position in the full sorted list
@@ -84,8 +84,21 @@ function urgencyFor(o: Obligation): number {
   return URGENCY_FLOOR_LOW;
 }
 
-// ── TIE-BREAK ladder (D5) ────────────────────────────────────────────────────
-const EPSILON = 0.001; // scores within this are "tied" → fall through to the ladder
+// ── LIVENESS BUCKET (Harvey 2026-07-05) — PRIMARY sort key, absolute hierarchy ──
+// Liveness is an ABSOLUTE bucket, not a weight: every 'live' obligation ranks above
+// every 'regularize', which ranks above every 'remediate' — no exceptions. It's the
+// orthogonal "is this still the right action" axis (Harvey: due ≠ still-the-right-
+// action). stakes × urgency (`score`) orders WITHIN a bucket only; it never crosses
+// bucket boundaries, so a high-base ancient remediate item can't edge out a current
+// live one. (Replaces the Part-1 liveness multiplier, now redundant under buckets.)
+const LIVENESS_RANK: Record<ObligationLiveness, number> = {
+  live: 0,
+  regularize: 1,
+  remediate: 2,
+};
+
+// ── TIE-BREAK ladder (within a liveness bucket, on a score tie) ───────────────
+const EPSILON = 0.001; // scores within EPSILON are "tied" → fall through to the ladder
 
 /** Quick-win-first effort order. review = FUTURE action (no emitter); ranked last. */
 const ACTION_RANK: Record<ObligationAction, number> = {
@@ -106,12 +119,20 @@ export function rankObligations(obligations: Obligation[], today: Date): RankedO
   // 1. Satisfied items feed the progress display, not the to-do list — drop them.
   const active = obligations.filter((o) => o.status !== 'satisfied');
 
-  // 2. Score: stakes × urgency.
+  // 2. Score: stakes × urgency — the WITHIN-bucket priority. Liveness is applied
+  //    as the primary sort bucket below, NOT folded into the score.
   const scored = active.map((o) => ({ o, score: stakesFor(o) * urgencyFor(o) }));
 
   // 3. Sort desc by score; break ties by the locked D5 ladder.
   scored.sort((a, b) => {
+    // PRIMARY bucket: liveness (live < regularize < remediate) — ABSOLUTE. Every
+    // live item ranks above every regularize, above every remediate. No exceptions.
+    const livA = LIVENESS_RANK[a.o.liveness];
+    const livB = LIVENESS_RANK[b.o.liveness];
+    if (livA !== livB) return livA - livB;
+    // WITHIN a bucket: score (stakes × urgency) desc.
     if (Math.abs(a.score - b.score) > EPSILON) return b.score - a.score;
+    // Then the tie-break ladder, within equal (bucket, score):
     // (1) external before internal
     const extA = a.o.exposure === 'external' ? 0 : 1;
     const extB = b.o.exposure === 'external' ? 0 : 1;

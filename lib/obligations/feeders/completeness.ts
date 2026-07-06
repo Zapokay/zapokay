@@ -12,11 +12,13 @@
  * This feeder has NO clock: every clock field (dueDate, triggeredBy,
  * deadlineDays, daysUntilDue) is null. deriveStatus is still called so the D1
  * overlay rule stays the single status chokepoint — with a null clock it
- * returns the base state unchanged.
+ * returns the base state unchanged. The `today` param feeds the year-based
+ * liveness branch only (currentYear − item.year); there is still no due-date clock.
  */
 
 import type { Obligation, ObligationAction } from '../obligation';
 import { deriveStatus, type BaseState } from '../aggregate';
+import { computeLiveness } from '../liveness';
 import type { ChecklistItem } from '@/lib/minute-book/requirement-completeness';
 import {
   getStateForChecklistItem,
@@ -40,6 +42,19 @@ const EXTERNAL_REQUIREMENT_KEYS: ReadonlySet<string> = new Set([
   'cbca_annual_return',
   'lsaq_req_annual_update',
   'cbca_req_annual_update_qc',
+]);
+
+/**
+ * The foundational initial-declaration (RE-200) requirement keys. Harvey 2026-07-05
+ * presumed-done: a company with later satisfied annuals has necessarily initialized
+ * its REQ dossier, so this must NOT surface as a board ACTION. Suppressed from the
+ * A3 obligation stream ONLY — the minute-book completeness COUNT (the separate % path
+ * in requirement-completeness.ts) is intentionally unaffected, pending Harvey's
+ * binder-gap ruling on whether a filed-but-not-in-vault RE-200 is a real gap.
+ */
+const INITIAL_DECLARATION_KEYS: ReadonlySet<string> = new Set([
+  'lsaq_declaration_initiale',
+  'cbca_declaration_initiale_qc',
 ]);
 
 /**
@@ -74,8 +89,19 @@ function actionForState(state: DocumentState, canGenerate: boolean): ObligationA
  * once per item; the derived DocumentState drives status (via BaseState),
  * weight, and actionKind.
  */
-export function completenessToObligations(items: ChecklistItem[]): Obligation[] {
-  return items.map((item): Obligation => {
+export function completenessToObligations(
+  items: ChecklistItem[],
+  today: Date,
+  hasLaterAnnualFiling: boolean,
+): Obligation[] {
+  return items
+    // Harvey 2026-07-05 presumed-done — a company with later satisfied annuals has
+    // initialized its dossier; suppress the foundational initial declaration as a
+    // board action (consistent with the deadline-twin suppression in Part 1). The
+    // minute-book completeness COUNT is intentionally unaffected — that's the
+    // separate % path (computeRequirementCompleteness), which we do not touch.
+    .filter((item) => !(hasLaterAnnualFiling && INITIAL_DECLARATION_KEYS.has(item.requirement_key)))
+    .map((item): Obligation => {
     const state = getStateForChecklistItem(item);
     const base = STATE_TO_BASE[state];
     // Null clock → deriveStatus returns `base` unchanged; the call keeps the
@@ -90,6 +116,8 @@ export function completenessToObligations(items: ChecklistItem[]): Obligation[] 
       descriptionFr: item.description_fr,
       descriptionEn: item.description_en,
       status,
+      // No clock — year-based liveness (foundational year==null → 'live').
+      liveness: computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: item.year, today }),
       weight: STATE_WEIGHT[state],
       dueDate: null,
       triggeredBy: null,

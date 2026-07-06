@@ -15,6 +15,9 @@ export type ObligationSource =
 
 export type ObligationStatus = 'satisfied' | 'to_finalize' | 'open' | 'due_soon' | 'overdue';
 
+/** Harvey 2026-07-05 three-state liveness axis. See the `liveness` field below. */
+export type ObligationLiveness = 'live' | 'regularize' | 'remediate';
+
 export type ObligationAction =
   | 'generate'
   | 'upload'
@@ -33,6 +36,16 @@ export interface Obligation {
   descriptionFr: string | null;
   descriptionEn: string | null;
   status: ObligationStatus;
+  /**
+   * Harvey 2026-07-05 three-state liveness. live = within its legal window
+   * ('à faire maintenant'). regularize = past its own legal deadline but
+   * catch-up-able ('régularisation'). remediate = prolonged default, potential
+   * company-status problem ('consulter un professionnel'). Orthogonal to status
+   * (completion/clock). The 1→2 flip = the obligation's own legal deadline
+   * expiring (GREEN, per-obligation). The 2→3 threshold is YELLOW — lawyer-pending
+   * (Harvey's ~2yr convention, tied to REQ striking-off power).
+   */
+  liveness: ObligationLiveness;
   weight: number;                // 0.0-1.0, preserves STATE_WEIGHT semantics
   dueDate: string | null;        // absolute ISO 'YYYY-MM-DD'
   triggeredBy: string | null;    // event key starting a relative clock

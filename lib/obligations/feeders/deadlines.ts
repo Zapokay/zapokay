@@ -25,6 +25,7 @@
 
 import type { Obligation } from '../obligation';
 import { deriveStatus } from '../aggregate';
+import { computeLiveness } from '../liveness';
 import { parseLocalDate } from '@/lib/utils';
 
 export interface CompanyComplianceInput {
@@ -33,6 +34,15 @@ export interface CompanyComplianceInput {
   fyEndDay: number;
   incorporationDate: string | null;
   immatriculationDate: string | null;
+  /**
+   * RE-200 presumed-done signal (Harvey 2026-07-05). True when the company has
+   * at least one CERTIFIED (satisfied) annual filing for a year strictly after
+   * incorporation — which necessarily means its founding REQ dossier was already
+   * initialized, so the initial declaration must NOT surface as an action. The
+   * caller computes it from the completeness checklist; this feeder stays
+   * record-agnostic (it receives the fact, it does not look filings up).
+   */
+  hasLaterAnnualFiling: boolean;
 }
 
 /**
@@ -88,7 +98,7 @@ export function deadlineObligations(
   input: CompanyComplianceInput,
   today: Date,
 ): Obligation[] {
-  const { framework, fyEndMonth, fyEndDay, incorporationDate, immatriculationDate } = input;
+  const { framework, fyEndMonth, fyEndDay, incorporationDate, immatriculationDate, hasLaterAnnualFiling } = input;
   const obligations: Obligation[] = [];
 
   // Fiscal-year-END anchor (most recent past FY end) + its label year.
@@ -119,6 +129,8 @@ export function deadlineObligations(
       descriptionFr: null,
       descriptionEn: null,
       status: deriveStatus('open', daysUntilDue, DUE_SOON_WINDOW),
+      // Calendar-absolute clock: daysUntilDue<0 = past the legal deadline.
+      liveness: computeLiveness({ daysUntilDue, legalWindowDays: null, year: o.year, today }),
       weight: 0, // open/unfulfilled — STATE_WEIGHT semantics (open = 0.0)
       dueDate: toISODateString(o.dueDate),
       triggeredBy: null,  // calendar-absolute, NOT event-relative (feeder 2's REQ case)
@@ -141,7 +153,11 @@ export function deadlineObligations(
   // immatriculation + 60 days. Skipped when immatriculationDate is null (the
   // CBCA-registered-in-QC exact date is a banked data gap; the caller passes
   // companies.incorporation_date as the QC-LSA proxy).
-  if (immatriculationDate) {
+  // Harvey 2026-07-05: a company with a later CERTIFIED annual filing has
+  // necessarily initialized its founding REQ dossier — the initial declaration is
+  // presumed satisfied and must never surface as "file now". hasLaterAnnualFiling
+  // (from the caller) suppresses the emission entirely (Option 1: presumed done).
+  if (immatriculationDate && !hasLaterAnnualFiling) {
     const due = parseLocalDate(immatriculationDate);
     due.setDate(due.getDate() + 60); // true 60-day offset (day math, no clamp)
     push({

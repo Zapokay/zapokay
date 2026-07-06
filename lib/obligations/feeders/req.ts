@@ -32,6 +32,7 @@
 
 import type { Obligation } from '../obligation';
 import { deriveStatus } from '../aggregate';
+import { computeLiveness } from '../liveness';
 import { obligationsForDocKey } from '../req-obligations';
 import { addDays, parseLocalDate } from '@/lib/utils';
 
@@ -73,6 +74,8 @@ export function reqObligations(input: ReqEventInput, today: Date): Obligation[] 
       descriptionFr: null,
       descriptionEn: null,
       status: deriveStatus('open', daysUntilDue, DUE_SOON_WINDOW),
+      // Event-relative legal clock (art. 41 = 30d); daysUntilDue<0 = past the deadline.
+      liveness: computeLiveness({ daysUntilDue, legalWindowDays: notice.deadlineDays, year: null, today }),
       weight: 0, // open/unfulfilled — STATE_WEIGHT semantics (open = 0.0)
       // EVENT-RELATIVE clock — the distinguishing feature of feeder 2:
       dueDate,
