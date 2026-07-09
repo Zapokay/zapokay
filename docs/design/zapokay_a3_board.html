@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aria — A3 « What do I do now » board</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --amber-400:#F5B91E; --amber-600:#C4900A; --amber-800:#7A5804; --amber-50:#FFF8E7; --amber-200:#FDDB8C;
+  --navy-900:#070E1C; --navy-600:#1E3D6B; --navy-50:#EEF1F7;
+  --charbon:#1C1A17;
+  --page-bg:#F5F4F0; --card-bg:#FEFEFE; --card-bd:#E8E5DE; --topbar:#FAFAF8; --sidebar:#FAFAF8;
+  --text-h:var(--charbon); --text-b:#5C5850; --text-m:#8A857B; --text-l:#B0AAA0;
+  --hover-bg:#F2F0EB; --divider:#E8E5DE;
+  --nt-50:#FAFAF8; --nt-100:#F2F0EB; --nt-200:#E8E5DE;
+  /* status vocab */
+  --st-open:#8A857B; --st-open-bg:#F2F0EB; --st-open-bd:#E0DDD5;
+  --st-final:#925C00; --st-final-bg:#FFFBEB; --st-final-bd:#FDE98A;
+  --st-soon:#B4690E; --st-soon-bg:#FDF0DF; --st-soon-bd:#F5C98A;
+  --st-over:#8A2A2A; --st-over-bg:#F8EDED; --st-over-bd:#DFB0B0;
+  --success-tx:#2E5425; --success-bg:#F0F4EE; --success-bd:#B8CCAF;
+  /* liveness tier — orthogonal to status */
+  --lv-regularize:#7A5804; --lv-regularize-bg:#FDF6E3; --lv-regularize-bd:#EAD9A6;
+  --lv-remediate:#4A5568; --lv-remediate-bg:#EEF0F3; --lv-remediate-bd:#CFD5DE;
+  --lv-remediate-row:#F7F8FA;
+}
+.dark{
+  --page-bg:#181818; --card-bg:#242424; --card-bd:rgba(255,255,255,.08); --topbar:#1E1E1E; --sidebar:#121212;
+  --text-h:rgba(255,255,255,.87); --text-b:rgba(255,255,255,.60); --text-m:rgba(255,255,255,.38); --text-l:rgba(255,255,255,.30);
+  --hover-bg:rgba(255,255,255,.05); --divider:rgba(255,255,255,.08);
+  --nt-50:#1E1E1E; --nt-100:#2A2A2A; --nt-200:#303030;
+  --st-open:rgba(255,255,255,.42); --st-open-bg:rgba(255,255,255,.05); --st-open-bd:rgba(255,255,255,.10);
+  --st-final:#E0B840; --st-final-bg:rgba(224,184,64,.10); --st-final-bd:rgba(224,184,64,.20);
+  --st-soon:#E89838; --st-soon-bg:rgba(232,152,56,.10); --st-soon-bd:rgba(232,152,56,.22);
+  --st-over:#E08585; --st-over-bg:rgba(224,133,133,.10); --st-over-bd:rgba(224,133,133,.24);
+  --success-tx:#9CC78E; --success-bg:rgba(120,180,110,.10); --success-bd:rgba(120,180,110,.20);
+  --lv-regularize:#E0B840; --lv-regularize-bg:rgba(224,184,64,.10); --lv-regularize-bd:rgba(224,184,64,.20);
+  --lv-remediate:#A0AEC0; --lv-remediate-bg:rgba(160,174,192,.10); --lv-remediate-bd:rgba(160,174,192,.20);
+  --lv-remediate-row:rgba(255,255,255,.02);
+}
+*{box-sizing:border-box}
+body{font-family:'DM Sans',system-ui,sans-serif;background:#E3E0D8;color:var(--charbon);margin:0;padding:40px 28px 120px}
+.wrap{max-width:1180px;margin:0 auto}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--amber-800);margin-bottom:6px}
+.doc-t{font-family:'Sora',sans-serif;font-size:32px;font-weight:800;color:var(--charbon);line-height:1.1;letter-spacing:-.02em;margin:0 0 8px}
+.doc-sub{font-size:14px;color:#6B655B;line-height:1.6;max-width:820px}
+
+.sec{background:#fff;border:1px solid #DCD8CF;border-radius:18px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-top:26px}
+.sec-head{display:flex;align-items:center;gap:14px;padding:18px 24px;border-bottom:1px solid #ECE9E2;background:#FBFAF7}
+.sn{font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--amber-400);background:var(--charbon);min-width:30px;height:30px;padding:0 9px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sec-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:700;color:var(--charbon)}
+.sec-note{font-size:12px;color:#8A857B;margin-left:auto;max-width:380px;text-align:right;line-height:1.5}
+.sec-body{padding:26px 24px}
+.note-b{font-size:13px;color:#5C5850;line-height:1.65}
+.note-b strong{color:var(--charbon)}
+.note-b code{background:#F0EDE6;padding:1px 6px;border-radius:4px;font-family:'DM Mono',monospace;font-size:11.5px}
+
+.dual{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:980px){.dual{grid-template-columns:1fr}}
+.pane{background:var(--page-bg);border:1px solid var(--card-bd);border-radius:14px;padding:20px;position:relative}
+.lang-tag{position:absolute;top:11px;right:13px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-m);background:var(--nt-100);padding:3px 8px;border-radius:20px;z-index:2}
+
+/* ── THE BOARD ── */
+.board{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.board-head{display:flex;align-items:center;gap:10px;margin-bottom:15px}
+.board-title{font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--text-h)}
+.board-sub{font-size:11.5px;color:var(--text-m);margin-top:1px}
+.progress-mini{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-m)}
+.progress-track{width:64px;height:5px;border-radius:3px;background:var(--nt-200);overflow:hidden}
+.progress-fill{height:100%;background:var(--amber-400);border-radius:3px}
+
+/* item base */
+.item{border:1px solid var(--card-bd);border-radius:12px;padding:13px 14px;margin-bottom:9px;display:flex;gap:12px;align-items:flex-start;background:var(--card-bg)}
+.item:last-of-type{margin-bottom:0}
+.item-rank{width:22px;height:22px;border-radius:7px;background:var(--nt-100);color:var(--text-m);font-family:'Sora',sans-serif;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.item-main{flex:1;min-width:0}
+.item-title{font-size:13px;font-weight:600;color:var(--text-h);line-height:1.35}
+.item-meta{display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap}
+.item-actions{display:flex;align-items:center;gap:7px;margin-top:11px}
+/* guide/how-to info trigger — external items only */
+.guide-i{width:28px;height:28px;border-radius:8px;border:1px solid var(--card-bd);background:var(--card-bg);color:var(--navy-600);display:inline-flex;align-items:center;justify-content:center;cursor:default;flex-shrink:0}
+.guide-i svg{width:15px;height:15px}
+.guide-i:hover{border-color:var(--navy-600);background:var(--navy-50)}
+.dark .guide-i{color:#9EB8DC}
+.dark .guide-i:hover{background:rgba(120,150,200,.1)}
+
+/* #1 DOMINANT */
+.item.hero{border:1.5px solid var(--amber-400);background:linear-gradient(180deg,var(--amber-50),var(--card-bg) 60%);padding:18px;border-radius:14px;box-shadow:0 3px 14px rgba(245,185,30,.12);flex-direction:column;gap:0}
+.dark .item.hero{background:linear-gradient(180deg,rgba(245,185,30,.08),var(--card-bg) 60%)}
+.hero-top{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.hero-badge{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--navy-900);background:var(--amber-400);padding:3px 10px;border-radius:20px}
+.hero-title{font-family:'Sora',sans-serif;font-size:17px;font-weight:700;color:var(--text-h);line-height:1.3;margin-bottom:4px}
+.hero-meta{display:flex;align-items:center;gap:9px;margin:11px 0 15px;flex-wrap:wrap}
+.hero-actions{display:flex;align-items:center;gap:9px}
+
+/* status chip */
+.st{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;line-height:1.3}
+.st svg{width:12px;height:12px;flex-shrink:0}
+.st.open{color:var(--st-open);background:var(--st-open-bg);border:1px solid var(--st-open-bd)}
+.st.final{color:var(--st-final);background:var(--st-final-bg);border:1px solid var(--st-final-bd)}
+.st.soon{color:var(--st-soon);background:var(--st-soon-bg);border:1px solid var(--st-soon-bd)}
+.st.over{color:var(--st-over);background:var(--st-over-bg);border:1px solid var(--st-over-bd);font-weight:700}
+.st.done{color:var(--success-tx);background:var(--success-bg);border:1px solid var(--success-bd)}
+
+/* due date */
+.due{font-size:11px;color:var(--text-m);display:inline-flex;align-items:center;gap:4px}
+.due svg{width:11px;height:11px}
+.due.over{color:var(--st-over);font-weight:600}
+
+/* verbs */
+.act{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:9px;padding:7px 14px;cursor:default;white-space:nowrap}
+.act svg{width:14px;height:14px}
+.act.gov{background:var(--charbon);color:#fff}
+.dark .act.gov{background:#fff;color:var(--charbon)}
+.act.internal{background:none;color:var(--text-h);border:1.5px solid var(--card-bd)}
+.act.internal:hover{border-color:var(--amber-400)}
+/* hero-cta = SCALE ONLY. Color comes from the exposure class (.gov charbon / .internal amber). */
+.act.hero-cta{font-size:13px;padding:9px 18px}
+/* internal hero: amber fill (self-serve kind + rank emphasis agree, so amber carries both) */
+.act.internal.hero-cta{background:var(--amber-400);color:var(--navy-900);border:none}
+/* external hero: charbon survives at hero scale — legal-kind signal is sacred, rank never overwrites it */
+.act.gov.hero-cta{background:var(--charbon);color:#fff;border:none}
+.dark .act.gov.hero-cta{background:#fff;color:var(--charbon)}
+.verb-kind{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-l);margin-left:2px}
+
+/* ── LIVENESS TIER — orthogonal to status ── */
+/* tier badge (regularize + remediate; live carries no badge — absence = live) */
+.tier{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:20px;line-height:1.3;letter-spacing:.01em}
+.tier svg{width:12px;height:12px;flex-shrink:0}
+.tier.regularize{color:var(--lv-regularize);background:var(--lv-regularize-bg);border:1px solid var(--lv-regularize-bd)}
+.tier.remediate{color:var(--lv-remediate);background:var(--lv-remediate-bg);border:1px solid var(--lv-remediate-bd)}
+/* remediate row treatment — liveness OUTRANKS status: whole row cools + desaturates */
+.item.is-remediate{background:var(--lv-remediate-row);border-color:var(--lv-remediate-bd)}
+.item.is-remediate .item-title{color:var(--text-b)}
+.item.is-remediate .item-rank{background:var(--lv-remediate-bg);color:var(--lv-remediate)}
+/* consult affordance — quiet secondary, never a primary CTA */
+.act.consult{background:none;color:var(--lv-remediate);border:1.5px solid var(--lv-remediate-bd);font-weight:600}
+.act.consult:hover{border-color:var(--lv-remediate)}
+.act.consult svg{width:14px;height:14px}
+/* on remediate rows the dependency indicator also calms */
+.item.is-remediate .dep{opacity:.35}
+
+/* dependency indicator */
+.dep{width:30px;height:30px;border-radius:8px;border:1px solid var(--card-bd);background:var(--card-bg);display:inline-flex;align-items:center;justify-content:center;cursor:default;flex-shrink:0}
+.dep svg{width:15px;height:15px}
+.dep.dimmed{color:var(--text-l);opacity:.5}
+.dep.lit{color:var(--amber-600);border-color:var(--amber-200);background:var(--amber-50);position:relative}
+.dark .dep.lit{background:rgba(245,185,30,.1);border-color:rgba(245,185,30,.25)}
+.dep.lit .cnt{position:absolute;top:-6px;right:-6px;font-size:8px;font-weight:800;background:var(--amber-400);color:var(--navy-900);width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--card-bg)}
+
+/* show more */
+.show-more{width:100%;margin-top:12px;padding:11px;border:1px dashed var(--card-bd);border-radius:10px;background:none;font-size:12.5px;font-weight:600;color:var(--text-b);display:flex;align-items:center;justify-content:center;gap:7px;cursor:default}
+.show-more:hover{background:var(--hover-bg);border-color:var(--text-l)}
+.show-more svg{width:14px;height:14px}
+
+/* legends & spec */
+.legend-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(max-width:680px){.legend-grid{grid-template-columns:1fr}}
+.leg-card{border:1px solid var(--card-bd);border-radius:11px;padding:14px;background:var(--nt-50)}
+.leg-card .lc-demo{margin-bottom:9px}
+.leg-card .lc-name{font-size:12px;font-weight:700;color:var(--charbon);margin-bottom:3px}
+.leg-card .lc-desc{font-size:11.5px;color:var(--text-b);line-height:1.5}
+
+.rec{background:var(--amber-50);border:1px solid #FDDB8C;border-left:4px solid var(--amber-400);border-radius:10px;padding:14px 16px;margin-top:16px}
+.rec-t{font-size:12px;font-weight:700;color:var(--amber-800);margin-bottom:6px;letter-spacing:.02em}
+.rec-b{font-size:13px;color:#7A5804;line-height:1.6}
+.flag{background:var(--navy-50);border:1px solid #9EB0C9;border-left:4px solid var(--navy-600);border-radius:10px;padding:14px 16px;margin-top:14px}
+.dark .flag{background:rgba(120,150,200,.1);border-color:rgba(120,150,200,.2)}
+.flag-t{font-size:12px;font-weight:700;color:var(--navy-600);margin-bottom:6px}
+.flag-b{font-size:12.5px;color:#41506A;line-height:1.6}
+.dark .flag-b{color:#9EB8DC}
+
+/* swap sequence */
+.swap-seq{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:center}
+@media(max-width:900px){.swap-seq{grid-template-columns:1fr}.swap-arrow{transform:rotate(90deg);justify-self:center}}
+.swap-step{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:12px;padding:14px;min-height:120px}
+.swap-lbl{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-m);margin-bottom:9px}
+.swap-arrow{color:var(--text-l);font-size:18px}
+.celebrate{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center;height:100%}
+.celebrate-ring{width:44px;height:44px;border-radius:50%;background:var(--success-bg);border:2px solid var(--success-bd);display:flex;align-items:center;justify-content:center;color:var(--success-tx)}
+.celebrate-ring svg{width:22px;height:22px}
+.celebrate-tx{font-size:12px;font-weight:700;color:var(--success-tx)}
+.celebrate-sub{font-size:10.5px;color:var(--text-m)}
+
+.mini-item{border:1px solid var(--card-bd);border-radius:9px;padding:9px 10px;font-size:11px;color:var(--text-b);display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.mini-item:last-child{margin-bottom:0}
+.mini-item .mr{width:16px;height:16px;border-radius:5px;background:var(--nt-100);font-size:8px;font-weight:800;color:var(--text-m);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mini-item.hero-mini{border-color:var(--amber-400);background:var(--amber-50)}
+.mini-item.hero-mini .mr{background:var(--amber-400);color:var(--navy-900)}
+.mini-item.sliding{border-style:dashed;opacity:.55}
+.mini-item.exiting{opacity:.3;text-decoration:line-through;text-decoration-color:var(--success-bd)}
+
+.qa{margin-top:16px}
+.qa-q{font-size:13px;font-weight:700;color:var(--charbon);margin-bottom:6px;display:flex;gap:8px;align-items:baseline}
+.qa-q .qn{font-size:10px;font-weight:800;color:var(--amber-400);background:var(--charbon);width:18px;height:18px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.qa-a{font-size:13px;color:#5C5850;line-height:1.65;padding-left:26px}
+.qa-a strong{color:var(--charbon)}
+
+/* ── dashboard overview (fusion) ── */
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:900px){.ba{grid-template-columns:1fr}}
+.ba-col h4{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.ba-tag{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 9px;border-radius:20px}
+.ba-tag.now{background:#F5EEEE;color:#6B1E1E;border:1px solid #C9A5A5}
+.ba-tag.prop{background:var(--success-bg);color:var(--success-tx);border:1px solid var(--success-bd)}
+.schema{background:var(--page-bg);border:1px solid var(--card-bd);border-radius:12px;padding:12px}
+.sch-block{border-radius:8px;padding:9px 11px;margin-bottom:7px;font-size:11px;font-weight:600;border:1px solid var(--card-bd);background:var(--card-bg);color:var(--text-b);display:flex;align-items:center;gap:7px}
+.sch-block:last-child{margin-bottom:0}
+.sch-block .tag{margin-left:auto;font-size:9px;font-weight:700;color:var(--text-l)}
+.sch-block.hero{background:linear-gradient(180deg,var(--amber-50),var(--card-bg));border:1.5px solid var(--amber-400);color:var(--charbon)}
+.sch-block.dim{opacity:.5}
+.sch-block.gone{opacity:.4;text-decoration:line-through;text-decoration-color:#C9A5A5;border-style:dashed}
+.sch-half{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
+.sch-half .sch-block{margin-bottom:0}
+.dash{background:var(--page-bg);border:1px solid var(--card-bd);border-radius:14px;overflow:hidden;display:flex}
+.dash-side{width:150px;background:var(--sidebar);border-right:1px solid var(--card-bd);padding:14px 10px;flex-shrink:0}
+.ds-brand{font-family:'Sora',sans-serif;font-weight:900;font-size:14px;margin-bottom:16px;padding-left:4px}
+.ds-brand .z{color:var(--amber-400)}.ds-brand .o{color:var(--text-h)}
+.ds-lbl{font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-l);margin:12px 4px 6px}
+.ds-item{font-size:11px;color:var(--text-b);padding:6px 8px;border-radius:6px;margin-bottom:2px;display:flex;align-items:center;gap:7px}
+.ds-item.active{background:var(--amber-50);color:var(--amber-800);font-weight:600}
+.dark .ds-item.active{background:rgba(245,185,30,.12);color:var(--amber-400)}
+.ds-dot{width:12px;height:12px;border-radius:3px;background:var(--nt-200);flex-shrink:0}
+.dash-main{flex:1;padding:18px;min-width:0}
+.dash-h{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:var(--text-h);margin-bottom:14px}
+.dcard{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.dcard-h{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-m);margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.drow2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+/* compact board when inside the dashboard mock */
+.dash .board{padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.05)}
+.dash .board-title{font-size:15px}
+.dash .item{border-radius:11px;padding:11px 12px;margin-bottom:8px;gap:11px}
+.dash .item-rank{width:20px;height:20px;font-size:10px}
+.dash .item-title{font-size:12.5px}
+.dash .item.hero{padding:15px}
+.dash .hero-title{font-size:15px}
+.dash .st{font-size:10.5px}
+.dash .act{font-size:11.5px;padding:6px 12px}
+.dash .act.hero-cta{font-size:12.5px;padding:8px 16px}
+.dash .dep{width:28px;height:28px}
+.move-list{list-style:none;padding:0;margin:0}
+.move-list li{font-size:12.5px;color:#5C5850;line-height:1.5;padding:9px 0;border-bottom:1px solid var(--divider);display:flex;gap:10px;align-items:flex-start}
+.move-list li:last-child{border-bottom:none}
+.move-ic{width:20px;height:20px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+.move-ic.up{background:var(--success-bg);color:var(--success-tx)}
+.move-ic.down{background:var(--nt-100);color:var(--text-m)}
+.move-ic.gone{background:#F5EEEE;color:#6B1E1E}
+.move-ic.keep{background:var(--navy-50);color:var(--navy-600)}
+.move-list b{color:var(--charbon)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Aria · Design System v2.5 · Dashboard · A3 Phase 3 · intent visuel (raffiner contre le ranker réel)</div>
+  <h1 class="doc-t">A3 — le tableau « Que faire maintenant »</h1>
+  <p class="doc-sub">Remplace « Actions requises (N) » + « Prochaine échéance » par une liste guidée, classée, top-5. #1 dominant (« fais ça d'abord »), 2–5 en contexte. « Guide, don't flood ; encourage, never nag. » Maquettes contre des placeholders représentatifs — la forme des données réelles viendra du ranker en passe ultérieure.</p>
+
+
+  <div class="sec" style="background:var(--charbon);border-color:var(--charbon)">
+    <div style="padding:16px 24px;color:#fff">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--amber-400);margin-bottom:4px">Partie I — Vue d'ensemble</div>
+      <div style="font-family:'Sora',sans-serif;font-size:16px;font-weight:700">Où A3 vit sur le dashboard (diagnostic + réorganisation, contre la capture réelle)</div>
+    </div>
+  </div>
+  <!-- 1. DIAGNOSIS -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">A</span><span class="sec-title">Diagnostic — ce que la capture révèle</span><span class="sec-note">Le plus important est enterré ; le rétroviseur est en tête.</span></div>
+    <div class="sec-body">
+      <div class="note-b" style="margin-bottom:18px">Dans l'état actuel, après « Bonjour, Acme », le <strong>premier</strong> bloc que l'œil rencontre est <strong>Historique</strong> — une liste rétrospective d'exercices à corriger. Le « quoi faire maintenant » (Actions requises, 21 items non classés) est <strong>tout en bas à droite</strong>, à égalité visuelle avec « Documents récents », sans hiérarchie ni ordre. C'est exactement le « ça ne dit rien au client » que Dom a nommé : la page ouvre sur le passé et enterre l'action. A3 inverse ça.</div>
+
+      <div class="ba">
+        <div class="ba-col">
+          <h4><span class="ba-tag now">Actuel</span> l'ordre du dashboard</h4>
+          <div class="schema">
+            <div class="sch-block">Bonjour, Acme</div>
+            <div class="sch-half">
+              <div class="sch-block dim">Historique <span class="tag">rétro</span></div>
+              <div class="sch-block gone">Document fondateur <span class="tag">déplacé</span></div>
+            </div>
+            <div class="sch-block dim">Livre de minutes 34%</div>
+            <div class="sch-block dim">Analyse de votre registre</div>
+            <div class="sch-half">
+              <div class="sch-block dim">Documents récents</div>
+              <div class="sch-block gone">Actions requises (21) <span class="tag">déplacé</span></div>
+            </div>
+          </div>
+          <div class="note-b" style="margin-top:10px;font-size:12px">Le regard tombe sur <strong>Historique</strong> (passé). L'action est en position 5, non classée, noyée. Les 2 cartes que A3 remplace sont dispersées (haut-droite + bas-droite).</div>
+        </div>
+
+        <div class="ba-col">
+          <h4><span class="ba-tag prop">Proposé</span> A3 en tête</h4>
+          <div class="schema">
+            <div class="sch-block">Bonjour, Acme</div>
+            <div class="sch-block hero">⚡ Que faire maintenant — le tableau A3 <span class="tag" style="color:var(--amber-800)">pleine largeur</span></div>
+            <div class="sch-block dim">Livre de minutes 34%</div>
+            <div class="sch-half">
+              <div class="sch-block dim">Historique <span class="tag">rétro</span></div>
+              <div class="sch-block dim">Documents récents</div>
+            </div>
+            <div class="sch-block dim">Analyse de votre registre</div>
+          </div>
+          <div class="note-b" style="margin-top:10px;font-size:12px">A3 <strong>juste sous le bonjour</strong>, pleine largeur — le 1<sup>er</sup> geste. Historique redescend en contexte secondaire. Le « Document fondateur » et « Actions requises » disparaissent : leur contenu est <em>dans</em> le tableau, classé.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. THE MOVES -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">B</span><span class="sec-title">Les déplacements — précisément</span><span class="sec-note">Ce qui monte, descend, disparaît, reste.</span></div>
+    <div class="sec-body">
+      <ul class="move-list">
+        <li><span class="move-ic up">↑</span><div><b>Nouveau — Tableau A3 « Que faire maintenant »</b> prend la position de tête, juste sous « Bonjour, Acme », <b>pleine largeur</b>. C'est la surface hero ; elle mérite la pleine largeur, pas une demi-colonne.</div></li>
+        <li><span class="move-ic gone">✕</span><div><b>« Actions requises (21) » disparaît.</b> Son contenu (les 21 items) est désormais <em>classé</em> dans le tableau A3 — top-5 visible, reste derrière « Voir toute ma liste ». La liste plate non ordonnée n'existe plus.</div></li>
+        <li><span class="move-ic gone">✕</span><div><b>« Document fondateur / Statuts de constitution » disparaît en tant que carte dédiée.</b> Un statut manquant fondateur est maintenant un <em>item classé</em> du tableau (avec son plancher d'urgence fondationnel, D3). Plus besoin d'une carte qui n'en montre qu'un seul.</div></li>
+        <li><span class="move-ic down">↓</span><div><b>Historique redescend</b> en rangée secondaire, à côté de Documents récents. Il reste utile (corriger les exercices passés) mais n'est plus la 1<sup>re</sup> chose vue — le passé ne doit pas ouvrir la page.</div></li>
+        <li><span class="move-ic keep">=</span><div><b>Livre de minutes 34%</b> reste — c'est la jauge de complétude globale, complément naturel du tableau (le tableau dit « les 5 prochains », la jauge dit « où on en est »). Je le place juste sous A3.</div></li>
+        <li><span class="move-ic keep">=</span><div><b>Analyse de votre registre</b> et <b>Documents récents</b> restent, en bas — actions ponctuelles et référence, pas le fil directeur.</div></li>
+      </ul>
+      <div class="flag">
+        <div class="flag-t">Régression à vérifier (gate Dom-caméra)</div>
+        <div class="flag-b">Deux cartes disparaissent (Actions requises + Document fondateur). Vérifier qu'aucune information qu'elles portaient <strong>uniquement</strong> n'est perdue : le « Document fondateur » actuel a un bouton implicite « À corriger en priorité » → doit se retrouver comme item A3 prioritaire. La liste « Actions requises » avait 21 items → tous doivent être dans le flux classé (top-5 + Voir tout). C'est un remplacement, pas une suppression.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. IN-CONTEXT DASHBOARD -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">C</span><span class="sec-title">Le tableau dans le dashboard — FR</span><span class="sec-note">Rendu contre la grammaire de cartes réelle de la capture.</span></div>
+    <div class="sec-body">
+      <div class="dash">
+        <div class="dash-side">
+          <div class="ds-brand"><span class="z">Zap</span><span class="o">Okay</span></div>
+          <div class="ds-lbl">Entreprise</div>
+          <div class="ds-item active"><span class="ds-dot" style="background:var(--amber-400)"></span>Tableau de bord</div>
+          <div class="ds-item"><span class="ds-dot"></span>Administrateurs</div>
+          <div class="ds-item"><span class="ds-dot"></span>Dirigeants</div>
+          <div class="ds-item"><span class="ds-dot"></span>Actionnaires</div>
+          <div class="ds-lbl">Livre de minutes</div>
+          <div class="ds-item"><span class="ds-dot"></span>Documents</div>
+          <div class="ds-item"><span class="ds-dot"></span>Complétude</div>
+          <div class="ds-item"><span class="ds-dot"></span>Livre</div>
+        </div>
+        <div class="dash-main">
+          <div class="dash-h">Bonjour, Acme</div>
+
+          <!-- A3 BOARD — full width, hero position -->
+          <div class="board">
+            <div class="board-head">
+              <div><div class="board-title">Que faire maintenant</div><div class="board-sub">Vos 5 actions prioritaires · classées pour vous</div></div>
+              <div class="progress-mini"><span>8/34</span><span class="progress-track"><span class="progress-fill" style="width:24%"></span></span></div>
+            </div>
+
+            <div class="item hero">
+              <div class="hero-top">
+                <span class="hero-badge">⚡ À faire d'abord</span>
+                <span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>En retard</span>
+              </div>
+              <div class="hero-title">Statuts de constitution — document fondateur manquant</div>
+              <div class="hero-meta"><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Fondation du registre · à corriger en priorité</span></div>
+              <div class="hero-actions">
+                <button class="act internal hero-cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button>
+                <span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+              </div>
+            </div>
+
+            <div class="item">
+              <span class="item-rank">2</span>
+              <div class="item-main">
+                <div class="item-title">Mise à jour annuelle au Registraire des entreprises</div>
+                <div class="item-meta"><span class="st soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Bientôt due</span><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>25 juin 2026</span></div>
+                <div class="item-actions"><button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>Déclarer au gouvernement</button></div>
+              </div>
+              <span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+
+            <div class="item">
+              <span class="item-rank">3</span>
+              <div class="item-main">
+                <div class="item-title">Règlement intérieur (Règlement n° 1) — document fondateur</div>
+                <div class="item-meta"><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>À commencer</span></div>
+                <div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button></div>
+              </div>
+              <span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+
+            <div class="item">
+              <span class="item-rank">4</span>
+              <div class="item-main">
+                <div class="item-title">Première résolution du conseil d'administration</div>
+                <div class="item-meta"><span class="st final"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor"/><circle cx="12" cy="12" r="9"/></svg>À finaliser</span></div>
+                <div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Finaliser et consigner</button></div>
+              </div>
+              <span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+
+            <div class="item">
+              <span class="item-rank">5</span>
+              <div class="item-main">
+                <div class="item-title">Résolution annuelle des actionnaires — Exercice 2024</div>
+                <div class="item-meta"><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>À commencer</span><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>31 déc. 2026</span></div>
+                <div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button></div>
+              </div>
+              <span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+
+            <button class="show-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Voir toute ma liste (16 autres) →</button>
+          </div>
+
+          <!-- minute book gauge under -->
+          <div class="dcard" style="margin-top:12px">
+            <div class="dcard-h"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Livre de minutes</div>
+            <div style="font-family:'Sora';font-size:18px;font-weight:800;color:var(--text-h);margin-bottom:8px">34%</div>
+            <div class="progress-track" style="width:100%;height:6px"><span class="progress-fill" style="width:34%"></span></div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-m);margin-top:6px"><span>32 / 58 documents requis</span><span>26 manquants</span></div>
+          </div>
+
+          <div class="drow2" style="margin-bottom:0">
+            <div class="dcard" style="margin-bottom:0"><div class="dcard-h">Historique</div><div style="font-size:10px;color:var(--text-m);line-height:1.9">2025 Partiel · 2024 Partiel · 2023 Partiel…</div></div>
+            <div class="dcard" style="margin-bottom:0"><div class="dcard-h">Documents récents</div><div style="font-size:10px;color:var(--text-m);line-height:1.9">VRAIE · REQ Update 2026 · Nomination…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. IN-CONTEXT DARK -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">D</span><span class="sec-title">Le tableau dans le dashboard — EN · dark</span></div>
+    <div class="sec-body">
+      <div class="dash dark">
+        <div class="dash-side">
+          <div class="ds-brand"><span class="z">Zap</span><span class="o">Okay</span></div>
+          <div class="ds-lbl">Company</div>
+          <div class="ds-item active"><span class="ds-dot" style="background:var(--amber-400)"></span>Dashboard</div>
+          <div class="ds-item"><span class="ds-dot"></span>Directors</div>
+          <div class="ds-item"><span class="ds-dot"></span>Officers</div>
+          <div class="ds-item"><span class="ds-dot"></span>Shareholders</div>
+          <div class="ds-lbl">Minute book</div>
+          <div class="ds-item"><span class="ds-dot"></span>Documents</div>
+          <div class="ds-item"><span class="ds-dot"></span>Completeness</div>
+          <div class="ds-item"><span class="ds-dot"></span>Binder</div>
+        </div>
+        <div class="dash-main">
+          <div class="dash-h">Hello, Acme</div>
+          <div class="board">
+            <div class="board-head">
+              <div><div class="board-title">What to do now</div><div class="board-sub">Your top 5 priorities · ranked for you</div></div>
+              <div class="progress-mini"><span>8/34</span><span class="progress-track"><span class="progress-fill" style="width:24%"></span></span></div>
+            </div>
+            <div class="item hero">
+              <div class="hero-top"><span class="hero-badge">⚡ Do this first</span><span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Overdue</span></div>
+              <div class="hero-title">Articles of incorporation — missing founding document</div>
+              <div class="hero-meta"><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Registry foundation · fix as priority</span></div>
+              <div class="hero-actions"><button class="act internal hero-cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate and record</button><span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span></div>
+            </div>
+            <div class="item">
+              <span class="item-rank">2</span>
+              <div class="item-main"><div class="item-title">Annual update to the Enterprise Registrar</div><div class="item-meta"><span class="st soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Due soon</span><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jun 25, 2026</span></div><div class="item-actions"><button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>File with the government</button></div></div>
+              <span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div class="item">
+              <span class="item-rank">3</span>
+              <div class="item-main"><div class="item-title">By-law No. 1 — founding document</div><div class="item-meta"><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Not started</span></div><div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate and record</button></div></div>
+              <span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div class="item">
+              <span class="item-rank">4</span>
+              <div class="item-main"><div class="item-title">First resolution of the board of directors</div><div class="item-meta"><span class="st final"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor"/><circle cx="12" cy="12" r="9"/></svg>To finalize</span></div><div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Finalize and record</button></div></div>
+              <span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div class="item">
+              <span class="item-rank">5</span>
+              <div class="item-main"><div class="item-title">Annual shareholders' resolution — FY 2024</div><div class="item-meta"><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Not started</span><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Dec 31, 2026</span></div><div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate and record</button></div></div>
+              <span class="dep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <button class="show-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>See my full list (16 more) →</button>
+          </div>
+          <div class="dcard" style="margin-top:12px">
+            <div class="dcard-h">Minute book</div>
+            <div style="font-family:'Sora';font-size:18px;font-weight:800;color:var(--text-h);margin-bottom:8px">34%</div>
+            <div class="progress-track" style="width:100%;height:6px"><span class="progress-fill" style="width:34%"></span></div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-m);margin-top:6px"><span>32 / 58 required</span><span>26 missing</span></div>
+          </div>
+          <div class="drow2" style="margin-bottom:0">
+            <div class="dcard" style="margin-bottom:0"><div class="dcard-h">History</div><div style="font-size:10px;color:var(--text-m);line-height:1.9">2025 Partial · 2024 Partial…</div></div>
+            <div class="dcard" style="margin-bottom:0"><div class="dcard-h">Recent documents</div><div style="font-size:10px;color:var(--text-m);line-height:1.9">VRAIE · REQ Update 2026…</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-t">Ce que la mise en contexte prouve</div>
+        <div class="rec-b">Le tableau <strong>pleine largeur en tête</strong> transforme la lecture : on ouvre sur « voici ta prochaine action », pas sur un historique. Le hero #1 domine réellement dans le flux vertical. La jauge Livre de minutes juste dessous répond « et voici où tu en es globalement ». Historique + Documents récents descendent en référence — présents, pas prioritaires. Le dashboard raconte enfin une histoire orientée action.</div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="sec" style="background:var(--charbon);border-color:var(--charbon)">
+    <div style="padding:16px 24px;color:#fff">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--amber-400);margin-bottom:4px">Partie II — Anatomie détaillée</div>
+      <div style="font-family:'Sora',sans-serif;font-size:16px;font-weight:700">Le tableau, ses états, le niveau de vivacité, les 4 verbes (visuel/exposure + libellé/actionKind), dépendance, encouragement — pièce par pièce</div>
+    </div>
+  </div>
+
+  <!-- 1. THE BOARD -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">1</span><span class="sec-title">Le tableau — layout complet, #1 dominant</span><span class="sec-note">5 items exactement. Le #1 n'est pas juste la 1<sup>re</sup> ligne : traitement visuel distinct.</span></div>
+    <div class="sec-body">
+      <div class="dual">
+        <!-- FR -->
+        <div class="pane"><span class="lang-tag">FR · light</span>
+          <div class="board">
+            <div class="board-head">
+              <div><div class="board-title">Que faire maintenant</div><div class="board-sub">Vos 5 actions prioritaires</div></div>
+              <div class="progress-mini"><span>8/34</span><span class="progress-track"><span class="progress-fill" style="width:24%"></span></span></div>
+            </div>
+
+            <!-- HERO #1 -->
+            <div class="item hero">
+              <div class="hero-top">
+                <span class="hero-badge">⚡ À faire d'abord</span>
+                <span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>En retard</span>
+              </div>
+              <div class="hero-title">Résolution annuelle des actionnaires — Exercice 2024</div>
+              <div class="hero-meta">
+                <span class="due over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Échéance passée · 15 mai 2026</span>
+              </div>
+              <div class="hero-actions">
+                <button class="act internal hero-cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button>
+                <span class="dep dimmed" style="width:36px;height:36px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+              </div>
+            </div>
+
+            <!-- #2 gov / due_soon -->
+            <div class="item">
+              <span class="item-rank">2</span>
+              <div class="item-main">
+                <div class="item-title">Mise à jour annuelle au Registraire des entreprises</div>
+                <div class="item-meta">
+                  <span class="st soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Bientôt due</span>
+                  <span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>25 juin 2026</span>
+                </div>
+                <div class="item-actions">
+                  <button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>Déclarer au gouvernement</button>
+                  <span class="guide-i" title="Comment déclarer ?" aria-label="Comment déclarer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></span>
+                </div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+
+            <!-- #3 foundational / open -->
+            <div class="item">
+              <span class="item-rank">3</span>
+              <div class="item-main">
+                <div class="item-title">Registre des administrateurs — document fondateur manquant</div>
+                <div class="item-meta">
+                  <span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>À commencer</span>
+                </div>
+                <div class="item-actions">
+                  <button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button>
+                </div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+
+            <!-- #4 to_finalize -->
+            <div class="item">
+              <span class="item-rank">4</span>
+              <div class="item-main">
+                <div class="item-title">Résolution — Dispense de vérificateur (Exercice 2025)</div>
+                <div class="item-meta">
+                  <span class="st final"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor"/><circle cx="12" cy="12" r="9"/></svg>À finaliser</span>
+                </div>
+                <div class="item-actions">
+                  <button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Finaliser et consigner</button>
+                </div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+
+            <!-- #5 open calm -->
+            <div class="item">
+              <span class="item-rank">5</span>
+              <div class="item-main">
+                <div class="item-title">Résolution annuelle du conseil — Exercice 2026</div>
+                <div class="item-meta">
+                  <span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>À commencer</span>
+                  <span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>31 déc. 2026</span>
+                </div>
+                <div class="item-actions">
+                  <button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button>
+                </div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+
+            <button class="show-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Voir toute ma liste (26 autres) →</button>
+          </div>
+        </div>
+
+        <!-- EN dark -->
+        <div class="pane dark"><span class="lang-tag">EN · dark</span>
+          <div class="board">
+            <div class="board-head">
+              <div><div class="board-title">What to do now</div><div class="board-sub">Your top 5 priorities</div></div>
+              <div class="progress-mini"><span>8/34</span><span class="progress-track"><span class="progress-fill" style="width:24%"></span></span></div>
+            </div>
+            <div class="item hero">
+              <div class="hero-top">
+                <span class="hero-badge">⚡ Do this first</span>
+                <span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Overdue</span>
+              </div>
+              <div class="hero-title">Annual shareholders' resolution — Fiscal Year 2024</div>
+              <div class="hero-meta">
+                <span class="due over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Past due · May 15, 2026</span>
+              </div>
+              <div class="hero-actions">
+                <button class="act internal hero-cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate and record</button>
+                <span class="dep dimmed" style="width:36px;height:36px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+              </div>
+            </div>
+            <div class="item">
+              <span class="item-rank">2</span>
+              <div class="item-main">
+                <div class="item-title">Annual update to the Enterprise Registrar</div>
+                <div class="item-meta">
+                  <span class="st soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Due soon</span>
+                  <span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jun 25, 2026</span>
+                </div>
+                <div class="item-actions">
+                  <button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>File with the government</button>
+                  <span class="guide-i" title="How do I file?" aria-label="How to file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></span>
+                </div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div class="item">
+              <span class="item-rank">3</span>
+              <div class="item-main">
+                <div class="item-title">Prepare + approve financial statements</div>
+                <div class="item-meta"><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Not started</span></div>
+                <div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate and record</button></div>
+              </div>
+              <span class="dep lit" style="position:relative" title="Unblocks: File Annual Return"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 5H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h9l4-4v-3M14 4l6 6M20 4h-6M20 4v6"/></svg><span class="cnt">1</span></span>
+            </div>
+            <div class="item">
+              <span class="item-rank">4</span>
+              <div class="item-main">
+                <div class="item-title">Resolution — Auditor waiver (FY 2025)</div>
+                <div class="item-meta"><span class="st final"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor"/><circle cx="12" cy="12" r="9"/></svg>To finalize</span></div>
+                <div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Finalize and record</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div class="item">
+              <span class="item-rank">5</span>
+              <div class="item-main">
+                <div class="item-title">Annual board resolution — FY 2026</div>
+                <div class="item-meta"><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Not started</span><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Dec 31, 2026</span></div>
+                <div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate and record</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <button class="show-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>See my full list (26 more) →</button>
+          </div>
+          <div style="font-size:10.5px;color:var(--text-m);margin-top:10px;text-align:center">↑ #3 « Prepare + approve financial statements » montre l'indicateur <strong style="color:var(--amber-600)">allumé</strong> (état futur) : la flèche → dit « débloque 1 action en aval » (ici : File Annual Return, caché jusqu'à ce que ce soit fait). En v1 tous sont éteints.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. STATUS/URGENCY VOCAB -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">2</span><span class="sec-title">Vocabulaire d'état — 4 signaux visibles au tableau</span><span class="sec-note">satisfied quitte le tableau (→ Reliure). Restent : open · to_finalize · due_soon · overdue.</span></div>
+    <div class="sec-body">
+      <div class="note-b" style="margin-bottom:16px"><strong>La température monte avec l'urgence.</strong> Neutre gris pour le lointain calme (open), ambre doux pour « présent, à finaliser », ambre chaud pour l'horloge qui se resserre (due_soon), rouge sourd pour le dépassé (overdue). L'overdue doit <em>se sentir</em> différent — c'est le seul état en graisse 700 + rouge, jamais confondu avec un item lointain.</div>
+      <div class="legend-grid">
+        <div class="leg-card"><div class="lc-demo"><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>À commencer</span></div><div class="lc-name">open · rien encore</div><div class="lc-desc">Gris neutre, cercle +. Calme : « il y a du travail, mais pas de panique ». C'est le repos par défaut du tableau.</div></div>
+        <div class="leg-card"><div class="lc-demo"><span class="st final"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor"/><circle cx="12" cy="12" r="9"/></svg>À finaliser</span></div><div class="lc-name">to_finalize · présent, non certifié</div><div class="lc-desc">Ambre doux, demi-cercle (repris de Complétude « à signer »). Le document existe mais n'est pas dans la Reliure.</div></div>
+        <div class="leg-card"><div class="lc-demo"><span class="st soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Bientôt due</span></div><div class="lc-name">due_soon · l'horloge se resserre</div><div class="lc-desc">Ambre chaud, horloge. Signale la rampe d'urgence D2 : ce qui était calme devient pressant.</div></div>
+        <div class="leg-card"><div class="lc-demo"><span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>En retard</span></div><div class="lc-name">overdue · échéance passée</div><div class="lc-desc">Rouge sourd, graisse 700. Le seul état « chaud ». Distinct au premier regard — jamais confondu avec un item lointain.</div></div>
+      </div>
+      <div class="flag">
+        <div class="flag-t">Note ton — pas d'alarme rouge vif</div>
+        <div class="flag-b">L'overdue est <strong>rouge sourd</strong>, pas rouge alarme. « Encourage, never nag » : même en retard, le tableau reste un guide, pas un mur de problèmes. Le rouge dit « priorité », le ton reste tenable.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2B. LIVENESS TIER -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">2B</span><span class="sec-title">Niveau de vivacité (liveness) — l'axe orthogonal (ruling Harvey 2026-07-05)</span><span class="sec-note">Un item a un statut ET un niveau. Le niveau prime visuellement : un remediate en retard doit se sentir plus calme qu'un live.</span></div>
+    <div class="sec-body">
+      <div class="note-b" style="margin-bottom:16px"><strong>Le problème que ça règle.</strong> Le moteur émet maintenant un 2<sup>e</sup> axe indépendant du statut : la <em>vivacité</em>. Un item peut être <code>overdue</code> (statut) ET <code>remediate</code> (vivacité) — techniquement en retard, mais mort depuis six ans. Dire « fais ça d'abord / génère maintenant » sur un tel item serait malhonnête. <strong>Le tableau doit parler le niveau, pas seulement le statut.</strong> Principe de résolution : quand les deux axes se contredisent, <strong>la vivacité l'emporte visuellement</strong>.</div>
+
+      <div class="note-b" style="margin-bottom:18px"><strong>Charge visuelle — le niveau reshape le statut, il ne s'empile pas.</strong> Trois signaux par ligne (statut + verbe + niveau) déborderait. Ma décision : sur <code>live</code>, aucun badge de niveau (l'absence = live, c'est le défaut). Sur <code>regularize</code>, un badge de niveau + le statut reste. Sur <code>remediate</code>, le niveau <strong>remplace</strong> le statut bruyant par un traitement calme et refroidit toute la ligne. On reste à deux signaux, jamais trois.</div>
+
+      <div class="dual">
+        <!-- FR light -->
+        <div class="pane"><span class="lang-tag">FR · light · les 3 niveaux</span>
+          <div class="board" style="box-shadow:none">
+            <!-- LIVE -->
+            <div class="item">
+              <span class="item-rank">1</span>
+              <div class="item-main">
+                <div class="item-title">Résolution annuelle des actionnaires — 2026</div>
+                <div class="item-meta"><span class="st soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Bientôt due</span><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>31 déc. 2026</span></div>
+                <div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div style="font-size:10px;color:var(--text-m);margin:2px 0 12px 32px"><strong style="color:var(--st-soon)">live</strong> — dans sa fenêtre légale. Le vrai à-faire. Aucun badge de niveau : c'est le défaut.</div>
+
+            <!-- REGULARIZE -->
+            <div class="item">
+              <span class="item-rank">2</span>
+              <div class="item-main">
+                <div class="item-title">Mise à jour annuelle au Registraire des entreprises — 2024</div>
+                <div class="item-meta">
+                  <span class="tier regularize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg>À régulariser</span>
+                  <span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>En retard</span>
+                </div>
+                <div class="item-actions"><button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>Déclarer au gouvernement</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div style="font-size:10px;color:var(--text-m);margin:2px 0 12px 32px"><strong style="color:var(--lv-regularize)">regularize</strong> — passé sa date mais rattrapable. Badge « À régulariser » + le statut reste + action de dépôt réelle.</div>
+
+            <!-- REMEDIATE -->
+            <div class="item is-remediate">
+              <span class="item-rank">4</span>
+              <div class="item-main">
+                <div class="item-title">Mise à jour au Registraire des entreprises — 2018</div>
+                <div class="item-meta">
+                  <span class="tier remediate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9 9h.01M15 9h.01M9 15h6"/></svg>Situation à examiner</span>
+                </div>
+                <div class="item-actions"><button class="act consult"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 17v-5M12 8h.01"/></svg>Consulter un professionnel</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div style="font-size:10px;color:var(--text-m);margin:2px 0 0 32px"><strong style="color:var(--lv-remediate)">remediate</strong> — défaut prolongé (~2 ans+), risque de radiation. Le statut « en retard » est <strong>supprimé</strong> ; ligne refroidie ; action = consulter, pas générer. Bien que rang 4, se sent plus calme que le live #1.</div>
+          </div>
+        </div>
+
+        <!-- EN dark -->
+        <div class="pane dark"><span class="lang-tag">EN · dark · the 3 tiers</span>
+          <div class="board" style="box-shadow:none">
+            <div class="item">
+              <span class="item-rank">1</span>
+              <div class="item-main">
+                <div class="item-title">Annual shareholders' resolution — 2026</div>
+                <div class="item-meta"><span class="st soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Due soon</span><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Dec 31, 2026</span></div>
+                <div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate and record</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div style="font-size:10px;color:var(--text-m);margin:2px 0 12px 32px"><strong style="color:var(--st-soon)">live</strong> — within its legal window. No tier badge: it's the default.</div>
+
+            <div class="item">
+              <span class="item-rank">2</span>
+              <div class="item-main">
+                <div class="item-title">Annual update to the Enterprise Registrar — 2024</div>
+                <div class="item-meta">
+                  <span class="tier regularize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg>Catch up</span>
+                  <span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Overdue</span>
+                </div>
+                <div class="item-actions"><button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>File with the government</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div style="font-size:10px;color:var(--text-m);margin:2px 0 12px 32px"><strong style="color:var(--lv-regularize)">regularize</strong> — past deadline but catch-up-able. Badge + status stays + real filing action.</div>
+
+            <div class="item is-remediate">
+              <span class="item-rank">4</span>
+              <div class="item-main">
+                <div class="item-title">Update to the Enterprise Registrar — 2018</div>
+                <div class="item-meta">
+                  <span class="tier remediate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9 9h.01M15 9h.01M9 15h6"/></svg>Needs review</span>
+                </div>
+                <div class="item-actions"><button class="act consult"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 17v-5M12 8h.01"/></svg>Consult a professional</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div style="font-size:10px;color:var(--text-m);margin:2px 0 0 32px"><strong style="color:var(--lv-remediate)">remediate</strong> — prolonged default (~2yr+), radiation risk. "Overdue" status <strong>suppressed</strong>; row cooled; action = consult, not generate. Rank 4 yet calmer than live #1.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-t">Comment le niveau bat le statut — la mécanique</div>
+        <div class="rec-b">Le statut possède la rampe de température (gris → ambre → rouge). La vivacité répond à une <em>autre</em> question et peut <strong>outrepasser</strong> cette température. Sur <code>remediate</code> : (1) le chip de statut rouge est <strong>supprimé</strong> — il ne peut plus crier ; (2) toute la ligne passe en fond froid désaturé + titre atténué ; (3) le rang lui-même se refroidit. Résultat : un remediate rang 4 se lit visuellement plus calme qu'un live rang 1, même s'il est techniquement « en retard ». C'est tout le point du ruling : le statut dit « en retard », la vivacité dit « mais ne panique pas, ce n'est pas une action de maintenant ».</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2C. EDGE CASE + HERO TRAP -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">2C</span><span class="sec-title">Le cas limite — quand regularize/remediate montent dans le top-5</span><span class="sec-note">Le ranker trie live &gt; regularize &gt; remediate. Ces niveaux ne surgissent que si &lt; 5 live. C'est là que l'honnêteté se joue.</span></div>
+    <div class="sec-body">
+      <div class="note-b" style="margin-bottom:16px"><strong>Le piège du hero, corrigé.</strong> Dans la maquette d'origine, le #1 était un item rouge « En retard » disant « fais ça d'abord ». Sur le vrai moteur, les items les plus profondément en retard sont <code>remediate</code> — et « génère maintenant » est exactement le mauvais message. Voici une entreprise avec peu de live : le hero #1 reste un live légitime, mais les rangs suivants incluent regularize et remediate, chacun parlant son niveau. <strong>Un remediate ne peut jamais devenir un hero urgent.</strong></div>
+
+      <div class="dual">
+        <div class="pane"><span class="lang-tag">FR · entreprise à faible activité</span>
+          <div class="board" style="box-shadow:none">
+            <!-- hero stays a legit live -->
+            <div class="item hero">
+              <div class="hero-top"><span class="hero-badge">⚡ À faire d'abord</span><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>À commencer</span></div>
+              <div class="hero-title">Statuts de constitution — document fondateur manquant</div>
+              <div class="hero-meta"><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Fondation du registre</span></div>
+              <div class="hero-actions"><button class="act internal hero-cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button></div>
+            </div>
+            <!-- regularize -->
+            <div class="item">
+              <span class="item-rank">2</span>
+              <div class="item-main">
+                <div class="item-title">Changement d'administrateur — passé délai</div>
+                <div class="item-meta"><span class="tier regularize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg>À régulariser</span><span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>En retard</span></div>
+                <div class="item-actions"><button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>Déclarer au gouvernement</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <!-- remediate, cooled -->
+            <div class="item is-remediate">
+              <span class="item-rank">3</span>
+              <div class="item-main">
+                <div class="item-title">Mise à jour au REQ — 2017 (d = −2300 j)</div>
+                <div class="item-meta"><span class="tier remediate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9 9h.01M15 9h.01M9 15h6"/></svg>Situation à examiner</span></div>
+                <div class="item-actions"><button class="act consult"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 17v-5M12 8h.01"/></svg>Consulter un professionnel</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <button class="show-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Voir toute ma liste →</button>
+          </div>
+        </div>
+
+        <div class="pane dark"><span class="lang-tag">EN · dark · low-activity company</span>
+          <div class="board" style="box-shadow:none">
+            <div class="item hero">
+              <div class="hero-top"><span class="hero-badge">⚡ Do this first</span><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Not started</span></div>
+              <div class="hero-title">Articles of incorporation — missing founding document</div>
+              <div class="hero-meta"><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Registry foundation</span></div>
+              <div class="hero-actions"><button class="act internal hero-cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate and record</button></div>
+            </div>
+            <div class="item">
+              <span class="item-rank">2</span>
+              <div class="item-main">
+                <div class="item-title">Director change — past deadline</div>
+                <div class="item-meta"><span class="tier regularize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg>Catch up</span><span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Overdue</span></div>
+                <div class="item-actions"><button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>File with the government</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <div class="item is-remediate">
+              <span class="item-rank">3</span>
+              <div class="item-main">
+                <div class="item-title">REQ update — 2017 (d = −2300 d)</div>
+                <div class="item-meta"><span class="tier remediate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9 9h.01M15 9h.01M9 15h6"/></svg>Needs review</span></div>
+                <div class="item-actions"><button class="act consult"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 17v-5M12 8h.01"/></svg>Consult a professional</button></div>
+              </div>
+              <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+            </div>
+            <button class="show-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>See my full list →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flag">
+        <div class="flag-t">Flag à Max — 3<sup>e</sup> traitement d'action, pas 3<sup>e</sup> verbe</div>
+        <div class="flag-b">« Consulter un professionnel » n'est <strong>pas</strong> un 3<sup>e</sup> verbe au sens externe/interne (qui décrivent un genre d'acte que l'utilisateur pose). C'est un <strong>traitement d'action distinct</strong> : un bouton secondaire calme (contour, teinte remediate) qui redirige hors self-serve. La règle Harvey des deux verbes reste intacte sur live/regularize ; remediate n'a simplement pas d'action self-serve. À scoper comme un 3<sup>e</sup> <em>état d'action</em> du composant item, pas comme un ajout à l'enum de verbes.</div>
+      </div>
+      <div class="flag">
+        <div class="flag-t">Copie Harvey-pending — conteneurs, pas mots finaux</div>
+        <div class="flag-b">Les libellés de niveau (« À régulariser », « Situation à examiner ») et surtout le cadrage remediate/« consulter » sont juridiquement chargés. Placeholders i18n single-sourced, rien en dur — même discipline que les deux verbes. Le seuil ~2 ans du remediate est une constante nommée en attente de confirmation LPLE de Harvey ; le design ne l'encode pas, il rend ce que le moteur émet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. VERB TREATMENTS -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">3</span><span class="sec-title">Les verbes — deux canaux : visuel = exposure, libellé = actionKind</span><span class="sec-note">Le moteur émet 4 actionKinds sur un champ séparé de l'exposure. Couleur = genre légal (Harvey) ; mots = geste physique.</span></div>
+    <div class="sec-body">
+      <div class="note-b" style="margin-bottom:18px"><strong>Deux axes indépendants, deux canaux.</strong> Le <strong>traitement visuel</strong> reste keyed sur <code>exposure</code> — plein charbon = externe/gouvernement (signal légal Harvey, inchangé), contour = interne. Le <strong>libellé</strong> suit <code>actionKind</code>. La couleur dit <em>quel genre d'acte</em> ; les mots disent <em>ce qu'on fait physiquement</em>. Wire = deux lookups indépendants, pas un switch à 4 branches — si le moteur émettait un jour un <code>upload</code> externe, le traitement suivrait l'exposure (charbon) et le libellé l'actionKind (Téléverser).</div>
+
+      <div class="dual">
+        <div class="pane"><span class="lang-tag">FR</span>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-m)">Interne · contour (3 actionKinds)</div>
+            <div>
+              <button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button>
+              <div class="note-b" style="margin-top:7px;font-size:11.5px"><code>generate</code> — rien n'existe encore, créer le document.</div>
+            </div>
+            <div>
+              <button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg>Téléverser et consigner</button>
+              <div class="note-b" style="margin-top:7px;font-size:11.5px"><code>upload</code> — l'utilisateur a le doc signé, le téléverser.</div>
+            </div>
+            <div>
+              <button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Finaliser et consigner</button>
+              <div class="note-b" style="margin-top:7px;font-size:11.5px"><code>finalize</code> — un brouillon existe, le finaliser dans la reliure.</div>
+            </div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-m);margin-top:4px">Externe · plein charbon (1 actionKind)</div>
+            <div>
+              <button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>Déclarer au gouvernement</button>
+              <div class="note-b" style="margin-top:7px;font-size:11.5px"><code>file_externally</code> — déposer au portail gouvernemental. <strong>Seul verbe Harvey-pending.</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="pane dark"><span class="lang-tag">EN · dark</span>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-m)">Internal · outline (3 actionKinds)</div>
+            <div>
+              <button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate and record</button>
+              <div class="note-b" style="margin-top:7px;font-size:11.5px"><code>generate</code> — nothing exists yet, create the document.</div>
+            </div>
+            <div>
+              <button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg>Upload and record</button>
+              <div class="note-b" style="margin-top:7px;font-size:11.5px"><code>upload</code> — user holds the signed doc, upload it.</div>
+            </div>
+            <div>
+              <button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Finalize and record</button>
+              <div class="note-b" style="margin-top:7px;font-size:11.5px"><code>finalize</code> — a draft exists, finalize it into the binder.</div>
+            </div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-m);margin-top:4px">External · solid charbon (1 actionKind)</div>
+            <div>
+              <button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>File with the government</button>
+              <div class="note-b" style="margin-top:7px;font-size:11.5px"><code>file_externally</code> — file with a government portal. <strong>Only Harvey-pending verb.</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-t">La collision réelle (Acme), résolue</div>
+        <div class="rec-b">« Déclaration d'acceptation du mandat » est un <code>upload</code> (l'utilisateur a le doc signé) ; « Première résolution du conseil » est un <code>generate</code> (rien n'existe). Avant, les deux lisaient « Générer et consigner » — on disait au premier de créer un doc qu'il détient déjà. Maintenant : <strong>« Téléverser et consigner »</strong> vs <strong>« Générer et consigner »</strong>. Même traitement contour (tous deux internes), libellés distincts. Le canal visuel dit « acte interne », le canal mot dit « ce que tu fais ».</div>
+      </div>
+
+      <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--divider)">
+        <div style="font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--charbon);margin-bottom:5px">Le bouton hero suit l'exposure, pas le rang</div>
+        <div class="note-b" style="margin-bottom:16px">Le rang possède déjà son vocabulaire d'emphase (bordure, wash ambre, badge « À faire d'abord », titre agrandi, position). Le <strong>fond du bouton</strong> est un canal séparé : il porte le genre légal. Un hero externe garde donc le <strong>charbon</strong> — le rang ne réécrit jamais le signal Harvey. <code>hero-cta</code> est un modificateur d'échelle, pas une couleur : la couleur vient de l'exposure.</div>
+        <div class="dual">
+          <div class="pane"><span class="lang-tag">FR · hero interne</span>
+            <div class="item hero">
+              <div class="hero-top"><span class="hero-badge">⚡ À faire d'abord</span><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>À commencer</span></div>
+              <div class="hero-title">Statuts de constitution — document fondateur</div>
+              <div class="hero-meta"><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Fondation du registre</span></div>
+              <div class="hero-actions"><button class="act internal hero-cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button></div>
+            </div>
+            <div class="note-b" style="margin-top:9px;font-size:11.5px"><strong style="color:var(--amber-800)">Amber.</strong> Interne = self-serve, ZapOkay génère — l'emphase et le genre s'accordent, l'ambre porte les deux sans mentir.</div>
+          </div>
+          <div class="pane dark"><span class="lang-tag">EN · external hero</span>
+            <div class="item hero">
+              <div class="hero-top"><span class="hero-badge">⚡ Do this first</span><span class="st over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Overdue</span></div>
+              <div class="hero-title">Annual update to the Enterprise Registrar</div>
+              <div class="hero-meta"><span class="due over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Past due · Jun 25, 2026</span></div>
+              <div class="hero-actions"><button class="act gov hero-cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>File with the government</button></div>
+            </div>
+            <div class="note-b" style="margin-top:9px;font-size:11.5px"><strong>Charbon survives.</strong> A government filing must never wear the amber costume of a self-serve internal act — even when it's rank 1. The card's border, wash, and badge carry the priority; the button carries the legal kind.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flag">
+        <div class="flag-t">Décision Aria — split confirmé, hybride retenu</div>
+        <div class="flag-b">Le collapse à 2 boutons n'était <strong>pas</strong> délibéré : le design ne connaissait pas les 4 actionKinds. Maintenant qu'il les connaît, le collapse est activement faux — il <em>mésinstruit</em> (dire « générer » à un upload). Split retenu, sur ton hybride. <code>finalize</code> → <strong>« Finaliser et consigner »</strong> (mon choix) : « Tenir » impliquait <em>conduire</em> un acte de gouvernance = le geste <code>generate</code>, pas finir un brouillon. « Finaliser » nomme le vrai geste et garde les 3 internes en fratrie grammaticale (verbe + « et consigner »). Verbes internes = wording UX (mon ressort). Seul <code>file_externally</code> touche Harvey. Tous shippent en placeholders i18n single-sourced. <code>remediate</code> outrepasse toujours les 4 avec « Consulter un professionnel » (réglé).</div>
+      </div>
+      <div class="flag">
+        <div class="flag-t">Ruling (b) — le bouton hero suit l'exposure, pas le rang</div>
+        <div class="flag-b">Question tranchée : un hero externe garde le <strong>charbon</strong>, l'ambre est réservé aux heroes internes. Le signal légal Harvey (exposure→couleur) est sacré et survit dans le hero ; le rang ne l'écrase jamais. Même refus de couplage que le split des verbes : deux canaux orthogonaux (rang = échelle + conteneur ; exposure = couleur) ne se disputent pas la même surface. Coût d'honnêteté réel de l'alternative : un dépôt gouvernemental en ambre porterait le costume d'un acte interne self-serve — l'utilisateur pourrait croire que ZapOkay le fait à sa place, alors qu'il l'envoie au portail gouvernemental. <code>hero-cta</code> = modificateur d'échelle seul ; couleur via l'exposure. Un hero externe compose <code>act gov</code> + <code>hero-cta</code>, jamais une couleur codée dans la classe hero.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3B. GUIDE INFO-ICON + HOW-TO MODAL -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">3B</span><span class="sec-title">Info-icône « comment déclarer » → réutilise ObligationModal</span><span class="sec-note">Conditionnelle : items externes/gouvernementaux seulement. Ouvre la modale déjà spécifiée — la zone « Comment déclarer » n'est plus « À venir », elle est remplie.</span></div>
+    <div class="sec-body">
+      <div class="note-b" style="margin-bottom:16px"><strong>Le principe, déjà établi :</strong> « ZapOkay ne dépose pas à ta place, mais t'explique comment ». C'est exactement le rôle de la modale du marqueur REQ. Ici on <strong>réutilise le même composant</strong> <code>ObligationModal</code> — pas de nouveau. L'info-icône sur un item du board ouvre cette modale ; le contenu « voici les étapes pour soumettre » vient <strong>combler la zone (b) « Comment déclarer »</strong> qu'on avait laissée en placeholder. Single source of truth : une modale, deux points d'entrée (le marqueur REQ dans Complétude, l'info-icône dans le board).</div>
+
+      <div class="note-b" style="margin-bottom:16px"><strong>Portée de l'icône — conditionnelle.</strong> Présente sur les items <strong>externes / gouvernementaux</strong> (« Déclarer au gouvernement ») : il y a un hors-app réel à expliquer. <strong>Absente</strong> sur les items internes (« Générer / Téléverser / Finaliser et consigner ») : l'action est dans l'app, il n'y a pas d'« étapes de dépôt » ailleurs. Même ligne de partage que la règle Harvey qui gouverne déjà les verbes.</div>
+
+      <div class="dual">
+        <!-- FR : l'icône dans l'item -->
+        <div class="pane"><span class="lang-tag">FR · anatomie</span>
+          <div style="font-size:11px;font-weight:700;color:var(--charbon);margin-bottom:9px">L'info-icône vit à droite du bouton d'action (item externe)</div>
+          <div class="item" style="background:var(--card-bg)">
+            <span class="item-rank">2</span>
+            <div class="item-main">
+              <div class="item-title">Mise à jour annuelle au Registraire des entreprises</div>
+              <div class="item-meta"><span class="st soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Bientôt due</span><span class="due"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>25 juin 2026</span></div>
+              <div class="item-actions">
+                <button class="act gov"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg>Déclarer au gouvernement</button>
+                <span class="guide-i" title="Comment déclarer ?"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></span>
+              </div>
+            </div>
+            <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:var(--charbon);margin:16px 0 9px">Item interne — pas d'info-icône</div>
+          <div class="item" style="background:var(--card-bg)">
+            <span class="item-rank">5</span>
+            <div class="item-main">
+              <div class="item-title">Résolution annuelle du conseil — Exercice 2026</div>
+              <div class="item-meta"><span class="st open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>À commencer</span></div>
+              <div class="item-actions"><button class="act internal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Générer et consigner</button></div>
+            </div>
+            <span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span>
+          </div>
+        </div>
+
+        <!-- EN dark : la modale ouverte, zone how-to remplie -->
+        <div class="pane dark"><span class="lang-tag">EN · dark · modale ouverte</span>
+          <div style="background:#2A2825;border-radius:12px;padding:20px">
+            <div style="background:var(--card-bg);border:1px solid var(--card-bd);border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3)">
+              <div style="display:flex;align-items:flex-start;gap:11px;padding:18px 20px 12px;position:relative">
+                <span style="width:34px;height:34px;border-radius:9px;background:var(--st-final-bg);border:1px solid var(--st-final-bd);display:flex;align-items:center;justify-content:center;color:var(--st-final);flex-shrink:0"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M9 7h6M9 11h6M9 15h4"/></svg></span>
+                <div style="flex:1"><div style="font-family:'Sora';font-size:15px;font-weight:700;color:var(--text-h);line-height:1.3">Filing with the Enterprise Registrar</div><div style="font-size:11px;color:var(--text-m);margin-top:2px">Annual update — FY 2026</div></div>
+                <span style="color:var(--text-m);font-size:15px">✕</span>
+              </div>
+              <div style="padding:4px 20px 18px">
+                <div style="font-size:12.5px;color:var(--text-b);line-height:1.6;margin-bottom:16px">This filing goes to the government — <strong style="color:var(--text-h)">ZapOkay doesn't submit it for you</strong>, but here's how to do it yourself.</div>
+                <div style="border-top:1px solid var(--divider);margin:0 -20px 14px"></div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-m);margin-bottom:11px">How to file</div>
+                <!-- steps — replaces the coming-soon placeholder -->
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+                  <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:20px;height:20px;border-radius:50%;background:var(--st-final-bg);color:var(--st-final);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</span><span style="font-size:12px;color:var(--text-b);line-height:1.5">Sign in to the REQ enterprise portal with your clicSÉQUR credentials.</span></div>
+                  <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:20px;height:20px;border-radius:50%;background:var(--st-final-bg);color:var(--st-final);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</span><span style="font-size:12px;color:var(--text-b);line-height:1.5">Open « Produire une déclaration » and select the current fiscal year.</span></div>
+                  <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:20px;height:20px;border-radius:50%;background:var(--st-final-bg);color:var(--st-final);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">3</span><span style="font-size:12px;color:var(--text-b);line-height:1.5">Confirm your directors and pay the annual fee to complete.</span></div>
+                </div>
+                <a style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--navy-600);text-decoration:none">Open the REQ portal <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+                <div style="font-size:10.5px;color:var(--text-m);margin-top:12px;line-height:1.5;padding:10px;background:var(--nt-50);border-radius:8px">ZapOkay guides you but doesn't submit government filings. Once filed, you can mark this obligation as done.</div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;padding:14px 20px 18px"><button style="font-size:12.5px;color:#fff;background:var(--charbon);border:none;border-radius:9px;padding:8px 18px;font-weight:600">Got it</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-t">Traitement de l'info-icône</div>
+        <div class="rec-b">Cercle-i (info), 28px, contour discret, teinte <code>--navy-600</code> — <strong>volontairement distinct des boutons d'action</strong> (ambre/charbon). Il ne dit pas « agis », il dit « apprends comment ». Placé à droite du bouton de dépôt gouvernemental. Sur mobile, reste un tap-target ≥ 28px. Ouvre <code>ObligationModal</code> avec la zone « Comment déclarer » remplie : le pourquoi (bref), les étapes, un lien vers le portail officiel, le disclaimer « ZapOkay ne soumet pas ».</div>
+      </div>
+      <div class="flag">
+        <div class="flag-t">Flag à Max — un seul composant modale, deux entrées</div>
+        <div class="flag-b">C'est la <strong>même <code>ObligationModal</code></strong> déjà spécifiée pour le marqueur REQ (livrable obligation). L'info-icône du board en est un <strong>deuxième point d'entrée</strong>, pas une nouvelle modale. La zone « Comment déclarer » qu'on avait mise en « À venir » est ce que ce contenu remplit. À scoper comme une extension de l'existant : mêmes props (<code>obligationKind</code>, <code>howToSteps</code>, <code>officialLink</code>), le placeholder « coming soon » devient un rendu conditionnel quand <code>howToSteps</code> existe. <strong>Ne pas construire deux modales.</strong> Le contenu des étapes est lawyer/ops-pending — le gabarit est figé, pas la copie.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. DEPENDENCY -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">4</span><span class="sec-title">Indicateur de chaîne de dépendance — les deux états</span><span class="sec-note">v1 : éteint partout (chaînes pas encore construites). L'allumé part en couche 2, sans redesign.</span></div>
+    <div class="sec-body">
+      <div class="dual">
+        <div class="pane"><span class="lang-tag">FR</span>
+          <div class="legend-grid">
+            <div class="leg-card"><div class="lc-demo" style="display:flex;align-items:center;gap:11px"><span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span><span style="font-size:12px;color:var(--text-m)">aucun prérequis</span></div><div class="lc-name">Éteint (v1 partout)</div><div class="lc-desc">Maillon de chaîne neutre, opacity .5, gris. Présent mais visiblement inactif — pas cliquable, pas de compteur. (L'allumé passe à la flèche directionnelle → : l'icône elle-même signale le changement d'état.)</div></div>
+            <div class="leg-card"><div class="lc-demo" style="display:flex;align-items:center;gap:11px"><span class="dep lit" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 5H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h9l4-4v-3M14 4l6 6M20 4h-6M20 4v6"/></svg><span class="cnt">1</span></span><span style="font-size:12px;color:var(--amber-600);font-weight:600">débloque 1 action</span></div><div class="lc-name">Allumé (couche 2)</div><div class="lc-desc">Flèche directionnelle ambre, fond ambre-50, compteur d'<strong>actions débloquées en aval</strong>. Cliquable → révélera « Débloque : {item aval} » (panneau = design couche 2).</div></div>
+          </div>
+        </div>
+        <div class="pane dark"><span class="lang-tag">EN · dark</span>
+          <div class="legend-grid">
+            <div class="leg-card"><div class="lc-demo" style="display:flex;align-items:center;gap:11px"><span class="dep dimmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg></span><span style="font-size:12px;color:var(--text-m)">no prerequisites</span></div><div class="lc-name">Dimmed (v1 everywhere)</div><div class="lc-desc">Chain-link, opacity .5, grey. Present but visibly inert — not tappable, no counter.</div></div>
+            <div class="leg-card"><div class="lc-demo" style="display:flex;align-items:center;gap:11px"><span class="dep lit" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 5H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h9l4-4v-3M14 4l6 6M20 4h-6M20 4v6"/></svg><span class="cnt">1</span></span><span style="font-size:12px;color:var(--amber-600);font-weight:600">unblocks 1 action</span></div><div class="lc-name">Lit (layer 2)</div><div class="lc-desc">Directional amber arrow, amber-50 fill, counter of <strong>downstream actions unblocked</strong>. Tappable → will reveal "Unblocks: {downstream item}" (panel = layer-2 design).</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="flag">
+        <div class="flag-t">Direction & pourquoi dessiner l'allumé maintenant</div>
+        <div class="flag-b"><strong>L'allumé pointe vers l'AVAL : « cet item débloque autre chose », pas « cet item est bloqué ».</strong> Cas concret (chaîne canonique) : « Préparer + approuver les états financiers » → déverrouille → « Produire la déclaration annuelle ». L'allumé vit sur les états financiers (l'action faisable maintenant) ; le dépendant (déclaration annuelle) reste <strong>caché du tableau</strong> jusqu'à ce que le prérequis soit fait — il n'y a donc rien où accrocher un indicateur « bloqué ». La lecture aval est aussi la seule cohérente avec « encourage, never nag » : « fais ça, et la suite s'ouvre », pas « verrouillé ». Le même composant porte les deux états via <code>hasDependencies</code> ; figer l'allumé aujourd'hui garantit qu'il s'active en couche 2 <strong>sans redesign</strong> — géométrie identique (30px, radius 8px), seuls le token couleur, l'icône directionnelle et le compteur changent.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. SHOW MORE -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">5</span><span class="sec-title">« Voir plus » → route vers Complétude</span><span class="sec-note">Le tableau ne s'étend jamais sur place. Sortie distincte des actions par item.</span></div>
+    <div class="sec-body">
+      <div class="dual">
+        <div class="pane"><span class="lang-tag">FR</span>
+          <button class="show-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Voir toute ma liste (26 autres) →</button>
+        </div>
+        <div class="pane dark"><span class="lang-tag">EN · dark</span>
+          <button class="show-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>See my full list (26 more) →</button>
+        </div>
+      </div>
+      <div class="note-b" style="margin-top:16px"><strong>Traitement distinct des boutons d'action.</strong> Contour pointillé, pleine largeur, icône liste + flèche → : lit « aller ailleurs », pas « agir ici ». Le compteur « (26 autres) » signale l'ampleur sans la déverser sur le tableau. C'est une <strong>porte de sortie</strong>, pas une expansion — le top-5 guidé reste propre.</div>
+      <div class="flag">
+        <div class="flag-t">Question bancée (Aria → Dom) : un « voir tout » discret ailleurs ?</div>
+        <div class="flag-b">Le brief note une question ouverte : faut-il un « voir tout » discret au-delà de la route show-more → Complétude ? <strong>Ma position :</strong> non, pas en v1. Une seule sortie garde la promesse « guide, don't flood » intacte — deux portes vers la liste complète diluent le geste et invitent au flood que le tableau existe pour éviter. Si un besoin émerge (ex. utilisateurs avancés), le rouvrir plus tard. À confirmer par Dom.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. ENCOURAGEMENT -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">6</span><span class="sec-title">Encouragement — le moment clear → swap</span><span class="sec-note">Exigence de design, pas décoration. Le tableau célèbre la victoire ; le suivant glisse.</span></div>
+    <div class="sec-body">
+      <div class="swap-seq">
+        <div class="swap-step">
+          <div class="swap-lbl">1 · Avant</div>
+          <div class="mini-item hero-mini"><span class="mr">1</span>Résolution actionnaires 2024</div>
+          <div class="mini-item"><span class="mr">2</span>Mise à jour REQ</div>
+          <div class="mini-item"><span class="mr">3</span>Registre administrateurs</div>
+        </div>
+        <span class="swap-arrow">→</span>
+        <div class="swap-step">
+          <div class="swap-lbl">2 · Cleared</div>
+          <div class="celebrate">
+            <span class="celebrate-ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="celebrate-tx">Fait ! Une de moins.</span>
+            <span class="celebrate-sub">Ajouté à votre Reliure</span>
+          </div>
+        </div>
+        <span class="swap-arrow">→</span>
+        <div class="swap-step">
+          <div class="swap-lbl">3 · Après (le #2 devient #1)</div>
+          <div class="mini-item hero-mini"><span class="mr">1</span>Mise à jour REQ</div>
+          <div class="mini-item"><span class="mr">2</span>Registre administrateurs</div>
+          <div class="mini-item sliding"><span class="mr">3</span>Dispense vérificateur ↑</div>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-t">Le feel — « une de moins », pas « 33 restantes »</div>
+        <div class="rec-b">Trois temps : (1) l'item complété <strong>se coche et sort</strong> vers la Reliure (satisfied quitte le tableau) ; (2) un <strong>moment de célébration</strong> bref — anneau vert, check, « Fait ! Une de moins » — le cadrage est le <em>gain</em>, jamais le reste à faire ; (3) l'ancien #2 <strong>monte en position dominante</strong> (#1), le #6 caché glisse en #5. Le tableau reste toujours à 5, toujours avec un « fais ça d'abord » clair. Le progrès est visible (barre 8/34 qui avance), l'effort se sent <strong>fini-able</strong>.</div>
+      </div>
+      <div class="flag">
+        <div class="flag-t">Détail d'animation (pour CC, pas figé au pixel)</div>
+        <div class="flag-b">Le check→sortie et la montée du suivant devraient être <strong>doux</strong> (~300–400ms, ease-out), assez pour être ressentis, jamais lents au point d'agacer sur usage répété. La célébration ne bloque pas : l'utilisateur peut enchaîner. Pas de confetti — le ton ZapOkay est chaleureux et sobre, pas ludique-enfantin. À affiner avec le ranker réel.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. WHAT I NEED FROM DOM -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">→</span><span class="sec-title">Ce dont j'ai besoin + décisions ouvertes</span></div>
+    <div class="sec-body">
+      <div class="qa">
+        <div class="qa-q"><span class="qn">1</span>Capture du dashboard actuel (FR + EN)</div>
+        <div class="qa-a">Le tableau <strong>remplace deux cartes existantes</strong> et hérite du contexte dashboard. J'ai conçu l'anatomie interne complète contre le système v2.5 — mais pour le <strong>placement en contexte</strong> (grille, largeur de carte, rythme d'espacement vis-à-vis des autres cartes du dashboard) et la <strong>régression sur les cartes déplacées</strong>, il me faut une capture du dashboard live, FR et EN, état courant. Non bloquant pour le concept ; nécessaire avant le gate visuel Dom-caméra. <strong>Peux-tu capturer ?</strong></div>
+      </div>
+      <div class="qa">
+        <div class="qa-q"><span class="qn">2</span>La question bancée « voir tout » (§5)</div>
+        <div class="qa-a">Ma position : une seule sortie (show-more → Complétude) en v1. À confirmer ou rouvrir par Dom.</div>
+      </div>
+      <div class="qa">
+        <div class="qa-q"><span class="qn">3</span>À raffiner contre le ranker réel (tenu, non figé)</div>
+        <div class="qa-a">Copie par item + forme des données (titres, dates, verbes) et le panneau de chaîne déplié (couche 2). Maquetté ici contre placeholders représentatifs, comme demandé.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HANDOFF -->
+  <div class="sec">
+    <div class="sec-head"><span class="sn">→</span><span class="sec-title">Contraintes numérotées (handoff CC — après ranker réel)</span></div>
+    <div class="sec-body">
+      <div class="note-b">
+        <strong>1.</strong> Tableau = carte dashboard, exactement 5 items. #1 = traitement <code>hero</code> (bordure amber 1.5px, dégradé amber-50→card, badge « À faire d'abord », titre Sora 17px, CTA amber plein). Items 2–5 = rang en pastille + poids secondaire.<br>
+        <strong>2.</strong> 4 états visibles : <code>open</code> (gris neutre) · <code>to_finalize</code> (ambre doux, demi-cercle) · <code>due_soon</code> (ambre chaud, horloge) · <code>overdue</code> (rouge sourd, 700). <code>satisfied</code> ne s'affiche pas — l'item sort vers la Reliure.<br>
+        <strong>3.</strong> Verbes = <strong>deux canaux indépendants</strong>. Canal visuel keyed sur <code>exposure</code> : externe = plein charbon + icône institution, interne = contour + icône geste. Canal libellé keyed sur <code>actionKind</code> (4 valeurs) : <code>generate</code> → « Générer et consigner / Generate and record » · <code>upload</code> → « Téléverser et consigner / Upload and record » · <code>finalize</code> → « Finaliser et consigner / Finalize and record » · <code>file_externally</code> → « Déclarer au gouvernement / File with the government ». Wire = 2 lookups séparés (exposure→traitement, actionKind→libellé), <strong>pas</strong> un switch à 4 branches ; ne pas coupler les axes. Verbes internes = wording UX. Seul <code>file_externally</code> = Harvey-pending. Tous en i18n single-sourced, rien en dur.<br>
+        <strong>4.</strong> Indicateur dépendance = 30px/radius 8px, icône 15px. <strong>Direction : l'allumé signifie « cet item DÉBLOQUE l'aval », pas « est bloqué ».</strong> Icône = flèche directionnelle (→ sortante), pas maillon neutre. Compteur = nombre d'actions débloquées en aval. Éteint (opacity .5, gris, inerte, sans compteur) partout en v1. Allumé (ambre, fond amber-50, flèche + compteur) activé par <code>hasDependencies</code> en couche 2, même géométrie, sans redesign. Tap (couche 2) → révèle « Débloque : {nom item aval} » — l'item aval reste caché du tableau jusqu'à ce que le prérequis soit fait (cas canonique : états financiers → déclaration annuelle). Panneau déplié = design couche 2.<br>
+        <strong>5.</strong> « Voir plus » = contour pointillé pleine largeur, icône liste + →, compteur « (N autres) ». Route vers Complétude. Le tableau ne s'étend <strong>jamais</strong> en place.<br>
+        <strong>6.</strong> Clear→swap = 3 temps : check+sortie de l'item (~300–400ms ease-out) → célébration brève cadrée sur le gain (« Fait ! Une de moins », anneau vert, pas de confetti) → montée du suivant en #1 + glissement du #6 caché en #5. Barre de progrès globale avance. Non bloquant, enchaînable.<br>
+        <strong>7.</strong> Bilingue FR/EN, light + dark. Première surface A3 user-facing → gate dual-locale (Dom caméra) avant ship. Absorber la variance de longueur des titres/verbes (copie non finale).<br>
+        <strong>8.</strong> Tokens : réutilise le système v2.5. Nouveaux tokens d'état proposés (<code>--st-open/final/soon/over</code> ×bg/bd/tx) — à valider ; justifiés par un vocabulaire d'urgence distinct des row-states Complétude (sémantique board ≠ sémantique row). Voir principe « token coincidence ≠ architectural correctness ».<br>
+        <strong>9.</strong> Info-icône « comment déclarer » = cercle-i 28px/radius 8px, contour <code>--navy-600</code>, à droite du bouton d'action. <strong>Conditionnelle : items externes/gouvernementaux seulement</strong> (absente sur les internes). Ouvre <code>ObligationModal</code> — <strong>le même composant que le marqueur REQ</strong>, pas un nouveau. Elle en est un 2<sup>e</sup> point d'entrée ; la zone « Comment déclarer » (placeholder « À venir » dans le livrable obligation) devient un rendu réel quand <code>howToSteps</code> existe : pourquoi bref + étapes numérotées + lien portail officiel + disclaimer « ZapOkay ne soumet pas ». Copie des étapes lawyer/ops-pending ; gabarit figé. <strong>Ne pas scoper deux modales.</strong><br>
+        <strong>10.</strong> <strong>Niveau de vivacité (liveness)</strong> = axe orthogonal au statut, 3 valeurs. <code>live</code> : rendu inchangé, aucun badge (absence = live). <code>regularize</code> : badge <code>.tier.regularize</code> (ambre chaud <code>--lv-regularize</code>) + statut conservé + action self-serve normale. <code>remediate</code> : classe <code>.item.is-remediate</code> sur la ligne → fond froid désaturé + titre atténué + rang refroidi + dep calmé ; le chip de statut <strong>est supprimé</strong> (pas rendu) et remplacé par le badge <code>.tier.remediate</code> (froid <code>--lv-remediate</code>). Règle dure : <strong>la vivacité outrepasse le statut</strong> — un remediate ne doit jamais lire plus urgent qu'un live, quel que soit son rang. Tokens : <code>--lv-regularize*</code> / <code>--lv-remediate*</code> déclarés light + dark.<br>
+        <strong>11.</strong> Action remediate = <code>.act.consult</code> (contour calme, teinte remediate, jamais primaire) « Consulter un professionnel / Consult a professional ». C'est un <strong>3<sup>e</sup> état d'action</strong> du composant item, <strong>pas</strong> un 3<sup>e</sup> verbe dans l'enum externe/interne. Le hero #1 ne peut jamais être un remediate (le ranker trie live &gt; regularize &gt; remediate ; garde-fou UI en plus : <code>is-remediate</code> incompatible avec <code>hero</code>). Libellés de niveau + cadrage « consulter » = i18n single-sourced, Harvey-pending ; seuil ~2 ans = constante moteur, non encodée en design.<br>
+        <strong>12.</strong> <strong>Couleur du bouton hero = exposure, PAS le rang</strong> (ruling b). <code>hero-cta</code> est un <strong>modificateur d'échelle seul</strong> (font-size/padding) — il ne porte aucune couleur. La couleur vient de la classe d'exposure : hero interne compose <code>act internal hero-cta</code> → ambre ; hero externe compose <code>act gov hero-cta</code> → charbon (au format hero). Le signal légal Harvey survit dans le hero ; le rang ne l'écrase jamais. <strong>Ne pas coder de couleur dans la classe hero</strong> — deux lookups orthogonaux (exposure→couleur partout, rang→échelle+conteneur partout), même discipline que le split des verbes. Aujourd'hui sur Acme le hero #1 est interne (statuts) donc rendu ambre ; le rendu charbon s'active dès qu'une priorité #1 est un <code>file_externally</code>.
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

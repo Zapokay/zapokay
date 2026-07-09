@@ -41,6 +41,17 @@ body {
   --warning-bg:#FFF8E7; --warning-border:#FDDB8C; --warning-text:#7A5804;
   --success-bg:#F0F4EE; --success-border:#B8CCAF; --success-text:#2E5425;
   --error-bg:#F5EEEE; --error-border:#C9A5A5; --error-text:#6B1E1E;
+
+  /* A3 board — status + liveness axes (Aria v2.5); light base, dark overridden below */
+  --charbon:#1C1A17;
+  --act-gov-bg:#1C1A17; --act-gov-fg:#FFFFFF;
+  --st-open:#8A857B; --st-open-bg:#F2F0EB; --st-open-bd:#E0DDD5;
+  --st-final:#925C00; --st-final-bg:#FFFBEB; --st-final-bd:#FDE98A;
+  --st-soon:#B4690E; --st-soon-bg:#FDF0DF; --st-soon-bd:#F5C98A;
+  --st-over:#8A2A2A; --st-over-bg:#F8EDED; --st-over-bd:#DFB0B0;
+  --lv-regularize:#7A5804; --lv-regularize-bg:#FDF6E3; --lv-regularize-bd:#EAD9A6;
+  --lv-remediate:#4A5568; --lv-remediate-bg:#EEF0F3; --lv-remediate-bd:#CFD5DE;
+  --lv-remediate-row:#F7F8FA;
 }
 
 [data-theme="original"] {
@@ -309,6 +320,17 @@ body {
   --info-bg: rgba(148,180,212,0.10);
   --info-border: rgba(148,180,212,0.16);
   --info-text: #94B4D4;
+
+  /* A3 board — status + liveness axes (Aria v2.5) */
+  --charbon:#1C1A17;
+  --act-gov-bg:#FFFFFF; --act-gov-fg:#1C1A17;
+  --st-open:rgba(255,255,255,.42); --st-open-bg:rgba(255,255,255,.05); --st-open-bd:rgba(255,255,255,.10);
+  --st-final:#E0B840; --st-final-bg:rgba(224,184,64,.10); --st-final-bd:rgba(224,184,64,.20);
+  --st-soon:#E89838; --st-soon-bg:rgba(232,152,56,.10); --st-soon-bd:rgba(232,152,56,.22);
+  --st-over:#E08585; --st-over-bg:rgba(224,133,133,.10); --st-over-bd:rgba(224,133,133,.24);
+  --lv-regularize:#E0B840; --lv-regularize-bg:rgba(224,184,64,.10); --lv-regularize-bd:rgba(224,184,64,.20);
+  --lv-remediate:#A0AEC0; --lv-remediate-bg:rgba(160,174,192,.10); --lv-remediate-bd:rgba(160,174,192,.20);
+  --lv-remediate-row:rgba(255,255,255,.02);
 
   /* Signature */
   --wm-zap: #F5B91E;

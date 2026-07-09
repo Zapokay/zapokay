@@ -154,6 +154,47 @@
       "viewDetails": "Voir les détails",
       "loadError": "Impossible de charger les données."
     },
+    "a3Board": {
+      "_pendingLawyer": "LAWYER-PENDING (Harvey green tripwire): verb.file_externally, verb.consult, tier.regularize, docKey.* — interim wording, requires lawyer sign-off before launch",
+      "_pendingPlaceholder": "DOM-LOCKED PLACEHOLDER (product decision, NOT for Harvey): tier.remediate",
+      "title": "Que faire maintenant",
+      "subtitle": "Vos 5 actions prioritaires · classées pour vous",
+      "hero": {
+        "badge": "À faire d'abord"
+      },
+      "foundationTag": "Fondation du registre",
+      "foundationPriority": "Fondation du registre · à corriger en priorité",
+      "guideLabel": "Comment déclarer ?",
+      "due": {
+        "pastDue": "Échéance passée"
+      },
+      "showMore": "{count, plural, =0 {Voir toute ma liste} =1 {Voir toute ma liste (# autre)} other {Voir toute ma liste (# autres)}}",
+      "status": {
+        "open": "À commencer",
+        "to_finalize": "À finaliser",
+        "due_soon": "Bientôt due",
+        "overdue": "En retard"
+      },
+      "tier": {
+        "regularize": "À régulariser",
+        "remediate": "Situation à examiner"
+      },
+      "verb": {
+        "generate": "Générer et consigner",
+        "upload": "Téléverser et consigner",
+        "finalize": "Finaliser et consigner",
+        "file_externally": "Déclarer au gouvernement",
+        "consult": "Consulter un professionnel"
+      },
+      "docKey": {
+        "director_appointment": "Nomination d'un administrateur",
+        "director_appointment_vacancy": "Nomination d'un administrateur (vacance)",
+        "director_departure": "Départ d'un administrateur",
+        "director_removal": "Révocation d'un administrateur",
+        "officer_appointment": "Nomination d'un dirigeant",
+        "officer_departure": "Départ d'un dirigeant"
+      }
+    },
     "company": "Entreprise",
     "stats": {
       "totalDocs": "Documents",

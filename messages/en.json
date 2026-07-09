@@ -154,6 +154,47 @@
       "viewDetails": "View details",
       "loadError": "Unable to load data."
     },
+    "a3Board": {
+      "_pendingLawyer": "LAWYER-PENDING (Harvey green tripwire): verb.file_externally, verb.consult, tier.regularize, docKey.* — interim wording, requires lawyer sign-off before launch",
+      "_pendingPlaceholder": "DOM-LOCKED PLACEHOLDER (product decision, NOT for Harvey): tier.remediate",
+      "title": "What to do now",
+      "subtitle": "Your top 5 priorities · ranked for you",
+      "hero": {
+        "badge": "Do this first"
+      },
+      "foundationTag": "Registry foundation",
+      "foundationPriority": "Registry foundation · fix as priority",
+      "guideLabel": "How do I file?",
+      "due": {
+        "pastDue": "Past due"
+      },
+      "showMore": "{count, plural, =0 {See my full list} =1 {See my full list (# more)} other {See my full list (# more)}}",
+      "status": {
+        "open": "Not started",
+        "to_finalize": "To finalize",
+        "due_soon": "Due soon",
+        "overdue": "Overdue"
+      },
+      "tier": {
+        "regularize": "Catch up",
+        "remediate": "Needs review"
+      },
+      "verb": {
+        "generate": "Generate and record",
+        "upload": "Upload and record",
+        "finalize": "Finalize and record",
+        "file_externally": "File with the government",
+        "consult": "Consult a professional"
+      },
+      "docKey": {
+        "director_appointment": "Director appointment",
+        "director_appointment_vacancy": "Director appointment (vacancy)",
+        "director_departure": "Director departure",
+        "director_removal": "Director removal",
+        "officer_appointment": "Officer appointment",
+        "officer_departure": "Officer departure"
+      }
+    },
     "company": "Company",
     "stats": {
       "totalDocs": "Documents",

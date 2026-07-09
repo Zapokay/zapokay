@@ -23,6 +23,7 @@ import { reqObligations } from '@/lib/obligations/feeders/req';
 import { mergeObligations } from '@/lib/obligations/aggregate';
 import { rankObligations } from '@/lib/obligations/rank';
 import { parseLocalDate } from '@/lib/utils';
+import A3Board from '@/components/dashboard/A3Board';
 
 export default async function DashboardWipPage({
   params: { locale },
@@ -108,33 +109,16 @@ export default async function DashboardWipPage({
 
   const merged = mergeObligations(completenessObs, deadlineObs, reqObs);
   const ranked = rankObligations(merged, today);
+  const progress = {
+    done: completeness.checklist.filter((i) => i.satisfied).length,
+    total: completeness.checklist.length,
+  };
 
   return (
-    <main style={{ padding: 24, fontFamily: 'ui-monospace, monospace', fontSize: 13, lineHeight: 1.6 }}>
-      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-        A3 board WIP — ranked obligations
-      </h1>
-      <p style={{ color: '#666', margin: 0 }}>
-        {company.legal_name_fr} · {framework} · FY-end {fyEndMonth}/{fyEndDay} · today {today.toISOString().slice(0, 10)}
-      </p>
-      <p style={{ color: '#666', marginTop: 4, marginBottom: 16 }}>
-        feeders → completeness {completenessObs.length} · deadline {deadlineObs.length} · req {reqObs.length}
-        {' · merged '}{merged.length}{' · ranked '}{ranked.length}{' (satisfied excluded)'}
-      </p>
-      <ol style={{ paddingLeft: 28, margin: 0 }}>
-        {ranked.map((o) => (
-          <li key={o.id} style={{ marginBottom: 6 }}>
-            <code style={{ color: '#333' }}>
-              #{o.rank} · score {o.score.toFixed(3)} · [{o.status}] · {o.liveness} · {o.exposure} · {o.actionKind} · d={o.daysUntilDue ?? '—'} · {o.source}
-            </code>
-            {' — '}
-            {o.titleFr ?? `[REQ:${o.docKey}]`}
-          </li>
-        ))}
-      </ol>
-      {ranked.length === 0 && (
-        <p style={{ marginTop: 12 }}>No actionable obligations (all satisfied, or none emitted).</p>
-      )}
+    <main style={{ minHeight: '100vh', background: 'var(--page-bg)', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+        <A3Board ranked={ranked} progress={progress} />
+      </div>
     </main>
   );
 }
