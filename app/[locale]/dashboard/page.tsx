@@ -12,6 +12,16 @@ import { getGaps, type UrgentGap } from '@/lib/priority';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
 import MinuteBookCard from '@/components/dashboard/MinuteBookCard'
 import { formatDate, parseLocalDate } from '@/lib/utils';
+// ── A3 board engine (ported from /dashboard-wip). parseLocalDate already imported above. ──
+import { computeRequirementCompleteness } from '@/lib/minute-book/requirement-completeness';
+import { computeEventCompleteness } from '@/lib/minute-book/event-completeness';
+import { deriveDocKey } from '@/lib/obligations/derive-dockey';
+import { completenessToObligations } from '@/lib/obligations/feeders/completeness';
+import { deadlineObligations } from '@/lib/obligations/feeders/deadlines';
+import { reqObligations } from '@/lib/obligations/feeders/req';
+import { mergeObligations } from '@/lib/obligations/aggregate';
+import { rankObligations } from '@/lib/obligations/rank';
+import A3Board from '@/components/dashboard/A3Board';
 
 // ─── Fiscal year history helper ───────────────────────────────────────────────
 
@@ -126,6 +136,83 @@ export default async function DashboardPage({
     return { year: fy.year, hasBoard, hasShareholder, status };
   });
 
+  // ─── A3 board assembly ────────────────────────────────────────────────────
+  // Ported from /dashboard-wip, adapted to the nullable `company` + the server
+  // client already loaded above (no second company load, no early return).
+  // getGaps stays intact — Document Fondateur/Actions requises read it until
+  // Step 2 hides them (flagged for later decommission).
+  let ranked: Awaited<ReturnType<typeof rankObligations>> = [];
+  let progress = { done: 0, total: 0 };
+
+  if (company) {
+    const today = new Date();
+    const framework: 'LSA' | 'CBCA' = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
+    const fyEndMonth: number = company.fiscal_year_end_month ?? 12;
+    const fyEndDay: number = company.fiscal_year_end_day ?? 31;
+    const incorporationDate: string | null = company.incorporation_date ?? null;
+
+    // Feeder 1 (completeness) — the shared engine the /api completeness route
+    // + MinuteBookCard also consume; ADD it here (the dashboard lacked it).
+    const completeness = await computeRequirementCompleteness(
+      supabase,
+      company.id,
+      framework,
+      fyEndMonth,
+      fyEndDay,
+    );
+
+    // RE-200 presumed-done flag — identical logic to /dashboard-wip. Strict:
+    // a real (satisfied) annual filing for a year strictly after incorporation.
+    const incYear = incorporationDate ? parseLocalDate(incorporationDate).getFullYear() : null;
+    const hasLaterAnnualFiling =
+      incYear !== null &&
+      completeness.checklist.some((i) => i.satisfied && i.year != null && i.year > incYear);
+
+    const completenessObs = completenessToObligations(completeness.checklist, today, hasLaterAnnualFiling);
+
+    // Feeder 3 (deadline) — immatriculationDate uses incorporation date as QC proxy.
+    const deadlineObs = deadlineObligations(
+      {
+        framework,
+        fyEndMonth,
+        fyEndDay,
+        incorporationDate,
+        immatriculationDate: incorporationDate,
+        hasLaterAnnualFiling,
+      },
+      today,
+    );
+
+    // Feeder 2 (REQ) — event acts → deriveDocKey → reqObligations.
+    const events = await computeEventCompleteness(supabase, company.id, incorporationDate);
+    const reqObs = events.acts.flatMap((act) => {
+      const derivation = deriveDocKey(act);
+      if (!derivation) return [];
+      return reqObligations(
+        {
+          docKey: derivation.docKey,
+          eventDate: act.date,
+          eventId: `${act.event_type}:${act.event_id}:${act.event_phase}`,
+        },
+        today,
+      );
+    });
+
+    const merged = mergeObligations(completenessObs, deadlineObs, reqObs);
+    ranked = rankObligations(merged, today);
+    progress = {
+      done: completeness.checklist.filter((i) => i.satisfied).length,
+      total: completeness.checklist.length,
+    };
+  }
+
+  // Legacy dashboard body blocks superseded by the A3 board — hidden behind this
+  // flag. Typed `boolean` (NOT the `false` literal) on purpose: a literal-false
+  // gate marks the wrapped JSX unreachable and disables TS control-flow narrowing
+  // inside it; `boolean` keeps it reachable so the hidden blocks still type-check.
+  // Renders nothing at runtime. Pending decommission (see the five hidden-block markers).
+  const SHOW_LEGACY_DASHBOARD_BLOCKS: boolean = false;
+
   const fr = locale === 'fr';
   const firstName = profile.full_name?.split(' ')[0] ?? '';
 
@@ -143,7 +230,13 @@ export default async function DashboardPage({
           </h1>
         </div>
 
+        {/* A3 board — "quoi faire maintenant"; leads the body (verdict lands above it in a later phase) */}
+        {company && <A3Board ranked={ranked} progress={progress} />}
+
         {/* Stat cards */}
+        {/* HIDDEN 2026-07-10 — dashboard vision rebuild (superseded by A3 board / verdict); pending decommission investigation. Block: Historique */}
+        {/* HIDDEN 2026-07-10 — dashboard vision rebuild (superseded by A3 board / verdict); pending decommission investigation. Block: Document Fondateur */}
+        {SHOW_LEGACY_DASHBOARD_BLOCKS && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Historique card — remplace la card Documents */}
           <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-5 shadow-md">
@@ -327,9 +420,11 @@ export default async function DashboardPage({
             );
           })()}
         </div>
+        )}
 
         {/* MinuteBook card */}
-        {company && <MinuteBookCard />}
+        {/* HIDDEN 2026-07-10 — dashboard vision rebuild (superseded by A3 board / verdict); pending decommission investigation. Block: Livre-de-minutes (34% card) */}
+        {SHOW_LEGACY_DASHBOARD_BLOCKS && company && <MinuteBookCard />}
 
         {/* Gap Analysis Panel — full width, between stat cards and main content */}
         {company && (
@@ -337,6 +432,9 @@ export default async function DashboardPage({
         )}
 
         {/* Main content — grille 3 colonnes stricte */}
+        {/* HIDDEN 2026-07-10 — dashboard vision rebuild (superseded by A3 board / verdict); pending decommission investigation. Block: Documents récents */}
+        {/* HIDDEN 2026-07-10 — dashboard vision rebuild (superseded by A3 board / verdict); pending decommission investigation. Block: Actions requises (21) */}
+        {SHOW_LEGACY_DASHBOARD_BLOCKS && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Left: Documents récents — col-span-2, s'étire à la hauteur de la colonne droite */}
@@ -461,6 +559,7 @@ export default async function DashboardPage({
 
           </div>
         </div>
+        )}
 
       </div>
     </DashboardShell>
