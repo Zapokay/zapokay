@@ -61,6 +61,7 @@ export default async function DashboardWipPage({
     framework,
     fyEndMonth,
     fyEndDay,
+    incorporationDate,
   );
   // RE-200 presumed-done flag (Harvey 2026-07-05, Option 1): a company with any
   // CERTIFIED (satisfied) annual filing for a year strictly after incorporation has

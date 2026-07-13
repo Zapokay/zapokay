@@ -154,6 +154,26 @@
       "viewDetails": "Voir les détails",
       "loadError": "Impossible de charger les données."
     },
+    "statusVerdict": {
+      "_pendingLawyer": "LAWYER-PENDING (Harvey): statusVerdict headlines assert a compliance state (esp. en_regle) — lawyer must confirm wording + whether 'en règle' can be asserted. All 3 states are placeholders.",
+      "en_regle": {
+        "title": "Vous êtes en règle",
+        "support": "Rien d'urgent. Votre livre est à jour et aucune échéance ne presse. On vous préviendra si ça change.",
+        "metricLabel": "En retard"
+      },
+      "attention": {
+        "title": "Quelques éléments demandent votre attention",
+        "support": "Sur vos {missing} documents manquants, {overdue, plural, one {# déclaration est} other {# déclarations sont}} en retard à régulariser. On vous guide, en commençant par les plus urgents.",
+        "metricLabelMissing": "Manquants",
+        "metricLabelOverdue": "En retard"
+      },
+      "defaut_prolonge": {
+        "title": "Certains éléments sont en défaut prolongé",
+        "support": "Une ou plusieurs obligations sont en retard depuis longtemps, avec un risque possible pour le statut de l'entreprise. Nous vous recommandons de consulter un professionnel.",
+        "metricLabel": "Défaut prolongé",
+        "metricLabelRegularize": "À régulariser"
+      }
+    },
     "a3Board": {
       "_pendingLawyer": "LAWYER-PENDING (Harvey green tripwire): verb.file_externally, verb.consult, tier.regularize, docKey.* — interim wording, requires lawyer sign-off before launch",
       "_pendingPlaceholder": "DOM-LOCKED PLACEHOLDER (product decision, NOT for Harvey): tier.remediate",
@@ -571,14 +591,13 @@
       "requirementNotFound": "Exigence introuvable.",
       "documentUploaded": "Document téléversé.",
       "exportBook": "Exporter le livre",
+      "total": "Total",
       "complete": "complet",
-      "uploaded": "téléversés",
       "toSign": "à signer",
-      "missing": "manquants",
-      "legendSignedUploaded": "Signé et téléversé",
+      "legendSignedUploaded": "Final (Signé et téléversé)",
       "legendToSign": "À signer",
       "legendToGenerate": "À générer ou à téléverser",
-      "legendArchive": "Archivée",
+      "legendArchive": "Classé aux archives",
       "loadError": "Impossible de charger le livre de minutes.",
       "foundingDocuments": "Documents fondateurs",
       "archivesQualifier": "Archives",

@@ -18,7 +18,6 @@ import BulkCatchUpModal, {
   type BulkMissingByYear,
   type BulkMissingItem,
 } from '@/components/minute-book/BulkCatchUpModal';
-import CompletenessProgressBar from '@/components/minute-book/CompletenessProgressBar';
 import type {
   CompletenessResponse,
   ChecklistItem,
@@ -37,6 +36,22 @@ interface CompletenessPageProps {
   fiscalYearEndDay: number;
 }
 
+// Coherence chip (Aria): filled = severity (bg+border+text tokens), outline = action
+// (transparent bg + border+text). Colors MUST match the dashboard verdict boxes
+// (StatusVerdict): --lv-remediate = défaut prolongé, --lv-regularize = à régulariser.
+function Chip({ value, label, className }: { value: number; label: string; className: string }) {
+  return (
+    <div className={`inline-flex items-center gap-2 rounded-[10px] border px-3 py-2 ${className}`}>
+      <span className="text-[18px] font-extrabold leading-none" style={{ fontFamily: 'Sora, sans-serif' }}>
+        {value}
+      </span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.03em] leading-tight">
+        {label}
+      </span>
+    </div>
+  );
+}
+
 export default function CompletenessPage({
   locale,
   companyId,
@@ -49,6 +64,8 @@ export default function CompletenessPage({
   const tEvents = useTranslations('events');
   const tDocs = useTranslations('documents');
   const tMB = useTranslations('minuteBook');
+  // Reuse the dashboard verdict's labels so Complétude chips speak the same words.
+  const tSV = useTranslations('dashboard.statusVerdict');
   const [data, setData] = useState<CompletenessResponse | null>(null);
   // #19d Brief 1 — director + officer lifecycle acts grouped by FY. Non-fatal:
   // when the event-completeness fetch fails, this stays null and the page
@@ -389,22 +406,34 @@ export default function CompletenessPage({
         </div>
         {!loading && data && (
           <>
-            <p className="text-sm text-[var(--text-muted)] mt-1">
-              {data.score}% {tMB('completeness.complete')}
-              {' · '}
-              {data.totalUploaded} {tMB('completeness.uploaded')}
-              {' · '}
-              {data.totalGenerated} {tMB('completeness.toSign')}
-              {' · '}
-              {data.totalMissing} {tMB('completeness.missing')}
-            </p>
-            <div className="mt-3">
-              <CompletenessProgressBar score={data.score} locale={locale} />
+            <div className="flex items-center gap-2.5 mt-3 flex-wrap">
+              {/* Coherence bridge — same tokens/words as the dashboard verdict boxes. */}
+              <Chip
+                value={data.overdueProlonged}
+                label={tSV('defaut_prolonge.metricLabel')}
+                className="bg-[var(--lv-remediate-bg)] border-[var(--lv-remediate-bd)] text-[var(--lv-remediate)]"
+              />
+              <Chip
+                value={data.overdueRegularize}
+                label={tSV('defaut_prolonge.metricLabelRegularize')}
+                className="bg-[var(--lv-regularize-bg)] border-[var(--lv-regularize-bd)] text-[var(--lv-regularize)]"
+              />
+              <Chip
+                value={data.totalGenerated}
+                label={tMB('completeness.toSign')}
+                className="bg-transparent border-[var(--lv-regularize)] text-[var(--lv-regularize)]"
+              />
             </div>
             <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] mt-2 flex-wrap">
+              {/* Stats line (Dom's line 2) — icons UNTOUCHED (Aria); counts + labels only.
+                  3 active states (Final + To-sign + To-generate) sum to Total; Archived separate. */}
+              <span className="font-medium text-[var(--text-body)]">
+                {tMB('completeness.total')}: {data.totalRequired}
+              </span>
+              <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
-                {tMB('completeness.legendSignedUploaded')}
+                {data.totalUploaded} {tMB('completeness.legendSignedUploaded')}
               </span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1.5">
@@ -412,17 +441,17 @@ export default function CompletenessPage({
                   <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
                   <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
                 </svg>
-                {tMB('completeness.legendToSign')}
+                {data.totalGenerated} {tMB('completeness.legendToSign')}
               </span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <XCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
-                {tMB('completeness.legendToGenerate')}
+                {data.totalMissing} {tMB('completeness.legendToGenerate')}
               </span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <Archive className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--row-state-archive)' }} aria-hidden="true" />
-                {tMB('completeness.legendArchive')}
+                {(data.holdYears ?? []).reduce((s, hy) => s + hy.documents.length, 0)} {tMB('completeness.legendArchive')}
               </span>
             </div>
           </>

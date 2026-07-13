@@ -154,6 +154,26 @@
       "viewDetails": "View details",
       "loadError": "Unable to load data."
     },
+    "statusVerdict": {
+      "_pendingLawyer": "LAWYER-PENDING (Harvey): statusVerdict headlines assert a compliance state (esp. en_regle) — lawyer must confirm wording + whether 'in good standing' can be asserted. All 3 states are placeholders.",
+      "en_regle": {
+        "title": "You're in good standing",
+        "support": "Nothing urgent. Your book is up to date and no deadline is pressing. We'll let you know if that changes.",
+        "metricLabel": "Overdue"
+      },
+      "attention": {
+        "title": "A few items need your attention",
+        "support": "Of your {missing} missing documents, {overdue, plural, one {# filing is} other {# filings are}} overdue to catch up. We'll guide you, starting with the most urgent.",
+        "metricLabelMissing": "Missing",
+        "metricLabelOverdue": "Overdue"
+      },
+      "defaut_prolonge": {
+        "title": "Some items are in prolonged default",
+        "support": "One or more obligations have been overdue for a long time, with a possible risk to the company's standing. We recommend consulting a professional.",
+        "metricLabel": "Prolonged default",
+        "metricLabelRegularize": "To regularize"
+      }
+    },
     "a3Board": {
       "_pendingLawyer": "LAWYER-PENDING (Harvey green tripwire): verb.file_externally, verb.consult, tier.regularize, docKey.* — interim wording, requires lawyer sign-off before launch",
       "_pendingPlaceholder": "DOM-LOCKED PLACEHOLDER (product decision, NOT for Harvey): tier.remediate",
@@ -571,11 +591,10 @@
       "requirementNotFound": "Requirement not found.",
       "documentUploaded": "Document uploaded.",
       "exportBook": "Export book",
+      "total": "Total",
       "complete": "complete",
-      "uploaded": "uploaded",
       "toSign": "to sign",
-      "missing": "missing",
-      "legendSignedUploaded": "Signed and uploaded",
+      "legendSignedUploaded": "Final (Signed and uploaded)",
       "legendToSign": "To sign",
       "legendToGenerate": "To generate or upload",
       "legendArchive": "Archived",

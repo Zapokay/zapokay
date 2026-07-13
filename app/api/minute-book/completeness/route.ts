@@ -44,6 +44,14 @@ export interface CompletenessResponse {
   eventActsTotal: number;
   eventActsSatisfied: number;
   holdYears: HoldYear[];
+  /**
+   * Requirements-only liveness breakdown of the MISSING items (from
+   * computeRequirementCompleteness) — powers the Complétude chip banner +
+   * dashboard-verdict coherence. Events are not liveness-tiered.
+   */
+  upcoming: number;
+  overdueRegularize: number;
+  overdueProlonged: number;
 }
 
 export async function GET() {
@@ -81,6 +89,7 @@ export async function GET() {
         framework,
         fyEndMonth,
         fyEndDay,
+        (company.incorporation_date as string | null) ?? null,
       ),
       computeEventCompleteness(
         supabase,
@@ -130,6 +139,9 @@ export async function GET() {
       eventActsTotal: events.totalActs,
       eventActsSatisfied: events.totalSatisfied,
       holdYears,
+      upcoming: req.upcoming,
+      overdueRegularize: req.overdueRegularize,
+      overdueProlonged: req.overdueProlonged,
     };
 
     return NextResponse.json(response);

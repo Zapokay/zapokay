@@ -14,6 +14,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requirementToDocType, type VaultDocType } from '@/lib/requirement-doctype';
 import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state';
+import { computeLiveness } from '@/lib/obligations/liveness';
+import type { ObligationLiveness } from '@/lib/obligations/obligation';
+import { parseLocalDate } from '@/lib/utils';
 
 export interface ChecklistItem {
   id: string;
@@ -29,6 +32,14 @@ export interface ChecklistItem {
   can_upload: boolean;
   year: number | null;
   satisfied: boolean;
+  /**
+   * Liveness tier for a MISSING item (null when satisfied). Computed via the
+   * board's computeLiveness so Complétude + the dashboard verdict share ONE
+   * classification. Annual: year-based (live = "upcoming" / regularize / remediate).
+   * Foundational (year:null): anchored to incorporation age with a live→regularize
+   * floor — a founding doc is owed from day 1, so it is NEVER 'live'/upcoming.
+   */
+  liveness: ObligationLiveness | null;
   source?: 'uploaded' | 'generated' | null;
   /** Derived server-side via `requirementToDocType` — see lib/requirement-doctype.ts. */
   document_type: VaultDocType;
@@ -56,6 +67,15 @@ export interface RequirementCompletenessResult {
   requirementsTotal: number;
   /** Weighted numerator: requirementsUploaded × 1.0 + requirementsGenerated × 0.5. */
   requirementsWeightedNum: number;
+  /**
+   * Liveness breakdown of the MISSING items (Core §4: retention window = urgency,
+   * not expiry — no year is filtered out). `upcoming` = live tier (not-yet-due
+   * current/future FY). Invariant: upcoming + overdueRegularize + overdueProlonged
+   * === requirementsMissing.
+   */
+  upcoming: number;
+  overdueRegularize: number;
+  overdueProlonged: number;
 }
 
 export async function computeRequirementCompleteness(
@@ -64,8 +84,12 @@ export async function computeRequirementCompleteness(
   framework: 'LSA' | 'CBCA',
   fiscalYearEndMonth: number,
   fiscalYearEndDay: number,
+  incorporationDate: string | null,
 ): Promise<RequirementCompletenessResult> {
   const pad2 = (n: number) => String(n).padStart(2, '0');
+  const today = new Date();
+  // Foundational items carry no year — anchor their liveness to incorporation age.
+  const incYear = incorporationDate ? parseLocalDate(incorporationDate).getFullYear() : null;
 
   // 1. Get all applicable requirements
   const { data: requirements, error: reqError } = await supabase
@@ -131,6 +155,10 @@ export async function computeRequirementCompleteness(
   let requirementsTotal = 0;
   let requirementsUploaded = 0;
   let requirementsGenerated = 0;
+  // Liveness breakdown of MISSING items (Core §4: no year filtered out).
+  let upcoming = 0;
+  let overdueRegularize = 0;
+  let overdueProlonged = 0;
 
   // Foundational items
   for (const req of foundationalReqs as RawReq[]) {
@@ -139,10 +167,20 @@ export async function computeRequirementCompleteness(
     const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
     const isFinalized = matchingDoc?.is_finalized ?? null;
     const state = getDocumentState({ satisfied, source, is_finalized: isFinalized, can_generate: req.can_generate });
+    // Foundational liveness: anchored to incorporation age, floored live→regularize
+    // (owed from day 1 → never "upcoming"). null when satisfied.
+    let liveness: ObligationLiveness | null = null;
+    if (!satisfied) {
+      const raw = computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: incYear, today });
+      liveness = raw === 'live' ? 'regularize' : raw;
+      if (liveness === 'regularize') overdueRegularize++;
+      else overdueProlonged++;
+    }
     checklist.push({
       ...req,
       year: null,
       satisfied,
+      liveness,
       source,
       document_type: requirementToDocType(req.requirement_key, req.section),
       document_id: matchingDoc?.id ?? null,
@@ -165,10 +203,19 @@ export async function computeRequirementCompleteness(
       const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
       const isFinalized = matchingDoc?.is_finalized ?? null;
       const state = getDocumentState({ satisfied, source, is_finalized: isFinalized, can_generate: req.can_generate });
+      // Annual liveness: year-based (live = "upcoming" for current/future FY). null when satisfied.
+      let liveness: ObligationLiveness | null = null;
+      if (!satisfied) {
+        liveness = computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: fy.year, today });
+        if (liveness === 'live') upcoming++;
+        else if (liveness === 'regularize') overdueRegularize++;
+        else overdueProlonged++;
+      }
       checklist.push({
         ...req,
         year: fy.year,
         satisfied,
+        liveness,
         source,
         document_type: requirementToDocType(req.requirement_key, req.section),
         document_id: matchingDoc?.id ?? null,
@@ -195,5 +242,8 @@ export async function computeRequirementCompleteness(
     requirementsMissing,
     requirementsTotal,
     requirementsWeightedNum,
+    upcoming,
+    overdueRegularize,
+    overdueProlonged,
   };
 }

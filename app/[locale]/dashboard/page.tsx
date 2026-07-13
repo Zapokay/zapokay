@@ -22,6 +22,7 @@ import { reqObligations } from '@/lib/obligations/feeders/req';
 import { mergeObligations } from '@/lib/obligations/aggregate';
 import { rankObligations } from '@/lib/obligations/rank';
 import A3Board from '@/components/dashboard/A3Board';
+import StatusVerdict from '@/components/dashboard/StatusVerdict';
 
 // ─── Fiscal year history helper ───────────────────────────────────────────────
 
@@ -143,6 +144,12 @@ export default async function DashboardPage({
   // Step 2 hides them (flagged for later decommission).
   let ranked: Awaited<ReturnType<typeof rankObligations>> = [];
   let progress = { done: 0, total: 0 };
+  // Completeness liveness aggregates (hoisted like ranked/progress — assigned in the
+  // if(company) block). 0 defaults → no-company falls to en_regle. Verdict STATE +
+  // metrics both source from these (Dom: all numbers from completeness).
+  let cMissing = 0;
+  let cRegularize = 0;
+  let cProlonged = 0;
 
   if (company) {
     const today = new Date();
@@ -159,7 +166,11 @@ export default async function DashboardPage({
       framework,
       fyEndMonth,
       fyEndDay,
+      incorporationDate,
     );
+    cMissing = completeness.requirementsMissing;
+    cRegularize = completeness.overdueRegularize;
+    cProlonged = completeness.overdueProlonged;
 
     // RE-200 presumed-done flag — identical logic to /dashboard-wip. Strict:
     // a real (satisfied) annual filing for a year strictly after incorporation.
@@ -206,6 +217,13 @@ export default async function DashboardPage({
     };
   }
 
+  // Verdict STATE from completeness (one source with the metrics). Boundary B —
+  // keyed on OVERDUE only, so upcoming-but-not-overdue stays en_regle.
+  const completenessVerdict: 'en_regle' | 'attention' | 'defaut_prolonge' =
+    cProlonged > 0 ? 'defaut_prolonge'
+    : cRegularize > 0 ? 'attention'
+    : 'en_regle';
+
   // Legacy dashboard body blocks superseded by the A3 board — hidden behind this
   // flag. Typed `boolean` (NOT the `false` literal) on purpose: a literal-false
   // gate marks the wrapped JSX unreachable and disables TS control-flow narrowing
@@ -230,7 +248,15 @@ export default async function DashboardPage({
           </h1>
         </div>
 
-        {/* A3 board — "quoi faire maintenant"; leads the body (verdict lands above it in a later phase) */}
+        {/* Status verdict — "suis-je correct?" headline; leads the body, above the board (Aria's vision) */}
+        <StatusVerdict
+          verdict={completenessVerdict}
+          count={cProlonged}
+          missing={cMissing}
+          overdue={cRegularize}
+        />
+
+        {/* A3 board — "quoi faire maintenant"; the board follows the verdict */}
         {company && <A3Board ranked={ranked} progress={progress} />}
 
         {/* Stat cards */}
