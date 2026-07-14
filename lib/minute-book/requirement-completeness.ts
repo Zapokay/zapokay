@@ -33,11 +33,13 @@ export interface ChecklistItem {
   year: number | null;
   satisfied: boolean;
   /**
-   * Liveness tier for a MISSING item (null when satisfied). Computed via the
-   * board's computeLiveness so Complétude + the dashboard verdict share ONE
-   * classification. Annual: year-based (live = "upcoming" / regularize / remediate).
-   * Foundational (year:null): anchored to incorporation age with a live→regularize
-   * floor — a founding doc is owed from day 1, so it is NEVER 'live'/upcoming.
+   * Liveness tier for a NOT-DONE item — any doc where is_finalized !== true (missing,
+   * uploaded-but-uncertified, or generated draft); null only when certified/done
+   * (is_finalized === true). Computed via the board's computeLiveness so Complétude +
+   * the dashboard verdict share ONE classification. Annual: year-based (live =
+   * "upcoming" / regularize / remediate). Foundational (year:null): anchored to
+   * incorporation age with a live→regularize floor — a founding doc is owed from day 1,
+   * so it is NEVER 'live'/upcoming.
    */
   liveness: ObligationLiveness | null;
   source?: 'uploaded' | 'generated' | null;
@@ -68,10 +70,11 @@ export interface RequirementCompletenessResult {
   /** Weighted numerator: requirementsUploaded × 1.0 + requirementsGenerated × 0.5. */
   requirementsWeightedNum: number;
   /**
-   * Liveness breakdown of the MISSING items (Core §4: retention window = urgency,
-   * not expiry — no year is filtered out). `upcoming` = live tier (not-yet-due
-   * current/future FY). Invariant: upcoming + overdueRegularize + overdueProlonged
-   * === requirementsMissing.
+   * Liveness breakdown of the NOT-DONE items (Core §4: retention window = urgency,
+   * not expiry — no year is filtered out). NOT-DONE = every item where is_finalized
+   * !== true (missing, uploaded-but-uncertified, or generated draft). `upcoming` =
+   * live tier (not-yet-due current/future FY). Invariant: upcoming + overdueRegularize
+   * + overdueProlonged === (count of items where is_finalized !== true).
    */
   upcoming: number;
   overdueRegularize: number;
@@ -168,9 +171,10 @@ export async function computeRequirementCompleteness(
     const isFinalized = matchingDoc?.is_finalized ?? null;
     const state = getDocumentState({ satisfied, source, is_finalized: isFinalized, can_generate: req.can_generate });
     // Foundational liveness: anchored to incorporation age, floored live→regularize
-    // (owed from day 1 → never "upcoming"). null when satisfied.
+    // (owed from day 1 → never "upcoming"). Non-null for any NOT-DONE item (missing,
+    // uploaded-but-uncertified, or generated draft); null only when is_finalized===true.
     let liveness: ObligationLiveness | null = null;
-    if (!satisfied) {
+    if (isFinalized !== true) {
       const raw = computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: incYear, today });
       liveness = raw === 'live' ? 'regularize' : raw;
       if (liveness === 'regularize') overdueRegularize++;
@@ -203,9 +207,11 @@ export async function computeRequirementCompleteness(
       const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
       const isFinalized = matchingDoc?.is_finalized ?? null;
       const state = getDocumentState({ satisfied, source, is_finalized: isFinalized, can_generate: req.can_generate });
-      // Annual liveness: year-based (live = "upcoming" for current/future FY). null when satisfied.
+      // Annual liveness: year-based (live = "upcoming" for current/future FY). Non-null for
+      // any NOT-DONE item (missing, uploaded-but-uncertified, or generated draft);
+      // null only when is_finalized===true (certified/done).
       let liveness: ObligationLiveness | null = null;
-      if (!satisfied) {
+      if (isFinalized !== true) {
         liveness = computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: fy.year, today });
         if (liveness === 'live') upcoming++;
         else if (liveness === 'regularize') overdueRegularize++;
