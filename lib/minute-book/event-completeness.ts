@@ -47,6 +47,18 @@ import {
 // derivation. Same STATE_WEIGHT constant (téléversé=1.0, généré=0.5, missing=0.0)
 // so requirements + events weight identically in the merged route.
 import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state';
+// Event liveness tiering — roster acts tier by the 30-day REQ filing window
+// (obligationsForDocKey → REQ_QC), share acts by age; same computeLiveness the
+// requirement engine uses, so events + requirements share ONE severity vocabulary.
+// deriveDocKey is a VALUE import — the cycle back to this file is type-only
+// (erased at compile), so no runtime cycle; tsc audits. ObligationLiveness is
+// defined in ./obligation (liveness.ts does not re-export it) — mirrors
+// requirement-completeness.ts:18.
+import { computeLiveness } from '@/lib/obligations/liveness';
+import type { ObligationLiveness } from '@/lib/obligations/obligation';
+import { obligationsForDocKey } from '@/lib/obligations/req-obligations';
+import { deriveDocKey } from '@/lib/obligations/derive-dockey';
+import { addDays, parseLocalDate } from '@/lib/utils';
 
 export interface EventActStatus {
   event_type: EventDocumentType;
@@ -85,6 +97,14 @@ export interface EventActStatus {
   documentSource: 'uploaded' | 'generated' | null;
   documentIsFinalized: boolean | null;
   documentLanguage: string | null;
+  /**
+   * Liveness tier for a NOT-DONE act (documentIsFinalized !== true); null when
+   * certified/done. Roster acts (docKey → REQ_QC) tier by the 30-day filing
+   * window (act.date + 30 vs today); share acts (no window) tier by age (event
+   * year, like an annual item, no floor). Same computeLiveness the requirement
+   * engine uses — one severity vocabulary across events + requirements.
+   */
+  liveness: ObligationLiveness | null;
 }
 
 export interface EventCompletenessResponse {
@@ -114,6 +134,15 @@ export interface EventCompletenessResponse {
   eventsUploaded: number;
   /** Count of acts whose state derives to 'généré' (incl. WIP-upload events). */
   eventsGenerated: number;
+  /**
+   * Liveness breakdown of the NOT-DONE acts (documentIsFinalized !== true) —
+   * folds into the route's verdict aggregates alongside the requirement engine.
+   * `upcoming` = live tier. Invariant: upcoming + overdueRegularize +
+   * overdueProlonged === (count of acts where documentIsFinalized !== true).
+   */
+  upcoming: number;
+  overdueRegularize: number;
+  overdueProlonged: number;
 }
 
 const LABELS: Record<
@@ -306,6 +335,7 @@ export async function computeEventCompleteness(
       documentSource: entry?.source ?? null,
       documentIsFinalized: entry?.isFinalized ?? null,
       documentLanguage: entry?.language ?? null,
+      liveness: null, // tier assigned in the weighting loop (keeps deriveDocKey off construction)
     });
   };
 
@@ -370,6 +400,11 @@ export async function computeEventCompleteness(
   let eventsWeightedNum = 0;
   let eventsUploaded = 0;
   let eventsGenerated = 0;
+  // Liveness breakdown of NOT-DONE acts — same 3-state vocabulary as requirements.
+  const today = new Date(); // plain new Date() — matches requirement-completeness.ts:93
+  let upcoming = 0;
+  let overdueRegularize = 0;
+  let overdueProlonged = 0;
   for (const a of acts) {
     const state = getDocumentState({
       satisfied: a.satisfied,
@@ -379,6 +414,27 @@ export async function computeEventCompleteness(
     eventsWeightedNum += STATE_WEIGHT[state];
     if (state === 'téléversé') eventsUploaded++;
     else if (state === 'généré') eventsGenerated++;
+
+    // Tier the NOT-DONE acts (missing, uploaded-but-uncertified, or generated
+    // draft) — is_finalized !== true, mirroring the requirement fix. Roster acts
+    // (docKey → REQ_QC) tier by the 30-day filing window; share acts (no window)
+    // tier by age (event year), like an annual item with no floor.
+    if (a.documentIsFinalized !== true) {
+      const docKey = deriveDocKey(a)?.docKey ?? null;
+      const notices = docKey ? obligationsForDocKey(docKey) : [];
+      if (notices.length > 0) {
+        const dueDate = addDays(a.date, notices[0].deadlineDays);
+        const daysUntilDue = Math.round(
+          (parseLocalDate(dueDate).getTime() - today.getTime()) / 86_400_000,
+        );
+        a.liveness = computeLiveness({ daysUntilDue, legalWindowDays: notices[0].deadlineDays, year: null, today });
+      } else {
+        a.liveness = computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: parseLocalDate(a.date).getFullYear(), today });
+      }
+      if (a.liveness === 'live') upcoming++;
+      else if (a.liveness === 'regularize') overdueRegularize++;
+      else overdueProlonged++;
+    }
   }
 
   return {
@@ -391,5 +447,8 @@ export async function computeEventCompleteness(
     eventsWeightedNum,
     eventsUploaded,
     eventsGenerated,
+    upcoming,
+    overdueRegularize,
+    overdueProlonged,
   };
 }

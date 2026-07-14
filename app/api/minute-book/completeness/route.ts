@@ -45,9 +45,9 @@ export interface CompletenessResponse {
   eventActsSatisfied: number;
   holdYears: HoldYear[];
   /**
-   * Requirements-only liveness breakdown of the MISSING items (from
-   * computeRequirementCompleteness) — powers the Complétude chip banner +
-   * dashboard-verdict coherence. Events are not liveness-tiered.
+   * Liveness breakdown of the NOT-DONE items — requirements + events (both
+   * engines tier). Powers the Complétude chip banner + dashboard-verdict
+   * coherence.
    */
   upcoming: number;
   overdueRegularize: number;
@@ -139,9 +139,9 @@ export async function GET() {
       eventActsTotal: events.totalActs,
       eventActsSatisfied: events.totalSatisfied,
       holdYears,
-      upcoming: req.upcoming,
-      overdueRegularize: req.overdueRegularize,
-      overdueProlonged: req.overdueProlonged,
+      upcoming: req.upcoming + events.upcoming,
+      overdueRegularize: req.overdueRegularize + events.overdueRegularize,
+      overdueProlonged: req.overdueProlonged + events.overdueProlonged,
     };
 
     return NextResponse.json(response);
