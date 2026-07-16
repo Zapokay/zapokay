@@ -44,10 +44,18 @@ npm run dev
 ```
 
 ## Deploy to Vercel
+
 ```bash
-npm install -g vercel
-vercel --prod
+git add <files>
+git commit -m "your message"
+git push origin main      # push ALWAYS precedes deploy
+npx vercel --prod --yes
 ```
+
+Push always precedes deploy — the deploy ships whatever is on `main`.
+
+Deploy is decoupled from launch: content still pending lawyer validation can be deployed, because the Supabase signup toggle is OFF (no public access). Public launch requires the toggle ON.
+
 Add env vars in Vercel Dashboard → Project → Settings → Environment Variables.
 
 ## Project Structure
