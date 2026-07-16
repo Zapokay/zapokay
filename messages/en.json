@@ -594,6 +594,7 @@
       "total": "Total",
       "complete": "complete",
       "toSign": "to sign",
+      "upcoming": "upcoming",
       "legendSignedUploaded": "Final (Signed and uploaded)",
       "legendToSign": "To sign",
       "legendToGenerate": "To generate or upload",

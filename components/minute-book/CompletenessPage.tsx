@@ -407,27 +407,43 @@ export default function CompletenessPage({
         {!loading && data && (
           <>
             <div className="flex items-center gap-2.5 mt-3 flex-wrap">
-              {/* Coherence bridge — same tokens/words as the dashboard verdict boxes. */}
-              <Chip
-                value={data.overdueProlonged}
-                label={tSV('defaut_prolonge.metricLabel')}
-                className="bg-[var(--lv-remediate-bg)] border-[var(--lv-remediate-bd)] text-[var(--lv-remediate)]"
-              />
-              <Chip
-                value={data.overdueRegularize}
-                label={tSV('defaut_prolonge.metricLabelRegularize')}
-                className="bg-[var(--lv-regularize-bg)] border-[var(--lv-regularize-bd)] text-[var(--lv-regularize)]"
-              />
-              <Chip
-                value={data.totalGenerated}
-                label={tMB('completeness.toSign')}
-                className="bg-transparent border-[var(--lv-regularize)] text-[var(--lv-regularize)]"
-              />
+              {/* Coherence bridge — same tokens/words as the dashboard verdict boxes.
+                  Each chip renders only when its count > 0 (a zero chip is noise; its
+                  absence is the signal). "à venir" is muted (neutral border + muted
+                  text) — deliberately calmer than the three problem chips. */}
+              {data.overdueProlonged > 0 && (
+                <Chip
+                  value={data.overdueProlonged}
+                  label={tSV('defaut_prolonge.metricLabel')}
+                  className="bg-[var(--lv-remediate-bg)] border-[var(--lv-remediate-bd)] text-[var(--lv-remediate)]"
+                />
+              )}
+              {data.overdueRegularize > 0 && (
+                <Chip
+                  value={data.overdueRegularize}
+                  label={tSV('defaut_prolonge.metricLabelRegularize')}
+                  className="bg-[var(--lv-regularize-bg)] border-[var(--lv-regularize-bd)] text-[var(--lv-regularize)]"
+                />
+              )}
+              {data.totalGenerated > 0 && (
+                <Chip
+                  value={data.totalGenerated}
+                  label={tMB('completeness.toSign')}
+                  className="bg-[var(--card-bg)] border-[var(--lv-regularize)] text-[var(--lv-regularize)]"
+                />
+              )}
+              {data.upcoming > 0 && (
+                <Chip
+                  value={data.upcoming}
+                  label={tMB('completeness.upcoming')}
+                  className="bg-transparent border-[var(--text-body)] text-[var(--text-body)]"
+                />
+              )}
             </div>
-            <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] mt-2 flex-wrap">
+            <div className="flex items-center gap-3 text-xs text-[var(--text-body)] mt-3 flex-wrap">
               {/* Stats line (Dom's line 2) — icons UNTOUCHED (Aria); counts + labels only.
                   3 active states (Final + To-sign + To-generate) sum to Total; Archived separate. */}
-              <span className="font-medium text-[var(--text-body)]">
+              <span className="font-semibold text-[var(--text-body)]">
                 {tMB('completeness.total')}: {data.totalRequired}
               </span>
               <span aria-hidden="true">·</span>
