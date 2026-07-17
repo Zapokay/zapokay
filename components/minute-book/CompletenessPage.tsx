@@ -8,6 +8,8 @@ import { useToasts } from '@/components/ui/Toasts';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { fiscalYearForDate } from '@/lib/active-years';
 import { uploadErrorMessageKey } from '@/lib/upload-error-message';
+import { getDocumentState, getStateForChecklistItem } from '@/lib/minute-book/state';
+import type { ObligationLiveness } from '@/lib/obligations/obligation';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import ArchiveSection from '@/components/minute-book/ArchiveSection';
 import EventSection from '@/components/minute-book/EventSection';
@@ -36,19 +38,61 @@ interface CompletenessPageProps {
   fiscalYearEndDay: number;
 }
 
+// Chip-filter vocabulary: the 3 severity chips map to liveness tiers; "à signer"
+// maps to DocumentState==='généré'. FILTER_ORDER is the chip display order,
+// reused for the banner's tier-label join.
+type FilterKey = 'remediate' | 'regularize' | 'asigner' | 'live';
+const FILTER_ORDER: FilterKey[] = ['remediate', 'regularize', 'asigner', 'live'];
+
+// A row matches the active chips (OR-combine). Tiers key off liveness; 'asigner'
+// keys off a pre-derived DocumentState==='généré' flag so this stays shape-
+// agnostic across requirement rows and event acts. Empty set → everything shows.
+function rowMatchesFilters(
+  liveness: ObligationLiveness | null,
+  isASigner: boolean,
+  filters: Set<FilterKey>,
+): boolean {
+  if (filters.size === 0) return true;
+  return (
+    (filters.has('remediate') && liveness === 'remediate') ||
+    (filters.has('regularize') && liveness === 'regularize') ||
+    (filters.has('live') && liveness === 'live') ||
+    (filters.has('asigner') && isASigner)
+  );
+}
+
 // Coherence chip (Aria): filled = severity (bg+border+text tokens), outline = action
 // (transparent bg + border+text). Colors MUST match the dashboard verdict boxes
 // (StatusVerdict): --lv-remediate = défaut prolongé, --lv-regularize = à régulariser.
-function Chip({ value, label, className }: { value: number; label: string; className: string }) {
+function Chip({
+  value,
+  label,
+  className,
+  active = false,
+  onClick,
+}: {
+  value: number;
+  label: string;
+  className: string;
+  active?: boolean;
+  onClick?: () => void;
+}) {
   return (
-    <div className={`inline-flex items-center gap-2 rounded-[10px] border px-3 py-2 ${className}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-2 rounded-[10px] border px-3 py-2 cursor-pointer transition hover:-translate-y-px hover:shadow-sm ${className} ${
+        active ? 'ring-2 ring-current ring-offset-2 ring-offset-[var(--page-bg)]' : ''
+      }`}
+    >
       <span className="text-[18px] font-extrabold leading-none" style={{ fontFamily: 'Sora, sans-serif' }}>
         {value}
       </span>
       <span className="text-[11px] font-semibold uppercase tracking-[0.03em] leading-tight">
         {label}
       </span>
-    </div>
+    </button>
   );
 }
 
@@ -88,6 +132,27 @@ export default function CompletenessPage({
   const [holdReplaceDoc, setHoldReplaceDoc] = useState<VaultDocument | null>(null);
   const [holdReplaceFile, setHoldReplaceFile] = useState<File | null>(null);
   const { addToast, ToastStack } = useToasts();
+  // Chip filters — client-side only, reset on load (no URL param, no persistence).
+  // OR-combine: a row shows if it matches ANY active chip. Dual-membership (a
+  // généré row also carries a liveness tier) is expected — shows under either.
+  const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
+  const anyFilterActive = activeFilters.size > 0;
+  const toggleFilter = useCallback((k: FilterKey) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }, []);
+  const clearFilters = useCallback(() => setActiveFilters(new Set()), []);
+  // Chip labels reused for the filter banner's tier-name join (chip order).
+  const FILTER_LABEL: Record<FilterKey, string> = {
+    remediate: tSV('defaut_prolonge.metricLabel'),
+    regularize: tSV('defaut_prolonge.metricLabelRegularize'),
+    asigner: tMB('completeness.toSign'),
+    live: tMB('completeness.upcoming'),
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -125,6 +190,35 @@ export default function CompletenessPage({
     fetchData();
     fetchEvents();
   }, [fetchData, fetchEvents]);
+
+  // Filter reconciliation — when a refetch drops a tier's count to 0 (the user
+  // resolved every item in it), that chip un-renders on its `> 0` guard, which
+  // would strand the user filtered to an empty set with no chip to toggle off.
+  // Auto-drop any active key whose count is now 0 so a fully-resolved tier
+  // unfilters itself and the full page returns (reads as completion, not a
+  // dead-end). Data-driven ONLY — the user toggle/clear paths are untouched.
+  // The functional updater returns `prev` unchanged when nothing was pruned, so
+  // React bails out (no needless render, no loop; effect depends on `data` only).
+  useEffect(() => {
+    if (!data) return;
+    const countFor: Record<FilterKey, number> = {
+      remediate: data.overdueProlonged,
+      regularize: data.overdueRegularize,
+      asigner: data.totalGenerated,
+      live: data.upcoming,
+    };
+    setActiveFilters((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      prev.forEach((k) => {
+        if (countFor[k] === 0) {
+          next.delete(k);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [data]);
 
   const MAX_SIZE = 20 * 1024 * 1024; // 20 MB — matches UploadZone cap
 
@@ -271,11 +365,34 @@ export default function CompletenessPage({
     [addToast, tDocs, MAX_SIZE],
   );
 
-  const foundationalItems: ChecklistItem[] =
-    data?.checklist.filter((i) => i.category === 'foundational') || [];
+  // ── Chip-filter choke point ───────────────────────────────────────────────
+  // Filter requirements + events by the active chips BEFORE grouping, so every
+  // downstream group (foundational / annual / events-by-year) is pre-filtered
+  // and section gauges (CompletionBar) recompute from what they're passed. When
+  // activeFilters is empty, rowMatchesFilters returns true for everything, so
+  // these arrays are IDENTICAL to data.checklist / events — unfiltered behaviour
+  // is byte-identical. data.* aggregates (chip counts, stats line) stay UNFILTERED.
+  const filteredChecklist: ChecklistItem[] = (data?.checklist ?? []).filter((i) =>
+    rowMatchesFilters(i.liveness, getStateForChecklistItem(i) === 'généré', activeFilters),
+  );
+  const filteredEvents: EventActStatus[] = (events ?? []).filter((a) =>
+    rowMatchesFilters(
+      a.liveness,
+      getDocumentState({
+        satisfied: a.satisfied,
+        source: a.documentSource,
+        is_finalized: a.documentIsFinalized,
+      }) === 'généré',
+      activeFilters,
+    ),
+  );
+
+  const foundationalItems: ChecklistItem[] = filteredChecklist.filter(
+    (i) => i.category === 'foundational',
+  );
 
   const annualItemsByYear: Record<number, ChecklistItem[]> = {};
-  for (const item of data?.checklist.filter((i) => i.category === 'annual') || []) {
+  for (const item of filteredChecklist.filter((i) => i.category === 'annual')) {
     if (item.year !== null) {
       if (!annualItemsByYear[item.year]) {
         annualItemsByYear[item.year] = [];
@@ -283,10 +400,6 @@ export default function CompletenessPage({
       annualItemsByYear[item.year].push(item);
     }
   }
-
-  const sortedYears = Object.keys(annualItemsByYear)
-    .map(Number)
-    .sort((a, b) => b - a);
 
   // #19d Brief 1 — group director + officer lifecycle acts by the fiscal
   // year that CONTAINS act.date. Acts whose computed year isn't in the
@@ -307,11 +420,15 @@ export default function CompletenessPage({
   // affordances via the shared EventActRow → dialog path). The engine
   // handles transfer's source-cessation double-count suppression upstream so
   // this filter stays declarative — no end_reason gating needed here.
-  const activeYearSet = new Set(sortedYears);
+  // Active-FY set for the in-year vs hors-exercice classification. Sourced from
+  // data.fiscalYears (the canonical active-FY list), NOT the filtered requirement
+  // years — filtering changes which ROWS show, never which YEARS are active.
+  // Unfiltered this equals today's set (annual years == fiscalYears).
+  const activeYearSet = new Set((data?.fiscalYears ?? []).map((f) => f.year));
   const eventsByYear: Record<number, EventActStatus[]> = {};
   const eventsUnclassifiedByYear: Record<number, EventActStatus[]> = {};
   if (events) {
-    for (const act of events) {
+    for (const act of filteredEvents) {
       const isDirectorOrOfficerDeparture =
         (act.event_type === 'director_mandate' || act.event_type === 'officer_appointment') &&
         act.event_phase === 'departure';
@@ -343,6 +460,17 @@ export default function CompletenessPage({
       }
     }
   }
+
+  // ★ Union-of-years — annual sections render for years with matching REQS OR
+  // matching EVENTS (bounded by activeYearSet), so an event-only year (after
+  // filtering) never vanishes and takes its event with it. Unfiltered, eventsByYear
+  // years ⊆ activeYearSet == annual years, so this equals today's sortedYears.
+  const sortedYears = Array.from(
+    new Set<number>([
+      ...Object.keys(annualItemsByYear).map(Number),
+      ...Object.keys(eventsByYear).map(Number),
+    ]),
+  ).sort((a, b) => b - a);
 
   // Hors-exercice events grouped by their (already-computed) fiscal year,
   // newest-first. Only years that actually have events appear (no phantom
@@ -393,6 +521,7 @@ export default function CompletenessPage({
             <BulkCatchUpButton
               missingCount={bulkMissingCount}
               onOpen={() => setIsBulkModalOpen(true)}
+              disabled={anyFilterActive}
             />
             <button
               type="button"
@@ -416,6 +545,8 @@ export default function CompletenessPage({
                   value={data.overdueProlonged}
                   label={tSV('defaut_prolonge.metricLabel')}
                   className="bg-[var(--lv-remediate-bg)] border-[var(--lv-remediate-bd)] text-[var(--lv-remediate)]"
+                  active={activeFilters.has('remediate')}
+                  onClick={() => toggleFilter('remediate')}
                 />
               )}
               {data.overdueRegularize > 0 && (
@@ -423,6 +554,8 @@ export default function CompletenessPage({
                   value={data.overdueRegularize}
                   label={tSV('defaut_prolonge.metricLabelRegularize')}
                   className="bg-[var(--lv-regularize-bg)] border-[var(--lv-regularize-bd)] text-[var(--lv-regularize)]"
+                  active={activeFilters.has('regularize')}
+                  onClick={() => toggleFilter('regularize')}
                 />
               )}
               {data.totalGenerated > 0 && (
@@ -430,6 +563,8 @@ export default function CompletenessPage({
                   value={data.totalGenerated}
                   label={tMB('completeness.toSign')}
                   className="bg-[var(--card-bg)] border-[var(--lv-regularize)] text-[var(--lv-regularize)]"
+                  active={activeFilters.has('asigner')}
+                  onClick={() => toggleFilter('asigner')}
                 />
               )}
               {data.upcoming > 0 && (
@@ -437,9 +572,37 @@ export default function CompletenessPage({
                   value={data.upcoming}
                   label={tMB('completeness.upcoming')}
                   className="bg-transparent border-[var(--text-body)] text-[var(--text-body)]"
+                  active={activeFilters.has('live')}
+                  onClick={() => toggleFilter('live')}
                 />
               )}
             </div>
+            {/* Filter banner — informational status strip (neutral surface, NOT
+                --lv-* severity tokens). Active tiers + visible-count/real-total +
+                a clear-all. Safety rail against the "I filtered and my documents
+                vanished" panic. Numerator + denominator are apples-to-apples:
+                (matching reqs + matching events) sur (all reqs + all events =
+                data.totalRequired). Renders only when a chip filter is active. */}
+            {anyFilterActive && (
+              <div className="flex items-center justify-between gap-3 mt-3 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3.5 py-2 text-xs text-[var(--text-body)]">
+                <span>
+                  {tMB('completeness.filterBanner', {
+                    tiers: FILTER_ORDER.filter((k) => activeFilters.has(k))
+                      .map((k) => FILTER_LABEL[k])
+                      .join(', '),
+                    n: filteredChecklist.length + filteredEvents.length,
+                    total: data.totalRequired,
+                  })}
+                </span>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="shrink-0 font-semibold text-[var(--text-link)] hover:underline"
+                >
+                  {tMB('completeness.filterClearAll')}
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-3 text-xs text-[var(--text-body)] mt-3 flex-wrap">
               {/* Stats line (Dom's line 2) — icons UNTOUCHED (Aria); counts + labels only.
                   3 active states (Final + To-sign + To-generate) sum to Total; Archived separate. */}
@@ -498,26 +661,37 @@ export default function CompletenessPage({
                 onFileSelected={handleFileSelected}
                 onGenerated={fetchData}
                 preferredLanguage={preferredLanguage}
+                forceExpanded={anyFilterActive}
               />
             )}
 
-            {sortedYears.map((year) => (
-              <RequirementSection
-                key={year}
-                title={getFiscalYearLabel(year, locale)}
-                items={annualItemsByYear[year]}
-                companyId={companyId}
-                locale={fr ? 'fr' : 'en'}
-                onFileSelected={handleFileSelected}
-                onGenerated={fetchData}
-                eventActs={eventsByYear[year]}
-                preferredLanguage={preferredLanguage}
-                onEventGenerated={fetchEvents}
-                onEventFileSelected={(file, act, title) =>
-                  handleEventFileSelected(file, act, title, year)
-                }
-              />
-            ))}
+            {sortedYears.map((year) => {
+              const yearItems = annualItemsByYear[year] ?? [];
+              const yearEvents = eventsByYear[year];
+              // Hide-empty: BOTH must be empty to skip. Guarding on items alone
+              // would re-hide the event-only years union-of-years just rescued.
+              // (A sortedYears entry always has ≥1 of the two, so this is
+              // defensive — it keeps "hide empty" correct if the year list changes.)
+              if (yearItems.length === 0 && (yearEvents?.length ?? 0) === 0) return null;
+              return (
+                <RequirementSection
+                  key={year}
+                  title={getFiscalYearLabel(year, locale)}
+                  items={yearItems}
+                  companyId={companyId}
+                  locale={fr ? 'fr' : 'en'}
+                  onFileSelected={handleFileSelected}
+                  onGenerated={fetchData}
+                  eventActs={yearEvents}
+                  preferredLanguage={preferredLanguage}
+                  onEventGenerated={fetchEvents}
+                  onEventFileSelected={(file, act, title) =>
+                    handleEventFileSelected(file, act, title, year)
+                  }
+                  forceExpanded={anyFilterActive}
+                />
+              );
+            })}
 
             {/* Hors-exercice acts have no fiscal-year box to live in. Group them
                 by their computed fiscal year under a kept umbrella heading; one
@@ -541,12 +715,13 @@ export default function CompletenessPage({
                     onEventFileSelected={(file, act, title) =>
                       handleEventFileSelected(file, act, title, null)
                     }
+                    forceExpanded={anyFilterActive}
                   />
                 ))}
               </div>
             )}
 
-            {(data.holdYears ?? []).map((hy) => (
+            {!anyFilterActive && (data.holdYears ?? []).map((hy) => (
               <ArchiveSection
                 key={hy.year}
                 year={hy.year}

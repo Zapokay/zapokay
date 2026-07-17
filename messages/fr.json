@@ -595,6 +595,8 @@
       "complete": "complet",
       "toSign": "à signer",
       "upcoming": "à venir",
+      "filterBanner": "Filtré : {tiers} — {n, plural, =0 {aucun élément} one {# élément} other {# éléments}} sur {total}",
+      "filterClearAll": "Tout afficher",
       "legendSignedUploaded": "Final (Signé et téléversé)",
       "legendToSign": "À signer",
       "legendToGenerate": "À générer ou à téléverser",

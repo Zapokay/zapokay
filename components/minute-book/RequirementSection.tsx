@@ -43,6 +43,11 @@ interface RequirementSectionProps {
   /** Brief 2 — forwarded to EventActRow so a user can upload/replace their own
    *  signed PDF on a lifecycle act. Pure pass-through. */
   onEventFileSelected?: (file: File, act: EventActStatus, title: string) => Promise<void>;
+  /** Increment 5 — when true (a chip filter is active on the page), the section
+   *  renders EXPANDED regardless of the user's collapse state, so filtered rows
+   *  are never hidden behind a collapsed panel. OR'd at render (not into state),
+   *  so clearing the filter restores the user's own expand/collapse choice. */
+  forceExpanded?: boolean;
 }
 
 export default function RequirementSection({
@@ -56,6 +61,7 @@ export default function RequirementSection({
   preferredLanguage,
   onEventGenerated,
   onEventFileSelected,
+  forceExpanded,
 }: RequirementSectionProps) {
   const tEvents = useTranslations('events');
   const tMB = useTranslations('minuteBook');
@@ -69,6 +75,9 @@ export default function RequirementSection({
   const [expanded, setExpanded] = useState(() =>
     items.some((i) => getStateForChecklistItem(i) !== 'téléversé'),
   );
+  // Force-expand while a page filter is active (Increment 5). OR'd here, not
+  // written into `expanded`, so the user's manual choice returns when cleared.
+  const isExpanded = expanded || !!forceExpanded;
 
   return (
     <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)]">
@@ -76,14 +85,14 @@ export default function RequirementSection({
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        aria-expanded={expanded}
+        aria-expanded={isExpanded}
         className={`w-full px-5 py-4 text-left transition-colors hover:bg-[var(--page-bg)] overflow-hidden ${
-          expanded ? 'rounded-t-xl border-b border-[var(--card-border)]' : 'rounded-xl'
+          isExpanded ? 'rounded-t-xl border-b border-[var(--card-border)]' : 'rounded-xl'
         }`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-shrink-0">
-            {expanded ? (
+            {isExpanded ? (
               <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />
             ) : (
               <ChevronRight className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />
@@ -97,7 +106,7 @@ export default function RequirementSection({
       </button>
 
       {/* Items — only when expanded */}
-      {expanded && (
+      {isExpanded && (
         <div className="divide-y divide-[var(--card-border)] relative">
           {totalCount > 0 && satisfiedCount === 0 && (
             <div className="mx-4 my-3 flex items-start gap-3 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3">
