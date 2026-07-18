@@ -155,23 +155,22 @@
       "loadError": "Impossible de charger les données."
     },
     "statusVerdict": {
-      "_pendingLawyer": "LAWYER-PENDING (Harvey): statusVerdict headlines assert a compliance state (esp. en_regle) — lawyer must confirm wording + whether 'en règle' can be asserted. All 3 states are placeholders.",
+      "_pendingLawyer": "LAWYER-PENDING (Harvey): statusVerdict headlines assert a compliance state (esp. en_regle / 'En règle') — lawyer must confirm wording + whether 'en règle' can be asserted. All three states' label/gloss/support are placeholders.",
       "en_regle": {
-        "title": "Vous êtes en règle",
-        "support": "Rien d'urgent. Votre livre est à jour et aucune échéance ne presse. On vous préviendra si ça change.",
-        "metricLabel": "En retard"
+        "label": "En règle",
+        "gloss": "Rien ne presse aujourd'hui",
+        "support": "Rien n'est en retard.",
+        "upcomingCaption": "À venir"
       },
       "attention": {
-        "title": "Quelques éléments demandent votre attention",
-        "support": "Sur vos {missing} documents manquants, {overdue, plural, one {# déclaration est} other {# déclarations sont}} en retard à régulariser. On vous guide, en commençant par les plus urgents.",
-        "metricLabelMissing": "Manquants",
-        "metricLabelOverdue": "En retard"
+        "label": "À régulariser",
+        "gloss": "Quelques éléments demandent votre attention",
+        "support": "Certains documents sont en retard. Rattrapez votre retard dès maintenant avec « Que faire maintenant », en commençant par les plus urgents."
       },
       "defaut_prolonge": {
-        "title": "Certains éléments sont en défaut prolongé",
-        "support": "Une ou plusieurs obligations sont en retard depuis longtemps, avec un risque possible pour le statut de l'entreprise. Nous vous recommandons de consulter un professionnel.",
-        "metricLabel": "Défaut prolongé",
-        "metricLabelRegularize": "À régulariser"
+        "label": "Défaut prolongé",
+        "gloss": "Votre registre demande une mise à jour importante",
+        "support": "Au moins un élément est en retard depuis longtemps. Il y a beaucoup à faire, mais ZapOkay vous guide, étape par étape. Commencez dès maintenant avec « Que faire maintenant »."
       }
     },
     "a3Board": {

@@ -148,8 +148,8 @@ export default function CompletenessPage({
   const clearFilters = useCallback(() => setActiveFilters(new Set()), []);
   // Chip labels reused for the filter banner's tier-name join (chip order).
   const FILTER_LABEL: Record<FilterKey, string> = {
-    remediate: tSV('defaut_prolonge.metricLabel'),
-    regularize: tSV('defaut_prolonge.metricLabelRegularize'),
+    remediate: tSV('defaut_prolonge.label'),
+    regularize: tSV('attention.label'),
     asigner: tMB('completeness.toSign'),
     live: tMB('completeness.upcoming'),
   };
@@ -543,7 +543,7 @@ export default function CompletenessPage({
               {data.overdueProlonged > 0 && (
                 <Chip
                   value={data.overdueProlonged}
-                  label={tSV('defaut_prolonge.metricLabel')}
+                  label={tSV('defaut_prolonge.label')}
                   className="bg-[var(--lv-remediate-bg)] border-[var(--lv-remediate-bd)] text-[var(--lv-remediate)]"
                   active={activeFilters.has('remediate')}
                   onClick={() => toggleFilter('remediate')}
@@ -552,7 +552,7 @@ export default function CompletenessPage({
               {data.overdueRegularize > 0 && (
                 <Chip
                   value={data.overdueRegularize}
-                  label={tSV('defaut_prolonge.metricLabelRegularize')}
+                  label={tSV('attention.label')}
                   className="bg-[var(--lv-regularize-bg)] border-[var(--lv-regularize-bd)] text-[var(--lv-regularize)]"
                   active={activeFilters.has('regularize')}
                   onClick={() => toggleFilter('regularize')}

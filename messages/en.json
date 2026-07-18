@@ -155,23 +155,22 @@
       "loadError": "Unable to load data."
     },
     "statusVerdict": {
-      "_pendingLawyer": "LAWYER-PENDING (Harvey): statusVerdict headlines assert a compliance state (esp. en_regle) — lawyer must confirm wording + whether 'in good standing' can be asserted. All 3 states are placeholders.",
+      "_pendingLawyer": "LAWYER-PENDING (Harvey): statusVerdict headlines assert a compliance state (esp. en_regle / 'In good standing') — lawyer must confirm wording + whether 'in good standing' can be asserted. All three states' label/gloss/support are placeholders.",
       "en_regle": {
-        "title": "You're in good standing",
-        "support": "Nothing urgent. Your book is up to date and no deadline is pressing. We'll let you know if that changes.",
-        "metricLabel": "Overdue"
+        "label": "In good standing",
+        "gloss": "Nothing needs you today",
+        "support": "Nothing is overdue.",
+        "upcomingCaption": "Upcoming"
       },
       "attention": {
-        "title": "A few items need your attention",
-        "support": "Of your {missing} missing documents, {overdue, plural, one {# filing is} other {# filings are}} overdue to catch up. We'll guide you, starting with the most urgent.",
-        "metricLabelMissing": "Missing",
-        "metricLabelOverdue": "Overdue"
+        "label": "To regularize",
+        "gloss": "A few items need your attention",
+        "support": "Some documents are overdue. Catch up now using \"What to do now,\" starting with the most urgent."
       },
       "defaut_prolonge": {
-        "title": "Some items are in prolonged default",
-        "support": "One or more obligations have been overdue for a long time, with a possible risk to the company's standing. We recommend consulting a professional.",
-        "metricLabel": "Prolonged default",
-        "metricLabelRegularize": "To regularize"
+        "label": "Prolonged default",
+        "gloss": "Your record needs a significant update",
+        "support": "At least one item has been outstanding for a while. There's a lot to do, but ZapOkay guides you step by step. Start now using \"What to do now.\""
       }
     },
     "a3Board": {

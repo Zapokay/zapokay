@@ -147,7 +147,7 @@ export default async function DashboardPage({
   // Completeness liveness aggregates (hoisted like ranked/progress — assigned in the
   // if(company) block). 0 defaults → no-company falls to en_regle. Verdict STATE +
   // metrics both source from these (Dom: all numbers from completeness).
-  let cMissing = 0;
+  let cUpcoming = 0;
   let cRegularize = 0;
   let cProlonged = 0;
 
@@ -168,7 +168,7 @@ export default async function DashboardPage({
       fyEndDay,
       incorporationDate,
     );
-    cMissing = completeness.requirementsMissing;
+    cUpcoming = completeness.upcoming;
     cRegularize = completeness.overdueRegularize;
     cProlonged = completeness.overdueProlonged;
 
@@ -196,6 +196,13 @@ export default async function DashboardPage({
 
     // Feeder 2 (REQ) — event acts → deriveDocKey → reqObligations.
     const events = await computeEventCompleteness(supabase, company.id, incorporationDate);
+    // Fold events into the verdict aggregates so the dashboard matches Complétude.
+    // 0ee6dc4 folded events into the /api completeness route (which the Complétude
+    // page reads) but NOT this server component, which stayed req-only — the
+    // divergence this fixes. No new fetch: `events` is already awaited above.
+    cUpcoming   += events.upcoming;
+    cRegularize += events.overdueRegularize;
+    cProlonged  += events.overdueProlonged;
     const reqObs = events.acts.flatMap((act) => {
       const derivation = deriveDocKey(act);
       if (!derivation) return [];
@@ -251,9 +258,9 @@ export default async function DashboardPage({
         {/* Status verdict — "suis-je correct?" headline; leads the body, above the board (Aria's vision) */}
         <StatusVerdict
           verdict={completenessVerdict}
-          count={cProlonged}
-          missing={cMissing}
-          overdue={cRegularize}
+          upcoming={cUpcoming}
+          regularize={cRegularize}
+          prolonged={cProlonged}
         />
 
         {/* A3 board — "quoi faire maintenant"; the board follows the verdict */}

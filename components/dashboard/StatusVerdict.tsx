@@ -1,11 +1,13 @@
 'use client';
 
 /**
- * Status verdict — the "suis-je correct?" headline above the A3 board. Renders one of
- * 3 states + metrics, both sourced from the page's completeness liveness aggregates.
- * Presentational; palette MIRRORS the board (--lv-* / --success-*) so verdict +
- * board read as one system. Copy is placeholder, Harvey-pending — see
- * messages/*.json → dashboard.statusVerdict._pendingLawyer.
+ * Status verdict — the compliance headline above the A3 board. One of 3 states,
+ * each: an icon, a two-part title (state LABEL · warm GLOSS), a support line, and
+ * ONE number = that state's own tier (en_regle -> upcoming, attention ->
+ * regularize, defaut_prolonge -> prolonged), captioned by that number's tier
+ * (Option C — words match the Complétude chips). Numbers are the page's COMBINED
+ * (requirements + events) aggregates, so the verdict matches Complétude. Copy is
+ * lawyer-pending YELLOW — see messages/*.json -> dashboard.statusVerdict._pendingLawyer.
  */
 
 import { useTranslations } from 'next-intl';
@@ -15,19 +17,13 @@ type Verdict = 'en_regle' | 'attention' | 'defaut_prolonge';
 
 interface Props {
   verdict: Verdict;
-  // Display numbers — currently HARDCODED placeholders from the page, NOT wired to
-  // real data (pending completeness verification). count = en_regle/defaut single
-  // metric; missing + overdue = attention's two metrics.
-  count?: number;
-  missing?: number;
-  overdue?: number;
+  upcoming?: number;
+  regularize?: number;
+  prolonged?: number;
 }
 
 const SORA = { fontFamily: 'Sora, sans-serif' } as const;
 
-// Per-state icon + palette (mirrors the board). Full literal class strings (Tailwind JIT).
-// attention uses AlertTriangle (action-needed) — intentionally NOT the calm AlertCircle
-// used for defaut_prolonge (Aria: amber = act now, charbon = grave-but-calm).
 const STATE: Record<Verdict, { Icon: LucideIcon; card: string; ring: string; accent: string }> = {
   en_regle: {
     Icon: CircleCheck,
@@ -49,29 +45,12 @@ const STATE: Record<Verdict, { Icon: LucideIcon; card: string; ring: string; acc
   },
 };
 
-function Metric({ value, label, accent, muted = false }: { value: number; label: string; accent: string; muted?: boolean }) {
-  // muted = subordinate secondary metric (Sora 700 15px, muted) vs the primary
-  // (Sora 800 20px, accent). accent is ignored when muted.
-  const valueCls = muted
-    ? 'text-[15px] font-bold text-[var(--text-muted)]'
-    : `text-[20px] font-extrabold ${accent}`;
-  return (
-    <div className="shrink-0 text-center">
-      <div className={`${valueCls} leading-none`} style={SORA}>
-        {value}
-      </div>
-      <div className="text-[9px] uppercase tracking-[0.05em] mt-[3px] text-[var(--text-muted)]">
-        {label}
-      </div>
-    </div>
-  );
-}
-
-export default function StatusVerdict({ verdict, count = 0, missing = 0, overdue = 0 }: Props) {
+export default function StatusVerdict({ verdict, upcoming = 0, regularize = 0, prolonged = 0 }: Props) {
   const t = useTranslations('dashboard.statusVerdict');
-
   const s = STATE[verdict];
   const Icon = s.Icon;
+  const metricValue = verdict === 'en_regle' ? upcoming : verdict === 'attention' ? regularize : prolonged;
+  const caption = verdict === 'en_regle' ? t('en_regle.upcomingCaption') : t(`${verdict}.label`);
 
   return (
     <div className={`w-full flex items-center gap-4 rounded-[14px] border px-5 py-[18px] ${s.card}`}>
@@ -79,28 +58,23 @@ export default function StatusVerdict({ verdict, count = 0, missing = 0, overdue
         <Icon className="w-[26px] h-[26px]" />
       </span>
       <div className="flex-1 min-w-0">
-        <div className={`text-[17px] font-bold leading-[1.25] ${s.accent}`} style={SORA}>
-          {t(`${verdict}.title`)}
+        <div className="text-[17px] leading-[1.25]" style={SORA}>
+          <span className={`font-bold ${s.accent}`}>{t(`${verdict}.label`)}</span>
+          <span className="text-[var(--text-muted)] font-normal"> · </span>
+          <span className={`font-medium ${s.accent} opacity-80`}>{t(`${verdict}.gloss`)}</span>
         </div>
         <div className="text-[12.5px] leading-[1.45] mt-[3px] text-[var(--text-body)]">
-          {t(`${verdict}.support`, { missing, overdue })}
+          {t(`${verdict}.support`)}
         </div>
       </div>
-      {verdict === 'attention' ? (
-        <div className="flex items-center gap-4 shrink-0">
-          <Metric value={missing} label={t('attention.metricLabelMissing')} accent={s.accent} />
-          <Metric value={overdue} label={t('attention.metricLabelOverdue')} accent={s.accent} />
+      <div className="shrink-0 text-center">
+        <div className={`text-[26px] font-extrabold leading-none ${s.accent}`} style={SORA}>
+          {metricValue}
         </div>
-      ) : verdict === 'defaut_prolonge' ? (
-        <div className="flex items-center gap-3 shrink-0">
-          <Metric value={count} label={t('defaut_prolonge.metricLabel')} accent={s.accent} />
-          {overdue > 0 && (
-            <Metric value={overdue} label={t('defaut_prolonge.metricLabelRegularize')} accent={s.accent} muted />
-          )}
+        <div className="text-[9px] uppercase tracking-[0.05em] mt-[4px] text-[var(--text-muted)]">
+          {caption}
         </div>
-      ) : (
-        <Metric value={count} label={t(`${verdict}.metricLabel`)} accent={s.accent} />
-      )}
+      </div>
     </div>
   );
 }
