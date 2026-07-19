@@ -15,6 +15,7 @@ import { formatDate, parseLocalDate } from '@/lib/utils';
 // ── A3 board engine (ported from /dashboard-wip). parseLocalDate already imported above. ──
 import { computeRequirementCompleteness } from '@/lib/minute-book/requirement-completeness';
 import { computeEventCompleteness } from '@/lib/minute-book/event-completeness';
+import { computeHoldYears } from '@/lib/minute-book/hold-years';
 import { deriveDocKey } from '@/lib/obligations/derive-dockey';
 import { completenessToObligations } from '@/lib/obligations/feeders/completeness';
 import { deadlineObligations } from '@/lib/obligations/feeders/deadlines';
@@ -23,6 +24,7 @@ import { mergeObligations } from '@/lib/obligations/aggregate';
 import { rankObligations } from '@/lib/obligations/rank';
 import A3Board from '@/components/dashboard/A3Board';
 import StatusVerdict from '@/components/dashboard/StatusVerdict';
+import InventoryLine from '@/components/minute-book/InventoryLine';
 
 // ─── Fiscal year history helper ───────────────────────────────────────────────
 
@@ -150,6 +152,11 @@ export default async function DashboardPage({
   let cUpcoming = 0;
   let cRegularize = 0;
   let cProlonged = 0;
+  let invTotal = 0;
+  let invUploaded = 0;
+  let invGenerated = 0;
+  let invMissing = 0;
+  let invArchived = 0;
 
   if (company) {
     const today = new Date();
@@ -203,6 +210,12 @@ export default async function DashboardPage({
     cUpcoming   += events.upcoming;
     cRegularize += events.overdueRegularize;
     cProlonged  += events.overdueProlonged;
+    const holdYears = await computeHoldYears(supabase, company.id);
+    invTotal = completeness.requirementsTotal + events.totalActs;
+    invUploaded = completeness.requirementsUploaded + events.eventsUploaded;
+    invGenerated = completeness.requirementsGenerated + events.eventsGenerated;
+    invMissing = completeness.requirementsMissing + events.totalMissing;
+    invArchived = (holdYears ?? []).reduce((s, hy) => s + hy.documents.length, 0);
     const reqObs = events.acts.flatMap((act) => {
       const derivation = deriveDocKey(act);
       if (!derivation) return [];
@@ -261,6 +274,15 @@ export default async function DashboardPage({
           upcoming={cUpcoming}
           regularize={cRegularize}
           prolonged={cProlonged}
+        />
+
+        {/* Inventory line - middle layer; same component + numbers as the Completude page */}
+        <InventoryLine
+          total={invTotal}
+          uploaded={invUploaded}
+          generated={invGenerated}
+          missing={invMissing}
+          archived={invArchived}
         />
 
         {/* A3 board — "quoi faire maintenant"; the board follows the verdict */}

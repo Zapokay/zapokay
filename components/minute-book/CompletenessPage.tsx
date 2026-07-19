@@ -13,6 +13,7 @@ import type { ObligationLiveness } from '@/lib/obligations/obligation';
 import RequirementSection from '@/components/minute-book/RequirementSection';
 import ArchiveSection from '@/components/minute-book/ArchiveSection';
 import EventSection from '@/components/minute-book/EventSection';
+import InventoryLine from '@/components/minute-book/InventoryLine';
 import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import BulkCatchUpButton from '@/components/minute-book/BulkCatchUpButton';
@@ -603,36 +604,13 @@ export default function CompletenessPage({
                 </button>
               </div>
             )}
-            <div className="flex items-center gap-3 text-xs text-[var(--text-body)] mt-3 flex-wrap">
-              {/* Stats line (Dom's line 2) — icons UNTOUCHED (Aria); counts + labels only.
-                  3 active states (Final + To-sign + To-generate) sum to Total; Archived separate. */}
-              <span className="font-semibold text-[var(--text-body)]">
-                {tMB('completeness.total')}: {data.totalRequired}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
-                {data.totalUploaded} {tMB('completeness.legendSignedUploaded')}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1.5">
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
-                  <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
-                </svg>
-                {data.totalGenerated} {tMB('completeness.legendToSign')}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1.5">
-                <XCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
-                {data.totalMissing} {tMB('completeness.legendToGenerate')}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1.5">
-                <Archive className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--row-state-archive)' }} aria-hidden="true" />
-                {(data.holdYears ?? []).reduce((s, hy) => s + hy.documents.length, 0)} {tMB('completeness.legendArchive')}
-              </span>
-            </div>
+            <InventoryLine
+              total={data.totalRequired}
+              uploaded={data.totalUploaded}
+              generated={data.totalGenerated}
+              missing={data.totalMissing}
+              archived={(data.holdYears ?? []).reduce((s, hy) => s + hy.documents.length, 0)}
+            />
           </>
         )}
       </div>
