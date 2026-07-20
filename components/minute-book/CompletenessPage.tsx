@@ -15,6 +15,7 @@ import EventSection from '@/components/minute-book/EventSection';
 import InventoryLine from '@/components/minute-book/InventoryLine';
 import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
+import { useRowUpload } from '@/components/documents/useRowUpload';
 import BulkCatchUpButton from '@/components/minute-book/BulkCatchUpButton';
 import BulkCatchUpModal, {
   type BulkMissingByYear,
@@ -118,29 +119,24 @@ export default function CompletenessPage({
   const [loading, setLoading] = useState(true);
   const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [pickedFile, setPickedFile] = useState<File | null>(null);
-  const [pickedItem, setPickedItem] = useState<ChecklistItem | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  // B4/B5 — when set, the modal opens in replace mode and the upload helper
-  // deletes this row + its storage object on insert success. Resolved
-  // directly off the ChecklistItem.document_id field (B5-edit-2 surfaced it
-  // server-side), replacing B4-edit-4's on-demand documents lookup.
-  const [existingDocumentId, setExistingDocumentId] = useState<string | null>(null);
   // Archive-replace (Piece-4 follow-up #1): opens the certify-capable modal
   // (replaceContext="archive") for a hold-year doc. Distinct from the
   // requirement modal state above — archive docs have no ChecklistItem.
   const [holdReplaceDoc, setHoldReplaceDoc] = useState<VaultDocument | null>(null);
   const [holdReplaceFile, setHoldReplaceFile] = useState<File | null>(null);
-  // Brief 2b — event-row upload now opens the SAME UploadDocumentModal document
-  // rows use (locked Titre + Type, editable Langue, certify checkbox), instead of
-  // POSTing directly. Mirrors pickedFile/pickedItem but for a lifecycle act: we
-  // hold the act (for eventLink + replace target), plus the resolved title + year
-  // (computed by EventActRow / bound at the render site — not on the act itself).
-  const [pickedEventFile, setPickedEventFile] = useState<File | null>(null);
-  const [pickedEventAct, setPickedEventAct] = useState<EventActStatus | null>(null);
-  const [pickedEventTitle, setPickedEventTitle] = useState<string>('');
-  const [pickedEventYear, setPickedEventYear] = useState<number | null>(null);
   const { addToast, ToastStack } = useToasts();
+
+  // Phase B-1 — ONE upload orchestration for document rows + event rows (and the
+  // A3 board in B-2). Replaces the removed pickedFile/pickedItem/pickedEvent* state
+  // + the two inline UploadDocumentModal renders below. Hold-archive stays separate.
+  const { openUpload, modalElement } = useRowUpload({
+    companyId,
+    framework,
+    locale,
+    preferredLanguage,
+    addToast,
+  });
   // Chip filters — client-side only, reset on load (no URL param, no persistence).
   // OR-combine: a row shows if it matches ANY active chip. Dual-membership (a
   // généré row also carries a liveness tier) is expected — shows under either.
@@ -231,22 +227,12 @@ export default function CompletenessPage({
 
   const MAX_SIZE = 20 * 1024 * 1024; // 20 MB — matches UploadZone cap
 
-  // Row-driven file pickup. Validates MIME + size, looks up the row's
-  // ChecklistItem, lazy-resolves the user id, then opens UploadDocumentModal
-  // in row-mode. The modal owns the rest of the pipeline (certification gate,
-  // then POSTs to /api/documents/upload — the authoritative server route — with
-  // isFinalized derived from the certification checkbox; success/error sinks).
+  // Row-driven file pickup. Looks up the row's ChecklistItem, then delegates to
+  // useRowUpload.openUpload({ source: 'requirement' }) — the hook owns validation
+  // (MIME + size), the session gate, and the UploadDocumentModal render. onSuccess
+  // below reproduces the former per-title toast (§1 ternary, out of scope) + fetchData.
   const handleFileSelected = useCallback(
     async (file: File, requirementKey: string, year: number | null): Promise<void> => {
-      if (file.type !== 'application/pdf') {
-        addToast(tDocs('onlyPdf'), 'error');
-        return;
-      }
-      if (file.size > MAX_SIZE) {
-        addToast(tDocs('tooLarge'), 'error');
-        return;
-      }
-
       const item = data?.checklist.find(
         i => i.requirement_key === requirementKey && (i.year ?? null) === (year ?? null),
       );
@@ -254,76 +240,57 @@ export default function CompletenessPage({
         addToast(tMB('completeness.requirementNotFound'), 'error');
         return;
       }
-
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        addToast(tDocs('sessionExpired'), 'error');
-        return;
-      }
-
-      // B5 — read existing-document id directly off the API-extended
-      // ChecklistItem (route.ts surfaces document_id whenever satisfied=true).
-      // Defensive warn for data drift: if a row is marked satisfied but
-      // document_id is null, fall through to a non-replace upload (better
-      // to over-upload than block the user; next fetchData() reconciles).
-      const existingDocId = item.document_id ?? null;
-      if (item.satisfied && !existingDocId) {
-        console.warn(
-          '[CompletenessPage] Row marked satisfied but document_id is null; data inconsistency. Falling back to fresh upload.',
-          { requirementKey, year },
-        );
-      }
-
-      setUserId(user.id);
-      setPickedItem(item);
-      setPickedFile(file);
-      setExistingDocumentId(existingDocId);
+      // Validation + session gate now live in useRowUpload. onSuccess reproduces the
+      // former onUploadComplete verbatim: the isReplace-aware per-title toast (§1
+      // ternary left as-is, out of scope) + fetchData refetch.
+      await openUpload({
+        file,
+        source: { kind: 'requirement', item },
+        onSuccess: () => {
+          const base = fr ? item.title_fr : item.title_en;
+          const yearSuffix =
+            item.category === 'annual' && item.year !== null ? ` ${item.year}` : '';
+          const isReplace = item.document_id != null;
+          addToast(
+            isReplace
+              ? (fr
+                  ? `Document remplacé pour « ${base} »${yearSuffix}.`
+                  : `Document replaced for "${base}"${yearSuffix}.`)
+              : (fr
+                  ? `Document ajouté à « ${base} »${yearSuffix}.`
+                  : `Document added to "${base}"${yearSuffix}.`),
+            'success',
+          );
+          void fetchData();
+        },
+      });
     },
-    [addToast, data, tMB, tDocs, MAX_SIZE],
+    [openUpload, data, addToast, tMB, fr, fetchData],
   );
 
-  // Brief 2b — lifecycle event-row upload. Opens the SAME UploadDocumentModal the
-  // requirement path uses (locked Titre + Type, editable Langue, certify checkbox)
-  // instead of POSTing directly: it validates + resolves the user, then sets the
-  // event-modal state. The modal's submit carries the `eventLink` (built from the
-  // act at the render site) so the event_documents link is written server-side
-  // exactly as before, and the certify checkbox drives is_finalized (was hardcoded
-  // true) so a marked-final doc reaches the Binder. The act's filing year is passed
-  // by the caller (per-year section knows it; hors-exercice = null). Replace of an
-  // existing draft/upload is handled by the modal via replaceDocumentId (from the act).
+  // Brief 2b — lifecycle event-row upload. Delegates to useRowUpload.openUpload({
+  // source: 'event' }); the hook owns validation, the session gate, and the modal.
+  // The event source carries eventLink (built from the act) so the event_documents
+  // link is written server-side exactly as the old direct POST did, and the certify
+  // checkbox drives is_finalized. The act's filing year is passed by the caller
+  // (per-year section knows it; hors-exercice = null).
   const handleEventFileSelected = useCallback(
     async (file: File, act: EventActStatus, title: string, year: number | null): Promise<void> => {
-      if (file.type !== 'application/pdf') {
-        addToast(tDocs('onlyPdf'), 'error');
-        return;
-      }
-      if (file.size > MAX_SIZE) {
-        addToast(tDocs('tooLarge'), 'error');
-        return;
-      }
-
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        addToast(tDocs('sessionExpired'), 'error');
-        return;
-      }
-
-      // Open UploadDocumentModal (locked Titre + Type, editable Langue, certify
-      // checkbox) instead of POSTing directly. The modal's submit carries eventLink
-      // (built from the act at the render site) so the doc links to its event via
-      // event_documents exactly as the old direct POST did; the certify checkbox now
-      // drives is_finalized (was hardcoded true), so the doc reaches the Binder when
-      // the user marks it final. getUser above stays UX-only (the "Session expirée"
-      // toast); the route remains the sole authority.
-      setUserId(user.id);
-      setPickedEventAct(act);
-      setPickedEventTitle(title);
-      setPickedEventYear(year);
-      setPickedEventFile(file);
+      // Validation + session gate live in useRowUpload; the modal's submit carries
+      // eventLink (from the act) so the event_documents link is written server-side
+      // exactly as the old direct POST did, and the certify checkbox drives
+      // is_finalized. onSuccess reproduces the former onUploadComplete: the tMB
+      // success toast + fetchEvents.
+      await openUpload({
+        file,
+        source: { kind: 'event', act, title, year },
+        onSuccess: () => {
+          addToast(tMB('completeness.documentUploaded'), 'success');
+          void fetchEvents();
+        },
+      });
     },
-    [addToast, tDocs, MAX_SIZE],
+    [openUpload, addToast, tMB, fetchEvents],
   );
 
   const handleHoldFileSelected = useCallback(
@@ -716,53 +683,7 @@ export default function CompletenessPage({
         }}
       />
 
-      {pickedFile && pickedItem && userId && (
-        <UploadDocumentModal
-          isOpen={true}
-          file={pickedFile}
-          mode="row"
-          companyId={companyId}
-          framework={framework}
-          locale={locale}
-          preferredLanguage={preferredLanguage}
-          prefill={{
-            requirementKey: pickedItem.requirement_key,
-            requirementYear: pickedItem.year,
-            docType: pickedItem.document_type,
-            docYear: pickedItem.category === 'annual' ? pickedItem.year : null,
-            title:
-              pickedItem.category === 'annual' && pickedItem.year !== null
-                ? `${fr ? pickedItem.title_fr : pickedItem.title_en} — ${pickedItem.year}`
-                : (fr ? pickedItem.title_fr : pickedItem.title_en),
-          }}
-          replaceDocumentId={existingDocumentId ?? undefined}
-          onClose={() => {
-            setPickedFile(null);
-            setPickedItem(null);
-            setExistingDocumentId(null);
-          }}
-          onUploadComplete={() => {
-            const base = fr ? pickedItem.title_fr : pickedItem.title_en;
-            const yearSuffix =
-              pickedItem.category === 'annual' && pickedItem.year !== null
-                ? ` ${pickedItem.year}`
-                : '';
-            const isReplace = existingDocumentId !== null;
-            addToast(
-              isReplace
-                ? (fr
-                    ? `Document remplacé pour « ${base} »${yearSuffix}.`
-                    : `Document replaced for "${base}"${yearSuffix}.`)
-                : (fr
-                    ? `Document ajouté à « ${base} »${yearSuffix}.`
-                    : `Document added to "${base}"${yearSuffix}.`),
-              'success',
-            );
-            void fetchData();
-          }}
-          onError={(msg) => addToast(msg, 'error')}
-        />
-      )}
+      {modalElement}
 
       {holdReplaceFile && holdReplaceDoc && userId && (
         <UploadDocumentModal
@@ -788,44 +709,6 @@ export default function CompletenessPage({
             setHoldReplaceDoc(null);
             setHoldReplaceFile(null);
             void fetchData();
-          }}
-          onError={(msg) => addToast(msg, 'error')}
-        />
-      )}
-
-      {pickedEventFile && pickedEventAct && userId && (
-        <UploadDocumentModal
-          isOpen={true}
-          file={pickedEventFile}
-          mode="row"
-          companyId={companyId}
-          framework={framework}
-          locale={locale}
-          preferredLanguage={preferredLanguage}
-          prefill={{
-            docType: 'resolution',
-            docYear: pickedEventYear,
-            title: pickedEventTitle,
-          }}
-          eventLink={{
-            event_type: pickedEventAct.event_type,
-            event_id: pickedEventAct.event_id,
-            event_phase: pickedEventAct.event_phase,
-          }}
-          replaceDocumentId={
-            pickedEventAct.satisfied && pickedEventAct.documentId
-              ? pickedEventAct.documentId
-              : undefined
-          }
-          onClose={() => {
-            setPickedEventFile(null);
-            setPickedEventAct(null);
-            setPickedEventTitle('');
-            setPickedEventYear(null);
-          }}
-          onUploadComplete={() => {
-            addToast(tMB('completeness.documentUploaded'), 'success');
-            void fetchEvents();
           }}
           onError={(msg) => addToast(msg, 'error')}
         />
