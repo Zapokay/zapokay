@@ -1,6 +1,6 @@
 import { AlertTriangle, Calendar, Clock, X } from 'lucide-react';
 
-interface ObligationModalProps {
+export interface ObligationModalProps {
   open: boolean;
   onClose: () => void;
   title: string;

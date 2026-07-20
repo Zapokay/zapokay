@@ -16,11 +16,13 @@ import A3Item from './A3Item';
 interface Props {
   ranked: RankedObligation[];
   progress: { done: number; total: number };
+  companyId: string;
+  documentLanguage: 'fr' | 'en';
 }
 
 const SORA = { fontFamily: 'Sora, sans-serif' } as const;
 
-export default function A3Board({ ranked, progress }: Props) {
+export default function A3Board({ ranked, progress, companyId, documentLanguage }: Props) {
   const locale = useLocale();
   const t = useTranslations('dashboard.a3Board');
 
@@ -52,7 +54,7 @@ export default function A3Board({ ranked, progress }: Props) {
       </div>
       {/* top-5 (rank 1 = hero) */}
       {top.map((o, i) => (
-        <A3Item key={o.id} obligation={o} hero={i === 0} />
+        <A3Item key={o.id} obligation={o} hero={i === 0} companyId={companyId} documentLanguage={documentLanguage} />
       ))}
 
       {/* show-more: route out to Completeness (never expands in place) */}

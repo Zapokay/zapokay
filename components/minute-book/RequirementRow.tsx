@@ -2,8 +2,9 @@
 
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, XCircle, Info, Upload } from 'lucide-react';
+import { CheckCircle2, XCircle, Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
+import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import { getDocumentState } from '@/lib/minute-book/state';
 
 interface RequirementRowProps {
@@ -60,7 +61,6 @@ export default function RequirementRow({
 }: RequirementRowProps) {
   const t = useTranslations('requirementRow');
   const tDocs = useTranslations('documents');
-  const [showDescription, setShowDescription] = useState(false);
   // #149 — the requirement description is catalog CHROME (the seed provides both
   // description_fr AND description_en), so it follows the UI locale — unlike the
   // document title above, which follows the doc's generation language (Two-Layer).
@@ -124,21 +124,7 @@ export default function RequirementRow({
           >
             {titleFr}
           </span>
-          {description && (
-            <button
-              type="button"
-              onMouseEnter={() => setShowDescription(true)}
-              onMouseLeave={() => setShowDescription(false)}
-              className="relative rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-body)] flex-shrink-0"
-            >
-              <Info className="h-4 w-4" />
-              {showDescription && (
-                <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs text-[var(--text-body)] shadow-lg">
-                  {description}
-                </div>
-              )}
-            </button>
-          )}
+          <DescriptionTooltip description={description} />
         </div>
       </div>
 

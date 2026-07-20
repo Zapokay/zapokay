@@ -54,6 +54,7 @@ import { deriveDocKey, type DocKeyDerivation } from '@/lib/obligations/derive-do
 import { formatDate, addDays } from '@/lib/utils';
 import { ObligationMarker } from '@/components/ui/ObligationMarker';
 import { ObligationModal } from '@/components/ui/ObligationModal';
+import { useObligationModalContent } from '@/components/ui/useObligationModalContent';
 
 // Mirrors OfficersClient.tsx TITLE_LABELS — kept local per the same Tier-3
 // extraction follow-up. lib/i18n/lifecycle-labels.ts has a server-side
@@ -101,6 +102,7 @@ export default function EventActRow({
   const tDirectors = useTranslations('directors');
   const tOfficers = useTranslations('officers');
   const tObl = useTranslations('obligationNotice');
+  const buildObligationContent = useObligationModalContent();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [obligationOpen, setObligationOpen] = useState(false);
@@ -357,17 +359,7 @@ export default function EventActRow({
         <ObligationModal
           open={obligationOpen}
           onClose={() => setObligationOpen(false)}
-          title={tObl('req.title')}
-          subtitle={rowLabel}
-          deadlineLabel={tObl('modal.deadlineLabel')}
-          deadline={reqDeadline ?? ''}
-          body={tObl('req.body', { deadline: reqDeadline ?? '' })}
-          legalRef={tObl('modal.legalRef')}
-          howToLabel={tObl('modal.howToLabel')}
-          comingSoonTitle={tObl('help.comingSoonTitle')}
-          comingSoonBadge={tObl('help.comingSoonBadge')}
-          comingSoonBody={tObl('help.comingSoon')}
-          ackLabel={tObl('footerAck')}
+          {...buildObligationContent({ subtitle: rowLabel, deadline: reqDeadline ?? '' })}
         />
       )}
     </div>

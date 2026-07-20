@@ -8,6 +8,9 @@
  */
 
 import { useLocale, useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
+import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
+import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import type { RankedObligation } from '@/lib/obligations/rank';
 import { formatDate } from '@/lib/utils';
 import {
@@ -38,11 +41,17 @@ const SORA = { fontFamily: 'Sora, sans-serif' } as const;
 interface Props {
   obligation: RankedObligation;
   hero?: boolean;
+  companyId: string;
+  documentLanguage: 'fr' | 'en';
 }
 
-export default function A3Item({ obligation: o, hero = false }: Props) {
+export default function A3Item({ obligation: o, hero = false, companyId, documentLanguage }: Props) {
   const locale = useLocale();
   const t = useTranslations('dashboard.a3Board');
+  const router = useRouter();
+  // Generate success -> re-run the RSC so the board re-ranks. The Completeness page's
+  // onGenerated is a silent fetchData refetch; router.refresh() is the RSC equivalent.
+  const handleGenerated = () => router.refresh();
 
   // Hero-trap guard (§11): only a `live` item may render as the hero. The ranker
   // sorts live > regularize > remediate so rank 1 is always live — assert it here
@@ -58,6 +67,8 @@ export default function A3Item({ obligation: o, hero = false }: Props) {
   const isRegularize = o.liveness === 'regularize';
   const isFoundational = o.source === 'completeness' && o.year === null;
   const title = resolveTitle(o, locale, t);
+  // #149 — description follows UI locale (catalog chrome), mirroring RequirementRow.
+  const description = locale === 'en' ? o.descriptionEn : o.descriptionFr;
 
   // ── status chip — suppressed on remediate (liveness outranks status) ──
   const statusSpec =
@@ -124,12 +135,24 @@ export default function A3Item({ obligation: o, hero = false }: Props) {
           : asHero
             ? `${actBase} ${scale} bg-[var(--amber-400)] text-[var(--navy-900)] border-none`
             : `${actBase} ${scale} bg-transparent text-[var(--text-heading)] border-[1.5px] border-[var(--card-border)]`;
-      verbButton = (
-        <button className={cls}>
-          <VerbIcon className="w-3.5 h-3.5" />
-          {t(verb.labelKey)}
-        </button>
-      );
+      verbButton =
+        o.actionKind === 'generate' && o.requirementKey ? (
+          <GenerateDocumentButton
+            companyId={companyId}
+            requirementKey={o.requirementKey}
+            year={o.year}
+            documentLanguage={documentLanguage}
+            onSuccess={handleGenerated}
+            locale={locale}
+            label={t(verb.labelKey)}
+            className={cls}
+          />
+        ) : (
+          <button className={cls}>
+            <VerbIcon className="w-3.5 h-3.5" />
+            {t(verb.labelKey)}
+          </button>
+        );
     }
   }
 
@@ -207,11 +230,14 @@ export default function A3Item({ obligation: o, hero = false }: Props) {
           </span>
           {statusChip}
         </div>
-        <div
-          className="text-[17px] font-bold text-[var(--text-heading)] leading-[1.3] mb-1"
-          style={SORA}
-        >
-          {title}
+        <div className="flex items-start gap-1.5 mb-1">
+          <div
+            className="text-[17px] font-bold text-[var(--text-heading)] leading-[1.3]"
+            style={SORA}
+          >
+            {title}
+          </div>
+          <DescriptionTooltip description={description} />
         </div>
         <div className="flex items-center gap-[9px] mt-[11px] mb-[15px] flex-wrap">
           {dueLine}
@@ -245,10 +271,13 @@ export default function A3Item({ obligation: o, hero = false }: Props) {
         {o.rank}
       </span>
       <div className="flex-1 min-w-0">
-        <div
-          className={`text-[13px] font-semibold leading-[1.35] ${isRemediate ? 'text-[var(--text-body)]' : 'text-[var(--text-heading)]'}`}
-        >
-          {title}
+        <div className="flex items-start gap-1.5">
+          <div
+            className={`text-[13px] font-semibold leading-[1.35] ${isRemediate ? 'text-[var(--text-body)]' : 'text-[var(--text-heading)]'}`}
+          >
+            {title}
+          </div>
+          <DescriptionTooltip description={description} />
         </div>
         <div className="flex items-center gap-2 mt-[7px] flex-wrap">
           {tierBadge}

@@ -12,7 +12,7 @@ import { getGaps, type UrgentGap } from '@/lib/priority';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
 import MinuteBookCard from '@/components/dashboard/MinuteBookCard'
 import { formatDate, parseLocalDate } from '@/lib/utils';
-// ── A3 board engine (ported from /dashboard-wip). parseLocalDate already imported above. ──
+// ── A3 board engine (ported from the former /dashboard-wip dev route). parseLocalDate already imported above. ──
 import { computeRequirementCompleteness } from '@/lib/minute-book/requirement-completeness';
 import { computeEventCompleteness } from '@/lib/minute-book/event-completeness';
 import { computeHoldYears } from '@/lib/minute-book/hold-years';
@@ -140,7 +140,7 @@ export default async function DashboardPage({
   });
 
   // ─── A3 board assembly ────────────────────────────────────────────────────
-  // Ported from /dashboard-wip, adapted to the nullable `company` + the server
+  // Ported from the former /dashboard-wip dev route, adapted to the nullable `company` + the server
   // client already loaded above (no second company load, no early return).
   // getGaps stays intact — Document Fondateur/Actions requises read it until
   // Step 2 hides them (flagged for later decommission).
@@ -179,7 +179,7 @@ export default async function DashboardPage({
     cRegularize = completeness.overdueRegularize;
     cProlonged = completeness.overdueProlonged;
 
-    // RE-200 presumed-done flag — identical logic to /dashboard-wip. Strict:
+    // RE-200 presumed-done flag — identical logic to the former /dashboard-wip dev route. Strict:
     // a real (satisfied) annual filing for a year strictly after incorporation.
     const incYear = incorporationDate ? parseLocalDate(incorporationDate).getFullYear() : null;
     const hasLaterAnnualFiling =
@@ -286,7 +286,7 @@ export default async function DashboardPage({
         />
 
         {/* A3 board — "quoi faire maintenant"; the board follows the verdict */}
-        {company && <A3Board ranked={ranked} progress={progress} />}
+        {company && <A3Board ranked={ranked} progress={progress} companyId={company.id} documentLanguage={(profile.preferred_language as 'fr' | 'en') ?? 'fr'} />}
 
         {/* Stat cards */}
         {/* HIDDEN 2026-07-10 — dashboard vision rebuild (superseded by A3 board / verdict); pending decommission investigation. Block: Historique */}
