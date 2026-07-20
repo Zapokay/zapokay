@@ -57,6 +57,13 @@ export interface UploadDocumentModalProps {
    * current callers render unchanged.
    */
   replaceContext?: 'requirement' | 'archive';
+  /**
+   * Brief 2b — lifecycle event-row upload. When set, forwarded verbatim into the
+   * POST as `eventLink` so the uploaded doc links to its act (event_documents),
+   * exactly as the direct-POST path did. Additive: requirement / vault / archive
+   * callers omit it and are unaffected.
+   */
+  eventLink?: { event_type: string; event_id: string; event_phase: string };
   /** Resolves with the new document id on successful upload. */
   onUploadComplete: (documentId: string) => void;
   /** Optional error sink for parents that own toast UX. */
@@ -79,6 +86,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     onUploadComplete,
     onError,
     replaceContext,
+    eventLink,
   } = props;
   const isReplace = !!replaceDocumentId;
   const warnTitleKey =
@@ -308,8 +316,10 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     const effectiveReplaceId = replaceDocumentId ?? detectedFinalId;
     if (effectiveReplaceId) fd.append('replaceDocumentId', effectiveReplaceId);
     // No userId field — the route derives it from the session (closes the
-    // trusted-param hole). No eventLink — the requirement/vault path has no
-    // lifecycle link (that path lives in CompletenessPage, Brief 2b-ii).
+    // trusted-param hole). eventLink (Brief 2b): forwarded when the event-row
+    // caller sets it, so uploadDocument writes the event_documents link (the
+    // act's identity — orthogonal to Binder placement, which follows document_type).
+    if (eventLink) fd.append('eventLink', JSON.stringify(eventLink));
 
     const res = await fetch('/api/documents/upload', { method: 'POST', body: fd });
     const result = await res.json();
@@ -339,6 +349,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     requirements,
     isCertified,
     replaceDocumentId,
+    eventLink,
     isFinalConflict,
     detectedFinalId,
     t,

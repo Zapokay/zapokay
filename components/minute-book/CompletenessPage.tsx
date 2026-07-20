@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import { useToasts } from '@/components/ui/Toasts';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { fiscalYearForDate } from '@/lib/active-years';
-import { uploadErrorMessageKey } from '@/lib/upload-error-message';
 import { getDocumentState, getStateForChecklistItem } from '@/lib/minute-book/state';
 import type { ObligationLiveness } from '@/lib/obligations/obligation';
 import RequirementSection from '@/components/minute-book/RequirementSection';
@@ -132,6 +131,15 @@ export default function CompletenessPage({
   // requirement modal state above — archive docs have no ChecklistItem.
   const [holdReplaceDoc, setHoldReplaceDoc] = useState<VaultDocument | null>(null);
   const [holdReplaceFile, setHoldReplaceFile] = useState<File | null>(null);
+  // Brief 2b — event-row upload now opens the SAME UploadDocumentModal document
+  // rows use (locked Titre + Type, editable Langue, certify checkbox), instead of
+  // POSTing directly. Mirrors pickedFile/pickedItem but for a lifecycle act: we
+  // hold the act (for eventLink + replace target), plus the resolved title + year
+  // (computed by EventActRow / bound at the render site — not on the act itself).
+  const [pickedEventFile, setPickedEventFile] = useState<File | null>(null);
+  const [pickedEventAct, setPickedEventAct] = useState<EventActStatus | null>(null);
+  const [pickedEventTitle, setPickedEventTitle] = useState<string>('');
+  const [pickedEventYear, setPickedEventYear] = useState<number | null>(null);
   const { addToast, ToastStack } = useToasts();
   // Chip filters — client-side only, reset on load (no URL param, no persistence).
   // OR-combine: a row shows if it matches ANY active chip. Dual-membership (a
@@ -275,16 +283,15 @@ export default function CompletenessPage({
     [addToast, data, tMB, tDocs, MAX_SIZE],
   );
 
-  // Brief 2 — lifecycle event-row upload. Unlike the requirement path above
-  // (which opens UploadDocumentModal), events POST DIRECTLY to
-  // /api/documents/upload (the authoritative server route) with an `eventLink`
-  // FormData field (JSON-encoded) — there is no requirement correspondence to
-  // collect. The event_documents link is written server-side from that eventLink.
-  // The act's filing year is passed in by the caller (the per-year section knows
-  // it; hors-exercice = null). isFinalized:true — the user is uploading their own
-  // SIGNED doc. When the act already has a doc (generated draft or prior upload),
-  // replaceDocumentId supersedes it: old doc deleted, its event_documents link
-  // cascades, the new upload + link leave exactly one link.
+  // Brief 2b — lifecycle event-row upload. Opens the SAME UploadDocumentModal the
+  // requirement path uses (locked Titre + Type, editable Langue, certify checkbox)
+  // instead of POSTing directly: it validates + resolves the user, then sets the
+  // event-modal state. The modal's submit carries the `eventLink` (built from the
+  // act at the render site) so the event_documents link is written server-side
+  // exactly as before, and the certify checkbox drives is_finalized (was hardcoded
+  // true) so a marked-final doc reaches the Binder. The act's filing year is passed
+  // by the caller (per-year section knows it; hors-exercice = null). Replace of an
+  // existing draft/upload is handled by the modal via replaceDocumentId (from the act).
   const handleEventFileSelected = useCallback(
     async (file: File, act: EventActStatus, title: string, year: number | null): Promise<void> => {
       if (file.type !== 'application/pdf') {
@@ -303,38 +310,20 @@ export default function CompletenessPage({
         return;
       }
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('companyId', companyId);
-      formData.append('title', title);
-      formData.append('docType', 'resolution');
-      formData.append('language', preferredLanguage);
-      if (year != null) formData.append('docYear', String(year));
-      formData.append('framework', framework);
-      formData.append('requirements', JSON.stringify(data?.checklist ?? []));
-      formData.append('isFinalized', 'true');
-      formData.append('eventLink', JSON.stringify({
-        event_type: act.event_type,
-        event_id: act.event_id,
-        event_phase: act.event_phase,
-      }));
-      if (act.satisfied && act.documentId) formData.append('replaceDocumentId', act.documentId);
-      // requirementKey/requirementYear omitted (always null on the event path — route reads them as null).
-      // No userId — the route derives it from the session; the getUser() above is UX-only
-      // (preserves the "Session expirée" toast). The route is the sole authority.
-
-      const res = await fetch('/api/documents/upload', { method: 'POST', body: formData });
-      const result = await res.json();
-
-      if (!result.ok) {
-        addToast(tDocs(uploadErrorMessageKey(result.error, res.status)), 'error');
-        return;
-      }
-
-      addToast(tMB('completeness.documentUploaded'), 'success');
-      fetchEvents();
+      // Open UploadDocumentModal (locked Titre + Type, editable Langue, certify
+      // checkbox) instead of POSTing directly. The modal's submit carries eventLink
+      // (built from the act at the render site) so the doc links to its event via
+      // event_documents exactly as the old direct POST did; the certify checkbox now
+      // drives is_finalized (was hardcoded true), so the doc reaches the Binder when
+      // the user marks it final. getUser above stays UX-only (the "Session expirée"
+      // toast); the route remains the sole authority.
+      setUserId(user.id);
+      setPickedEventAct(act);
+      setPickedEventTitle(title);
+      setPickedEventYear(year);
+      setPickedEventFile(file);
     },
-    [addToast, companyId, data, framework, tMB, preferredLanguage, fetchEvents, MAX_SIZE, tDocs],
+    [addToast, tDocs, MAX_SIZE],
   );
 
   const handleHoldFileSelected = useCallback(
@@ -799,6 +788,44 @@ export default function CompletenessPage({
             setHoldReplaceDoc(null);
             setHoldReplaceFile(null);
             void fetchData();
+          }}
+          onError={(msg) => addToast(msg, 'error')}
+        />
+      )}
+
+      {pickedEventFile && pickedEventAct && userId && (
+        <UploadDocumentModal
+          isOpen={true}
+          file={pickedEventFile}
+          mode="row"
+          companyId={companyId}
+          framework={framework}
+          locale={locale}
+          preferredLanguage={preferredLanguage}
+          prefill={{
+            docType: 'resolution',
+            docYear: pickedEventYear,
+            title: pickedEventTitle,
+          }}
+          eventLink={{
+            event_type: pickedEventAct.event_type,
+            event_id: pickedEventAct.event_id,
+            event_phase: pickedEventAct.event_phase,
+          }}
+          replaceDocumentId={
+            pickedEventAct.satisfied && pickedEventAct.documentId
+              ? pickedEventAct.documentId
+              : undefined
+          }
+          onClose={() => {
+            setPickedEventFile(null);
+            setPickedEventAct(null);
+            setPickedEventTitle('');
+            setPickedEventYear(null);
+          }}
+          onUploadComplete={() => {
+            addToast(tMB('completeness.documentUploaded'), 'success');
+            void fetchEvents();
           }}
           onError={(msg) => addToast(msg, 'error')}
         />
