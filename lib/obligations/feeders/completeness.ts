@@ -133,6 +133,9 @@ export function completenessToObligations(
       statutoryBasis: null,
       helpKey: null,
       fulfilled: false,
+      canUpload: item.can_upload,
+      canGenerate: item.can_generate,
+      docSource: item.source ?? null,
     };
   });
 }

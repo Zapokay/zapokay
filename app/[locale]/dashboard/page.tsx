@@ -286,7 +286,7 @@ export default async function DashboardPage({
         />
 
         {/* A3 board — "quoi faire maintenant"; the board follows the verdict */}
-        {company && <A3Board ranked={ranked} progress={progress} companyId={company.id} documentLanguage={(profile.preferred_language as 'fr' | 'en') ?? 'fr'} />}
+        {company && <A3Board ranked={ranked} progress={progress} companyId={company.id} documentLanguage={(profile.preferred_language as 'fr' | 'en') ?? 'fr'} framework={company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA'} />}
 
         {/* Stat cards */}
         {/* HIDDEN 2026-07-10 — dashboard vision rebuild (superseded by A3 board / verdict); pending decommission investigation. Block: Historique */}

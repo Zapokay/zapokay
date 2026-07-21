@@ -22,8 +22,6 @@ import {
   RotateCcw,
   Meh,
   HelpCircle,
-  Plus,
-  Upload,
   Check,
   Landmark,
   Info,
@@ -77,8 +75,10 @@ export interface VerbSpec {
   labelKey: string;
 }
 export const VERB_LABEL: Partial<Record<ObligationAction, VerbSpec>> = {
-  generate:        { Icon: Plus,     labelKey: 'verb.generate' },
-  upload:          { Icon: Upload,   labelKey: 'verb.upload' },
+  // upload + generate retired (B-2): completeness rows render Complétude's own
+  // buttons (requirementRow.uploadButton + GenerateDocumentButton default), so the
+  // board's verb.upload/generate labels are unused. finalize stays — deadline-
+  // finalize rows (no requirementKey) still render it via the else branch.
   finalize:        { Icon: Check,    labelKey: 'verb.finalize' },
   file_externally: { Icon: Landmark, labelKey: 'verb.file_externally' }, // Harvey-pending copy
 };

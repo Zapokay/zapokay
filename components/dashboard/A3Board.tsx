@@ -12,19 +12,24 @@ import { useLocale, useTranslations } from 'next-intl';
 import type { RankedObligation } from '@/lib/obligations/rank';
 import { ICONS } from './a3-presentation';
 import A3Item from './A3Item';
+import { useToasts } from '@/components/ui/Toasts';
 
 interface Props {
   ranked: RankedObligation[];
   progress: { done: number; total: number };
   companyId: string;
   documentLanguage: 'fr' | 'en';
+  framework: 'LSA' | 'CBCA';
 }
 
 const SORA = { fontFamily: 'Sora, sans-serif' } as const;
 
-export default function A3Board({ ranked, progress, companyId, documentLanguage }: Props) {
+export default function A3Board({ ranked, progress, companyId, documentLanguage, framework }: Props) {
   const locale = useLocale();
   const t = useTranslations('dashboard.a3Board');
+  // One toast stack for the whole board; addToast threads into each A3Item's
+  // useRowUpload ctx (upload validation/errors surface here, not per-row).
+  const { addToast, ToastStack } = useToasts();
 
   const top = ranked.slice(0, 5);
   const remaining = Math.max(0, ranked.length - 5);
@@ -54,7 +59,7 @@ export default function A3Board({ ranked, progress, companyId, documentLanguage 
       </div>
       {/* top-5 (rank 1 = hero) */}
       {top.map((o, i) => (
-        <A3Item key={o.id} obligation={o} hero={i === 0} companyId={companyId} documentLanguage={documentLanguage} />
+        <A3Item key={o.id} obligation={o} hero={i === 0} companyId={companyId} documentLanguage={documentLanguage} framework={framework} addToast={addToast} />
       ))}
 
       {/* show-more: route out to Completeness (never expands in place) */}
@@ -68,6 +73,8 @@ export default function A3Board({ ranked, progress, companyId, documentLanguage 
           <ArrowIcon className="w-3.5 h-3.5" />
         </Link>
       )}
+
+      {ToastStack}
     </div>
   );
 }

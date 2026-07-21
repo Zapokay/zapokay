@@ -59,4 +59,10 @@ export interface Obligation {
   statutoryBasis: string | null;
   helpKey: string | null;
   fulfilled: boolean;            // inert v1 seam for the deferred resolved-state
+  // Phase B-2 — completeness-row button-set inputs (the A3 board decides Upload/
+  // Generate/Regenerate/Replace per state). Optional: ONLY the completeness feeder
+  // sets them; req/deadline feeders omit them (those rows get no upload/generate).
+  canUpload?: boolean;
+  canGenerate?: boolean;
+  docSource?: 'uploaded' | 'generated' | null; // distinguishes généré from uploaded-WIP
 }

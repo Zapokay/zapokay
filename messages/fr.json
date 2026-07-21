@@ -199,8 +199,6 @@
         "remediate": "Situation à examiner"
       },
       "verb": {
-        "generate": "Générer et consigner",
-        "upload": "Téléverser et consigner",
         "finalize": "Finaliser et consigner",
         "file_externally": "Déclarer au gouvernement",
         "consult": "Consulter un professionnel"

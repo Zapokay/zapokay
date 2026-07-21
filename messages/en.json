@@ -199,8 +199,6 @@
         "remediate": "Needs review"
       },
       "verb": {
-        "generate": "Generate and record",
-        "upload": "Upload and record",
         "finalize": "Finalize and record",
         "file_externally": "File with the government",
         "consult": "Consult a professional"

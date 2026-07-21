@@ -7,9 +7,12 @@
  * remediate row treatment, per docs/design/zapokay_a3_board.html §2/§2B/§3/§11.
  */
 
+import { useRef } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
+import { useRowUpload } from '@/components/documents/useRowUpload';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import type { RankedObligation } from '@/lib/obligations/rank';
 import { formatDate } from '@/lib/utils';
@@ -43,15 +46,47 @@ interface Props {
   hero?: boolean;
   companyId: string;
   documentLanguage: 'fr' | 'en';
+  framework: 'LSA' | 'CBCA';
+  addToast: (message: string, type: 'success' | 'error') => void;
 }
 
-export default function A3Item({ obligation: o, hero = false, companyId, documentLanguage }: Props) {
+export default function A3Item({
+  obligation: o,
+  hero = false,
+  companyId,
+  documentLanguage,
+  framework,
+  addToast,
+}: Props) {
   const locale = useLocale();
   const t = useTranslations('dashboard.a3Board');
+  const tReq = useTranslations('requirementRow');
+  const tDocs = useTranslations('documents');
   const router = useRouter();
   // Generate success -> re-run the RSC so the board re-ranks. The Completeness page's
   // onGenerated is a silent fetchData refetch; router.refresh() is the RSC equivalent.
   const handleGenerated = () => router.refresh();
+
+  // Row upload/replace via the shared hook (B-1). requirementRef = fetch-on-demand:
+  // the board lacks the ChecklistItem, so the hook fetches it by requirementKey+year.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { openUpload, modalElement } = useRowUpload({
+    companyId,
+    framework,
+    locale,
+    preferredLanguage: documentLanguage,
+    addToast,
+  });
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f || !o.requirementKey) return;
+    await openUpload({
+      file: f,
+      source: { kind: 'requirementRef', requirementKey: o.requirementKey, year: o.year },
+      onSuccess: () => router.refresh(),
+    });
+  }
 
   // Hero-trap guard (§11): only a `live` item may render as the hero. The ranker
   // sorts live > regularize > remediate so rank 1 is always live — assert it here
@@ -70,17 +105,30 @@ export default function A3Item({ obligation: o, hero = false, companyId, documen
   // #149 — description follows UI locale (catalog chrome), mirroring RequirementRow.
   const description = locale === 'en' ? o.descriptionEn : o.descriptionFr;
 
-  // ── status chip — suppressed on remediate (liveness outranks status) ──
+  // ── state chip — Complétude parity for completeness rows: to_finalize shows
+  //    "À signer" (documents.toSignBadge); empty (open) shows NO chip. Non-
+  //    completeness rows keep their board status chip. Remediate/satisfied → none.
+  //    The tier badge (below) is the ranking layer and is unaffected. ──
+  const isCompletenessRow = o.source === 'completeness';
+  // Inline the guard (not via an intermediate boolean) so TS narrows o.status to
+  // exclude 'satisfied' when indexing STATUS_CHIP. Completeness empty (open) → no chip.
   const statusSpec =
-    !isRemediate && o.status !== 'satisfied' ? STATUS_CHIP[o.status] : null;
+    isRemediate || o.status === 'satisfied' || (isCompletenessRow && o.status === 'open')
+      ? null
+      : STATUS_CHIP[o.status];
   const StatusIcon = statusSpec?.Icon;
+  const stateChipLabel = statusSpec
+    ? isCompletenessRow && o.status === 'to_finalize'
+      ? tDocs('toSignBadge')
+      : t(statusSpec.labelKey)
+    : '';
   const statusChip =
     statusSpec && StatusIcon ? (
       <span
         className={`inline-flex items-center gap-[5px] text-[11px] font-semibold px-[9px] py-[3px] rounded-full leading-[1.3] border ${STATUS_TONE_CLASS[statusSpec.tone]}`}
       >
         <StatusIcon className="w-3 h-3 shrink-0" />
-        {t(statusSpec.labelKey)}
+        {stateChipLabel}
       </span>
     ) : null;
 
@@ -101,20 +149,85 @@ export default function A3Item({ obligation: o, hero = false, companyId, documen
       </span>
     ) : null;
 
-  // ── verb — remediate overrides with the consult action-state; otherwise two
-  //    independent lookups (visual ← exposure, label ← actionKind). ──
+  // ── verb — three branches: remediate → Consult (unchanged); completeness rows
+  //    (requirementKey present) → Complétude's per-state button SET wired to real
+  //    actions; everything else (file_externally etc.) → the single exposure-styled
+  //    verb. SET labels source from Complétude's keys (requirementRow.*, and the
+  //    GenerateDocumentButton default) so the board can't drift. ──
   const actBase =
-    'inline-flex items-center gap-1.5 font-semibold rounded-[9px] whitespace-nowrap cursor-default';
+    'inline-flex items-center gap-1.5 font-semibold rounded-[9px] whitespace-nowrap';
+  const canRowUpload = o.source === 'completeness' && o.requirementKey != null;
   let verbButton: React.ReactNode = null;
   if (isRemediate) {
     const ConsultIcon = CONSULT.Icon;
     verbButton = (
       <button
-        className={`${actBase} text-[12px] px-3.5 py-[7px] bg-transparent text-[var(--lv-remediate)] border-[1.5px] border-[var(--lv-remediate-bd)]`}
+        className={`${actBase} cursor-default text-[12px] px-3.5 py-[7px] bg-transparent text-[var(--lv-remediate)] border-[1.5px] border-[var(--lv-remediate-bd)]`}
       >
         <ConsultIcon className="w-3.5 h-3.5" />
         {t(CONSULT.labelKey)}
       </button>
+    );
+  } else if (canRowUpload) {
+    // Per-state SET (mirrors RequirementRow): empty → [Upload, Generate]; généré →
+    // [Upload, Regenerate]; uploaded-WIP → [Replace]. docSource (EDIT 1) distinguishes
+    // généré from uploaded-WIP. Replace drops the canUpload gate (an uploaded row is
+    // replaceable by definition), matching RequirementRow.
+    const noDoc = !o.docSource;
+    const isGenerated = o.docSource === 'generated';
+    const isUploadedWip = o.docSource === 'uploaded';
+    // Hero (rank 1): Téléverser/Remplacer = SOLID amber primary; the secondary
+    // (Générer/Régénérer) = amber-BORDER outline (amber family). Non-hero: plain
+    // dual-outline (Complétude parity). No dedicated --amber-border token exists;
+    // --amber-400 (the solid amber) is reused as the border color — Aria to confirm.
+    const setBase = `${actBase} cursor-pointer text-[12px] px-3.5 py-[7px] border-[1.5px] transition-colors`;
+    const uploadCls = asHero
+      ? `${setBase} bg-[var(--amber-400)] text-[var(--navy-900)] border-transparent hover:bg-[var(--amber-hover)] active:opacity-90`
+      : `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)]`;
+    const genCls = asHero
+      ? `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--amber-400)] hover:bg-[var(--warning-bg)] hover:text-[var(--warning-text)] active:opacity-90`
+      : `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)]`;
+
+    const uploadBtn = isUploadedWip
+      ? { show: true, label: tReq('replace') }
+      : (noDoc || isGenerated)
+        ? { show: o.canUpload ?? false, label: tReq('uploadButton') }
+        : { show: false, label: '' };
+    const genBtn = noDoc
+      ? { show: o.canGenerate ?? false, label: undefined as string | undefined }
+      : isGenerated
+        ? { show: o.canGenerate ?? false, label: tReq('regenerate') as string | undefined }
+        : { show: false, label: undefined as string | undefined };
+
+    verbButton = (
+      <>
+        {uploadBtn.show && (
+          <button type="button" onClick={() => fileInputRef.current?.click()} className={uploadCls}>
+            <Upload className="w-3.5 h-3.5" />
+            {uploadBtn.label}
+          </button>
+        )}
+        {genBtn.show && o.requirementKey && (
+          <GenerateDocumentButton
+            companyId={companyId}
+            requirementKey={o.requirementKey}
+            year={o.year}
+            documentLanguage={documentLanguage}
+            onSuccess={handleGenerated}
+            locale={locale}
+            label={genBtn.label}
+            className={genCls}
+          />
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+        />
+        {modalElement}
+      </>
     );
   } else {
     const verb = VERB_LABEL[o.actionKind];
@@ -127,32 +240,20 @@ export default function A3Item({ obligation: o, hero = false, companyId, documen
       const VerbIcon = verb.Icon;
       // Aria ruling: fill color follows EXPOSURE (legal kind); hero is SCALE only.
       // External = solid charbon always (never amber, even as hero); internal =
-      // amber when hero, outline otherwise. Non-hero behavior unchanged.
+      // amber when hero, outline otherwise.
       const scale = asHero ? 'text-[13px] px-[18px] py-[9px]' : 'text-[12px] px-3.5 py-[7px]';
       const cls =
         VERB_TREATMENT[o.exposure] === 'gov'
-          ? `${actBase} ${scale} bg-[var(--act-gov-bg)] text-[var(--act-gov-fg)] border-none`
+          ? `${actBase} cursor-default ${scale} bg-[var(--act-gov-bg)] text-[var(--act-gov-fg)] border-none`
           : asHero
-            ? `${actBase} ${scale} bg-[var(--amber-400)] text-[var(--navy-900)] border-none`
-            : `${actBase} ${scale} bg-transparent text-[var(--text-heading)] border-[1.5px] border-[var(--card-border)]`;
-      verbButton =
-        o.actionKind === 'generate' && o.requirementKey ? (
-          <GenerateDocumentButton
-            companyId={companyId}
-            requirementKey={o.requirementKey}
-            year={o.year}
-            documentLanguage={documentLanguage}
-            onSuccess={handleGenerated}
-            locale={locale}
-            label={t(verb.labelKey)}
-            className={cls}
-          />
-        ) : (
-          <button className={cls}>
-            <VerbIcon className="w-3.5 h-3.5" />
-            {t(verb.labelKey)}
-          </button>
-        );
+            ? `${actBase} cursor-default ${scale} bg-[var(--amber-400)] text-[var(--navy-900)] border-none`
+            : `${actBase} cursor-default ${scale} bg-transparent text-[var(--text-heading)] border-[1.5px] border-[var(--card-border)]`;
+      verbButton = (
+        <button className={cls}>
+          <VerbIcon className="w-3.5 h-3.5" />
+          {t(verb.labelKey)}
+        </button>
+      );
     }
   }
 
