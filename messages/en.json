@@ -331,7 +331,8 @@
     "inYearDivider": "Events this year",
     "viewDocument": "View document",
     "generate": "Generate",
-    "regenerate": "Regenerate"
+    "regenerate": "Regenerate",
+    "actNotFound": "Event not found."
   },
   "compliance": {
     "title": "Corporate Compliance",

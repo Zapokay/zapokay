@@ -45,9 +45,12 @@
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { CheckCircle2, XCircle, Upload } from 'lucide-react';
-import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
+import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
 import { getDocumentState } from '@/lib/minute-book/state';
-import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
+import {
+  isEventGenerateDisabled,
+  resolveEventDocTitle,
+} from '@/lib/minute-book/event-act-helpers';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
 import { obligationsForDocKey } from '@/lib/obligations/req-obligations';
 import { deriveDocKey, type DocKeyDerivation } from '@/lib/obligations/derive-dockey';
@@ -55,17 +58,6 @@ import { formatDate, addDays } from '@/lib/utils';
 import { ObligationMarker } from '@/components/ui/ObligationMarker';
 import { ObligationModal } from '@/components/ui/ObligationModal';
 import { useObligationModalContent } from '@/components/ui/useObligationModalContent';
-
-// Mirrors OfficersClient.tsx TITLE_LABELS — kept local per the same Tier-3
-// extraction follow-up. lib/i18n/lifecycle-labels.ts has a server-side
-// equivalent but it THROWS on unknown title; the row prefers a soft fallback
-// (display the raw title) to silently degrade rather than crash a render.
-const OFFICER_TITLE_LABELS: Record<string, { fr: string; en: string }> = {
-  president: { fr: 'Président·e', en: 'President' },
-  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
-  secretary: { fr: 'Secrétaire', en: 'Secretary' },
-  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
-};
 
 interface EventActRowProps {
   act: EventActStatus;
@@ -97,14 +89,21 @@ export default function EventActRow({
   // Reuse the existing requirement-row upload strings (Téléverser / Remplacer /
   // uploading) — Brief 2 adds no new upload copy.
   const tReq = useTranslations('requirementRow');
-  // End-reason labels live under directors / officers (already shipped). We
-  // pick the right namespace based on the act's event_type.
-  const tDirectors = useTranslations('directors');
-  const tOfficers = useTranslations('officers');
   const tObl = useTranslations('obligationNotice');
   const buildObligationContent = useObligationModalContent();
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // A-1 — the generate dialog, its open state, and the i18n-dependent
+  // derivation it needs (personName / roleLabel / reasonLabel, incl. the
+  // directors+officers endReasons namespaces) now live in the shared hook, so
+  // the A3 board drives the SAME dialog from the same code. addToast is
+  // omitted: only the hook's eventRef branch can surface a user-facing error,
+  // and this row always passes the act it already holds.
+  const { openGenerate, dialogElement } = useEventGenerate({
+    companyId,
+    locale,
+    preferredLanguage,
+  });
+
   const [obligationOpen, setObligationOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,79 +137,11 @@ export default function EventActRow({
   // label so the row never renders empty.
   // #156 — the title follows the document's language (`documents.language`)
   // when a doc exists, else the user's preferred_language; NEVER the UI locale
-  // (which stays for chrome only). titleFr/titleEn both exist in the registry.
-  const titleLang = act.documentLanguage ?? preferredLanguage;
-  const registryTitle = derivation
-    ? (titleLang === 'en'
-        ? LIFECYCLE_TEMPLATES[derivation.docKey]?.titleEn
-        : LIFECYCLE_TEMPLATES[derivation.docKey]?.titleFr)
-    : undefined;
-  const labelHead =
-    registryTitle ?? (titleLang === 'en' ? act.label_en : act.label_fr);
-  const rowLabel = `${labelHead} — ${personName}`;
-
-  // Document title for an event doc — follows the document's language (#156),
-  // independent of UI locale.
-  const docTitle = registryTitle ?? (titleLang === 'en' ? act.label_en : act.label_fr);
-
-  // Role label resolution. Directors get the canonical role string; officers
-  // resolve through the local TITLE_LABELS map (custom titles use the
-  // user-authored string verbatim, with a non-localized fallback when the
-  // custom value is blank). For non-officer events that fall through to a
-  // simple director label, the dialog still receives a sensible value.
-  let roleLabel = '';
-  if (act.event_type === 'director_mandate') {
-    roleLabel = locale === 'fr' ? 'Administrateur' : 'Director';
-  } else if (act.event_type === 'officer_appointment') {
-    const t = act.officerTitle;
-    if (t === 'custom') {
-      roleLabel =
-        act.officerCustomTitle && act.officerCustomTitle.trim().length > 0
-          ? act.officerCustomTitle
-          : (locale === 'fr' ? 'Dirigeant·e' : 'Officer');
-    } else if (t && OFFICER_TITLE_LABELS[t]) {
-      roleLabel = OFFICER_TITLE_LABELS[t][locale];
-    } else {
-      roleLabel = t ?? (locale === 'fr' ? 'Dirigeant·e' : 'Officer');
-    }
-  } else if (act.event_type === 'shareholding') {
-    roleLabel = locale === 'fr' ? 'Actionnaire' : 'Shareholder';
-  }
-
-  // reasonLabel: only meaningful for departure phases AND only when the
-  // doc registry actually requires endReason (director_removal omits it —
-  // the act of removal IS the reason). Resolved through the existing
-  // directors/officers endReasons namespaces.
-  let reasonLabel: string | undefined;
-  if (
-    act.event_phase === 'departure' &&
-    derivation?.docKey !== 'director_removal' &&
-    act.endReason
-  ) {
-    try {
-      const ns = act.event_type === 'officer_appointment' ? tOfficers : tDirectors;
-      reasonLabel = ns(`endReasons.${act.endReason}`);
-    } catch {
-      // Missing translation — let the server error surface rather than
-      // ship a code identifier into the dialog readout.
-      reasonLabel = undefined;
-    }
-  }
-
-  // Disable Générer when the doc requires endReason but we don't have one —
-  // surfaces the data-integrity gap up-front instead of letting the user
-  // hit a 400 from the orchestrator. Rare (created via the Administrateurs /
-  // Dirigeants flows which collect end_reason at the same time as end_date).
-  const generateDisabled =
-    !derivation ||
-    (act.event_phase === 'departure' &&
-      derivation.docKey !== 'director_removal' &&
-      !act.endReason);
-
-  function openDialog() {
-    if (generateDisabled) return;
-    setDialogOpen(true);
-  }
+  // (which stays for chrome only). A-1 — the derivation itself (registry lookup,
+  // #156 language rule, empty-row fallback) now lives in the shared pure helper,
+  // so the row, the generate hook, and the A3 board all resolve ONE title.
+  const docTitle = resolveEventDocTitle(act, preferredLanguage);
+  const rowLabel = `${docTitle} — ${personName}`;
 
   // Brief 2 — user picked a signed PDF to upload/replace on this act. Reset the
   // input value so the SAME file can be re-picked after an error.
@@ -303,8 +234,10 @@ export default function EventActRow({
         {(isMissing || isUnsigned) && derivation && (
           <button
             type="button"
-            onClick={openDialog}
-            disabled={generateDisabled}
+            onClick={() =>
+              openGenerate({ source: { kind: 'act', act }, onSuccess: onGenerated })
+            }
+            disabled={isEventGenerateDisabled(act)}
             className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isUnsigned ? tEvents('regenerate') : tEvents('generate')}
@@ -335,25 +268,7 @@ export default function EventActRow({
         )}
       </div>
 
-      {dialogOpen && derivation && (
-        <GenerateLifecycleResolutionDialog
-          companyId={companyId}
-          docKey={derivation.docKey}
-          instrument={derivation.instrument}
-          docKeyOptions={derivation.options}
-          eventId={act.event_id}
-          personName={personName}
-          roleLabel={roleLabel}
-          eventDate={act.date}
-          reasonLabel={reasonLabel}
-          language={preferredLanguage}
-          onClose={() => setDialogOpen(false)}
-          onSuccess={() => {
-            setDialogOpen(false);
-            onGenerated();
-          }}
-        />
-      )}
+      {dialogElement}
     </div>
       {obligationOpen && (
         <ObligationModal

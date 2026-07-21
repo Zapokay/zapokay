@@ -331,7 +331,8 @@
     "inYearDivider": "Événements de l'année",
     "viewDocument": "Voir le document",
     "generate": "Générer",
-    "regenerate": "Régénérer"
+    "regenerate": "Régénérer",
+    "actNotFound": "Événement introuvable."
   },
   "compliance": {
     "title": "Conformité corporative",
