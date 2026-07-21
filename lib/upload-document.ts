@@ -150,13 +150,6 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
   // 3. Resolve minute_book_section.
   const minuteBookSection = resolveMinuteBookSection(requirementKey, docType, requirements);
 
-  // Upload-only requirements (can_generate=false) have nothing to sign — the uploaded
-  // proof IS the final version (REQ = online transmission + accusé, not a signature). Force
-  // is_finalized=true so it reaches the scope=finalized binder, matching the Complétude rule
-  // in lib/minute-book/state.ts. Mirrors the find-by-key idiom used for the section above.
-  const linkedReq = requirementKey ? requirements.find(r => r.requirement_key === requirementKey) : undefined;
-  const effectiveFinalized = isFinalized || linkedReq?.can_generate === false;
-
   // 4. Insert the document row. Store the relative storage key in file_url
   //    (see lib/storage-path.ts — consumers normalize either shape, producers
   //    should prefer the relative key).
@@ -175,7 +168,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
       framework,
       uploaded_at: new Date().toISOString(),
       source: 'uploaded',
-      is_finalized: effectiveFinalized,
+      is_finalized: isFinalized,
       ...(requirementKey ? { requirement_key: requirementKey } : {}),
       ...(requirementYear !== null ? { requirement_year: requirementYear } : {}),
       ...(minuteBookSection ? { minute_book_section: minuteBookSection } : {}),

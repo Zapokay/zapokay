@@ -72,9 +72,6 @@ export function getDocumentState(item: StateInput): DocumentState {
   // source === 'uploaded' (or null/undefined drift fallback): split on is_finalized.
   // Explicit false → WIP upload, treated as 'généré'. Anything else (true,
   // null, undefined) → 'téléversé'.
-  // Upload-only docs (can_generate === false) are complete on upload — nothing to sign
-  // (REQ annual update = online transmission + accusé). is_finalized irrelevant for upload-only.
-  if (item.source === 'uploaded' && item.is_finalized === false && item.can_generate === false) return 'téléversé';
   if (item.source === 'uploaded' && item.is_finalized === false) return 'généré';
   return 'téléversé';
 }
