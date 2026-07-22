@@ -9,6 +9,7 @@
 export type ObligationSource =
   | 'completeness'
   | 'req_filing'
+  | 'event'        // A-2 — event-document feeder (Stage 1 = the doc; Stage 2 = its REQ filing)
   | 'deadline'
   | 'ai_anomaly'   // FUTURE - no emitter today
   | 'lawyer_rule'; // FUTURE
@@ -65,4 +66,10 @@ export interface Obligation {
   canUpload?: boolean;
   canGenerate?: boolean;
   docSource?: 'uploaded' | 'generated' | null; // distinguishes généré from uploaded-WIP
+  // A-2 — event linkage. Set ONLY by the event feeder; carries the act identity
+  // triple so the board row can drive useEventGenerate / useRowUpload's `event`
+  // source and re-find the act by (event_type, event_id, event_phase). Optional +
+  // nullable so completeness / deadline / req feeders are unaffected (same pattern
+  // as canUpload/canGenerate/docSource above).
+  eventLink?: { event_type: string; event_id: string; event_phase: string } | null;
 }

@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
+import { resolveEventDocTitle } from '@/lib/minute-book/event-act-helpers';
+import { parseLocalDate } from '@/lib/utils';
 
 // Matches CompletenessPage's cap + UploadZone's cap.
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -18,11 +20,16 @@ const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
  *  - event:          a lifecycle event row — carries eventLink + the already-resolved
  *                    title (EventActRow's #156 registry derivation stays there; the
  *                    hook does NOT recompute it, so no drift and no signature churn).
+ *  - eventRef:       the A3 board (A-3) — only the eventLink triple is known, so the
+ *                    hook fetches the act on demand (GET event-completeness), resolves
+ *                    the locked title via resolveEventDocTitle, then falls through to
+ *                    the identical `event` active-state. Symmetric with requirementRef.
  */
 export type UploadSource =
   | { kind: 'requirement'; item: ChecklistItem }
   | { kind: 'requirementRef'; requirementKey: string; year: number | null }
-  | { kind: 'event'; act: EventActStatus; title: string; year: number | null };
+  | { kind: 'event'; act: EventActStatus; title: string; year: number | null }
+  | { kind: 'eventRef'; eventLink: { event_type: string; event_id: string; event_phase: string } };
 
 export interface UploadRequest {
   file: File;
@@ -72,6 +79,7 @@ export function useRowUpload(ctx: RowUploadContext): {
   const fr = locale === 'fr';
   const tDocs = useTranslations('documents');
   const tMB = useTranslations('minuteBook');
+  const tEvents = useTranslations('events');
   const [active, setActive] = useState<ActiveUpload | null>(null);
 
   // ChecklistItem → prefill + replace target. Title follows UI locale (matches the
@@ -142,6 +150,39 @@ export function useRowUpload(ctx: RowUploadContext): {
           return;
         }
         setActive({ file, onSuccess, ...resolveItem(item) });
+      } else if (source.kind === 'eventRef') {
+        // A3 board (A-3): only the eventLink triple is known — fetch the acts,
+        // find it by the triple, derive the locked title, then behave like
+        // 'event'. Mirrors requirementRef (fetch→find→same active-state) and
+        // useEventGenerate's eventRef branch.
+        const { eventLink } = source;
+        const res = await fetch('/api/minute-book/event-completeness', { cache: 'no-store' });
+        const data = res.ok ? await res.json() : null;
+        const act: EventActStatus | undefined = data?.acts?.find(
+          (a: EventActStatus) =>
+            a.event_type === eventLink.event_type &&
+            a.event_id === eventLink.event_id &&
+            a.event_phase === eventLink.event_phase,
+        );
+        if (!act) {
+          // ALWAYS logged — a miss must never be silently swallowed.
+          console.error('[useRowUpload] act not found for eventLink', eventLink);
+          addToast(tEvents('actNotFound'), 'error');
+          return;
+        }
+        const title = resolveEventDocTitle(act, preferredLanguage);
+        const year = parseLocalDate(act.date).getFullYear();
+        setActive({
+          file,
+          onSuccess,
+          prefill: { docType: 'resolution', docYear: year, title },
+          eventLink: {
+            event_type: act.event_type,
+            event_id: act.event_id,
+            event_phase: act.event_phase,
+          },
+          replaceDocumentId: act.satisfied && act.documentId ? act.documentId : undefined,
+        });
       } else {
         // event — eventLink + locked 'resolution' type + the EventActRow-resolved title.
         const { act, title, year } = source;
@@ -158,7 +199,7 @@ export function useRowUpload(ctx: RowUploadContext): {
         });
       }
     },
-    [addToast, tDocs, tMB, resolveItem],
+    [addToast, tDocs, tMB, tEvents, preferredLanguage, resolveItem],
   );
 
   // The modal fires onUploadComplete (→ caller's toast + refetch) then, ~600ms later,

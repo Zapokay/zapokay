@@ -10,9 +10,11 @@
 import { useRef } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { Upload } from 'lucide-react';
+import { Upload, Sparkles } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import { useRowUpload } from '@/components/documents/useRowUpload';
+import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
+import { ObligationMarker } from '@/components/ui/ObligationMarker';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import type { RankedObligation } from '@/lib/obligations/rank';
 import { formatDate } from '@/lib/utils';
@@ -62,6 +64,8 @@ export default function A3Item({
   const t = useTranslations('dashboard.a3Board');
   const tReq = useTranslations('requirementRow');
   const tDocs = useTranslations('documents');
+  const tEvents = useTranslations('events');
+  const tObl = useTranslations('obligationNotice');
   const router = useRouter();
   // Generate success -> re-run the RSC so the board re-ranks. The Completeness page's
   // onGenerated is a silent fetchData refetch; router.refresh() is the RSC equivalent.
@@ -77,10 +81,29 @@ export default function A3Item({
     preferredLanguage: documentLanguage,
     addToast,
   });
+  // A-3 — event-row generate via the shared A-1 hook. Its eventRef branch fetches
+  // the act by eventLink, so the board carries only the link, not the full act.
+  const { openGenerate, dialogElement } = useEventGenerate({
+    companyId,
+    locale,
+    preferredLanguage: documentLanguage,
+    addToast,
+  });
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = '';
-    if (!f || !o.requirementKey) return;
+    if (!f) return;
+    // Event rows carry eventLink (no requirementKey) → eventRef upload source;
+    // completeness rows keep the requirementRef path byte-identical.
+    if (o.source === 'event' && o.eventLink) {
+      await openUpload({
+        file: f,
+        source: { kind: 'eventRef', eventLink: o.eventLink },
+        onSuccess: () => router.refresh(),
+      });
+      return;
+    }
+    if (!o.requirementKey) return;
     await openUpload({
       file: f,
       source: { kind: 'requirementRef', requirementKey: o.requirementKey, year: o.year },
@@ -109,16 +132,20 @@ export default function A3Item({
   //    "À signer" (documents.toSignBadge); empty (open) shows NO chip. Non-
   //    completeness rows keep their board status chip. Remediate/satisfied → none.
   //    The tier badge (below) is the ranking layer and is unaffected. ──
-  const isCompletenessRow = o.source === 'completeness';
+  // A-3 — document rows (completeness AND event) share the Complétude chip
+  // grammar: empty (open) → no chip; généré (to_finalize) → "À signer". Event
+  // Stage-2 (file_externally) rows carry a filing-clock status (due_soon/overdue),
+  // not to_finalize, so they keep their board status chip.
+  const showsDocChip = o.source === 'completeness' || o.source === 'event';
   // Inline the guard (not via an intermediate boolean) so TS narrows o.status to
-  // exclude 'satisfied' when indexing STATUS_CHIP. Completeness empty (open) → no chip.
+  // exclude 'satisfied' when indexing STATUS_CHIP. Document empty (open) → no chip.
   const statusSpec =
-    isRemediate || o.status === 'satisfied' || (isCompletenessRow && o.status === 'open')
+    isRemediate || o.status === 'satisfied' || (showsDocChip && o.status === 'open')
       ? null
       : STATUS_CHIP[o.status];
   const StatusIcon = statusSpec?.Icon;
   const stateChipLabel = statusSpec
-    ? isCompletenessRow && o.status === 'to_finalize'
+    ? showsDocChip && o.status === 'to_finalize'
       ? tDocs('toSignBadge')
       : t(statusSpec.labelKey)
     : '';
@@ -156,7 +183,12 @@ export default function A3Item({
   //    GenerateDocumentButton default) so the board can't drift. ──
   const actBase =
     'inline-flex items-center gap-1.5 font-semibold rounded-[9px] whitespace-nowrap';
-  const canRowUpload = o.source === 'completeness' && o.requirementKey != null;
+  // A-3 — the per-state button SET (Upload/Generate/Regenerate/Replace) now drives
+  // completeness rows AND event rows (Stage 1). Event Stage-2 rows (file_externally)
+  // fall through to the static-verb branch below — that IS the filing treatment.
+  const canRowUpload =
+    (o.source === 'completeness' && o.requirementKey != null) ||
+    (o.source === 'event' && o.eventLink != null && o.actionKind !== 'file_externally');
   let verbButton: React.ReactNode = null;
   if (isRemediate) {
     const ConsultIcon = CONSULT.Icon;
@@ -199,6 +231,11 @@ export default function A3Item({
         ? { show: o.canGenerate ?? false, label: tReq('regenerate') as string | undefined }
         : { show: false, label: undefined as string | undefined };
 
+    // Event rows route Générer to useEventGenerate (Engine B — /generate-lifecycle),
+    // NOT GenerateDocumentButton (requirement-keyed → /generate-item). Captured as a
+    // const local so TS narrows it to non-null inside the onClick closure.
+    const eventLink = o.source === 'event' ? o.eventLink ?? null : null;
+
     verbButton = (
       <>
         {uploadBtn.show && (
@@ -219,6 +256,21 @@ export default function A3Item({
             className={genCls}
           />
         )}
+        {genBtn.show && eventLink && (
+          <button
+            type="button"
+            onClick={() =>
+              openGenerate({
+                source: { kind: 'eventRef', eventLink },
+                onSuccess: handleGenerated,
+              })
+            }
+            className={genCls}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {genBtn.label ?? tEvents('generate')}
+          </button>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -227,6 +279,7 @@ export default function A3Item({
           style={{ display: 'none' }}
         />
         {modalElement}
+        {dialogElement}
       </>
     );
   } else {
@@ -291,11 +344,29 @@ export default function A3Item({
     </span>
   );
 
-  // ── due line — a date (with past-due prefix when overdue), else a foundation tag ──
+  // ── filing marker (A-3) — DISPLAY-ONLY, roster event rows only (dueDate present).
+  //    The always-on deadline channel (Dom's locked decision): shown from Stage 1
+  //    onward, driven by the event's own 30-day clock carried on the obligation,
+  //    independent of the button's stage. Part B makes it interactive ("J'ai fait
+  //    la déclaration"). Share events carry no dueDate → no marker. ──
+  const filingMarker =
+    o.source === 'event' && o.dueDate ? (
+      <ObligationMarker
+        interactive={false}
+        label={tObl('marker.label')}
+        deadline={formatDate(o.dueDate, locale, { day: 'numeric', month: 'short', year: 'numeric' })}
+      />
+    ) : null;
+
+  // ── due line — a date (with past-due prefix when overdue), else a foundation tag.
+  //    Event rows show the filing marker (above) instead of this plain line, so the
+  //    date isn't duplicated — suppress the due line for them. ──
   const DueIcon = ICONS.due;
   const FoundationIcon = ICONS.foundation;
   let dueLine: React.ReactNode = null;
-  if (o.dueDate) {
+  if (o.source === 'event') {
+    dueLine = null; // handled by filingMarker
+  } else if (o.dueDate) {
     const dateStr = formatDate(o.dueDate, locale, {
       day: 'numeric',
       month: 'short',
@@ -342,6 +413,7 @@ export default function A3Item({
         </div>
         <div className="flex items-center gap-[9px] mt-[11px] mb-[15px] flex-wrap">
           {dueLine}
+          {filingMarker}
         </div>
         <div className="flex items-center gap-[9px]">
           {verbButton}
@@ -384,6 +456,7 @@ export default function A3Item({
           {tierBadge}
           {statusChip}
           {dueLine}
+          {filingMarker}
         </div>
         <div className="flex items-center gap-[7px] mt-[11px]">
           {verbButton}

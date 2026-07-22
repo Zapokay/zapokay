@@ -16,10 +16,9 @@ import { formatDate, parseLocalDate } from '@/lib/utils';
 import { computeRequirementCompleteness } from '@/lib/minute-book/requirement-completeness';
 import { computeEventCompleteness } from '@/lib/minute-book/event-completeness';
 import { computeHoldYears } from '@/lib/minute-book/hold-years';
-import { deriveDocKey } from '@/lib/obligations/derive-dockey';
 import { completenessToObligations } from '@/lib/obligations/feeders/completeness';
 import { deadlineObligations } from '@/lib/obligations/feeders/deadlines';
-import { reqObligations } from '@/lib/obligations/feeders/req';
+import { eventsToObligations } from '@/lib/obligations/feeders/events';
 import { mergeObligations } from '@/lib/obligations/aggregate';
 import { rankObligations } from '@/lib/obligations/rank';
 import A3Board from '@/components/dashboard/A3Board';
@@ -201,7 +200,9 @@ export default async function DashboardPage({
       today,
     );
 
-    // Feeder 2 (REQ) — event acts → deriveDocKey → reqObligations.
+    // Feeder 2 (event) — event acts → eventsToObligations (Stage 1 doc + Stage 2
+    // REQ filing). Replaces the old ungated reqObs (Finding ① — it emitted the
+    // Stage-2 filing regardless of whether the resolution document existed yet).
     const events = await computeEventCompleteness(supabase, company.id, incorporationDate);
     // Fold events into the verdict aggregates so the dashboard matches Complétude.
     // 0ee6dc4 folded events into the /api completeness route (which the Complétude
@@ -216,20 +217,9 @@ export default async function DashboardPage({
     invGenerated = completeness.requirementsGenerated + events.eventsGenerated;
     invMissing = completeness.requirementsMissing + events.totalMissing;
     invArchived = (holdYears ?? []).reduce((s, hy) => s + hy.documents.length, 0);
-    const reqObs = events.acts.flatMap((act) => {
-      const derivation = deriveDocKey(act);
-      if (!derivation) return [];
-      return reqObligations(
-        {
-          docKey: derivation.docKey,
-          eventDate: act.date,
-          eventId: `${act.event_type}:${act.event_id}:${act.event_phase}`,
-        },
-        today,
-      );
-    });
+    const eventObs = eventsToObligations(events.acts, today);
 
-    const merged = mergeObligations(completenessObs, deadlineObs, reqObs);
+    const merged = mergeObligations(completenessObs, deadlineObs, eventObs);
     ranked = rankObligations(merged, today);
     progress = {
       done: completeness.checklist.filter((i) => i.satisfied).length,
