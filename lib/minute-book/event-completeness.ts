@@ -105,6 +105,15 @@ export interface EventActStatus {
    * engine uses — one severity vocabulary across events + requirements.
    */
   liveness: ObligationLiveness | null;
+  /**
+   * Part B — true when an event_filings row exists for this act triple. Drives
+   * both consequences of a completed government filing: the A3 board drops the
+   * Stage-2 file_externally obligation entirely, and Complétude suppresses the
+   * "Formalité à produire" marker (the act ROW stays — Complétude is inventory).
+   * Only meaningful for roster acts (share acts have no filing); false for all
+   * acts until the filing button (B-2) writes a row.
+   */
+  filed: boolean;
 }
 
 export interface EventCompletenessResponse {
@@ -213,6 +222,14 @@ interface SatisfiedEntry {
   language: string | null;
 }
 
+// Part B — one event_filings row per filed act (the act triple only; RLS scopes
+// by company_id).
+interface RawFiling {
+  event_type: EventDocumentType;
+  event_id: string;
+  event_phase: EventPhase;
+}
+
 export async function computeEventCompleteness(
   supabase: SupabaseClient,
   companyId: string,
@@ -228,7 +245,7 @@ export async function computeEventCompleteness(
     return new Date(d).getTime() > incDate.getTime();
   };
 
-  const [dirRes, offRes, shRes, trRes, edRes] = await Promise.all([
+  const [dirRes, offRes, shRes, trRes, edRes, flRes] = await Promise.all([
     supabase
       .from('director_mandates')
       .select('id, appointment_date, end_date, end_reason, person:company_people(full_name)')
@@ -259,6 +276,13 @@ export async function computeEventCompleteness(
       .select('document_id, event_type, event_id, event_phase, document:documents(source, is_finalized, language)')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false }),
+    // Part B — event_filings: which acts have had their government filing done.
+    // Rides the existing Promise.all (no added latency). The act triple is all
+    // we need; RLS scopes by company_id.
+    supabase
+      .from('event_filings')
+      .select('event_type, event_id, event_phase')
+      .eq('company_id', companyId),
   ]);
 
   if (dirRes.error) throw dirRes.error;
@@ -266,12 +290,14 @@ export async function computeEventCompleteness(
   if (shRes.error)  throw shRes.error;
   if (trRes.error)  throw trRes.error;
   if (edRes.error)  throw edRes.error;
+  if (flRes.error)  throw flRes.error;
 
   const directors     = (dirRes.data ?? []) as unknown as RawDirector[];
   const officers      = (offRes.data ?? []) as unknown as RawOfficer[];
   const shareholdings = (shRes.data  ?? []) as unknown as RawShareholding[];
   const transfers     = (trRes.data  ?? []) as unknown as RawTransfer[];
   const eventDocs     = (edRes.data  ?? []) as unknown as RawEventDoc[];
+  const filings       = (flRes.data  ?? []) as unknown as RawFiling[];
 
   // (event_type, event_id, event_phase) → satisfaction entry. Newest link
   // wins: the 4-col UNIQUE (document_id, event_type, event_id, event_phase)
@@ -283,6 +309,13 @@ export async function computeEventCompleteness(
   // linked document's source + is_finalized so the consumer can
   // three-state-classify without a second round-trip.
   const satisfiedKey = (t: string, id: string, p: string) => `${t}|${id}|${p}`;
+
+  // Part B — filed acts, keyed by the same triple as satisfiedMap.
+  const filedSet = new Set<string>();
+  for (const f of filings) {
+    filedSet.add(satisfiedKey(f.event_type, f.event_id, f.event_phase));
+  }
+
   const satisfiedMap = new Map<string, SatisfiedEntry>();
   for (const ed of eventDocs) {
     const k = satisfiedKey(ed.event_type, ed.event_id, ed.event_phase);
@@ -336,6 +369,7 @@ export async function computeEventCompleteness(
       documentIsFinalized: entry?.isFinalized ?? null,
       documentLanguage: entry?.language ?? null,
       liveness: null, // tier assigned in the weighting loop (keeps deriveDocKey off construction)
+      filed: filedSet.has(satisfiedKey(type, id, phase)), // Part B — event_filings hit
     });
   };
 

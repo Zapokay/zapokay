@@ -156,6 +156,10 @@ export function eventsToObligations(acts: EventActStatus[], today: Date): Obliga
 
     // isFinalized === true from here.
     if (!hasReqFiling) continue; // SHARE event — Stage 1 done, no Stage 2 (art. 33)
+    // Part B — document final + roster + FILED → DONE. The government filing has
+    // been recorded (event_filings), so the board's Stage-2 obligation drops off
+    // entirely. (Complétude keeps the act row but hides its marker — EventActRow.)
+    if (act.filed) continue;
 
     // ── Stage 2 — the REQ filing (roster event past its finalized document) ────
     // The act's OWN 30-day clock. RECOMPUTE liveness (act.liveness is null for a

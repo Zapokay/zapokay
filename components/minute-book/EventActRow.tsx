@@ -187,7 +187,7 @@ export default function EventActRow({
           >
             {rowLabel}
           </span>
-          {reqObligations.length > 0 && reqDeadline && (
+          {reqObligations.length > 0 && reqDeadline && !act.filed && (
             <ObligationMarker
               label={tObl('marker.label')}
               deadline={reqDeadline}
