@@ -7,14 +7,16 @@
  * remediate row treatment, per docs/design/zapokay_a3_board.html §2/§2B/§3/§11.
  */
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { Upload, Sparkles } from 'lucide-react';
+import { Upload, Sparkles, Landmark } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import { useRowUpload } from '@/components/documents/useRowUpload';
 import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
+import { fileObligation } from '@/components/lifecycle/fileObligation';
 import { ObligationMarker } from '@/components/ui/ObligationMarker';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import type { RankedObligation } from '@/lib/obligations/rank';
 import { formatDate } from '@/lib/utils';
@@ -89,6 +91,26 @@ export default function A3Item({
     preferredLanguage: documentLanguage,
     addToast,
   });
+  // B-2 — the "J'ai fait la déclaration" confirm + browser-client RLS write, for
+  // an event Stage-2 (file_externally) row. On confirm → insert event_filings →
+  // router.refresh() (re-runs the RSC so the filed item drops off the board).
+  const [fileConfirmOpen, setFileConfirmOpen] = useState(false);
+  const [filing, setFiling] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  async function handleFileObligation() {
+    if (!o.eventLink) return;
+    setFiling(true);
+    setFileError(null);
+    try {
+      await fileObligation({ companyId, eventLink: o.eventLink });
+      setFileConfirmOpen(false);
+      router.refresh();
+    } catch (e) {
+      setFileError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setFiling(false);
+    }
+  }
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = '';
@@ -280,6 +302,47 @@ export default function A3Item({
         />
         {modalElement}
         {dialogElement}
+      </>
+    );
+  } else if (o.actionKind === 'file_externally' && o.source === 'event' && o.eventLink != null) {
+    // B-2 — event Stage-2 filing: render BOTH the static obligation verb AND the
+    // report-done action, matching every other row (obligation named + action
+    // button). The static charbon verb states the task ("Déclarer au gouvernement",
+    // byte-identical to what the DEADLINE row still shows); the outline button is
+    // how you report it done. The DEADLINE feeder's file_externally row has no
+    // eventLink → excluded here → it keeps ONLY the static verb via the else-branch.
+    const fileVerb = VERB_LABEL[o.actionKind]; // file_externally → Landmark + verb.file_externally
+    const scale = asHero ? 'text-[13px] px-[18px] py-[9px]' : 'text-[12px] px-3.5 py-[7px]';
+    // Static verb: exposure is 'external' here → the gov charbon treatment, identical
+    // to the else-branch's VERB_TREATMENT==='gov' arm.
+    const staticCls = `${actBase} cursor-default ${scale} bg-[var(--act-gov-bg)] text-[var(--act-gov-fg)] border-none`;
+    // Action button: the board's own row-button outline (uploadCls/genCls family),
+    // so it matches the Upload/Generate buttons on sibling rows.
+    const fileCls = `${actBase} cursor-pointer ${scale} border-[1.5px] bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)] transition-colors`;
+    const FileVerbIcon = fileVerb?.Icon;
+    verbButton = (
+      <>
+        {fileVerb && FileVerbIcon && (
+          <button className={staticCls}>
+            <FileVerbIcon className="w-3.5 h-3.5" />
+            {t(fileVerb.labelKey)}
+          </button>
+        )}
+        <button type="button" onClick={() => setFileConfirmOpen(true)} className={fileCls}>
+          <Landmark className="w-3.5 h-3.5" />
+          {tObl('filing.button')}
+        </button>
+        <ConfirmDialog
+          open={fileConfirmOpen}
+          onClose={() => setFileConfirmOpen(false)}
+          title={tObl('filing.confirmTitle')}
+          body={tObl('filing.confirmBody')}
+          confirmLabel={tObl('filing.confirm')}
+          cancelLabel={tObl('filing.cancel')}
+          onConfirm={handleFileObligation}
+          loading={filing}
+          error={fileError}
+        />
       </>
     );
   } else {

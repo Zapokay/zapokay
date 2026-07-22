@@ -798,6 +798,13 @@
     "marker": {
       "label": "Formalité à produire"
     },
+    "filing": {
+      "button": "J'ai fait la déclaration",
+      "confirmTitle": "Confirmer",
+      "confirmBody": "Confirmez que cette formalité a été produite.",
+      "confirm": "Confirmer",
+      "cancel": "Annuler"
+    },
     "modal": {
       "deadlineLabel": "À déclarer au plus tard le",
       "legalRef": "art. 41 LPLE · défaut passible d'amende",

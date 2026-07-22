@@ -798,6 +798,13 @@
     "marker": {
       "label": "Filing required"
     },
+    "filing": {
+      "button": "I filed the declaration",
+      "confirmTitle": "Confirm",
+      "confirmBody": "Confirm that this filing has been completed.",
+      "confirm": "Confirm",
+      "cancel": "Cancel"
+    },
     "modal": {
       "deadlineLabel": "Must be filed no later than",
       "legalRef": "s. 41 LPLE · non-filing may incur a fine",

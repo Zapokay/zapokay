@@ -44,8 +44,9 @@
 
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, XCircle, Upload } from 'lucide-react';
+import { CheckCircle2, XCircle, Upload, Landmark } from 'lucide-react';
 import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
+import { fileObligation } from '@/components/lifecycle/fileObligation';
 import { getDocumentState } from '@/lib/minute-book/state';
 import {
   isEventGenerateDisabled,
@@ -57,6 +58,7 @@ import { deriveDocKey, type DocKeyDerivation } from '@/lib/obligations/derive-do
 import { formatDate, addDays } from '@/lib/utils';
 import { ObligationMarker } from '@/components/ui/ObligationMarker';
 import { ObligationModal } from '@/components/ui/ObligationModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useObligationModalContent } from '@/components/ui/useObligationModalContent';
 
 interface EventActRowProps {
@@ -107,6 +109,34 @@ export default function EventActRow({
   const [obligationOpen, setObligationOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // B-2 — the "J'ai fait la déclaration" confirm + browser-client RLS write.
+  // On confirm → insert event_filings → onGenerated() refetch: the act ROW stays
+  // (Complétude is inventory), only its "Formalité à produire" marker disappears
+  // (B-1's !act.filed gate on the marker).
+  const [fileConfirmOpen, setFileConfirmOpen] = useState(false);
+  const [filing, setFiling] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  async function handleFileObligation() {
+    setFiling(true);
+    setFileError(null);
+    try {
+      await fileObligation({
+        companyId,
+        eventLink: {
+          event_type: act.event_type,
+          event_id: act.event_id,
+          event_phase: act.event_phase,
+        },
+      });
+      setFileConfirmOpen(false);
+      onGenerated();
+    } catch (e) {
+      setFileError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setFiling(false);
+    }
+  }
 
   const state = getDocumentState({
     satisfied: act.satisfied,
@@ -187,7 +217,13 @@ export default function EventActRow({
           >
             {rowLabel}
           </span>
-          {reqObligations.length > 0 && reqDeadline && !act.filed && (
+          {/* "Done" = filed AND still finalized. Deleting the finalized document
+              resets the state (documentIsFinalized → false → the marker RETURNS),
+              matching the board, which self-heals: !isFinalized re-emits Stage 1
+              with its dueDate marker. A stale event_filings row alone no longer
+              suppresses the marker. (Banked longer-term model: an event_filings
+              document_id FK with ON DELETE CASCADE.) */}
+          {reqObligations.length > 0 && reqDeadline && !(act.filed && act.documentIsFinalized === true) && (
             <ObligationMarker
               label={tObl('marker.label')}
               deadline={reqDeadline}
@@ -215,6 +251,22 @@ export default function EventActRow({
             {tEvents('viewDocument')}
           </a>
         )}
+
+        {/* B-2 — Stage 2: a finalized ROSTER act (docKey → REQ_QC) that has not
+            been filed yet offers "J'ai fait la déclaration". Same condition the
+            board uses; a not-yet-finalized act does not offer it. */}
+        {reqObligations.length > 0 &&
+          act.documentIsFinalized === true &&
+          !act.filed && (
+            <button
+              type="button"
+              onClick={() => setFileConfirmOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
+            >
+              <Landmark className="h-3.5 w-3.5" />
+              {tObl('filing.button')}
+            </button>
+          )}
 
         {/* Brief 2 — Téléverser (upload own signed PDF) on missing + draft rows.
             On a draft (généré) this SUPERSEDES the draft via the parent's
@@ -277,6 +329,17 @@ export default function EventActRow({
           {...buildObligationContent({ subtitle: rowLabel, deadline: reqDeadline ?? '' })}
         />
       )}
+      <ConfirmDialog
+        open={fileConfirmOpen}
+        onClose={() => setFileConfirmOpen(false)}
+        title={tObl('filing.confirmTitle')}
+        body={tObl('filing.confirmBody')}
+        confirmLabel={tObl('filing.confirm')}
+        cancelLabel={tObl('filing.cancel')}
+        onConfirm={handleFileObligation}
+        loading={filing}
+        error={fileError}
+      />
     </div>
   );
 }
