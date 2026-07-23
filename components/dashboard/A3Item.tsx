@@ -381,13 +381,21 @@ export default function A3Item({
     }
   }
 
+  // ── THE filing predicate — what the row IS, not which feeder/stage made it.
+  //    A row is a "filing row" when satisfying it needs a government filing
+  //    OUTSIDE ZapOkay (hasFiling) AND it carries a deadline to state. Gates all
+  //    three filing affordances below (marker, due-line suppression, how-to pill)
+  //    so the merged REQ row (source 'completeness') and a Stage-1 roster event
+  //    (source 'event', exposure 'internal') render IDENTICALLY. Deliberately does
+  //    NOT read `exposure` (which drives ranking) or `source`. ──
+  const isFilingRow = o.hasFiling === true && o.dueDate != null;
+
   // ── "Comment faire ?" pill — replaces the old static guide-i. INTERACTIVE:
   //    opens the generalized ObligationModal (how to file this obligation).
-  //    Shown on external filing rows that carry a deadline (the merged REQ row +
-  //    event filing rows); never on remediate (that row is "consult a pro"). The
+  //    Shown on filing rows; never on remediate (that row is "consult a pro"). The
   //    modal's data (dueDate / statutoryBasis / descriptionFr-En) is already on
   //    the obligation; content falls back to the fixed art. 41 copy when absent. ──
-  const showHowTo = o.dueDate != null && o.exposure === 'external' && !isRemediate;
+  const showHowTo = isFilingRow && !isRemediate;
   const howToPill = showHowTo ? (
     <button
       type="button"
@@ -433,13 +441,13 @@ export default function A3Item({
     </span>
   );
 
-  // ── filing marker (A-3) — DISPLAY-ONLY, roster event rows only (dueDate present).
-  //    The always-on deadline channel (Dom's locked decision): shown from Stage 1
-  //    onward, driven by the event's own 30-day clock carried on the obligation,
-  //    independent of the button's stage. Part B makes it interactive ("J'ai fait
-  //    la déclaration"). Share events carry no dueDate → no marker. ──
+  // ── filing marker (A-3) — DISPLAY-ONLY, shown on any FILING row (isFilingRow):
+  //    the merged REQ annual-update row AND roster event rows, from Stage 1 onward,
+  //    driven by the deadline carried on the obligation, independent of feeder or
+  //    button stage. Part B makes it interactive ("J'ai fait la déclaration").
+  //    Share events / internal rows carry no filing → no marker. ──
   const filingMarker =
-    o.source === 'event' && o.dueDate ? (
+    isFilingRow && o.dueDate ? ( // `&& o.dueDate` narrows string|null → string for TS; isFilingRow already implies it
       <ObligationMarker
         interactive={false}
         label={tObl('marker.label')}
@@ -448,12 +456,14 @@ export default function A3Item({
     ) : null;
 
   // ── due line — a date (with past-due prefix when overdue), else a foundation tag.
-  //    Event rows show the filing marker (above) instead of this plain line, so the
-  //    date isn't duplicated — suppress the due line for them. ──
+  //    FILING rows show the filing marker (above) instead of this plain line, so the
+  //    date isn't stated twice — suppress the due line for them. Filing-required
+  //    wins over the plain past-due date line; the Overdue statusChip is separate
+  //    (driven by status, rendered elsewhere) and stays regardless. ──
   const DueIcon = ICONS.due;
   const FoundationIcon = ICONS.foundation;
   let dueLine: React.ReactNode = null;
-  if (o.source === 'event') {
+  if (isFilingRow) {
     dueLine = null; // handled by filingMarker
   } else if (o.dueDate) {
     const dateStr = formatDate(o.dueDate, locale, {

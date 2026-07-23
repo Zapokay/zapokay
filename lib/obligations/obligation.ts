@@ -57,6 +57,15 @@ export interface Obligation {
   requirementKey: string | null;
   docKey: string | null;
   exposure: ExposureClass;
+  // true = satisfying this obligation requires a filing OUTSIDE ZapOkay (a
+  // government filing). INDEPENDENT of `exposure` (which classifies the
+  // obligation and drives RANKING — rank.ts) and of `actionKind`: a row can need
+  // BOTH an in-app document AND an external filing. That is exactly the Stage-1
+  // roster event (exposure 'internal', but the act must still be filed at the REQ)
+  // and the merged REQ annual-update row. Gates the board's filing marker + how-to
+  // pill on what the row IS, not which feeder/stage emitted it. Optional: feeders
+  // that carry no filing omit it (undefined ≡ false).
+  hasFiling?: boolean;
   statutoryBasis: string | null;
   helpKey: string | null;
   fulfilled: boolean;            // inert v1 seam for the deferred resolved-state

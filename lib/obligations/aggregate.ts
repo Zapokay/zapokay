@@ -98,6 +98,10 @@ export function mergeObligations(...streams: Obligation[][]): Obligation[] {
       triggeredBy: twin.triggeredBy,
       statutoryBasis: twin.statutoryBasis,
       exposure: twin.exposure,
+      // UNION — a merged row is a filing row if EITHER half carried the filing
+      // fact (the completeness external-key half OR the deadline file_externally
+      // twin). Independent of exposure, which is taken from the twin above.
+      hasFiling: o.hasFiling === true || twin.hasFiling === true,
       // Overdue wins over open; a satisfied (document uploaded) row still clears —
       // the only way a merged row leaves the board is a document (the principle).
       status: o.status === 'open' ? twin.status : o.status,

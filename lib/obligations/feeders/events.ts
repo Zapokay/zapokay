@@ -143,6 +143,11 @@ export function eventsToObligations(acts: EventActStatus[], today: Date): Obliga
         requirementKey: null,
         docKey,
         exposure: 'internal',
+        // ROSTER acts must still be filed at the REQ (art. 41) — true even at
+        // Stage 1, while the in-app document is still being produced. Reuses the
+        // same fact this feeder already computed above; SHARE events → false.
+        // exposure stays 'internal' so ranking is unchanged.
+        hasFiling: hasReqFiling,
         statutoryBasis: null,
         helpKey: null,
         fulfilled: false,
@@ -198,6 +203,7 @@ export function eventsToObligations(acts: EventActStatus[], today: Date): Obliga
       requirementKey: null,
       docKey,
       exposure: 'external', // government-facing filing
+      hasFiling: hasReqFiling, // provably true here (guarded !hasReqFiling continue @ :158)
       statutoryBasis: notice.statutoryBasis, // 'art. 41 LPLE (RLRQ, c. P-44.1)'
       helpKey: notice.helpKey ?? null, // 'req'
       fulfilled: false,

@@ -137,6 +137,11 @@ export function completenessToObligations(
       exposure: EXTERNAL_REQUIREMENT_KEYS.has(item.requirement_key)
         ? 'external'
         : 'internal',
+      // Same existing Set — an external requirement is one satisfied by a
+      // government filing. (This feeder carries no clock; the marker/pill only
+      // light up once a dueDate arrives — for the REQ annual update that comes
+      // from the deadline twin at the aggregate merge.)
+      hasFiling: EXTERNAL_REQUIREMENT_KEYS.has(item.requirement_key),
       statutoryBasis: null,
       helpKey: null,
       fulfilled: false,

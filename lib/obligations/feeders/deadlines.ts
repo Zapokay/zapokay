@@ -153,6 +153,10 @@ export function deadlineObligations(
       requirementKey: null,
       docKey: null,
       exposure: o.exposure,
+      // A file_externally rule IS a government filing by definition; finalize
+      // rules (annual_meeting) are held in the book, never filed → false. Derived
+      // from actionKind, so every present + future external rule inherits it.
+      hasFiling: o.actionKind === 'file_externally',
       statutoryBasis: o.statutoryBasis,
       helpKey: o.helpKey,
       fulfilled: false,
