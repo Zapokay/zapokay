@@ -672,6 +672,43 @@ export async function generateLifecycleDocument(
     );
   }
 
+  /* -------- #135 extension — one working document per act ---------------- */
+  // Regenerating REPLACES the prior working copy (language-agnostic, mirroring
+  // the requirement path in generatePdfDocument.ts). Event docs carry
+  // requirement_key=NULL so #135's key can't match them — evict via the act
+  // triple through event_documents instead. A PROMOTED document
+  // (is_finalized=true) is NEVER auto-evicted. Runs BEFORE the insert below so
+  // the new row can't evict itself. Two steps (PostgREST can't join-filter an
+  // update); belt-and-braces .eq('company_id') on the update so a bad id list
+  // can never reach another tenant. Non-fatal, exactly like #135.
+  try {
+    const { data: priorLinks, error: linkErr } = await supabaseAdmin
+      .from('event_documents')
+      .select('document_id')
+      .eq('company_id', companyId)
+      .eq('event_type', entry.satisfies.event_type)
+      .eq('event_id', eventId)
+      .eq('event_phase', entry.satisfies.event_phase);
+    if (linkErr) throw linkErr;
+    const priorIds = ((priorLinks ?? []) as { document_id: string }[]).map(
+      (r) => r.document_id,
+    );
+    if (priorIds.length > 0) {
+      const { error: supersedeError } = await supabaseAdmin
+        .from('documents')
+        .update({ status: 'superseded', superseded_at: new Date().toISOString() })
+        .in('id', priorIds)
+        .eq('company_id', companyId)
+        .eq('status', 'active')
+        .eq('is_finalized', false)
+        .in('signature_status', ['draft', 'pending_signature']);
+      if (supersedeError) throw supersedeError;
+    }
+  } catch (e) {
+    // Non-fatal, exactly like #135: never block generation on a supersede failure.
+    console.error('[#135-events] act supersede failed (non-fatal):', e);
+  }
+
   /* -------- Insert documents row ----------------------------------------- */
   // signature_status omitted: lets the column DEFAULT 'draft' fire (lifecycle
   // resolutions are draft-state until a signatories pack is later wired).
