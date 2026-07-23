@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { AlertTriangle } from 'lucide-react';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { uploadErrorMessageKey } from '@/lib/upload-error-message';
+import { composeDisplayName } from '@/lib/display-name';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 
 const DOC_TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre'] as const;
@@ -197,14 +198,18 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requirementKey, requirementYear, requirements]);
 
-  // -- Annual title regen on docYear change (vault mode) --
+  // -- Annual title set (vault mode) --
+  // The sole setter of an ANNUAL requirement's title box (the foundational
+  // cascade above sets the title only for foundational). Now always the clean
+  // localized requirement title: the year does NOT belong in the NAME — it lives
+  // in document_year and is rendered once, middot-separated, at each surface
+  // (composeDisplayName). Previously this baked "— {docYear}", the vault-mode
+  // twin of the row-path bake in useRowUpload.
   useEffect(() => {
     if (mode === 'row') return;
     if (!selectedReq || selectedReq.category !== 'annual') return;
     if (titleDirty) return;
-    const base = fr ? selectedReq.title_fr : selectedReq.title_en;
-    const suffix = docYear !== '' ? ` — ${docYear}` : '';
-    setTitle(base + suffix);
+    setTitle(fr ? selectedReq.title_fr : selectedReq.title_en);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requirementKey, requirementYear, requirements, docYear, titleDirty]);
 
@@ -358,15 +363,17 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     onClose,
   ]);
 
-  // -- Row-mode subtitle: canonical title with annual year suffix --
+  // -- Row-mode subtitle: canonical title with annual year (middot, shared format) --
   const subtitleRow = useMemo(() => {
     if (mode !== 'row') return '';
     const req = selectedReq;
     if (!req) return prefill?.title ?? '';
     const base = fr ? req.title_fr : req.title_en;
-    return req.category === 'annual' && typeof req.year === 'number'
-      ? `${base} — ${req.year}`
-      : base;
+    return composeDisplayName(
+      base,
+      null,
+      req.category === 'annual' && typeof req.year === 'number' ? req.year : null,
+    );
   }, [mode, selectedReq, prefill?.title, fr]);
 
   if (!isOpen || typeof document === 'undefined') return null;

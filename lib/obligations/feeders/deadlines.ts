@@ -26,7 +26,7 @@
 import type { Obligation } from '../obligation';
 import { deriveStatus } from '../aggregate';
 import { computeLiveness } from '../liveness';
-import { composeDisplayName } from '@/lib/minute-book/event-act-helpers';
+import { composeDisplayName } from '@/lib/display-name';
 import { parseLocalDate } from '@/lib/utils';
 
 export interface CompanyComplianceInput {

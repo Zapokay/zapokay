@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { DocumentTypePill } from './DocumentTypePill';
 import { LanguageBadge } from './LanguageBadge';
 import { DocumentModal } from './DocumentModal';
+import { composeDisplayName } from '@/lib/display-name';
 
 export interface VaultDocument {
   id: string;
@@ -103,7 +104,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false 
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-[var(--text-heading)] truncate">{doc.title}</span>
+            <span className="text-sm font-semibold text-[var(--text-heading)] truncate">{composeDisplayName(doc.title, null, doc.document_year)}</span>
             {doc.source === 'generated' && (
               <span
                 className="flex-shrink-0"
@@ -194,7 +195,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false 
             >
               {fr ? 'Supprimer ce document ?' : 'Delete this document?'}
             </h3>
-            <p className="text-sm text-[var(--text-muted)] mb-1 truncate">{doc.title}</p>
+            <p className="text-sm text-[var(--text-muted)] mb-1 truncate">{composeDisplayName(doc.title, null, doc.document_year)}</p>
             <p className="text-xs text-[var(--error-text)] mb-5">
               {fr ? 'Cette action est irréversible.' : 'This action cannot be undone.'}
             </p>

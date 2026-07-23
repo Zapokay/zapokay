@@ -21,6 +21,7 @@ import type { EventActStatus } from './event-completeness';
 import { deriveDocKey } from '@/lib/obligations/derive-dockey';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
 import { parseLocalDate } from '@/lib/utils';
+import { composeDisplayName } from '@/lib/display-name';
 
 /**
  * The act's document title — the canonical legal title from the template
@@ -44,22 +45,6 @@ export function resolveEventDocTitle(
       : LIFECYCLE_TEMPLATES[derivation.docKey]?.titleFr
     : undefined;
   return registryTitle ?? (titleLang === 'en' ? act.label_en : act.label_fr);
-}
-
-/**
- * The ONE display-name format for board/Complétude rows:
- * {title} · {person} · {year} — middot-joined, each segment appended ONLY when
- * present. All feeders compose through this so a separator change is one edit.
- */
-export function composeDisplayName(
-  title: string,
-  person?: string | null,
-  year?: number | null,
-): string {
-  const parts = [title];
-  if (person != null) parts.push(person);
-  if (year != null) parts.push(String(year));
-  return parts.join(' · ');
 }
 
 /**

@@ -51,7 +51,7 @@ export default function ActivityGroup({ label, events, locale }: ActivityGroupPr
             const verbKey =
               event.event_type === 'document_uploaded' ? 'documentUploaded' : 'documentGenerated'
             const yearSuffix =
-              event.doc_year != null ? ` — ${getFiscalYearLabel(event.doc_year, locale)}` : ''
+              event.doc_year != null ? ` · ${getFiscalYearLabel(event.doc_year, locale)}` : ''
             title = t(verbKey, { name: event.doc_title, yearSuffix })
           } else {
             title = locale === 'en' ? event.title_en : event.title_fr

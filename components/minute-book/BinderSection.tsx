@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Eye, Download } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { composeDisplayName } from '@/lib/display-name'
 
 interface Document {
   id: string
@@ -108,9 +109,7 @@ export default function BinderSection({
                   {t(`typeLabels.${TYPE_KEYS.includes(doc.document_type ?? '') ? doc.document_type : 'autre'}`)}
                 </span>
                 <span className="text-sm text-[var(--text-body)] truncate">
-                  {doc.title}
-                  {doc.document_year != null &&
-                    ` ${t('yearSuffix', { year: doc.document_year })}`}
+                  {composeDisplayName(doc.title, null, doc.document_year)}
                 </span>
               </div>
               <div className="flex items-center gap-4 shrink-0 ml-4">

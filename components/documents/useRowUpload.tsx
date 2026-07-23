@@ -86,11 +86,12 @@ export function useRowUpload(ctx: RowUploadContext): {
   // current doc-row modal render); the modal owns the doc-language field separately.
   const resolveItem = useCallback(
     (item: ChecklistItem): Pick<ActiveUpload, 'prefill' | 'replaceDocumentId'> => {
-      const localized = fr ? item.title_fr : item.title_en;
-      const title =
-        item.category === 'annual' && item.year !== null
-          ? `${localized} — ${item.year}`
-          : localized;
+      // The year does NOT belong in the document's NAME — it's captured in
+      // document_year and rendered once, middot-separated, at each surface
+      // (composeDisplayName). Baking "— {year}" here produced doubled/em-dash
+      // years in the Vault + Binder; the stored title is now always the clean
+      // localized requirement title.
+      const title = fr ? item.title_fr : item.title_en;
       return {
         prefill: {
           requirementKey: item.requirement_key,

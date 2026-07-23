@@ -20,7 +20,7 @@ import type { Obligation, ObligationAction } from '../obligation';
 import { deriveStatus, type BaseState } from '../aggregate';
 import { computeLiveness } from '../liveness';
 import type { ChecklistItem } from '@/lib/minute-book/requirement-completeness';
-import { composeDisplayName } from '@/lib/minute-book/event-act-helpers';
+import { composeDisplayName } from '@/lib/display-name';
 import {
   getStateForChecklistItem,
   STATE_WEIGHT,
