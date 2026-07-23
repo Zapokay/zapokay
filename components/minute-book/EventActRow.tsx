@@ -51,6 +51,7 @@ import { getDocumentState } from '@/lib/minute-book/state';
 import {
   isEventGenerateDisabled,
   resolveEventDocTitle,
+  formatEventDisplayName,
 } from '@/lib/minute-book/event-act-helpers';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
 import { obligationsForDocKey } from '@/lib/obligations/req-obligations';
@@ -146,8 +147,6 @@ export default function EventActRow({
   const isSignedFinal = state === 'téléversé';
   const isUnsigned = state === 'généré';
   const isMissing = state === 'missing';
-
-  const personName = act.personName ?? '—';
   const derivation = deriveDocKey(act);
   const reqObligations = obligationsForDocKey(derivation?.docKey);
   const reqDeadline =
@@ -171,7 +170,9 @@ export default function EventActRow({
   // #156 language rule, empty-row fallback) now lives in the shared pure helper,
   // so the row, the generate hook, and the A3 board all resolve ONE title.
   const docTitle = resolveEventDocTitle(act, preferredLanguage);
-  const rowLabel = `${docTitle} — ${personName}`;
+  // Display label (board + Complétude share this format): {title} · {person} · {year}.
+  // docTitle (raw) still feeds the upload/stored-title path below — do not fold it in.
+  const rowLabel = formatEventDisplayName(act, preferredLanguage);
 
   // Brief 2 — user picked a signed PDF to upload/replace on this act. Reset the
   // input value so the SAME file can be re-picked after an error.

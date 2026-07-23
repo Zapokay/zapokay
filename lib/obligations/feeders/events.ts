@@ -39,7 +39,7 @@ import { computeLiveness } from '../liveness';
 import { obligationsForDocKey } from '../req-obligations';
 import { deriveDocKey } from '../derive-dockey';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
-import { resolveEventDocTitle } from '@/lib/minute-book/event-act-helpers';
+import { formatEventDisplayName } from '@/lib/minute-book/event-act-helpers';
 import { getDocumentState, STATE_WEIGHT, type DocumentState } from '@/lib/minute-book/state';
 import { addDays, parseLocalDate } from '@/lib/utils';
 
@@ -90,8 +90,8 @@ export function eventsToObligations(acts: EventActStatus[], today: Date): Obliga
     // the doc-language title once a document exists, else the per-locale registry
     // title). resolveTitle (a3-presentation) reads titleFr/titleEn first.
     const id = `event:${act.event_type}:${act.event_id}:${act.event_phase}`;
-    const titleFr = resolveEventDocTitle(act, 'fr');
-    const titleEn = resolveEventDocTitle(act, 'en');
+    const titleFr = formatEventDisplayName(act, 'fr');
+    const titleEn = formatEventDisplayName(act, 'en');
     const eventLink = {
       event_type: act.event_type,
       event_id: act.event_id,

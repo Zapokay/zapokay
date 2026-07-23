@@ -20,6 +20,7 @@
 import type { EventActStatus } from './event-completeness';
 import { deriveDocKey } from '@/lib/obligations/derive-dockey';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
+import { parseLocalDate } from '@/lib/utils';
 
 /**
  * The act's document title — the canonical legal title from the template
@@ -43,6 +44,22 @@ export function resolveEventDocTitle(
       : LIFECYCLE_TEMPLATES[derivation.docKey]?.titleFr
     : undefined;
   return registryTitle ?? (titleLang === 'en' ? act.label_en : act.label_fr);
+}
+
+/**
+ * Display-only row label for an event act. Composes the pure document title with
+ * the person and the event's calendar year, middot-separated, each segment
+ * appended ONLY when present. Wraps (never modifies) resolveEventDocTitle, so the
+ * stored documents.title (fed via useRowUpload) is unaffected.
+ * Board + Complétude call this; Documents/Livre (stored title) do NOT (Phase 2).
+ */
+export function formatEventDisplayName(act: EventActStatus, lang: 'fr' | 'en'): string {
+  const title = resolveEventDocTitle(act, lang);
+  const parts = [title];
+  if (act.personName != null) parts.push(act.personName);
+  const year = parseLocalDate(act.date).getFullYear();
+  parts.push(String(year));
+  return parts.join(' · ');
 }
 
 /**
