@@ -47,6 +47,22 @@ export function resolveEventDocTitle(
 }
 
 /**
+ * The ONE display-name format for board/Complétude rows:
+ * {title} · {person} · {year} — middot-joined, each segment appended ONLY when
+ * present. All feeders compose through this so a separator change is one edit.
+ */
+export function composeDisplayName(
+  title: string,
+  person?: string | null,
+  year?: number | null,
+): string {
+  const parts = [title];
+  if (person != null) parts.push(person);
+  if (year != null) parts.push(String(year));
+  return parts.join(' · ');
+}
+
+/**
  * Display-only row label for an event act. Composes the pure document title with
  * the person and the event's calendar year, middot-separated, each segment
  * appended ONLY when present. Wraps (never modifies) resolveEventDocTitle, so the
@@ -55,11 +71,8 @@ export function resolveEventDocTitle(
  */
 export function formatEventDisplayName(act: EventActStatus, lang: 'fr' | 'en'): string {
   const title = resolveEventDocTitle(act, lang);
-  const parts = [title];
-  if (act.personName != null) parts.push(act.personName);
   const year = parseLocalDate(act.date).getFullYear();
-  parts.push(String(year));
-  return parts.join(' · ');
+  return composeDisplayName(title, act.personName, year);
 }
 
 /**

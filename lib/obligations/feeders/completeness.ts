@@ -20,6 +20,7 @@ import type { Obligation, ObligationAction } from '../obligation';
 import { deriveStatus, type BaseState } from '../aggregate';
 import { computeLiveness } from '../liveness';
 import type { ChecklistItem } from '@/lib/minute-book/requirement-completeness';
+import { composeDisplayName } from '@/lib/minute-book/event-act-helpers';
 import {
   getStateForChecklistItem,
   STATE_WEIGHT,
@@ -93,6 +94,7 @@ export function completenessToObligations(
   items: ChecklistItem[],
   today: Date,
   hasLaterAnnualFiling: boolean,
+  incYear: number | null,
 ): Obligation[] {
   return items
     // Harvey 2026-07-05 presumed-done — a company with later satisfied annuals has
@@ -108,11 +110,16 @@ export function completenessToObligations(
     // D1 overlay rule as the single status chokepoint.
     const status = deriveStatus(base, null, COMPLETENESS_NO_CLOCK_WINDOW);
 
+    // DISPLAY year: annual rows use item.year (populated); foundational rows
+    // (item.year === null) fall back to the incorporation year (Dom's ruling —
+    // plain year, no qualifier). Does NOT touch the obligation's own `year:`
+    // field below, which feeds ranking/grouping.
+    const rowYear = item.year ?? incYear;
     return {
       id: `completeness:${item.requirement_key}:${item.year ?? 'foundational'}`,
       source: 'completeness',
-      titleFr: item.title_fr,
-      titleEn: item.title_en,
+      titleFr: composeDisplayName(item.title_fr, null, rowYear),
+      titleEn: composeDisplayName(item.title_en, null, rowYear),
       descriptionFr: item.description_fr,
       descriptionEn: item.description_en,
       status,

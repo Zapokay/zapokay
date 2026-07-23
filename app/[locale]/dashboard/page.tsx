@@ -185,7 +185,7 @@ export default async function DashboardPage({
       incYear !== null &&
       completeness.checklist.some((i) => i.satisfied && i.year != null && i.year > incYear);
 
-    const completenessObs = completenessToObligations(completeness.checklist, today, hasLaterAnnualFiling);
+    const completenessObs = completenessToObligations(completeness.checklist, today, hasLaterAnnualFiling, incYear);
 
     // Feeder 3 (deadline) — immatriculationDate uses incorporation date as QC proxy.
     const deadlineObs = deadlineObligations(

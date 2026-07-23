@@ -26,6 +26,7 @@
 import type { Obligation } from '../obligation';
 import { deriveStatus } from '../aggregate';
 import { computeLiveness } from '../liveness';
+import { composeDisplayName } from '@/lib/minute-book/event-act-helpers';
 import { parseLocalDate } from '@/lib/utils';
 
 export interface CompanyComplianceInput {
@@ -101,6 +102,12 @@ export function deadlineObligations(
   const { framework, fyEndMonth, fyEndDay, incorporationDate, immatriculationDate, hasLaterAnnualFiling } = input;
   const obligations: Obligation[] = [];
 
+  // DISPLAY-year fallback: rows without a fiscal year (RE-200 initial declaration,
+  // CBCA federal anniversary) use the incorporation year (Dom's ruling — same
+  // treatment as foundational, plain year). Calendar rows (REQ update, annual
+  // meeting) already carry o.year and never hit this fallback.
+  const incYear = incorporationDate ? parseLocalDate(incorporationDate).getFullYear() : null;
+
   // Fiscal-year-END anchor (most recent past FY end) + its label year.
   const fyEnd = currentFiscalYearStart(fyEndMonth, fyEndDay, today);
   const fyYear = fyEnd.getFullYear();
@@ -121,11 +128,16 @@ export function deadlineObligations(
     helpKey: string | null;
   }) => {
     const daysUntilDue = daysBetween(today, o.dueDate);
+    // DISPLAY year: calendar rows carry o.year; year-less rows fall back to the
+    // incorporation year. Does NOT touch the obligation's own `year:` field below.
+    // o.titleFr/titleEn are typed `string` (non-null) → composeDisplayName always
+    // gets a real title; no null-guard reachable here.
+    const rowYear = o.year ?? incYear;
     obligations.push({
       id: `deadline:${o.ruleKey}:${o.yearSeg}`,
       source: 'deadline',
-      titleFr: o.titleFr,
-      titleEn: o.titleEn,
+      titleFr: composeDisplayName(o.titleFr, null, rowYear),
+      titleEn: composeDisplayName(o.titleEn, null, rowYear),
       descriptionFr: null,
       descriptionEn: null,
       status: deriveStatus('open', daysUntilDue, DUE_SOON_WINDOW),
