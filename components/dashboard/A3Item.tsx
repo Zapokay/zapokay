@@ -10,12 +10,14 @@
 import { useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { Upload, Sparkles, Landmark } from 'lucide-react';
+import { Upload, Sparkles, Landmark, HelpCircle } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import { useRowUpload } from '@/components/documents/useRowUpload';
 import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
 import { fileObligation } from '@/components/lifecycle/fileObligation';
 import { ObligationMarker } from '@/components/ui/ObligationMarker';
+import { ObligationModal } from '@/components/ui/ObligationModal';
+import { useObligationModalContent } from '@/components/ui/useObligationModalContent';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import type { RankedObligation } from '@/lib/obligations/rank';
@@ -68,6 +70,10 @@ export default function A3Item({
   const tDocs = useTranslations('documents');
   const tEvents = useTranslations('events');
   const tObl = useTranslations('obligationNotice');
+  // Generalized how-to modal (mirrors EventActRow). Content is per-obligation:
+  // body ← descriptionFr/En, legalRef ← statutoryBasis; falls back to the fixed
+  // art. 41 copy for rows that carry neither.
+  const buildObligationContent = useObligationModalContent();
   const router = useRouter();
   // Generate success -> re-run the RSC so the board re-ranks. The Completeness page's
   // onGenerated is a silent fetchData refetch; router.refresh() is the RSC equivalent.
@@ -97,6 +103,8 @@ export default function A3Item({
   const [fileConfirmOpen, setFileConfirmOpen] = useState(false);
   const [filing, setFiling] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  // "Comment faire ?" how-to modal open state.
+  const [obligationOpen, setObligationOpen] = useState(false);
   async function handleFileObligation() {
     if (!o.eventLink) return;
     setFiling(true);
@@ -373,19 +381,37 @@ export default function A3Item({
     }
   }
 
-  // ── guide-i (static, non-functional; how-to modal is a deferred follow-up) —
-  //    external / government items only, never on remediate (no gov action). ──
-  const GuideIcon = ICONS.guide;
-  const guideIcon =
-    o.exposure === 'external' && !isRemediate ? (
-      <span
-        className="w-7 h-7 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--navy-600)] dark:text-[#9EB8DC] inline-flex items-center justify-center shrink-0"
-        title={t('guideLabel')}
-        aria-label={t('guideLabel')}
-      >
-        <GuideIcon className="w-[15px] h-[15px]" />
-      </span>
-    ) : null;
+  // ── "Comment faire ?" pill — replaces the old static guide-i. INTERACTIVE:
+  //    opens the generalized ObligationModal (how to file this obligation).
+  //    Shown on external filing rows that carry a deadline (the merged REQ row +
+  //    event filing rows); never on remediate (that row is "consult a pro"). The
+  //    modal's data (dueDate / statutoryBasis / descriptionFr-En) is already on
+  //    the obligation; content falls back to the fixed art. 41 copy when absent. ──
+  const showHowTo = o.dueDate != null && o.exposure === 'external' && !isRemediate;
+  const howToPill = showHowTo ? (
+    <button
+      type="button"
+      onClick={() => setObligationOpen(true)}
+      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)] hover:text-[var(--text-body)] hover:border-[var(--amber-400)] transition-colors shrink-0"
+    >
+      <HelpCircle className="w-3.5 h-3.5" />
+      {t('howToFile')}
+    </button>
+  ) : null;
+  const obligationModalEl = obligationOpen ? (
+    <ObligationModal
+      open={obligationOpen}
+      onClose={() => setObligationOpen(false)}
+      {...buildObligationContent({
+        subtitle: title,
+        deadline: o.dueDate
+          ? formatDate(o.dueDate, locale, { day: 'numeric', month: 'short', year: 'numeric' })
+          : '',
+        body: description,
+        legalRef: o.statutoryBasis,
+      })}
+    />
+  ) : null;
 
   // ── dependency indicator — reads hasDependencies; the lit branch is wired but
   //    inert in v1 (always false). Cools on remediate rows. ──
@@ -472,17 +498,18 @@ export default function A3Item({
           >
             {title}
           </div>
-          <DescriptionTooltip description={description} />
+          {!showHowTo && <DescriptionTooltip description={description} />}
         </div>
         <div className="flex items-center gap-[9px] mt-[11px] mb-[15px] flex-wrap">
           {dueLine}
           {filingMarker}
         </div>
-        <div className="flex items-center gap-[9px]">
+        <div className="flex items-center gap-[9px] flex-wrap">
           {verbButton}
-          {guideIcon}
+          {howToPill}
           {dep}
         </div>
+        {obligationModalEl}
       </div>
     );
   }
@@ -513,7 +540,7 @@ export default function A3Item({
           >
             {title}
           </div>
-          <DescriptionTooltip description={description} />
+          {!showHowTo && <DescriptionTooltip description={description} />}
         </div>
         <div className="flex items-center gap-2 mt-[7px] flex-wrap">
           {tierBadge}
@@ -521,10 +548,11 @@ export default function A3Item({
           {dueLine}
           {filingMarker}
         </div>
-        <div className="flex items-center gap-[7px] mt-[11px]">
+        <div className="flex items-center gap-[7px] mt-[11px] flex-wrap">
           {verbButton}
-          {guideIcon}
+          {howToPill}
         </div>
+        {obligationModalEl}
       </div>
       {dep}
     </div>

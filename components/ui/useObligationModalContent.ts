@@ -20,15 +20,20 @@ export type ObligationModalContent = Omit<ObligationModalProps, 'open' | 'onClos
 export function useObligationModalContent(): (args: {
   subtitle: string;
   deadline: string;
+  /** Per-obligation body/legalRef (e.g. the merged REQ annual update: art. 45,
+   *  FY-end + 6mo). When absent/null, fall back to the fixed art. 41 / 30-day
+   *  roster-filing copy — so existing event rows (Complétude) are byte-identical. */
+  body?: string | null;
+  legalRef?: string | null;
 }) => ObligationModalContent {
   const tObl = useTranslations('obligationNotice');
-  return ({ subtitle, deadline }) => ({
+  return ({ subtitle, deadline, body, legalRef }) => ({
     title: tObl('req.title'),
     subtitle,
     deadlineLabel: tObl('modal.deadlineLabel'),
     deadline,
-    body: tObl('req.body', { deadline }),
-    legalRef: tObl('modal.legalRef'),
+    body: body ?? tObl('req.body', { deadline }),
+    legalRef: legalRef ?? tObl('modal.legalRef'),
     howToLabel: tObl('modal.howToLabel'),
     comingSoonTitle: tObl('help.comingSoonTitle'),
     comingSoonBadge: tObl('help.comingSoonBadge'),
