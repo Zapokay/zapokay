@@ -11,7 +11,6 @@ import {
   FileText,
   BookOpen,
   Sparkles,
-  ShieldCheck,
   Settings,
   LogOut,
   ChevronsUpDown,
@@ -57,12 +56,6 @@ function getNavGroups(locale: string): NavGroup[] {
         { key: 'nav.documents', href: `${base}/documents`, icon: FileText },
         { key: 'nav.minuteBook', href: `${base}/minute-book`, icon: BookOpen },
         { key: 'nav.resolutions', href: `${base}/resolutions`, icon: Sparkles },
-      ],
-    },
-    {
-      labelKey: 'nav.group.compliance',
-      items: [
-        { key: 'nav.compliance', href: `${base}/compliance`, icon: ShieldCheck },
       ],
     },
   ];

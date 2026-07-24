@@ -66,7 +66,7 @@ Status column to be filled in by Dom.
 
 | Surface | Status | Notes |
 |---|---|---|
-| `/dashboard/compliance` (standalone page) | **DEPRECATED** | Confirmed 2026-05-10. No sidebar link in v2.5 design system; reachable only by URL. Powered by `lib/compliance/calculateComplianceItems.ts`. One remaining live consumer of the lib: Dashboard's compliance widget. Cleanup queued for after temporal registry ships. |
+| `/dashboard/compliance` (standalone page) | **REMOVED** | App-code deleted 2026-07-24 — route `app/[locale]/dashboard/compliance/`, `lib/compliance/*`, `components/compliance/*` (5 files), the sidebar `nav.group.compliance` group + `ShieldCheck` import, and the dead `compliance` i18n namespace + `nav.compliance` keys in both locales. DEPRECATED since 2026-05-10 but stayed live and served WRONG statutory deadlines (superseded REQ `addMonths(fyEnd,4)+day-15` rule instead of the Harvey-verified FY-end+6mo art. 45; plus `addMonths` month-end overflow), contradicting the A3 board / Complétude. Correcting two stale claims in the prior note: (a) it DID have a sidebar link (`Sidebar.tsx:65`, removed in this deletion) — not "URL-only"; (b) the standalone route was the SOLE consumer of the lib — the "Dashboard compliance widget" was already gone. Follow-up: `DROP TABLE compliance_items` then `compliance_rules` remains a separate migration (not yet run). |
 
 ---
 
@@ -74,7 +74,7 @@ Status column to be filled in by Dom.
 
 Surfaces tagged DEPRECATED or VESTIGIAL with cleanup sequencing:
 
-- **`/dashboard/compliance` + `calculateComplianceItems` lib + `compliance_rules` / `compliance_items` tables** — DEPRECATED. Cleanup steps: (1) replace Dashboard's compliance widget with a `minute_book_requirements`-backed equivalent (or remove entirely), (2) delete `app/[locale]/dashboard/compliance/page.tsx` route, (3) delete `lib/compliance/calculateComplianceItems.ts` and supporting components in `components/compliance/`, (4) DROP TABLE `compliance_items`, then `compliance_rules`. Timing: after temporal registry ships (post-Phase-10G). Pre-existing related bug: `calculateComplianceItems` writes a 3-value enum that violates prod's 4-value CHECK so writes silently fail — cleanup itself moots the bug.
+- **`compliance_rules` / `compliance_items` tables** — code-orphaned; DROP still pending. App-code deletion **DONE 2026-07-24** (original plan steps 1–3: the Dashboard compliance widget was already gone; the route, `lib/compliance/*`, and `components/compliance/*` are deleted; the sidebar entry + i18n keys removed). **REMAINING:** step (4) `DROP TABLE compliance_items`, then `compliance_rules` — a separate migration, not yet run. No code reads either table anymore. Note: the `compliance_items` upsert already silently failed in prod (3-value enum vs a 4-value CHECK), so the table holds no live data — the DROP is pure housekeeping.
 
 ---
 
