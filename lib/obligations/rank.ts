@@ -148,9 +148,19 @@ function filingRuleForObligation(o: Obligation): FilingRule | undefined {
  * dep icon (mirrors the board's isFilingRow), never a dateless completeness half.
  * ABSENT prerequisite → treated as UNMET (conservative: flag the dependency).
  */
+/** Most recent obligation by year (highest year wins; null-year rows sort last). */
+function mostRecentByYear(rows: readonly Obligation[]): Obligation | undefined {
+  let best: Obligation | undefined;
+  for (const r of rows) {
+    if (!best || (r.year ?? -Infinity) > (best.year ?? -Infinity)) best = r;
+  }
+  return best;
+}
+
 function resolveUnmetPrerequisites(
   o: Obligation,
   byReqYear: ReadonlyMap<string, Obligation>,
+  byReqKey: ReadonlyMap<string, Obligation[]>,
   satisfiedByReqKey: ReadonlySet<string>,
 ): UnmetPrerequisite[] {
   if (o.dueDate == null) return [];
@@ -169,13 +179,18 @@ function resolveUnmetPrerequisites(
         ? found?.status === 'satisfied'
         : satisfiedByReqKey.has(pre.requirementKey);
     if (!met) {
+      // Label source: a concrete-year filing keeps the same-year row (identical to
+      // before). A YEAR-LESS filing (o.year == null — e.g. the anniversary federal
+      // return) has no same-year row, so use the MOST RECENT matching prerequisite
+      // row's title instead of the raw snake_case key. Fall back to the key ONLY when
+      // the key has no rows at all (unmet-by-absence). Does NOT touch met/unmet.
+      const labelSource =
+        o.year == null ? mostRecentByYear(byReqKey.get(pre.requirementKey) ?? []) : found;
       out.push({
         requirementKey: pre.requirementKey,
-        year: o.year,
-        // Label from the found prerequisite obligation's title; fall back to the key
-        // when the prerequisite row is absent (unmet-by-absence).
-        labelFr: found?.titleFr ?? pre.requirementKey,
-        labelEn: found?.titleEn ?? pre.requirementKey,
+        year: o.year, // the FILING's year (context) — NOT the prerequisite row's year
+        labelFr: labelSource?.titleFr ?? pre.requirementKey,
+        labelEn: labelSource?.titleEn ?? pre.requirementKey,
         reasonKey: pre.reasonKey,
       });
     }
@@ -192,12 +207,17 @@ export function rankObligations(obligations: Obligation[], today: Date): RankedO
   // ★ PREREQUISITE INDICES — built from the RAW `obligations` param, NOT `active`.
   // `active` (below) drops satisfied rows, which would make a SATISFIED prerequisite
   // indistinguishable from an ABSENT one → every filing row permanently blocked.
-  // byReqYear: `${requirementKey}|${year}` → obligation; satisfiedByReqKey: any-year satisfied.
+  // byReqYear: `${requirementKey}|${year}` → obligation; byReqKey: requirementKey →
+  // all its rows (for any-year label resolution); satisfiedByReqKey: any-year satisfied.
   const byReqYear = new Map<string, Obligation>();
+  const byReqKey = new Map<string, Obligation[]>();
   const satisfiedByReqKey = new Set<string>();
   for (const o of obligations) {
     if (o.requirementKey == null) continue;
     byReqYear.set(`${o.requirementKey}|${o.year}`, o);
+    const list = byReqKey.get(o.requirementKey);
+    if (list) list.push(o);
+    else byReqKey.set(o.requirementKey, [o]);
     if (o.status === 'satisfied') satisfiedByReqKey.add(o.requirementKey);
   }
 
@@ -241,7 +261,7 @@ export function rankObligations(obligations: Obligation[], today: Date): RankedO
   // 4. 1-based rank; resolve prerequisites (registry-driven) — does NOT affect
   //    order or score (computed above), only the dep indicator + modal.
   return scored.map((s, i): RankedObligation => {
-    const unmet = resolveUnmetPrerequisites(s.o, byReqYear, satisfiedByReqKey);
+    const unmet = resolveUnmetPrerequisites(s.o, byReqYear, byReqKey, satisfiedByReqKey);
     return {
       ...s.o,
       rank: i + 1,
