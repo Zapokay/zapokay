@@ -28,6 +28,11 @@ import { deriveStatus } from '../aggregate';
 import { computeLiveness } from '../liveness';
 import { composeDisplayName } from '@/lib/display-name';
 import { parseLocalDate } from '@/lib/utils';
+import {
+  filingForRuleKey,
+  addMonthsClamped,
+  currentFiscalYearStart,
+} from '../filing-registry';
 
 export interface CompanyComplianceInput {
   framework: 'LSA' | 'CBCA';
@@ -53,44 +58,16 @@ export interface CompanyComplianceInput {
 const DUE_SOON_WINDOW = 30;
 
 // ─── Date helpers ────────────────────────────────────────────────────────────
-// Replicated from lib/compliance/calculateComplianceItems.ts (file-private
-// there). Kept behavior-identical so this feeder's math matches the live engine
-// — EXCEPT addMonthsClamped, which corrects a known overflow bug.
+// Local formatting helpers. The DATE-ANCHOR helpers (currentFiscalYearStart,
+// addMonthsClamped) now live in filing-registry.ts — their single home now that
+// lib/compliance is deleted — and are imported above.
 
-/** Verbatim from calculateComplianceItems.ts:13. */
 function toISODateString(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-/** Verbatim from calculateComplianceItems.ts:17. */
 function daysBetween(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
-}
-
-/**
- * Verbatim from calculateComplianceItems.ts:21. Despite the name, this returns
- * the most-recent PAST occurrence of (month/day) — i.e. the fiscal-year-END
- * anchor. The caller assigns it to `fyEnd`.
- */
-function currentFiscalYearStart(month: number, day: number, today: Date): Date {
-  const thisYear = new Date(today.getFullYear(), month - 1, day);
-  if (thisYear <= today) return thisYear;
-  return new Date(today.getFullYear() - 1, month - 1, day);
-}
-
-/**
- * Add `months` to a date, CLAMPING the day to the target month's last day.
- * Corrects the deprecated engine's addMonths (calculateComplianceItems.ts:33),
- * whose raw Date.setMonth rolled a short-month overflow FORWARD 1–3 days
- * (e.g. Aug 31 + 6mo → Mar 3). Clamped: Aug 31 + 6mo → Feb 28/29. These are
- * Harvey-verified legal deadlines — they must be correct, not bug-matched.
- */
-function addMonthsClamped(date: Date, months: number): Date {
-  const monthIndex = date.getMonth() + months;
-  const year = date.getFullYear() + Math.floor(monthIndex / 12);
-  const month = ((monthIndex % 12) + 12) % 12;
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  return new Date(year, month, Math.min(date.getDate(), lastDay));
 }
 
 // ─── Feeder ──────────────────────────────────────────────────────────────────
@@ -174,35 +151,38 @@ export function deadlineObligations(
   // presumed satisfied and must never surface as "file now". hasLaterAnnualFiling
   // (from the caller) suppresses the emission entirely (Option 1: presumed done).
   if (immatriculationDate && !hasLaterAnnualFiling) {
-    const due = parseLocalDate(immatriculationDate);
-    due.setDate(due.getDate() + 60); // true 60-day offset (day math, no clamp)
-    push({
-      ruleKey: 'qc_initial_declaration',
-      yearSeg: 'initial',
-      year: null,
-      dueDate: due,
-      exposure: 'external',
-      actionKind: 'file_externally',
-      titleFr: 'Déclaration initiale (RE-200)',
-      titleEn: 'Initial Declaration (RE-200)',
-      statutoryBasis: 'art. 38 LPLE',
-      helpKey: null,
-    });
+    const rule = filingForRuleKey('qc_initial_declaration')!;
+    const due = rule.dueDate!({ immatriculationDate, today }); // immatriculation + 60d
+    if (due) {
+      push({
+        ruleKey: rule.ruleKey,
+        yearSeg: 'initial',
+        year: null,
+        dueDate: due,
+        exposure: 'external',
+        actionKind: 'file_externally',
+        titleFr: 'Déclaration initiale (RE-200)',
+        titleEn: 'Initial Declaration (RE-200)',
+        statutoryBasis: rule.statutoryBasis,
+        helpKey: rule.helpKey,
+      });
+    }
   }
 
   // QC REQ annual update — all QC-operating companies. FY-end + 6 MONTHS.
   // CORRECTION: the deprecated engine used +4mo/day-15; Harvey verified +6mo.
+  const reqAnnual = filingForRuleKey('qc_req_annual_update')!;
   push({
-    ruleKey: 'qc_req_annual_update',
+    ruleKey: reqAnnual.ruleKey,
     yearSeg: String(fyYear),
     year: fyYear,
-    dueDate: addMonthsClamped(fyEnd, 6),
+    dueDate: reqAnnual.dueDate!({ fyEnd, today })!, // FY-end + 6mo (registry)
     exposure: 'external',
     actionKind: 'file_externally',
     titleFr: 'Mise à jour annuelle au REQ',
     titleEn: 'REQ Annual Update',
-    statutoryBasis: 'art. 45 LPLE (RLRQ, c. P-44.1)',
-    helpKey: null,
+    statutoryBasis: reqAnnual.statutoryBasis,
+    helpKey: reqAnnual.helpKey,
   });
 
   // Federal annual return (CBCA only) — incorporation anniversary month.
@@ -210,23 +190,24 @@ export function deadlineObligations(
   // Corporations Canada, NOT by statute → flagged "à confirmer" + helpKey.
   // Needs incorporationDate to compute the anniversary; skipped when null.
   if (framework === 'CBCA' && incorporationDate) {
-    const incDate = parseLocalDate(incorporationDate);
-    // Anniversary in the current year; if already passed, roll to next year.
-    // (Leap-year Feb-29 anniversary edge banked — rare, and this rule is YELLOW.)
-    const anniv = new Date(today.getFullYear(), incDate.getMonth(), incDate.getDate());
-    if (anniv < today) anniv.setFullYear(today.getFullYear() + 1);
-    push({
-      ruleKey: 'fed_annual_return',
-      yearSeg: 'anniversary',
-      year: null,
-      dueDate: anniv,
-      exposure: 'external',
-      actionKind: 'file_externally',
-      titleFr: 'Rapport annuel — Corporations Canada',
-      titleEn: 'Annual Return — Corporations Canada',
-      statutoryBasis: 'art. 263 LCSA (délai administratif — à confirmer)',
-      helpKey: 'fed_annual_return_admin_date',
-    });
+    const fedRule = filingForRuleKey('fed_annual_return')!;
+    // Next future incorporation anniversary (leap-year Feb-29 edge banked — rare,
+    // and this rule is YELLOW). Computed by the registry rule.
+    const anniv = fedRule.dueDate!({ incorporationDate, today });
+    if (anniv) {
+      push({
+        ruleKey: fedRule.ruleKey,
+        yearSeg: 'anniversary',
+        year: null,
+        dueDate: anniv,
+        exposure: 'external',
+        actionKind: 'file_externally',
+        titleFr: 'Rapport annuel — Corporations Canada',
+        titleEn: 'Annual Return — Corporations Canada',
+        statutoryBasis: fedRule.statutoryBasis,
+        helpKey: fedRule.helpKey,
+      });
+    }
   }
 
   // ── INTERNAL GOVERNANCE (internal · finalize — HOLD/RECORD, never file) ──────

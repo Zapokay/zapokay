@@ -184,6 +184,9 @@
       "foundationPriority": "Registry foundation · fix as priority",
       "guideLabel": "How do I file?",
       "howToFile": "How to file?",
+      "dep": {
+        "blockedAria": "Has an unmet prerequisite — see \"How to file?\" for details"
+      },
       "due": {
         "pastDue": "Past due"
       },
@@ -790,6 +793,12 @@
       "deadlineLabel": "Must be filed no later than",
       "legalRef": "s. 41 LPLE · non-filing may incur a fine",
       "howToLabel": "How to file"
+    },
+    "prerequisites": {
+      "heading": "Before you can file",
+      "reason": {
+        "fedAnnualReturnShareholderMeeting": "This filing asks for the date of your last annual shareholders' meeting (or the written resolution in lieu). Record that resolution first."
+      }
     },
     "footerAck": "Got it"
   }

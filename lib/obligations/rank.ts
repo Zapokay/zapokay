@@ -19,11 +19,27 @@
  */
 
 import type { Obligation, ObligationAction, ObligationLiveness } from './obligation';
+import {
+  filingForRequirementKey,
+  filingForRuleKey,
+  filingForDocKey,
+  type FilingRule,
+} from './filing-registry';
+
+/** A prerequisite obligation that is NOT yet satisfied — surfaced in the modal. */
+export interface UnmetPrerequisite {
+  requirementKey: string;
+  year: number | null;
+  labelFr: string;
+  labelEn: string;
+  reasonKey: string;
+}
 
 export interface RankedObligation extends Obligation {
   rank: number;              // 1-based position in the full sorted list
   score: number;             // stakes × urgency (tuning/debug, not user display)
-  hasDependencies: boolean;  // INERT SEAM — always false in v1
+  hasDependencies: boolean;  // = unmetPrerequisites.length > 0 (registry-driven)
+  unmetPrerequisites?: UnmetPrerequisite[]; // present only when a prerequisite is unmet
 }
 
 /**
@@ -110,11 +126,80 @@ const ACTION_RANK: Record<ObligationAction, number> = {
   review: 5,
 };
 
+/** Find the filing-registry rule an obligation IS, via requirementKey → ruleKey (deadline id) → docKey. */
+function filingRuleForObligation(o: Obligation): FilingRule | undefined {
+  if (o.requirementKey) {
+    const r = filingForRequirementKey(o.requirementKey);
+    if (r) return r;
+  }
+  if (o.source === 'deadline') {
+    const ruleKey = o.id.split(':')[1]; // id = `deadline:{ruleKey}:{yearSeg}`
+    const r = filingForRuleKey(ruleKey);
+    if (r) return r;
+  }
+  if (o.docKey) return filingForDocKey(o.docKey);
+  return undefined;
+}
+
+/**
+ * Resolve a filing row's UNMET prerequisites. Reads the two indices built from the
+ * RAW obligation list (satisfied rows survive there — see the ★ trap in rankObligations).
+ * Gated on `o.dueDate != null` so only rows that actually render as filings light the
+ * dep icon (mirrors the board's isFilingRow), never a dateless completeness half.
+ * ABSENT prerequisite → treated as UNMET (conservative: flag the dependency).
+ */
+function resolveUnmetPrerequisites(
+  o: Obligation,
+  byReqYear: ReadonlyMap<string, Obligation>,
+  satisfiedByReqKey: ReadonlySet<string>,
+): UnmetPrerequisite[] {
+  if (o.dueDate == null) return [];
+  const rule = filingRuleForObligation(o);
+  if (!rule || rule.prerequisites.length === 0) return [];
+
+  const out: UnmetPrerequisite[] = [];
+  for (const pre of rule.prerequisites) {
+    // sameYear is honoured when the filing carries a concrete year; a year-less
+    // filing (e.g. the anniversary-based federal return) has no year to match, so
+    // it falls back to "any satisfied instance" — that filing asks for the LAST
+    // (most recent) occurrence, which any-satisfied models correctly.
+    const found = o.year != null ? byReqYear.get(`${pre.requirementKey}|${o.year}`) : undefined;
+    const met =
+      pre.sameYear && o.year != null
+        ? found?.status === 'satisfied'
+        : satisfiedByReqKey.has(pre.requirementKey);
+    if (!met) {
+      out.push({
+        requirementKey: pre.requirementKey,
+        year: o.year,
+        // Label from the found prerequisite obligation's title; fall back to the key
+        // when the prerequisite row is absent (unmet-by-absence).
+        labelFr: found?.titleFr ?? pre.requirementKey,
+        labelEn: found?.titleEn ?? pre.requirementKey,
+        reasonKey: pre.reasonKey,
+      });
+    }
+  }
+  return out;
+}
+
 export function rankObligations(obligations: Obligation[], today: Date): RankedObligation[] {
   // `today` is reserved: the v1 urgency ramp reads each obligation's pre-computed
   // daysUntilDue (baked by the feeders); kept in the signature for API symmetry
   // with the feeders and a future freshness recompute.
   void today;
+
+  // ★ PREREQUISITE INDICES — built from the RAW `obligations` param, NOT `active`.
+  // `active` (below) drops satisfied rows, which would make a SATISFIED prerequisite
+  // indistinguishable from an ABSENT one → every filing row permanently blocked.
+  // byReqYear: `${requirementKey}|${year}` → obligation; satisfiedByReqKey: any-year satisfied.
+  const byReqYear = new Map<string, Obligation>();
+  const satisfiedByReqKey = new Set<string>();
+  for (const o of obligations) {
+    if (o.requirementKey == null) continue;
+    byReqYear.set(`${o.requirementKey}|${o.year}`, o);
+    if (o.status === 'satisfied') satisfiedByReqKey.add(o.requirementKey);
+  }
 
   // 1. Satisfied items feed the progress display, not the to-do list — drop them.
   const active = obligations.filter((o) => o.status !== 'satisfied');
@@ -153,11 +238,16 @@ export function rankObligations(obligations: Obligation[], today: Date): RankedO
     return a.o.id.localeCompare(b.o.id);
   });
 
-  // 4. 1-based rank; hasDependencies inert (the dependency layer flips it later).
-  return scored.map((s, i): RankedObligation => ({
-    ...s.o,
-    rank: i + 1,
-    score: s.score,
-    hasDependencies: false,
-  }));
+  // 4. 1-based rank; resolve prerequisites (registry-driven) — does NOT affect
+  //    order or score (computed above), only the dep indicator + modal.
+  return scored.map((s, i): RankedObligation => {
+    const unmet = resolveUnmetPrerequisites(s.o, byReqYear, satisfiedByReqKey);
+    return {
+      ...s.o,
+      rank: i + 1,
+      score: s.score,
+      hasDependencies: unmet.length > 0,
+      unmetPrerequisites: unmet.length > 0 ? unmet : undefined,
+    };
+  });
 }

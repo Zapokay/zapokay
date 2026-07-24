@@ -417,6 +417,10 @@ export default function A3Item({
           : '',
         body: description,
         legalRef: o.statutoryBasis,
+        prerequisites: o.unmetPrerequisites?.map((p) => ({
+          label: locale === 'en' ? p.labelEn : p.labelFr,
+          reasonKey: p.reasonKey,
+        })),
       })}
     />
   ) : null;
@@ -428,10 +432,16 @@ export default function A3Item({
   const DepDimmed = ICONS.depDimmed;
   const DepLit = ICONS.depLit;
   const dep = o.hasDependencies ? (
+    // Dom's ruling: the icon is a VISUAL signal only — the prerequisite is
+    // explained in the modal (via "How to file?"), NOT a hover tooltip (a third
+    // hover affordance would re-create the ambiguity we removed). aria-label for
+    // screen readers is acceptable; a visible title is not.
     <span
+      role="img"
+      aria-label={t('dep.blockedAria')}
       className={`${depSize} rounded-lg inline-flex items-center justify-center shrink-0 relative text-[var(--amber-600)] border border-[var(--amber-200)] bg-[var(--amber-50)] ${isRemediate ? 'opacity-[0.35]' : ''}`}
     >
-      <DepLit className="w-[15px] h-[15px]" />
+      <DepLit className="w-[15px] h-[15px]" aria-hidden="true" />
     </span>
   ) : (
     <span

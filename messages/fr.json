@@ -184,6 +184,9 @@
       "foundationPriority": "Fondation du registre · à corriger en priorité",
       "guideLabel": "Comment déclarer ?",
       "howToFile": "Comment faire ?",
+      "dep": {
+        "blockedAria": "A un prérequis non rempli — voir « Comment faire ? » pour les détails"
+      },
       "due": {
         "pastDue": "Échéance passée"
       },
@@ -790,6 +793,12 @@
       "deadlineLabel": "À déclarer au plus tard le",
       "legalRef": "art. 41 LPLE · défaut passible d'amende",
       "howToLabel": "Comment déclarer"
+    },
+    "prerequisites": {
+      "heading": "Avant de pouvoir déposer",
+      "reason": {
+        "fedAnnualReturnShareholderMeeting": "Ce dépôt demande la date de votre dernière assemblée annuelle des actionnaires (ou de la résolution écrite qui en tient lieu). Consignez d'abord cette résolution."
+      }
     },
     "footerAck": "Compris"
   }

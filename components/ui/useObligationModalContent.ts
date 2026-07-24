@@ -25,9 +25,13 @@ export function useObligationModalContent(): (args: {
    *  roster-filing copy — so existing event rows (Complétude) are byte-identical. */
   body?: string | null;
   legalRef?: string | null;
+  /** Unmet prerequisites (rank.ts). `label` is already locale-picked by the caller;
+   *  `reasonKey` maps to obligationNotice.prerequisites.reason.*. When absent/empty,
+   *  the modal renders exactly as before — no prerequisites section. */
+  prerequisites?: Array<{ label: string; reasonKey: string }>;
 }) => ObligationModalContent {
   const tObl = useTranslations('obligationNotice');
-  return ({ subtitle, deadline, body, legalRef }) => ({
+  return ({ subtitle, deadline, body, legalRef, prerequisites }) => ({
     title: tObl('req.title'),
     subtitle,
     deadlineLabel: tObl('modal.deadlineLabel'),
@@ -39,5 +43,15 @@ export function useObligationModalContent(): (args: {
     comingSoonBadge: tObl('help.comingSoonBadge'),
     comingSoonBody: tObl('help.comingSoon'),
     ackLabel: tObl('footerAck'),
+    prerequisites:
+      prerequisites && prerequisites.length > 0
+        ? {
+            heading: tObl('prerequisites.heading'),
+            items: prerequisites.map((p) => ({
+              label: p.label,
+              reason: tObl(`prerequisites.reason.${p.reasonKey}`),
+            })),
+          }
+        : undefined,
   });
 }

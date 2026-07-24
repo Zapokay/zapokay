@@ -26,37 +26,24 @@ import {
   STATE_WEIGHT,
   type DocumentState,
 } from '@/lib/minute-book/state';
+import { isExternalRequirementKey, filingForRuleKey } from '../filing-registry';
 
 /**
- * External (government-facing) requirement keys — the AFM set from the
- * Core-locked compliance taxonomy (2026-04-28). Source of truth:
- * docs/obligation-inventory-2026-05-30.md ("AFM = rows 7, 8, 23, 24, 25")
- * + docs/compliance-taxonomy-2026-04-28.md. Two structural proxies are
- * currently 1:1 with this set (section==='avis'; document_type==='rapport'
- * via requirementToDocType) — deliberately NOT used as the encoding because
- * both serve display/doctype purposes and could drift. Re-verify the 1:1
- * against the seed if this list is ever edited.
+ * External (government-facing) requirement keys — now a VIEW onto the filing
+ * registry (the AFM set from the Core-locked taxonomy is one registry entry per
+ * filing). Was a hardcoded Set here; `isExternalRequirementKey` returns identical
+ * membership (any requirement_key that maps to a FILING_REGISTRY entry).
  */
-const EXTERNAL_REQUIREMENT_KEYS: ReadonlySet<string> = new Set([
-  'lsaq_declaration_initiale',
-  'cbca_declaration_initiale_qc',
-  'cbca_annual_return',
-  'lsaq_req_annual_update',
-  'cbca_req_annual_update_qc',
-]);
 
 /**
- * The foundational initial-declaration (RE-200) requirement keys. Harvey 2026-07-05
- * presumed-done: a company with later satisfied annuals has necessarily initialized
- * its REQ dossier, so this must NOT surface as a board ACTION. Suppressed from the
- * A3 obligation stream ONLY — the minute-book completeness COUNT (the separate % path
- * in requirement-completeness.ts) is intentionally unaffected, pending Harvey's
- * binder-gap ruling on whether a filed-but-not-in-vault RE-200 is a real gap.
+ * The foundational initial-declaration (RE-200) requirement keys — Harvey 2026-07-05
+ * presumed-done suppression. Derived from the registry's qc_initial_declaration entry
+ * (its requirementKeys) so the RE-200 key list lives in ONE place. Suppressed from the
+ * A3 obligation stream ONLY — the minute-book completeness COUNT is unaffected.
  */
-const INITIAL_DECLARATION_KEYS: ReadonlySet<string> = new Set([
-  'lsaq_declaration_initiale',
-  'cbca_declaration_initiale_qc',
-]);
+const INITIAL_DECLARATION_KEYS: ReadonlySet<string> = new Set(
+  filingForRuleKey('qc_initial_declaration')?.requirementKeys ?? [],
+);
 
 /**
  * Phase-3 due-soon ranking window. Unused on a null clock (this feeder emits
@@ -134,14 +121,14 @@ export function completenessToObligations(
       actionKind: actionForState(state, item.can_generate),
       requirementKey: item.requirement_key,
       docKey: null,
-      exposure: EXTERNAL_REQUIREMENT_KEYS.has(item.requirement_key)
+      exposure: isExternalRequirementKey(item.requirement_key)
         ? 'external'
         : 'internal',
-      // Same existing Set — an external requirement is one satisfied by a
-      // government filing. (This feeder carries no clock; the marker/pill only
-      // light up once a dueDate arrives — for the REQ annual update that comes
-      // from the deadline twin at the aggregate merge.)
-      hasFiling: EXTERNAL_REQUIREMENT_KEYS.has(item.requirement_key),
+      // Registry view — an external requirement is one satisfied by a government
+      // filing (it maps to a FILING_REGISTRY entry). This feeder carries no clock;
+      // the marker/pill only light up once a dueDate arrives — for the REQ annual
+      // update that comes from the deadline twin at the aggregate merge.
+      hasFiling: isExternalRequirementKey(item.requirement_key),
       statutoryBasis: null,
       helpKey: null,
       fulfilled: false,

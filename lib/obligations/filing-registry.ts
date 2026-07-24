@@ -1,0 +1,228 @@
+/**
+ * FILING REGISTRY — the single source of truth for government filing obligations.
+ *
+ * WHY: "this needs a filing" used to be asserted in FOUR hardcoded places that
+ * could drift out of sync — EXTERNAL_REQUIREMENT_KEYS (completeness feeder), the
+ * deadline feeder's file_externally rules, OBLIGATIONS_BY_DOCKEY (req-obligations),
+ * and OVERLAP_MERGE (aggregate). That drift class produced the 5-week #135 leak.
+ * This registry makes all four VIEWS onto one table: one entry per filing
+ * obligation, holding its deadline rule, statutory basis, the requirement/doc keys
+ * it maps to, and its prerequisites. Adding a future government requirement is ONE
+ * entry here — no edits elsewhere.
+ *
+ * ADAPTABLE BY ITEM (Dom): the three calendar filings have genuinely DIFFERENT
+ * anchors (FY-end+6mo · immatriculation+60d · incorporation anniversary), so each
+ * entry carries its own `dueDate(ctx)` — a single shared rule would be wrong for
+ * two of them. The roster REQ filing is event-relative (act date + `deadlineDays`),
+ * so it carries `deadlineDays` instead of a calendar `dueDate`.
+ *
+ * The date helpers `addMonthsClamped` and `currentFiscalYearStart` were MOVED here
+ * from deadlines.ts (their last surviving copies, now that lib/compliance is
+ * deleted). `addMonthsClamped`'s clamping is Harvey-verified legal math — it must
+ * NOT regress to raw Date.setMonth (Aug 31 + 6mo → Feb 28/29, never Mar 3).
+ */
+
+import { parseLocalDate } from '@/lib/utils';
+
+// ─── Date helpers (moved from deadlines.ts — the only surviving copies) ──────────
+
+/**
+ * Most-recent PAST occurrence of (month/day) — the fiscal-year-END anchor.
+ * Despite the name (kept for provenance), this returns the fiscal year END.
+ */
+export function currentFiscalYearStart(month: number, day: number, today: Date): Date {
+  const thisYear = new Date(today.getFullYear(), month - 1, day);
+  if (thisYear <= today) return thisYear;
+  return new Date(today.getFullYear() - 1, month - 1, day);
+}
+
+/**
+ * Add `months` to a date, CLAMPING the day to the target month's last day.
+ * Harvey-verified legal-deadline math: Aug 31 + 6mo → Feb 28/29 (NOT Mar 3 —
+ * raw Date.setMonth rolls short-month overflow forward, which the deprecated
+ * engine did and which this deliberately corrects). Do not regress to setMonth.
+ */
+export function addMonthsClamped(date: Date, months: number): Date {
+  const monthIndex = date.getMonth() + months;
+  const year = date.getFullYear() + Math.floor(monthIndex / 12);
+  const month = ((monthIndex % 12) + 12) % 12;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(date.getDate(), lastDay));
+}
+
+// ─── The contract ────────────────────────────────────────────────────────────
+
+/** Context a filing's date rule may read. Each rule uses only what its anchor needs. */
+export interface FilingDueCtx {
+  fyEnd?: Date;
+  immatriculationDate?: string | null;
+  incorporationDate?: string | null;
+  today: Date;
+}
+
+/** An obligation that must be SATISFIED before this filing can be completed. */
+export interface FilingPrerequisite {
+  /** Completeness requirement_key of the blocking obligation. */
+  requirementKey: string;
+  /**
+   * When true AND the filing carries a concrete fiscal year, match the prerequisite
+   * of the SAME year. When the filing has no year (e.g. the anniversary-based federal
+   * return), the check falls back to "any satisfied instance" — there is no concrete
+   * year to match, and such filings ask for the LAST (most recent) occurrence. See
+   * rank.ts:resolveUnmetPrerequisites.
+   */
+  sameYear: boolean;
+  /** i18n key under obligationNotice.prerequisites.reason.* — a DESCRIPTIVE reason. */
+  reasonKey: string;
+}
+
+export interface FilingRule {
+  /** Stable rule key — matches the deadline feeder id namespace `deadline:{ruleKey}:…`. */
+  ruleKey: string;
+  /** Completeness requirement_key(s) this filing satisfies/maps to. */
+  requirementKeys: readonly string[];
+  /** Event docKey(s) whose act triggers this filing (the roster REQ set). */
+  docKeys?: readonly string[];
+  statutoryBasis: string;
+  helpKey: string | null;
+  /**
+   * Event-relative offset (days from the triggering act's date). Set ONLY for
+   * event-triggered filings (roster REQ = 30); calendar filings use `dueDate`.
+   */
+  deadlineDays?: number;
+  /** Event-relative clock trigger (e.g. 'roster_change'); null/omitted for calendar. */
+  triggeredBy?: string;
+  /**
+   * Calendar-absolute due date for a given context. Set for the three calendar
+   * filings; omitted for the event-relative roster filing (which uses deadlineDays).
+   * Returns null when the anchor date the rule needs is absent.
+   */
+  dueDate?: (ctx: FilingDueCtx) => Date | null;
+  /**
+   * Whether this filing's completeness requirement and its deadline rule are the
+   * SAME obligation and should collapse to one board row (the OVERLAP_MERGE seam).
+   * Only the per-FY REQ annual update is flagged today — RE-200 is suppressed on
+   * both sides, and the federal annual return is a latent (not-yet-merged) pair.
+   */
+  overlapMerge?: boolean;
+  /** Obligations that must be SATISFIED before this filing can be completed. */
+  prerequisites: readonly FilingPrerequisite[];
+}
+
+// ─── The table ───────────────────────────────────────────────────────────────
+
+export const FILING_REGISTRY: readonly FilingRule[] = [
+  {
+    // QC REQ annual update — all QC-operating companies. FY-end + 6 months.
+    ruleKey: 'qc_req_annual_update',
+    requirementKeys: ['lsaq_req_annual_update', 'cbca_req_annual_update_qc'],
+    statutoryBasis: 'art. 45 LPLE (RLRQ, c. P-44.1)',
+    helpKey: null,
+    dueDate: (ctx) => (ctx.fyEnd ? addMonthsClamped(ctx.fyEnd, 6) : null),
+    overlapMerge: true, // the completeness annual requirement + deadline twin are one row
+    prerequisites: [],
+  },
+  {
+    // QC initial declaration (RE-200) — immatriculation + 60 days (day math, no clamp).
+    ruleKey: 'qc_initial_declaration',
+    requirementKeys: ['lsaq_declaration_initiale', 'cbca_declaration_initiale_qc'],
+    statutoryBasis: 'art. 38 LPLE',
+    helpKey: null,
+    dueDate: (ctx) => {
+      if (!ctx.immatriculationDate) return null;
+      const due = parseLocalDate(ctx.immatriculationDate);
+      due.setDate(due.getDate() + 60);
+      return due;
+    },
+    // NOT overlapMerge: suppressed on both sides today (presumed-done RE-200).
+    prerequisites: [],
+  },
+  {
+    // Federal annual return (CBCA only) — incorporation anniversary (next future).
+    ruleKey: 'fed_annual_return',
+    requirementKeys: ['cbca_annual_return'],
+    statutoryBasis: 'art. 263 LCSA (délai administratif — à confirmer)',
+    helpKey: 'fed_annual_return_admin_date',
+    dueDate: (ctx) => {
+      if (!ctx.incorporationDate) return null;
+      const inc = parseLocalDate(ctx.incorporationDate);
+      const anniv = new Date(ctx.today.getFullYear(), inc.getMonth(), inc.getDate());
+      if (anniv < ctx.today) anniv.setFullYear(ctx.today.getFullYear() + 1);
+      return anniv;
+    },
+    // NOT overlapMerge: the completeness cbca_annual_return row and this deadline row
+    // are a latent (not-yet-merged) pair — preserving current 2-row behaviour.
+    prerequisites: [
+      {
+        // The federal Annual Return asks for "date of last annual meeting of
+        // shareholders or date of written resolution in lieu of meeting", so the
+        // annual shareholders' resolution must be recorded first. CBCA-only filing
+        // → CBCA shareholder-resolution key. Wording is descriptive (Harvey sharpens).
+        requirementKey: 'cbca_annual_shareholder_resolution',
+        sameYear: true,
+        reasonKey: 'fedAnnualReturnShareholderMeeting',
+      },
+    ],
+  },
+  {
+    // QC REQ roster update — event-triggered by director/officer changes. Event-
+    // relative: due = act date + 30 days. Not a calendar filing (no dueDate fn).
+    ruleKey: 'qc_req_roster_update',
+    requirementKeys: [],
+    docKeys: [
+      'director_appointment',
+      'director_appointment_vacancy',
+      'director_departure',
+      'director_removal',
+      'officer_appointment',
+      'officer_departure',
+    ],
+    statutoryBasis: 'art. 41 LPLE (RLRQ, c. P-44.1)',
+    helpKey: 'req',
+    deadlineDays: 30,
+    triggeredBy: 'roster_change',
+    prerequisites: [],
+  },
+];
+
+// ─── Derived views (nothing re-lists keys — these are the ONLY readers) ──────────
+
+const _byRuleKey: ReadonlyMap<string, FilingRule> = new Map(
+  FILING_REGISTRY.map((r) => [r.ruleKey, r]),
+);
+
+const _byRequirementKey: ReadonlyMap<string, FilingRule> = new Map(
+  FILING_REGISTRY.flatMap((r) => r.requirementKeys.map((k) => [k, r] as const)),
+);
+
+const _byDocKey: ReadonlyMap<string, FilingRule> = new Map(
+  FILING_REGISTRY.flatMap((r) => (r.docKeys ?? []).map((k) => [k, r] as const)),
+);
+
+/** The external-requirement key set — replaces EXTERNAL_REQUIREMENT_KEYS. */
+export function isExternalRequirementKey(key: string): boolean {
+  return _byRequirementKey.has(key);
+}
+
+export function filingForRequirementKey(key: string): FilingRule | undefined {
+  return _byRequirementKey.get(key);
+}
+
+export function filingForRuleKey(ruleKey: string): FilingRule | undefined {
+  return _byRuleKey.get(ruleKey);
+}
+
+export function filingForDocKey(docKey: string): FilingRule | undefined {
+  return _byDocKey.get(docKey);
+}
+
+/**
+ * OVERLAP_MERGE view: completeness `requirementKey` → deadline `ruleKey`, ONLY for
+ * entries flagged `overlapMerge`. Reproduces the former literal map exactly (today:
+ * the two REQ annual-update keys → qc_req_annual_update).
+ */
+export const OVERLAP_MERGE: Readonly<Record<string, string>> = Object.fromEntries(
+  FILING_REGISTRY.filter((r) => r.overlapMerge).flatMap((r) =>
+    r.requirementKeys.map((k) => [k, r.ruleKey] as const),
+  ),
+);

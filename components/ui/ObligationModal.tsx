@@ -1,4 +1,4 @@
-import { AlertTriangle, Calendar, Clock, X } from 'lucide-react';
+import { AlertTriangle, Calendar, Clock, Link2, X } from 'lucide-react';
 
 export interface ObligationModalProps {
   open: boolean;
@@ -14,6 +14,13 @@ export interface ObligationModalProps {
   comingSoonBadge: string;
   comingSoonBody: string;
   ackLabel: string;
+  /**
+   * Prerequisites section — present only when the obligation has unmet
+   * prerequisites (rank.ts). Absent → the modal renders exactly as before
+   * (Complétude/EventActRow pass nothing → byte-identical). The caller
+   * (useObligationModalContent) has already localized heading/label/reason.
+   */
+  prerequisites?: { heading: string; items: Array<{ label: string; reason: string }> };
 }
 
 const overlayCls = 'fixed inset-0 z-50 flex items-end justify-center sm:items-center';
@@ -32,6 +39,10 @@ const dlTxCls = 'text-xs text-[var(--warning-text)] leading-snug';
 const dlDateCls = 'block font-bold text-[15px] text-[var(--warning-text)] mt-0.5';
 const obligBodyCls = 'text-sm text-[var(--text-body)] leading-relaxed';
 const legalCls = 'text-xs text-[var(--text-muted)] font-mono mt-2';
+const prereqCls = 'rounded-[10px] p-3 bg-[var(--warning-bg)] border border-[var(--warning-border)] border-l-[3px] border-l-[var(--amber-400)] space-y-2';
+const prereqHeadingCls = 'flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-[var(--warning-text)]';
+const prereqLabelCls = 'block text-xs font-semibold text-[var(--warning-text)]';
+const prereqReasonCls = 'block text-xs text-[var(--warning-text)] opacity-80 mt-0.5 leading-snug';
 const dividerCls = 'border-t border-[var(--divider)]';
 const howToLabelCls = 'text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]';
 const howToCardCls = 'flex items-center gap-3 rounded-[10px] p-4 border border-dashed border-[var(--card-border)] bg-[var(--card-bg)]';
@@ -44,7 +55,7 @@ const footerCls = 'flex items-center justify-end modal-footer px-6 py-4';
 const ackBtnCls = 'rounded-[10px] px-5 py-2 text-sm font-semibold bg-[var(--text-heading)] text-[var(--card-bg)] hover:opacity-90';
 
 export function ObligationModal(props: ObligationModalProps) {
-  const { open, onClose, title, subtitle, deadlineLabel, deadline, body, legalRef, howToLabel, comingSoonTitle, comingSoonBadge, comingSoonBody, ackLabel } = props;
+  const { open, onClose, title, subtitle, deadlineLabel, deadline, body, legalRef, howToLabel, comingSoonTitle, comingSoonBadge, comingSoonBody, ackLabel, prerequisites } = props;
   if (!open) return null;
   return (
     <div className={overlayCls}>
@@ -74,6 +85,20 @@ export function ObligationModal(props: ObligationModalProps) {
             <p className={obligBodyCls}>{body}</p>
             <div className={legalCls}>{legalRef}</div>
           </div>
+          {prerequisites && prerequisites.items.length > 0 && (
+            <div className={prereqCls}>
+              <div className={prereqHeadingCls}>
+                <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {prerequisites.heading}
+              </div>
+              {prerequisites.items.map((p, idx) => (
+                <div key={idx}>
+                  <span className={prereqLabelCls}>{p.label}</span>
+                  <span className={prereqReasonCls}>{p.reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className={dividerCls} />
           <div className={howToLabelCls}>{howToLabel}</div>
           <div className={howToCardCls}>
