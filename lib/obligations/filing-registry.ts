@@ -105,6 +105,22 @@ export interface FilingRule {
    * both sides, and the federal annual return is a latent (not-yet-merged) pair.
    */
   overlapMerge?: boolean;
+  /**
+   * Suppress this filing's completeness `requirementKey` rows from the A3 BOARD stream
+   * (completenessToObligations only) — NOT from the completeness COUNT / Complétude /
+   * verdict. For a RECURRING filing (Harvey 2026-07-24: the federal annual return is
+   * one recurring obligation, not N per-year debts), the single deadline row represents
+   * it on the board; Complétude keeps its per-year record. Mirrors the RE-200 board-only
+   * suppression. A future recurring filing declares this in its one registry entry.
+   */
+  boardSuppressCompletenessRows?: boolean;
+  /**
+   * Per-rule modal-copy namespace under `obligationNotice.*` (title/body). When set,
+   * the obligation modal uses `obligationNotice.{copyKey}.{title,body}` instead of the
+   * default `req.*` (art. 41 roster) copy. Omit → the default copy (every existing
+   * caller stays byte-identical).
+   */
+  copyKey?: string;
   /** Obligations that must be SATISFIED before this filing can be completed. */
   prerequisites: readonly FilingPrerequisite[];
 }
@@ -139,10 +155,20 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
   },
   {
     // Federal annual return (CBCA only) — incorporation anniversary (next future).
+    // Harvey 2026-07-24: art. 263 LCSA fixes NO statutory deadline (it delegates to
+    // the Director — "in the form and within the period established by him"); the
+    // anniversary is Corporations Canada's ADMINISTRATIVE practice. Citation GREEN,
+    // deadline rule administrative → the parenthetical says so (not "à confirmer").
     ruleKey: 'fed_annual_return',
     requirementKeys: ['cbca_annual_return'],
-    statutoryBasis: 'art. 263 LCSA (délai administratif — à confirmer)',
+    statutoryBasis: 'art. 263 LCSA · délai administratif (Corporations Canada)',
     helpKey: 'fed_annual_return_admin_date',
+    // Recurring obligation → ONE board row (this deadline row); its per-year
+    // completeness rows are suppressed from the board stream (Complétude keeps them).
+    boardSuppressCompletenessRows: true,
+    // Per-rule modal copy: names Corporations Canada, presents the administrative
+    // deadline — NOT the art. 41 / 30-day Registraire roster copy.
+    copyKey: 'fedAnnualReturn',
     dueDate: (ctx) => {
       if (!ctx.incorporationDate) return null;
       const inc = parseLocalDate(ctx.incorporationDate);
@@ -151,13 +177,14 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
       return anniv;
     },
     // NOT overlapMerge: the completeness cbca_annual_return row and this deadline row
-    // are a latent (not-yet-merged) pair — preserving current 2-row behaviour.
+    // are a latent (not-yet-merged) pair; the board suppresses the completeness half
+    // (above) so only this recurring row shows.
     prerequisites: [
       {
-        // The federal Annual Return asks for "date of last annual meeting of
-        // shareholders or date of written resolution in lieu of meeting", so the
-        // annual shareholders' resolution must be recorded first. CBCA-only filing
-        // → CBCA shareholder-resolution key. Wording is descriptive (Harvey sharpens).
+        // PRACTICAL sequencing (Harvey: not a legal precondition — art. 263 imposes
+        // none): the federal Annual Return asks for the date of the last annual
+        // shareholders' meeting (or written resolution in lieu), so record it first.
+        // CBCA-only filing → CBCA shareholder-resolution key.
         requirementKey: 'cbca_annual_shareholder_resolution',
         sameYear: true,
         reasonKey: 'fedAnnualReturnShareholderMeeting',
@@ -202,6 +229,20 @@ const _byDocKey: ReadonlyMap<string, FilingRule> = new Map(
 /** The external-requirement key set — replaces EXTERNAL_REQUIREMENT_KEYS. */
 export function isExternalRequirementKey(key: string): boolean {
   return _byRequirementKey.has(key);
+}
+
+/** requirement_keys whose completeness rows are suppressed from the A3 BOARD stream. */
+const _boardSuppressedKeys: ReadonlySet<string> = new Set(
+  FILING_REGISTRY.filter((r) => r.boardSuppressCompletenessRows).flatMap((r) => r.requirementKeys),
+);
+
+/**
+ * True when this requirement_key's completeness rows should be dropped from the BOARD
+ * obligation stream (completenessToObligations) — a recurring filing represented by its
+ * single deadline row. Does NOT affect the completeness COUNT / Complétude / verdict.
+ */
+export function isBoardSuppressedRequirementKey(key: string): boolean {
+  return _boardSuppressedKeys.has(key);
 }
 
 export function filingForRequirementKey(key: string): FilingRule | undefined {

@@ -772,6 +772,10 @@
       "title": "Déclaration à produire au Registraire des entreprises",
       "body": "Ce changement doit être déclaré au Registraire des entreprises du Québec dans les 30 jours, soit au plus tard le {deadline}. La résolution consigne la décision interne mais ne remplace pas cette déclaration obligatoire."
     },
+    "fedAnnualReturn": {
+      "title": "Dépôt à produire auprès de Corporations Canada",
+      "body": "Ce rapport se dépose auprès de Corporations Canada — et non du Registraire des entreprises. Son échéance est administrative : Corporations Canada la fixe, autour de votre anniversaire de constitution — soit au plus tard le {deadline}. L'article 263 LCSA ne fixe aucun délai légal."
+    },
     "help": {
       "title": "Comment déclarer ce changement",
       "comingSoon": "Un guide détaillé arrive bientôt.",
@@ -797,7 +801,7 @@
     "prerequisites": {
       "heading": "Avant de pouvoir déposer",
       "reason": {
-        "fedAnnualReturnShareholderMeeting": "Ce dépôt demande la date de votre dernière assemblée annuelle des actionnaires (ou de la résolution écrite qui en tient lieu). Consignez d'abord cette résolution."
+        "fedAnnualReturnShareholderMeeting": "Étape pratique : ce rapport demande la date de votre dernière assemblée annuelle des actionnaires (ou de la résolution écrite qui en tient lieu), alors consignez d'abord cette résolution — ce n'est pas une condition légale."
       }
     },
     "footerAck": "Compris"

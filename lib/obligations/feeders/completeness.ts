@@ -26,7 +26,11 @@ import {
   STATE_WEIGHT,
   type DocumentState,
 } from '@/lib/minute-book/state';
-import { isExternalRequirementKey, filingForRuleKey } from '../filing-registry';
+import {
+  isExternalRequirementKey,
+  isBoardSuppressedRequirementKey,
+  filingForRuleKey,
+} from '../filing-registry';
 
 /**
  * External (government-facing) requirement keys — now a VIEW onto the filing
@@ -90,6 +94,14 @@ export function completenessToObligations(
     // minute-book completeness COUNT is intentionally unaffected — that's the
     // separate % path (computeRequirementCompleteness), which we do not touch.
     .filter((item) => !(hasLaterAnnualFiling && INITIAL_DECLARATION_KEYS.has(item.requirement_key)))
+    // Harvey 2026-07-24 — a RECURRING filing (the federal annual return) is ONE
+    // obligation, not N per-year debts. Suppress its per-year completeness rows from
+    // the A3 obligation stream ONLY; the single deadline row (fed_annual_return)
+    // represents it on the board. Mirrors the INITIAL_DECLARATION_KEYS board-only
+    // suppression above — the minute-book completeness COUNT / Complétude / verdict
+    // are intentionally UNAFFECTED (Dom: Complétude keeps its per-year record).
+    // Registry-derived (boardSuppressCompletenessRows flag) — no new literal.
+    .filter((item) => !isBoardSuppressedRequirementKey(item.requirement_key))
     .map((item): Obligation => {
     const state = getStateForChecklistItem(item);
     const base = STATE_TO_BASE[state];

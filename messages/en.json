@@ -772,6 +772,10 @@
       "title": "Filing required with the Registraire des entreprises",
       "body": "This change must be declared to Québec's Registraire des entreprises within 30 days — by {deadline} at the latest. The resolution records the internal decision but does not replace this required filing."
     },
+    "fedAnnualReturn": {
+      "title": "Filing required with Corporations Canada",
+      "body": "This return is filed with Corporations Canada — not the Registraire des entreprises. Its deadline is administrative: Corporations Canada sets it, around your incorporation anniversary — by {deadline}. Section 263 CBCA fixes no statutory delay."
+    },
     "help": {
       "title": "How to declare this change",
       "comingSoon": "A detailed guide is coming soon.",
@@ -797,7 +801,7 @@
     "prerequisites": {
       "heading": "Before you can file",
       "reason": {
-        "fedAnnualReturnShareholderMeeting": "This filing asks for the date of your last annual shareholders' meeting (or the written resolution in lieu). Record that resolution first."
+        "fedAnnualReturnShareholderMeeting": "Practical step: this return asks for the date of your last annual shareholders' meeting (or the written resolution in lieu), so record that resolution first — it is not a legal precondition."
       }
     },
     "footerAck": "Got it"

@@ -417,6 +417,7 @@ export default function A3Item({
           : '',
         body: description,
         legalRef: o.statutoryBasis,
+        copyKey: o.copyKey,
         prerequisites: o.unmetPrerequisites?.map((p) => ({
           label: locale === 'en' ? p.labelEn : p.labelFr,
           reasonKey: p.reasonKey,

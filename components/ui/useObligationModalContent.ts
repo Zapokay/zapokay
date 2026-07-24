@@ -29,14 +29,19 @@ export function useObligationModalContent(): (args: {
    *  `reasonKey` maps to obligationNotice.prerequisites.reason.*. When absent/empty,
    *  the modal renders exactly as before — no prerequisites section. */
   prerequisites?: Array<{ label: string; reasonKey: string }>;
+  /** Per-rule copy namespace (obligation.copyKey, from the filing registry). When set,
+   *  title/body come from obligationNotice.{copyKey}.{title,body} (e.g. the federal
+   *  annual return names Corporations Canada). Absent → the default req.* copy, so
+   *  every existing caller (roster rows, the REQ annual update) is byte-identical. */
+  copyKey?: string;
 }) => ObligationModalContent {
   const tObl = useTranslations('obligationNotice');
-  return ({ subtitle, deadline, body, legalRef, prerequisites }) => ({
-    title: tObl('req.title'),
+  return ({ subtitle, deadline, body, legalRef, prerequisites, copyKey }) => ({
+    title: copyKey ? tObl(`${copyKey}.title`) : tObl('req.title'),
     subtitle,
     deadlineLabel: tObl('modal.deadlineLabel'),
     deadline,
-    body: body ?? tObl('req.body', { deadline }),
+    body: body ?? (copyKey ? tObl(`${copyKey}.body`, { deadline }) : tObl('req.body', { deadline })),
     legalRef: legalRef ?? tObl('modal.legalRef'),
     howToLabel: tObl('modal.howToLabel'),
     comingSoonTitle: tObl('help.comingSoonTitle'),

@@ -103,13 +103,16 @@ export function deadlineObligations(
     titleEn: string;
     statutoryBasis: string;
     helpKey: string | null;
+    copyKey?: string;
   }) => {
     const daysUntilDue = daysBetween(today, o.dueDate);
-    // DISPLAY year: calendar rows carry o.year; year-less rows fall back to the
-    // incorporation year. Does NOT touch the obligation's own `year:` field below.
-    // o.titleFr/titleEn are typed `string` (non-null) → composeDisplayName always
-    // gets a real title; no null-guard reachable here.
-    const rowYear = o.year ?? incYear;
+    // DISPLAY year: calendar rows carry o.year. Year-less rows fall back to the
+    // incorporation year — EXCEPT anniversary-anchored rows (the federal annual
+    // return), which are RECURRING, not a founding-year filing: showing "· 2018"
+    // beside a 2026 due date misleads, so they carry NO year segment. RE-200
+    // (yearSeg 'initial') keeps incYear — it IS the founding-year declaration.
+    // Does NOT touch the obligation's own `year:` field below.
+    const rowYear = o.yearSeg === 'anniversary' ? o.year : (o.year ?? incYear);
     obligations.push({
       id: `deadline:${o.ruleKey}:${o.yearSeg}`,
       source: 'deadline',
@@ -136,6 +139,7 @@ export function deadlineObligations(
       hasFiling: o.actionKind === 'file_externally',
       statutoryBasis: o.statutoryBasis,
       helpKey: o.helpKey,
+      copyKey: o.copyKey, // per-rule modal-copy namespace (registry) — only fed set today
       fulfilled: false,
     });
   };
@@ -206,6 +210,7 @@ export function deadlineObligations(
         titleEn: 'Annual Return — Corporations Canada',
         statutoryBasis: fedRule.statutoryBasis,
         helpKey: fedRule.helpKey,
+        copyKey: fedRule.copyKey,
       });
     }
   }

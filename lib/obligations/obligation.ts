@@ -68,6 +68,11 @@ export interface Obligation {
   hasFiling?: boolean;
   statutoryBasis: string | null;
   helpKey: string | null;
+  // Per-rule modal-copy namespace under obligationNotice.* (title/body). Display
+  // metadata, stamped by the feeder from the filing registry's `copyKey`. Optional:
+  // only rows needing copy that differs from the default art. 41 roster text set it
+  // (today: the federal annual return). Absent → the default req.* copy.
+  copyKey?: string;
   fulfilled: boolean;            // inert v1 seam for the deferred resolved-state
   // Phase B-2 — completeness-row button-set inputs (the A3 board decides Upload/
   // Generate/Regenerate/Replace per state). Optional: ONLY the completeness feeder
