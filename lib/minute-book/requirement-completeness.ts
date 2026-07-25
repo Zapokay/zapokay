@@ -16,7 +16,18 @@ import { requirementToDocType, type VaultDocType } from '@/lib/requirement-docty
 import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state';
 import { computeLiveness } from '@/lib/obligations/liveness';
 import type { ObligationLiveness } from '@/lib/obligations/obligation';
+import { filingForRuleKey } from '@/lib/obligations/filing-registry';
 import { parseLocalDate } from '@/lib/utils';
+
+/**
+ * PROOF-SLOT requirement keys — obligations whose FILING is already complete by
+ * operation of law, leaving only the PROOF to collect for the binder. Registry-derived
+ * from qc_initial_declaration's requirementKeys so the key list lives in exactly ONE
+ * place (no literal here). Consumed by the foundational-liveness exemption below.
+ */
+const PROOF_SLOT_KEYS: ReadonlySet<string> = new Set(
+  filingForRuleKey('qc_initial_declaration')?.requirementKeys ?? [],
+);
 
 export interface ChecklistItem {
   id: string;
@@ -173,11 +184,49 @@ export async function computeRequirementCompleteness(
     // Foundational liveness: anchored to incorporation age, floored live→regularize
     // (owed from day 1 → never "upcoming"). Non-null for any NOT-DONE item (missing,
     // uploaded-but-uncertified, or generated draft); null only when is_finalized===true.
+    //
+    // PROOF-SLOT EXEMPTION (Harvey 2026-07-24, GREEN, art. 8-9 LSAQ). For a
+    // PROVINCIALLY incorporated company the RE-200 initial declaration is ALREADY
+    // FILED: art. 8 lets the declaration be attached to the articles of incorporation,
+    // art. 9 transmits the articles and their attachments to the registraire — so
+    // incorporation IS registration ("une quasi-identité"). Nothing is owed to anyone;
+    // the only gap is a receipt the user downloads from the REQ. Flooring that to
+    // regularize/remediate renders "consulter un professionnel" — the most severe thing
+    // the product says — for a download. Disproportionate, so exempt it.
+    //
+    // THE FIX IS `year: null`, NOT removing the floor. The call below passes
+    // `year: incYear`, so for an established company computeLiveness already returns
+    // 'remediate' (yearsBehind = today − incYear) BEFORE the floor is ever reached —
+    // dropping the `raw === 'live' ? 'regularize'` override alone would change nothing.
+    // Passing null takes Branch B's "no year, no lateness concept" path → 'live'. This
+    // is an EXEMPTION, not a new liveness value: the union stays live|regularize|
+    // remediate and every consumer (TIER_BADGE, LIVENESS_RANK, A3Item, CompletenessPage
+    // filters) is untouched.
+    //
+    // LSA ONLY — load-bearing, not cosmetic. CBCA's RE-200 DEADLINE twin survives
+    // (d0c0d44 deliberately left the federal path alone, pending Harvey on the
+    // federal-doing-business-in-Québec registration obligation) and is genuinely
+    // overdue. Exempting the CBCA completeness half would have Complétude say "not late"
+    // while the board says "overdue" about the SAME obligation.
+    //
+    // EVERY OTHER FOUNDATIONAL ROW KEEPS ITS FLOOR: articles, by-laws, first resolutions
+    // are owed from day 1 — the company itself must produce them and nobody else holds a
+    // copy. RE-200 differs precisely because the government already has the filing.
+    //
+    // Touches ONLY `liveness` and which counter it increments. `satisfied`, `state`,
+    // STATE_WEIGHT, requirementsTotal and the completeness % are all unaffected.
     let liveness: ObligationLiveness | null = null;
     if (isFinalized !== true) {
-      const raw = computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: incYear, today });
-      liveness = raw === 'live' ? 'regularize' : raw;
-      if (liveness === 'regularize') overdueRegularize++;
+      const isProofSlot = framework === 'LSA' && PROOF_SLOT_KEYS.has(req.requirement_key);
+      const raw = computeLiveness({
+        daysUntilDue: null,
+        legalWindowDays: null,
+        year: isProofSlot ? null : incYear,
+        today,
+      });
+      liveness = isProofSlot ? raw : raw === 'live' ? 'regularize' : raw;
+      if (liveness === 'live') upcoming++;
+      else if (liveness === 'regularize') overdueRegularize++;
       else overdueProlonged++;
     }
     checklist.push({
