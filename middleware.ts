@@ -45,8 +45,30 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          // Mirror onto the request so any downstream read in THIS pass sees the
-          // fresh token, and onto the intl response so the browser persists it.
+          // What each write actually achieves — the request mirror is NOT what makes
+          // this work, despite appearances:
+          //
+          //   response.cookies.set → the BROWSER receives the rotation. This is the
+          //     load-bearing write; every SUBSEQUENT request carries the fresh token.
+          //
+          //   request.cookies.set → does NOT reach the same-pass RSC. next-intl built
+          //     `response` above via NextResponse.rewrite(url, { request: { headers } })
+          //     with `new Headers(request.headers)` — a COPY snapshotted before this
+          //     setAll runs (next-intl/dist/.../middleware.js, the rewrite() branch).
+          //     Mutating request.cookies now cannot alter headers already copied, and
+          //     Next only forwards request mutations through a response CONSTRUCTED
+          //     after them. Kept because it is harmless and correct-in-intent, but do
+          //     not rely on it.
+          //
+          // ★ SO THE SAME-PASS RSC READS THE PRE-ROTATION COOKIE and re-presents the
+          // refresh token this middleware just consumed. That succeeds only because of
+          // Supabase's refresh_token_reuse_interval (10s default): within the window a
+          // consumed token may be re-presented and returns the same rotated session.
+          // THE DESIGN DEPENDS ON THAT INTERVAL. If it is ever set to 0, the same-pass
+          // RSC refresh starts failing and pages fall back to redirect('/login').
+          // Fixing it properly means recomposing next-intl's response after the
+          // mutation (recomputing its rewrite URL + locale header, or re-running the
+          // intl middleware) — not a small change, and it lands on the login path.
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
