@@ -197,7 +197,29 @@ export function deadlineObligations(
   // necessarily initialized its founding REQ dossier — the initial declaration is
   // presumed satisfied and must never surface as "file now". hasLaterAnnualFiling
   // (from the caller) suppresses the emission entirely (Option 1: presumed done).
-  if (immatriculationDate && !hasLaterAnnualFiling) {
+  //
+  // LSAQ NEAR-IDENTITY (Harvey 2026-07-24, GREEN, verified against LSAQ art. 8-9-10):
+  // for a PROVINCIALLY-incorporated company the initial declaration is already filed.
+  // Art. 8 lets the declaration be attached to the articles of incorporation; art. 9
+  // transmits the articles, their attachments and the LPLE fees to the registraire. So
+  // provincial incorporation PASSES THROUGH the registraire — being registered IS
+  // having filed. Harvey calls this "une quasi-identité", not an inference. An LSAQ
+  // company therefore never owes this filing, and showing it as overdue is a false
+  // positive of the same family as the pre-incorporation phantom rows (0f7deee).
+  // What may still be missing is the PROOF in the minute book — that is the
+  // completeness row's job (can_upload true / can_generate false), never a deadline.
+  //
+  // The suppression keys on INCORPORATION, deliberately NOT on companies.neq: the NEQ
+  // is OPTIONAL at onboarding (StepCompany.validate does not require it) and both
+  // fixtures hold placeholders, so a null NEQ means "the user skipped a field", never
+  // "not registered". Absence of an identifier is not evidence of non-registration.
+  //
+  // CBCA IS DELIBERATELY EXCLUDED — not an oversight. A federal company that begins
+  // doing business in Québec has a real, genuinely-outstanding registration obligation,
+  // and Harvey could not map that residual case without the full LPLE text. Until he
+  // rules, the CBCA path keeps today's behaviour exactly (including hasLaterAnnualFiling,
+  // which still governs it).
+  if (framework !== 'LSA' && immatriculationDate && !hasLaterAnnualFiling) {
     const rule = filingForRuleKey('qc_initial_declaration')!;
     const due = rule.dueDate!({ immatriculationDate, today }); // immatriculation + 60d
     if (due) {
