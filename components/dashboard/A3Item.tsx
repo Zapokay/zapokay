@@ -218,7 +218,12 @@ export default function A3Item({
   // fall through to the static-verb branch below — that IS the filing treatment.
   const canRowUpload =
     (o.source === 'completeness' && o.requirementKey != null) ||
-    (o.source === 'event' && o.eventLink != null && o.actionKind !== 'file_externally');
+    (o.source === 'event' && o.eventLink != null && o.actionKind !== 'file_externally') ||
+    // A deadline row that carries an upload identity (requirementKey + canUpload) — the
+    // federal annual return (option iii): one anniversary-clock row, uploadable. The
+    // receipt attaches by (requirementKey, year) via handleFileChange's requirementRef
+    // path. Only the fed return sets these on a deadline row today.
+    (o.source === 'deadline' && o.requirementKey != null && o.canUpload === true);
   let verbButton: React.ReactNode = null;
   if (isRemediate) {
     const ConsultIcon = CONSULT.Icon;

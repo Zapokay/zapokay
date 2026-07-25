@@ -21,6 +21,7 @@ import { deadlineObligations } from '@/lib/obligations/feeders/deadlines';
 import { eventsToObligations } from '@/lib/obligations/feeders/events';
 import { mergeObligations } from '@/lib/obligations/aggregate';
 import { rankObligations } from '@/lib/obligations/rank';
+import { currentFiscalYearStart } from '@/lib/obligations/filing-registry';
 import A3Board from '@/components/dashboard/A3Board';
 import StatusVerdict from '@/components/dashboard/StatusVerdict';
 import InventoryLine from '@/components/minute-book/InventoryLine';
@@ -187,6 +188,14 @@ export default async function DashboardPage({
 
     const completenessObs = completenessToObligations(completeness.checklist, today, hasLaterAnnualFiling, incYear);
 
+    // Federal-return clear-gate: is the CURRENT-FY cbca_annual_return receipt already
+    // uploaded? Derived from the checklist already in hand (no extra query). fyYear is
+    // the same current fiscal year the deadline feeder binds the fed row to.
+    const fyYear = currentFiscalYearStart(fyEndMonth, fyEndDay, today).getFullYear();
+    const currentFedReturnFiled = completeness.checklist.some(
+      (i) => i.requirement_key === 'cbca_annual_return' && i.year === fyYear && i.satisfied,
+    );
+
     // Feeder 3 (deadline) — immatriculationDate uses incorporation date as QC proxy.
     const deadlineObs = deadlineObligations(
       {
@@ -196,6 +205,7 @@ export default async function DashboardPage({
         incorporationDate,
         immatriculationDate: incorporationDate,
         hasLaterAnnualFiling,
+        currentFedReturnFiled,
       },
       today,
     );

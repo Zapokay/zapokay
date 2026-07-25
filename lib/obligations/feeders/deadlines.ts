@@ -49,6 +49,14 @@ export interface CompanyComplianceInput {
    * record-agnostic (it receives the fact, it does not look filings up).
    */
   hasLaterAnnualFiling: boolean;
+  /**
+   * Federal-return clear-gate: true when the CURRENT-fiscal-year cbca_annual_return
+   * receipt is already uploaded (satisfied). Skips the fed_annual_return push so the
+   * row leaves the board once filed; when the next FY-end passes, currentFiscalYearStart
+   * advances → new current-FY row (unsatisfied) → the push fires again. Same record-
+   * agnostic pattern as hasLaterAnnualFiling — the caller derives it from the checklist.
+   */
+  currentFedReturnFiled: boolean;
 }
 
 /**
@@ -76,7 +84,7 @@ export function deadlineObligations(
   input: CompanyComplianceInput,
   today: Date,
 ): Obligation[] {
-  const { framework, fyEndMonth, fyEndDay, incorporationDate, immatriculationDate, hasLaterAnnualFiling } = input;
+  const { framework, fyEndMonth, fyEndDay, incorporationDate, immatriculationDate, hasLaterAnnualFiling, currentFedReturnFiled } = input;
   const obligations: Obligation[] = [];
 
   // DISPLAY-year fallback: rows without a fiscal year (RE-200 initial declaration,
@@ -104,15 +112,18 @@ export function deadlineObligations(
     statutoryBasis: string;
     helpKey: string | null;
     copyKey?: string;
+    requirementKey?: string; // upload attach-key — set on deadline rows that accept an uploaded receipt
+    canUpload?: boolean;     // routes to A3Item's Upload SET branch
   }) => {
     const daysUntilDue = daysBetween(today, o.dueDate);
     // DISPLAY year: calendar rows carry o.year. Year-less rows fall back to the
     // incorporation year — EXCEPT anniversary-anchored rows (the federal annual
-    // return), which are RECURRING, not a founding-year filing: showing "· 2018"
-    // beside a 2026 due date misleads, so they carry NO year segment. RE-200
+    // return): they are RECURRING and anniversary-anchored, so they carry NO year
+    // segment even though `year` now holds the FISCAL year the receipt attaches to
+    // (an attach-key, not a display fact — hence `null`, not o.year). RE-200
     // (yearSeg 'initial') keeps incYear — it IS the founding-year declaration.
     // Does NOT touch the obligation's own `year:` field below.
-    const rowYear = o.yearSeg === 'anniversary' ? o.year : (o.year ?? incYear);
+    const rowYear = o.yearSeg === 'anniversary' ? null : (o.year ?? incYear);
     obligations.push({
       id: `deadline:${o.ruleKey}:${o.yearSeg}`,
       source: 'deadline',
@@ -130,7 +141,7 @@ export function deadlineObligations(
       daysUntilDue,
       year: o.year,
       actionKind: o.actionKind,
-      requirementKey: null,
+      requirementKey: o.requirementKey ?? null,
       docKey: null,
       exposure: o.exposure,
       // A file_externally rule IS a government filing by definition; finalize
@@ -140,6 +151,7 @@ export function deadlineObligations(
       statutoryBasis: o.statutoryBasis,
       helpKey: o.helpKey,
       copyKey: o.copyKey, // per-rule modal-copy namespace (registry) — only fed set today
+      canUpload: o.canUpload, // deadline rows accepting an uploaded receipt (the fed return)
       fulfilled: false,
     });
   };
@@ -193,7 +205,11 @@ export function deadlineObligations(
   // YELLOW (Harvey): the anniversary-month deadline is set administratively by
   // Corporations Canada, NOT by statute → flagged "à confirmer" + helpKey.
   // Needs incorporationDate to compute the anniversary; skipped when null.
-  if (framework === 'CBCA' && incorporationDate) {
+  // Clear-gate: once the CURRENT-FY receipt is filed, the row leaves the board (it
+  // rolls over automatically when the next FY-end passes — currentFiscalYearStart
+  // advances fyYear). Dom's confirmed gap: between filing and the next FY-end, no
+  // federal row shows (current done, next not yet due).
+  if (framework === 'CBCA' && incorporationDate && !currentFedReturnFiled) {
     const fedRule = filingForRuleKey('fed_annual_return')!;
     // Next future incorporation anniversary (leap-year Feb-29 edge banked — rare,
     // and this rule is YELLOW). Computed by the registry rule.
@@ -202,7 +218,11 @@ export function deadlineObligations(
       push({
         ruleKey: fedRule.ruleKey,
         yearSeg: 'anniversary',
-        year: null,
+        // ANNIVERSARY clock (dueDate) but the FISCAL year is the receipt's attach-key
+        // (upload → cbca_annual_return:{fyYear}). Two axes, deliberately: the clock is
+        // the anniversary, the attach-key is the current fiscal year. No year segment
+        // is shown (rowYear null for 'anniversary' — see push).
+        year: fyYear,
         dueDate: anniv,
         exposure: 'external',
         actionKind: 'file_externally',
@@ -211,6 +231,10 @@ export function deadlineObligations(
         statutoryBasis: fedRule.statutoryBasis,
         helpKey: fedRule.helpKey,
         copyKey: fedRule.copyKey,
+        // Upload identity — makes the row take A3Item's Upload SET branch; the receipt
+        // attaches to the current-FY completeness row (requirement_key + year).
+        requirementKey: 'cbca_annual_return',
+        canUpload: true,
       });
     }
   }
