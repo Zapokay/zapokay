@@ -8,6 +8,21 @@ const intlMiddleware = createIntlMiddleware(routing)
 export async function middleware(request: NextRequest) {
   // API routes don't need GET-driven session cookie rotation; skip before any
   // Supabase work so route handlers keep full control of their own auth.
+  //
+  // ★ LOAD-BEARING — THIS RETURN IS WHAT KEEPS LOGIN WORKING. The matcher below
+  // does NOT exclude /api (it excludes only _next/static, _next/image and
+  // favicon.ico), so EVERY /api request reaches this function. This early return
+  // is the ONLY thing keeping app/api/auth/callback/route.ts out of the Supabase
+  // refresh path above — that route calls exchangeCodeForSession() and writes the
+  // session cookies itself, and it must be the sole writer for that exchange.
+  //
+  // Consequences, so nobody has to rediscover them:
+  //   - MOVING the auth callback out of /api/ (e.g. under /[locale]/) removes its
+  //     protection and it starts running the middleware refresh — LOGIN BREAKS.
+  //   - DELETING or REORDERING this return below the createServerClient block has
+  //     the same effect — LOGIN BREAKS.
+  //   - If the callback ever must live outside /api/, exclude it in the matcher
+  //     FIRST; do not rely on this condition to cover it.
   if (request.nextUrl.pathname.startsWith('/api')) {
     return NextResponse.next()
   }
