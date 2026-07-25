@@ -17,11 +17,11 @@ import { computeRequirementCompleteness } from '@/lib/minute-book/requirement-co
 import { computeEventCompleteness } from '@/lib/minute-book/event-completeness';
 import { computeHoldYears } from '@/lib/minute-book/hold-years';
 import { completenessToObligations } from '@/lib/obligations/feeders/completeness';
-import { deadlineObligations } from '@/lib/obligations/feeders/deadlines';
+import { deadlineObligations, ANNUAL_MEETING_RECORD_KEYS } from '@/lib/obligations/feeders/deadlines';
 import { eventsToObligations } from '@/lib/obligations/feeders/events';
 import { mergeObligations } from '@/lib/obligations/aggregate';
 import { rankObligations } from '@/lib/obligations/rank';
-import { currentFiscalYearStart } from '@/lib/obligations/filing-registry';
+import { filingFiscalYear } from '@/lib/obligations/filing-registry';
 import A3Board from '@/components/dashboard/A3Board';
 import StatusVerdict from '@/components/dashboard/StatusVerdict';
 import InventoryLine from '@/components/minute-book/InventoryLine';
@@ -189,11 +189,27 @@ export default async function DashboardPage({
     const completenessObs = completenessToObligations(completeness.checklist, today, hasLaterAnnualFiling, incYear);
 
     // Federal-return clear-gate: is the CURRENT-FY cbca_annual_return receipt already
-    // uploaded? Derived from the checklist already in hand (no extra query). fyYear is
-    // the same current fiscal year the deadline feeder binds the fed row to.
-    const fyYear = currentFiscalYearStart(fyEndMonth, fyEndDay, today).getFullYear();
+    // uploaded? Derived from the checklist already in hand (no extra query).
+    // LOCKSTEP: this calls the SAME function the feeder uses for the fed row's
+    // attach-key (filingFiscalYear), not a re-derivation of it — the gate matches on
+    // (requirement_key, year), so if the two ever named different years the receipt
+    // would attach to one row while the gate watched another and the row could never
+    // clear. Sharing the function makes them definitionally identical, including the
+    // first-year case where no fiscal year has closed yet.
+    const fyYear = filingFiscalYear(fyEndMonth, fyEndDay, incorporationDate, today);
     const currentFedReturnFiled = completeness.checklist.some(
       (i) => i.requirement_key === 'cbca_annual_return' && i.year === fyYear && i.satisfied,
+    );
+
+    // FIRST-annual-meeting proxy, condition (1): has an annual shareholders'
+    // resolution EVER been recorded, for any year? We track no meeting DATE, so this
+    // is the closest available fact. Derived from the checklist already in hand (no
+    // new query) — same record-agnostic pattern as hasLaterAnnualFiling /
+    // currentFedReturnFiled: the caller reads the records, the feeder stays pure.
+    // Condition (2) — inc+18mo still in the future, the Wick guard — is applied
+    // INSIDE the feeder, which already holds incorporationDate and today.
+    const noPriorAnnualMeetingRecorded = !completeness.checklist.some(
+      (i) => i.satisfied && ANNUAL_MEETING_RECORD_KEYS.includes(i.requirement_key),
     );
 
     // Feeder 3 (deadline) — immatriculationDate uses incorporation date as QC proxy.
@@ -206,6 +222,7 @@ export default async function DashboardPage({
         immatriculationDate: incorporationDate,
         hasLaterAnnualFiling,
         currentFedReturnFiled,
+        noPriorAnnualMeetingRecorded,
       },
       today,
     );

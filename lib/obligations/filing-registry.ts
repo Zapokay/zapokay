@@ -23,6 +23,7 @@
  */
 
 import { parseLocalDate } from '@/lib/utils';
+import { fiscalYearForDate } from '@/lib/active-years';
 
 // ─── Date helpers (moved from deadlines.ts — the only surviving copies) ──────────
 
@@ -48,6 +49,75 @@ export function addMonthsClamped(date: Date, months: number): Date {
   const month = ((monthIndex % 12) + 12) % 12;
   const lastDay = new Date(year, month + 1, 0).getDate();
   return new Date(year, month, Math.min(date.getDate(), lastDay));
+}
+
+/**
+ * The most recent fiscal-year END the company ACTUALLY EXISTED THROUGH — or
+ * `null` when no fiscal year has closed yet (a company inside its first one).
+ *
+ * WHY: `currentFiscalYearStart` above is pure calendar math, and it happily
+ * returns a FY-end that PREDATES incorporation. A company incorporated
+ * 2026-03-01 with a Dec-31 year-end got 2025-12-31 back, and every rule anchored
+ * on it emitted a row for a fiscal year the company did not exist in — marked
+ * OVERDUE. This COMPOSES that helper; it does not modify it. Making
+ * `currentFiscalYearStart` itself nullable would overload one function with two
+ * unrelated jobs (calendar math + corporate-existence policy) and disturb
+ * Harvey-verified provenance for no gain — nullability propagates to every
+ * caller either way.
+ *
+ * BOUNDARY: strict `>`. The FY-end must fall strictly AFTER incorporation, so a
+ * company incorporated exactly ON its year-end day is not credited with a
+ * zero-length first fiscal year.
+ *
+ * The `null` return is DELIBERATE and load-bearing: it forces every caller to
+ * DECLARE what it does when no fiscal year has closed — skip the row, use the
+ * upcoming year, switch statutory limb — instead of silently inheriting a wrong
+ * default. The three answers live in feeders/deadlines.ts, each commented.
+ *
+ * incorporationDate null → falls back to the raw calendar answer (i.e. today's
+ * behavior, unchanged). We cannot know when the company came into existence, and
+ * suppressing rows on that unknown would HIDE real obligations — the worse of
+ * the two failures.
+ */
+export function completedFiscalYearEnd(
+  month: number,
+  day: number,
+  incorporationDate: string | null,
+  today: Date,
+): Date | null {
+  const fyEnd = currentFiscalYearStart(month, day, today);
+  if (!incorporationDate) return fyEnd; // unknowable — behave exactly as before
+  return fyEnd > parseLocalDate(incorporationDate) ? fyEnd : null;
+}
+
+/**
+ * The fiscal year a government-filing RECEIPT attaches to — the `year` half of
+ * the completeness identity (requirement_key, year). The most recent CLOSED
+ * fiscal year the company existed through; before any has closed, the fiscal
+ * year currently OPEN. Never a pre-incorporation year.
+ *
+ * The open-year fallback delegates to `fiscalYearForDate` — the declared single
+ * source of truth for the FY boundary, and the same function
+ * `computeDefaultActiveYears` uses to build the `company_fiscal_years` rows the
+ * completeness checklist fans out over. That is what makes "the year returned
+ * here HAS a checklist row" true BY CONSTRUCTION rather than by coincidence: the
+ * federal clear-gate matches on (requirement_key, year), so a year with no row
+ * is a receipt that can never satisfy anything and a row that never leaves the
+ * board.
+ */
+export function filingFiscalYear(
+  month: number,
+  day: number,
+  incorporationDate: string | null,
+  today: Date,
+): number {
+  const closed = completedFiscalYearEnd(month, day, incorporationDate, today);
+  if (closed) return closed.getFullYear();
+  // LOCAL calendar fields — never toISOString(), which shifts the day back in
+  // UTC-negative zones (#159 / §8.54: the same TZ trap parseLocalDate guards).
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const todayISO = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+  return fiscalYearForDate(todayISO, month, day);
 }
 
 // ─── The contract ────────────────────────────────────────────────────────────
