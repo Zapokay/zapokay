@@ -33,7 +33,7 @@ export function deriveStatus(
  * Overlap-merge map (completeness `requirementKey` → deadline `ruleKey`): obligations
  * emitted by BOTH the completeness feeder (a DOCUMENT to have) and the deadline feeder
  * (a statutory FILING with a due date), which collapse to one board row. Now a VIEW
- * onto the FILING REGISTRY — derived from entries flagged `overlapMerge` (today: the
+ * onto the FILING REGISTRY — derived from entries with `cadence: 'per-fiscal-year'` (today: the
  * QC REQ annual update; RE-200 suppressed on both sides; fed return a latent pair).
  * Imported above for internal use (line ~86) and re-exported so existing importers of
  * this symbol are unaffected.

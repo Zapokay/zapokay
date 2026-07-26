@@ -100,7 +100,7 @@ export function completenessToObligations(
     // represents it on the board. Mirrors the INITIAL_DECLARATION_KEYS board-only
     // suppression above — the minute-book completeness COUNT / Complétude / verdict
     // are intentionally UNAFFECTED (Dom: Complétude keeps its per-year record).
-    // Registry-derived (boardSuppressCompletenessRows flag) — no new literal.
+    // Registry-derived from `cadence: 'anniversary'` — no new literal.
     .filter((item) => !isBoardSuppressedRequirementKey(item.requirement_key))
     .map((item): Obligation => {
     const state = getStateForChecklistItem(item);

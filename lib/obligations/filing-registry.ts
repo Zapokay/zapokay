@@ -169,21 +169,48 @@ export interface FilingRule {
    */
   dueDate?: (ctx: FilingDueCtx) => Date | null;
   /**
-   * Whether this filing's completeness requirement and its deadline rule are the
-   * SAME obligation and should collapse to one board row (the OVERLAP_MERGE seam).
-   * Only the per-FY REQ annual update is flagged today — RE-200 is suppressed on
-   * both sides, and the federal annual return is a latent (not-yet-merged) pair.
+   * ★ CADENCE — answers ONE question: WHAT INSTANTIATES AN INSTANCE of this
+   * obligation? A fiscal year, an anniversary, the company's founding, or an act.
+   *
+   *   'per-fiscal-year' — one instance per fiscal year; each is a separately
+   *                       outstandable debt (the REQ annual update: art. 45 LPLE
+   *                       ties it to a COMPLETED fiscal year).
+   *   'anniversary'     — ONE recurring instance on an anniversary clock. You are
+   *                       never "behind on your 2023 return" the way you can be
+   *                       behind on 2023's REQ update; filing it satisfies the
+   *                       obligation until the next anniversary (Harvey 2026-07-24).
+   *   'once'            — a single lifetime instance, no year (the RE-200).
+   *   'event'           — instantiated by an ACT, not a calendar. No act, no
+   *                       obligation (art. 41 LPLE roster update, 30d from the act).
+   *
+   * ⚠️ A NEW VALUE MUST ANSWER THAT SAME QUESTION. Adding one on a different axis
+   * ('monthly', 'on-demand', 'quarterly-if-X') would silently break the derivations
+   * below, which select on cadence VALUES — a value that does not name an
+   * instantiator lands in neither derivation and its flags quietly become false.
+   *
+   * ★ THE DERIVATIONS BELOW REPLACE TWO FORMER BOOLEAN FLAGS. `overlapMerge` and
+   * `boardSuppressCompletenessRows` never described the obligation — they were
+   * instructions for CORRECTING the completeness engine's per-fiscal-year fan-out
+   * ("the engine already made my rows, merge them" / "I am recurring, throw the
+   * fan-out away"). They are cadence written in reconciliation language, so they are
+   * now DERIVED FROM cadence rather than declared alongside it.
+   *
+   * ★ TWO SOURCES DISAGREE ABOUT MULTIPLICITY — READ BEFORE TRUSTING THIS FIELD.
+   * `fed_annual_return` is cadence 'anniversary', but its requirement key
+   * `cbca_annual_return` is catalog category 'annual' in `minute_book_requirements`.
+   * So the completeness engine DOES fan it out per fiscal year, and the
+   * board-suppression derivation exists purely to throw that fan-out away. Cadence
+   * NAMES that conflict; it does NOT remove it. Removing it means either changing
+   * the catalog category (a migration — it would move `requirementsTotal` and the %
+   * denominator users see) or letting cadence drive the fan-out itself (the
+   * registry-first stream). Both are out of scope and neither is implied here.
+   *
+   * ★ WHERE THIS VOCABULARY WOULD FIRST CRACK: an obligation that is
+   * per-fiscal-year but due on an ANNIVERSARY has nowhere to sit — 'anniversary'
+   * carries clock information that 'per-fiscal-year' does not. No such obligation
+   * exists today.
    */
-  overlapMerge?: boolean;
-  /**
-   * Suppress this filing's completeness `requirementKey` rows from the A3 BOARD stream
-   * (completenessToObligations only) — NOT from the completeness COUNT / Complétude /
-   * verdict. For a RECURRING filing (Harvey 2026-07-24: the federal annual return is
-   * one recurring obligation, not N per-year debts), the single deadline row represents
-   * it on the board; Complétude keeps its per-year record. Mirrors the RE-200 board-only
-   * suppression. A future recurring filing declares this in its one registry entry.
-   */
-  boardSuppressCompletenessRows?: boolean;
+  cadence: 'per-fiscal-year' | 'anniversary' | 'once' | 'event';
   /**
    * Per-rule modal-copy namespace under `obligationNotice.*` (title/body). When set,
    * the obligation modal uses `obligationNotice.{copyKey}.{title,body}` instead of the
@@ -205,7 +232,10 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
     statutoryBasis: 'art. 45 LPLE (RLRQ, c. P-44.1)',
     helpKey: null,
     dueDate: (ctx) => (ctx.fyEnd ? addMonthsClamped(ctx.fyEnd, 6) : null),
-    overlapMerge: true, // the completeness annual requirement + deadline twin are one row
+    // art. 45 LPLE ties the update to a COMPLETED fiscal year → one separately
+    // outstandable instance per FY. The completeness fan-out is CORRECT here, so its
+    // per-year row and this deadline twin are one row (→ OVERLAP_MERGE, derived).
+    cadence: 'per-fiscal-year',
     prerequisites: [],
   },
   {
@@ -220,7 +250,11 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
       due.setDate(due.getDate() + 60);
       return due;
     },
-    // NOT overlapMerge: suppressed on both sides today (presumed-done RE-200).
+    // Filed at immatriculation and never again — a single lifetime instance, no
+    // year. Its catalog rows are `foundational`, so the completeness engine never
+    // fans it out: there is nothing to merge and nothing to suppress. Lands in
+    // NEITHER derivation, which is correct rather than incidental.
+    cadence: 'once',
     prerequisites: [],
   },
   {
@@ -233,9 +267,13 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
     requirementKeys: ['cbca_annual_return'],
     statutoryBasis: 'art. 263 LCSA · délai administratif (Corporations Canada)',
     helpKey: 'fed_annual_return_admin_date',
-    // Recurring obligation → ONE board row (this deadline row); its per-year
-    // completeness rows are suppressed from the board stream (Complétude keeps them).
-    boardSuppressCompletenessRows: true,
+    // ONE recurring instance on the anniversary clock — you are never "behind on
+    // your 2023 return" the way you can be behind on 2023's REQ update. The
+    // completeness fan-out is WRONG for this entry (its catalog category is
+    // 'annual', so the engine fans it out anyway — see the multiplicity-conflict
+    // note on `cadence`), so its per-year board rows are suppressed and this single
+    // deadline row represents it. Complétude keeps the per-year record.
+    cadence: 'anniversary',
     // Per-rule modal copy: names Corporations Canada, presents the administrative
     // deadline — NOT the art. 41 / 30-day Registraire roster copy.
     copyKey: 'fedAnnualReturn',
@@ -246,9 +284,10 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
       if (anniv < ctx.today) anniv.setFullYear(ctx.today.getFullYear() + 1);
       return anniv;
     },
-    // NOT overlapMerge: the completeness cbca_annual_return row and this deadline row
-    // are a latent (not-yet-merged) pair; the board suppresses the completeness half
-    // (above) so only this recurring row shows.
+    // NOT in OVERLAP_MERGE (cadence 'anniversary', not 'per-fiscal-year'): the
+    // completeness cbca_annual_return row and this deadline row are a latent
+    // (not-yet-merged) pair; the board suppresses the completeness half so only this
+    // recurring row shows.
     prerequisites: [
       {
         // PRACTICAL sequencing (Harvey: not a legal precondition — art. 263 imposes
@@ -278,6 +317,9 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
     helpKey: 'req',
     deadlineDays: 30,
     triggeredBy: 'roster_change',
+    // Instantiated by an ACT, not a calendar — no act, no obligation. Carries no
+    // requirementKeys and never reaches the completeness fan-out at all.
+    cadence: 'event',
     prerequisites: [],
   },
 ];
@@ -301,9 +343,16 @@ export function isExternalRequirementKey(key: string): boolean {
   return _byRequirementKey.has(key);
 }
 
-/** requirement_keys whose completeness rows are suppressed from the A3 BOARD stream. */
+/**
+ * requirement_keys whose completeness rows are suppressed from the A3 BOARD stream.
+ * DERIVED FROM CADENCE: an 'anniversary' obligation is ONE recurring instance, so the
+ * completeness engine's per-fiscal-year fan-out is wrong for it and its per-year board
+ * rows are discarded in favour of the single deadline row. No other cadence qualifies —
+ * 'per-fiscal-year' wants its fan-out kept (and merged), 'once' has none, 'event' never
+ * reaches the catalog. Today: fed_annual_return → ['cbca_annual_return'].
+ */
 const _boardSuppressedKeys: ReadonlySet<string> = new Set(
-  FILING_REGISTRY.filter((r) => r.boardSuppressCompletenessRows).flatMap((r) => r.requirementKeys),
+  FILING_REGISTRY.filter((r) => r.cadence === 'anniversary').flatMap((r) => r.requirementKeys),
 );
 
 /**
@@ -328,12 +377,16 @@ export function filingForDocKey(docKey: string): FilingRule | undefined {
 }
 
 /**
- * OVERLAP_MERGE view: completeness `requirementKey` → deadline `ruleKey`, ONLY for
- * entries flagged `overlapMerge`. Reproduces the former literal map exactly (today:
+ * OVERLAP_MERGE view: completeness `requirementKey` → deadline `ruleKey`.
+ * DERIVED FROM CADENCE: only a 'per-fiscal-year' obligation has a completeness half
+ * and a deadline half describing the SAME per-year instance, so only it collapses to
+ * one board row. 'anniversary' is suppressed instead (its halves are a latent,
+ * not-yet-merged pair); 'once' is suppressed on both sides by other means; 'event'
+ * has no completeness half at all. Reproduces the former literal map exactly (today:
  * the two REQ annual-update keys → qc_req_annual_update).
  */
 export const OVERLAP_MERGE: Readonly<Record<string, string>> = Object.fromEntries(
-  FILING_REGISTRY.filter((r) => r.overlapMerge).flatMap((r) =>
+  FILING_REGISTRY.filter((r) => r.cadence === 'per-fiscal-year').flatMap((r) =>
     r.requirementKeys.map((k) => [k, r.ruleKey] as const),
   ),
 );
