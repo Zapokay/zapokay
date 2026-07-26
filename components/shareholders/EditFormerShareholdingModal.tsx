@@ -274,7 +274,7 @@ export default function EditFormerShareholdingModal({
             </label>
             {isTransfer ? (
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100">
-                {t(`endReasons.${shareholding.end_reason}`)}
+                {shareholding.end_reason && t(`endReasons.${shareholding.end_reason}`)}
               </div>
             ) : (
               <select
