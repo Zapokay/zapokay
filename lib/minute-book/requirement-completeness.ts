@@ -17,6 +17,7 @@ import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state';
 import { computeLiveness } from '@/lib/obligations/liveness';
 import type { ObligationLiveness } from '@/lib/obligations/obligation';
 import { filingForRuleKey } from '@/lib/obligations/filing-registry';
+import { fiscalYearSet } from '@/lib/active-years';
 import { parseLocalDate } from '@/lib/utils';
 
 /**
@@ -141,10 +142,31 @@ export async function computeRequirementCompleteness(
   // 4. Compute endDate per fiscal year (resolution date stamped on PDFs
   // generated via Bulk Catch-Up). Year labels are now derived from `year`
   // alone — see getFiscalYearLabel in lib/fiscal-year-label.ts.
-  const fyFormatted = (fiscalYears || []).map((fy: { year: number }) => ({
-    year: fy.year,
-    endDate: `${fy.year}-${pad2(fiscalYearEndMonth)}-${pad2(fiscalYearEndDay)}`,
-  }));
+  //
+  // The YEAR SET comes from `fiscalYearSet` (lib/active-years) — the stored ACTIVE
+  // rows UNIONED with the currently-computed window — so this engine and the
+  // deadline feeder can no longer drift apart. The stored list is written once at
+  // onboarding and never refreshed, while the feeder's year advances with the
+  // calendar; without the union they diverge on a schedule (Acme 2028-01-01, Wick
+  // 2029-01-01) and OVERLAP_MERGE silently un-pairs. See the helper's docblock.
+  //
+  // ORDER PRESERVED: the query above returns DESCENDING; fiscalYearSet returns
+  // ascending, so it is re-sorted descending here. Only WHICH years are included
+  // changes — never the shape of an entry, its endDate formula, or the order they
+  // are emitted in (which drives checklist order downstream).
+  const storedActiveYears = (fiscalYears ?? []).map((fy: { year: number }) => fy.year);
+  const fyFormatted = fiscalYearSet(
+    storedActiveYears,
+    fiscalYearEndMonth,
+    fiscalYearEndDay,
+    incorporationDate,
+    today,
+  )
+    .sort((a, b) => b - a)
+    .map((year) => ({
+      year,
+      endDate: `${year}-${pad2(fiscalYearEndMonth)}-${pad2(fiscalYearEndDay)}`,
+    }));
 
   type RawReq = {
     id: string; requirement_key: string; category: 'foundational' | 'annual'; title_fr: string; title_en: string;
