@@ -20,7 +20,11 @@
  *   - anything else (incl. raw    → 'uploadFailed'   (generic fallback)
  *     Supabase storage/db messages, 500s, missing params)
  */
-export function uploadErrorMessageKey(errorCode?: string, status?: number): string {
+// Return type is INFERRED (not annotated `string`) so the literal union survives to the
+// call site — `t(uploadErrorMessageKey(...))` must check against the message tree once
+// typed messages land. Every branch below returns a literal; adding a computed return
+// would silently widen this back to `string` and re-break that check.
+export function uploadErrorMessageKey(errorCode?: string, status?: number) {
   if (errorCode === 'NON_PDF_REJECTED') return 'onlyPdf';
   if (errorCode === 'FILE_TOO_LARGE') return 'tooLarge';
   if (errorCode === 'YEAR_REQUIRED_FOR_ANNUAL') return 'yearRequired';

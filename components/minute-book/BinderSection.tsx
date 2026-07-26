@@ -32,7 +32,15 @@ function formatDate(dateStr: string, locale: string) {
 // Document-type category labels are chrome (translatable). Localized via
 // minuteBook.binder.typeLabels; unknown document_type falls back to 'autre'
 // ("Document"). NOT the per-document title (which stays FR legal).
-const TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre']
+const TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre'] as const
+type TypeKey = (typeof TYPE_KEYS)[number]
+
+// Type PREDICATE, not a bare `.includes()`: Array.prototype.includes returns boolean and
+// does not narrow, so without this the ternary below still yields `string` and the
+// `typeLabels.${…}` key stays unresolvable. This narrows with no cast.
+function isTypeKey(value: string | null): value is TypeKey {
+  return TYPE_KEYS.includes(value as TypeKey)
+}
 
 const spinnerIcon = (
   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -106,7 +114,7 @@ export default function BinderSection({
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--card-border)] text-[var(--text-muted)]">
-                  {t(`typeLabels.${TYPE_KEYS.includes(doc.document_type ?? '') ? doc.document_type : 'autre'}`)}
+                  {t(`typeLabels.${isTypeKey(doc.document_type ?? null) ? doc.document_type : 'autre'}`)}
                 </span>
                 <span className="text-sm text-[var(--text-body)] truncate">
                   {composeDisplayName(doc.title, null, doc.document_year)}

@@ -5,8 +5,22 @@ import { useLocale, useTranslations } from 'next-intl'
 import BinderSection from './BinderSection'
 import RegisterCard from './RegisterCard'
 
+/**
+ * `key` is narrowed to the nine section keys so `tBinder(\`sections.${section.key}\`)`
+ * resolves against minuteBook.binder.sections instead of widening to `string`.
+ *
+ * ⚠️ THIS IS AN ASSERTION ABOUT API DATA, NOT A DERIVATION. The values arrive as JSON
+ * from /api/minute-book/binder, so TypeScript cannot prove them — the union simply
+ * mirrors the literal SECTIONS list in that route. It is defensible because that list
+ * lives in this repo, but if a section key is ever added there, it must be added HERE
+ * and to messages/*.json, and nothing will fail at compile time to remind you.
+ */
+type SectionKey =
+  | 'statuts' | 'avis' | 'reglements' | 'resolutions' | 'administrateurs'
+  | 'dirigeants' | 'actionnaires' | 'registres' | 'autres'
+
 interface Section {
-  key: string
+  key: SectionKey
   title_fr: string
   documents: any[]
   count: number

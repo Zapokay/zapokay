@@ -37,7 +37,10 @@ interface NavGroup {
 // Nav structure (matches brief exactly)
 // =============================================================================
 
-function getNavGroups(locale: string): NavGroup[] {
+// Return type is INFERRED with `as const satisfies` rather than annotated `NavGroup[]`:
+// the annotation widened every `key`/`labelKey` to `string`, which erased the i18n key
+// literals before they reached `t(...)`. NavItem/NavGroup remain the SHAPE check.
+function getNavGroups(locale: string) {
   const base = `/${locale}/dashboard`;
 
   return [
@@ -58,7 +61,7 @@ function getNavGroups(locale: string): NavGroup[] {
         { key: 'nav.resolutions', href: `${base}/resolutions`, icon: Sparkles },
       ],
     },
-  ];
+  ] as const satisfies readonly NavGroup[];
 }
 
 // =============================================================================

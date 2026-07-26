@@ -19,7 +19,10 @@
  *   - 'GENERATION_FAILED'     → 'generationFailed' (500 — upload/DB write failed)
  *   - 'INTERNAL_ERROR' / any  → 'generationFailed' (500 — uncaught + fallback)
  */
-export function generateErrorMessageKey(errorCode?: string, status?: number): string {
+// Return type is INFERRED (not annotated `string`) so the literal union survives to the
+// call site — see uploadErrorMessageKey for the rationale. Every branch below returns a
+// literal; a computed return would silently widen this back to `string`.
+export function generateErrorMessageKey(errorCode?: string, status?: number) {
   if (errorCode === 'MISSING_PARAMS') return 'missingParams';
   if (errorCode === 'SERVER_MISCONFIGURED') return 'serverError';
   if (errorCode === 'CANNOT_GENERATE') return 'cannotGenerate';

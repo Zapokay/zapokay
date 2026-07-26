@@ -49,18 +49,23 @@ export interface ChipSpec {
 }
 
 // 2a — STATUS → chip. `satisfied` never reaches the board (ranker drops it).
-export const STATUS_CHIP: Record<Exclude<ObligationStatus, 'satisfied'>, ChipSpec> = {
+// `as const satisfies` rather than a `Record<…>` ANNOTATION: the annotation widened
+// every labelKey to `string`, erasing the i18n literal before it reached `t(...)`.
+// ChipSpec still enforces the shape; the literals now survive. Key set is unchanged,
+// so A3Item's narrowed `STATUS_CHIP[o.status]` index still resolves.
+export const STATUS_CHIP = {
   open:        { tone: 'open',  Icon: CirclePlus, labelKey: 'status.open' },
   to_finalize: { tone: 'final', Icon: Contrast,   labelKey: 'status.to_finalize' },
   due_soon:    { tone: 'soon',  Icon: Clock,      labelKey: 'status.due_soon' },
   overdue:     { tone: 'over',  Icon: Clock,      labelKey: 'status.overdue' },
-};
+} as const satisfies Record<Exclude<ObligationStatus, 'satisfied'>, ChipSpec>;
 
 // 2b — LIVENESS tier badge. `live` carries NO badge (absence = live, the default).
-export const TIER_BADGE: Record<Exclude<ObligationLiveness, 'live'>, ChipSpec> = {
+// `as const satisfies` — same reason as STATUS_CHIP above.
+export const TIER_BADGE = {
   regularize: { tone: 'regularize', Icon: RotateCcw, labelKey: 'tier.regularize' },
   remediate:  { tone: 'remediate',  Icon: Meh,       labelKey: 'tier.remediate' },
-};
+} as const satisfies Record<Exclude<ObligationLiveness, 'live'>, ChipSpec>;
 
 // 2c — verb VISUAL keyed on EXPOSURE only.
 export const VERB_TREATMENT: Record<ExposureClass, 'gov' | 'internal'> = {
@@ -74,14 +79,24 @@ export interface VerbSpec {
   Icon: LucideIcon;
   labelKey: string;
 }
-export const VERB_LABEL: Partial<Record<ObligationAction, VerbSpec>> = {
-  // upload + generate retired (B-2): completeness rows render Complétude's own
-  // buttons (requirementRow.uploadButton + GenerateDocumentButton default), so the
-  // board's verb.upload/generate labels are unused. finalize stays — deadline-
-  // finalize rows (no requirementKey) still render it via the else branch.
+// TOTAL record with explicit `undefined`s, not `Partial<Record<…>>`. A3Item indexes
+// this with the FULL ObligationAction union (`VERB_LABEL[o.actionKind]`, twice), so a
+// 2-key `as const` object would fail that index — the record has to name every action.
+// The explicit absences are also what the prose below used to say implicitly.
+// Both call sites keep their existing `if (!verb)` / `fileVerb?.` guards unchanged.
+export const VERB_LABEL = {
   finalize:        { Icon: Check,    labelKey: 'verb.finalize' },
   file_externally: { Icon: Landmark, labelKey: 'verb.file_externally' }, // Harvey-pending copy
-};
+  // Retired in B-2: completeness rows render Complétude's own buttons
+  // (requirementRow.uploadButton + GenerateDocumentButton default), so the board's
+  // verb.upload / verb.generate labels are never used.
+  upload:    undefined,
+  generate:  undefined,
+  // No emitter today — no feeder produces these actionKinds. A3Item warns if one
+  // ever appears (see the console.warn in its else-branch).
+  review:    undefined,
+  none:      undefined,
+} as const satisfies Record<ObligationAction, VerbSpec | undefined>;
 
 // remediate OVERRIDES the verb — a 3rd action-STATE (quiet consult affordance),
 // NOT a 5th verb in the external/internal enum (handoff §11).
