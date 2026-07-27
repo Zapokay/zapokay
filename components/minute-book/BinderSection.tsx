@@ -107,14 +107,22 @@ export default function BinderSection({
         </p>
       ) : (
         <div className="divide-y divide-[var(--card-border)]">
-          {documents.map((doc) => (
+          {documents.map((doc) => {
+            // The local is REQUIRED, not stylistic: a type predicate narrows the
+            // EXPRESSION it was handed. Inlining `isTypeKey(doc.document_type ?? null)`
+            // and then reading `doc.document_type` in the branch tests one expression
+            // and reads a SIBLING one, so the narrowing is lost and the key widens back
+            // to `typeLabels.${string}`. Narrow once, into a const, then branch.
+            const raw = doc.document_type ?? null
+            const typeKey = isTypeKey(raw) ? raw : 'autre'
+            return (
             <div
               key={doc.id}
               className="flex items-center justify-between px-5 py-3 hover:bg-[var(--page-bg)] transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--card-border)] text-[var(--text-muted)]">
-                  {t(`typeLabels.${isTypeKey(doc.document_type ?? null) ? doc.document_type : 'autre'}`)}
+                  {t(`typeLabels.${typeKey}`)}
                 </span>
                 <span className="text-sm text-[var(--text-body)] truncate">
                   {composeDisplayName(doc.title, null, doc.document_year)}
@@ -140,7 +148,8 @@ export default function BinderSection({
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

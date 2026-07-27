@@ -37,6 +37,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   EventDocumentType,
   EventPhase,
+  DirectorEndReason,
+  OfficerEndReason,
 } from '@/lib/supabase/people-types';
 import {
   holderName,
@@ -91,7 +93,24 @@ export interface EventActStatus {
    *   consumer call getDocumentState({satisfied, source, is_finalized}) for
    *   the three-state classification (téléversé / généré / missing).
    */
-  endReason: string | null;
+  /**
+   * ★ THE UNION IS AN ASSERTION, NOT A DERIVATION — four declarations in this file
+   * carry it (this one, ActMeta.endReason, RawDirector.end_reason,
+   * RawOfficer.end_reason), and this comment covers all four.
+   *
+   * It mirrors the DB CHECK constraints on `director_mandates.end_reason` and
+   * `officer_appointments.end_reason`, both
+   * 'resignation'|'revocation'|'death'|'disqualification'|'term_expired'. TypeScript
+   * cannot prove PostgREST rows honour a CHECK — but this file ALREADY trusts their
+   * shape via `as unknown as RawDirector[]` (see the cast below), so narrowing here
+   * makes that existing trust MORE SPECIFIC rather than adding a new one.
+   *
+   * ⚠️ If either CHECK ever changes, this union must change with it and NOTHING will
+   * fail at compile time to remind you. Reuses DirectorEndReason / OfficerEndReason
+   * from lib/supabase/people-types (identical 5-value unions) rather than declaring a
+   * third copy — see the "Schema enforced by CHECK constraint" note there.
+   */
+  endReason: DirectorEndReason | OfficerEndReason | null;
   officerTitle: string | null;
   officerCustomTitle: string | null;
   documentSource: 'uploaded' | 'generated' | null;
@@ -182,14 +201,16 @@ interface RawDirector {
   id: string;
   appointment_date: string;
   end_date: string | null;
-  end_reason: string | null;
+  // Union per the assertion documented on EventActStatus.endReason above.
+  end_reason: DirectorEndReason | null;
   person: RawPerson | null;
 }
 interface RawOfficer {
   id: string;
   appointment_date: string;
   end_date: string | null;
-  end_reason: string | null;
+  // Union per the assertion documented on EventActStatus.endReason above.
+  end_reason: OfficerEndReason | null;
   title: string | null;
   custom_title: string | null;
   person: RawPerson | null;
@@ -337,7 +358,8 @@ export async function computeEventCompleteness(
   // without a sprawling parameter list. All optional — non-applicable acts
   // pass undefined and the act emits null for those fields.
   interface ActMeta {
-    endReason?: string | null;
+    // Union per the assertion documented on EventActStatus.endReason above.
+    endReason?: DirectorEndReason | OfficerEndReason | null;
     officerTitle?: string | null;
     officerCustomTitle?: string | null;
   }

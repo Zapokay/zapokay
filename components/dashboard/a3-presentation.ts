@@ -109,14 +109,26 @@ export const CONSULT = {
 // REQ (req_filing) rows carry null titles + a docKey → resolve the label from
 // i18n keyed on docKey (Step 3). 5 keys reach a row today; director_appointment_
 // vacancy is options-only (inert), mapped for completeness/future-proofing.
-export const DOCKEY_LABEL_KEY: Record<string, string> = {
+// `as const satisfies` rather than a `Record<string, string>` ANNOTATION: the
+// annotation widened the VALUES to `string`, so the i18n literals were erased before
+// resolveTitle could pass them to `t`. Record<string,string> still enforces the shape.
+export const DOCKEY_LABEL_KEY = {
   director_appointment:         'docKey.director_appointment',
   director_appointment_vacancy: 'docKey.director_appointment_vacancy', // inert today
   director_departure:           'docKey.director_departure',
   director_removal:             'docKey.director_removal',
   officer_appointment:          'docKey.officer_appointment',
   officer_departure:            'docKey.officer_departure',
-};
+} as const satisfies Record<string, string>;
+
+/** The i18n keys DOCKEY_LABEL_KEY can yield — derived, so it cannot drift from the map. */
+export type DocKeyLabelKey = (typeof DOCKEY_LABEL_KEY)[keyof typeof DOCKEY_LABEL_KEY];
+
+/** Type predicate — an `as const` map has no string index signature, so a raw docKey
+ *  must be proven to be one of its keys before indexing. No cast required. */
+function isDocKey(key: string): key is keyof typeof DOCKEY_LABEL_KEY {
+  return key in DOCKEY_LABEL_KEY;
+}
 
 // Shared non-axis icons (board chrome + item furniture).
 export const ICONS = {
@@ -140,10 +152,17 @@ export const ICONS = {
 export function resolveTitle(
   o: Pick<Obligation, 'titleFr' | 'titleEn' | 'docKey'>,
   locale: string,
-  t: (key: string) => string,
+  // Typed to the DERIVED key union, not `string`: a `(key: string) => string` parameter
+  // is contravariant with next-intl's `t`, whose own parameter is the narrow MessageKeys
+  // union — so passing the real `t` in fails once typed messages are declared.
+  t: (key: DocKeyLabelKey) => string,
 ): string {
   const ready = locale === 'en' ? (o.titleEn ?? o.titleFr) : (o.titleFr ?? o.titleEn);
   if (ready) return ready;
-  if (o.docKey && DOCKEY_LABEL_KEY[o.docKey]) return t(DOCKEY_LABEL_KEY[o.docKey]);
+  // Narrow into a const before indexing: DOCKEY_LABEL_KEY is `as const`, so it has no
+  // string index signature — and a predicate narrows the EXPRESSION it was handed, so
+  // `o.docKey` must be captured first rather than re-read in the branch.
+  const docKey = o.docKey;
+  if (docKey !== null && isDocKey(docKey)) return t(DOCKEY_LABEL_KEY[docKey]);
   return o.docKey ? `[REQ:${o.docKey}]` : ''; // last-resort; should not occur in v1
 }
