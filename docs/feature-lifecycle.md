@@ -1,6 +1,6 @@
 # Feature Lifecycle Tracker
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-07-27
 **Purpose:** Single source of truth for the lifecycle status of every major surface in the ZapOkay product. Consulted by Max before scoping any infrastructure-hygiene or feature work — applied via the Critical-Path Justification preflight on every CC brief.
 
 ---
@@ -51,7 +51,7 @@ Status column to be filled in by Dom.
 
 | Surface | Status | Notes |
 |---|---|---|
-| Dashboard | _TBD_ | Composite surface with multiple widgets: LSAQ Compliance (reads compliance_rules), History, Foundational Document, Records analysis, Recent documents, Required actions, Livre de minutes progress |
+| Dashboard | ACTIVE | Composite surface. LIVE: StatusVerdict (compliance verdict), InventoryLine (Total / Final / A signer / A generer / Classe aux archives), A3Board (the ranked obligation board, heading 'Que faire maintenant'), GapAnalysisPanel (AI gap analysis). The five legacy blocks (Historique, Document fondateur, Livre-de-minutes card, Documents recents, Actions requises) were gated off 2026-07-10 behind a hardcoded SHOW_LEGACY_DASHBOARD_BLOCKS = false and DELETED 2026-07-27, together with their dead reads (5 queries / ~110 rows per load fetched to render nothing), the orphaned MinuteBookCard + CompletenessBar components, and the uncalled computeFiscalYearHistory helper - page.tsx 640 to 213 lines. Triaged ACTIVE by Dom 2026-07-27; the prior entry described the pre-A3 dashboard and claimed a compliance_rules read, which no code has performed since 44902ba. |
 | Documents (Coffre-fort) | _TBD_ | Vault standalone |
 | Minute Book — Documents | ACTIVE | Core minute-book document-generation surface; hosts the inline generate-item route; carries open Tier 1 blocker NB-PDF-Title #17. Flipped 2026-05-20, preflight. |
 | Minute Book — Complétude | ACTIVE | Per v2.5: primary edit surface. Core minute-book surface; flipped 2026-05-20, NB-PDF-Title preflight. |
@@ -74,7 +74,7 @@ Status column to be filled in by Dom.
 
 Surfaces tagged DEPRECATED or VESTIGIAL with cleanup sequencing:
 
-- **`compliance_rules` / `compliance_items` tables** — code-orphaned; DROP still pending. App-code deletion **DONE 2026-07-24** (original plan steps 1–3: the Dashboard compliance widget was already gone; the route, `lib/compliance/*`, and `components/compliance/*` are deleted; the sidebar entry + i18n keys removed). **REMAINING:** step (4) `DROP TABLE compliance_items`, then `compliance_rules` — a separate migration, not yet run. No code reads either table anymore. Note: the `compliance_items` upsert already silently failed in prod (3-value enum vs a 4-value CHECK), so the table holds no live data — the DROP is pure housekeeping.
+- **`compliance_rules` / `compliance_items` tables** — code-orphaned; DROP still pending. App-code deletion **DONE 2026-07-24** (original plan steps 1–3: the Dashboard compliance widget was already gone; the route, `lib/compliance/*`, and `components/compliance/*` are deleted; the sidebar entry + i18n keys removed). **REMAINING:** step (4) `DROP TABLE compliance_items`, then `compliance_rules` — a separate migration, not yet run. Note: the `compliance_items` upsert already silently failed in prod (3-value enum vs a 4-value CHECK). CORRECTED 2026-07-27: "the table holds no live data" is true for compliance_items (0 rows) but FALSE for compliance_rules (9 rows, verified). No application code reads either table; scripts/seed-canonical-fixture.mjs:175 references compliance_items in its fixture-teardown delete list. No DROP is proposed here - code deletion is git-reversible, a DROP is not, and it remains a separate migration and a separate decision.
 
 ---
 
@@ -87,6 +87,7 @@ Surfaces tagged DEPRECATED or VESTIGIAL with cleanup sequencing:
 ## Update protocol
 
 - Updated as part of Max session-close memory regen.
+- The `Last updated` header moves with ANY entry edit, in the same commit. It was stale by three edits (2026-05-22, 2026-06-08, 2026-07-24) when the 2026-07-27 feeder brief consulted it, so it could not be used as a freshness signal.
 - Status changes for any surface trigger an immediate tracker update.
 - New surfaces added when introduced (new routes, new dashboard widgets, etc.).
 - Pruning queue items updated when scheduled or completed.

@@ -7,12 +7,6 @@
  * engine's unsourced/buggy calculateDueDate formulas — notably the REQ annual
  * update, corrected from +4mo to +6mo (art. 45 LPLE + reg P-44.1 r.1 art. 3).
  *
- * ADDITIVE: does NOT import or modify lib/compliance/calculateComplianceItems
- * and does NOT touch compliance_rules/compliance_items — the old engine stays
- * live and untouched. The date helpers below are REPLICATED from that file
- * (marked per-helper) because they are file-private there; the sole shared
- * import is parseLocalDate from @/lib/utils.
- *
  * SCOPE: calendar/recurring deadlines only. EVENT-triggered co-existing
  * deadlines — e.g. a director change firing BOTH the 15-day federal notice AND
  * the 30-day REQ update — are event-relative, not calendar-absolute, so they
