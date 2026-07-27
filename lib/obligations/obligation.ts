@@ -6,6 +6,11 @@
  * Do NOT import either existing ComplianceStatus (complianceRules.ts / lib/types.ts).
  */
 
+// TYPE-ONLY import, deliberately: it is erased at compile, so this contract stays a
+// runtime leaf and the new obligation.ts → filing-registry.ts edge costs nothing in any
+// bundle. All four importers of this file are themselves `import type`.
+import type { CopyKey } from './filing-registry';
+
 export type ObligationSource =
   | 'completeness'
   | 'req_filing'
@@ -72,7 +77,7 @@ export interface Obligation {
   // metadata, stamped by the feeder from the filing registry's `copyKey`. Optional:
   // only rows needing copy that differs from the default art. 41 roster text set it
   // (today: the federal annual return). Absent → the default req.* copy.
-  copyKey?: string;
+  copyKey?: CopyKey;
   fulfilled: boolean;            // inert v1 seam for the deferred resolved-state
   // Phase B-2 — completeness-row button-set inputs (the A3 board decides Upload/
   // Generate/Regenerate/Replace per state). Optional: ONLY the completeness feeder

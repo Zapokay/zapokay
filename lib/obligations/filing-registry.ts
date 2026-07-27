@@ -130,6 +130,35 @@ export interface FilingDueCtx {
   today: Date;
 }
 
+/**
+ * Per-rule modal-copy namespaces under `obligationNotice.*`. A filing sets this when
+ * its modal must differ from the default art. 41 roster copy.
+ *
+ * ★ HAND-MAINTAINED, NOT DERIVED. `FILING_REGISTRY` below is annotated
+ * `readonly FilingRule[]`, which erases every literal, so `typeof`-deriving this union
+ * would require `as const satisfies` on the whole ~120-line table plus knock-ons to
+ * every derived index (`_byRuleKey`, `_byRequirementKey`, `_byDocKey`,
+ * `_boardSuppressedKeys`, `OVERLAP_MERGE`). Not worth it for one value.
+ *
+ * ⚠️ ADDING A NEW copyKey MEANS ADDING IT HERE TOO — and the registry entry will fail
+ * to compile until you do. That is the point: the failure is the reminder.
+ *
+ * ⚠️ This union does NOT prove the messages exist. `obligationNotice.{copyKey}.title`
+ * and `.body` must be present in BOTH messages/fr.json and messages/en.json; typed
+ * messages checks FR only (it is the type source), and EN not at all.
+ */
+export type CopyKey = 'fedAnnualReturn';
+
+/**
+ * i18n keys under `obligationNotice.prerequisites.reason.*` — the DESCRIPTIVE reason a
+ * prerequisite blocks a filing.
+ *
+ * ★ HAND-MAINTAINED, NOT DERIVED — same reasoning as CopyKey above, same obligation to
+ * add new values here, and the same caveat that it does not prove the message exists in
+ * either locale file.
+ */
+export type ReasonKey = 'fedAnnualReturnShareholderMeeting';
+
 /** An obligation that must be SATISFIED before this filing can be completed. */
 export interface FilingPrerequisite {
   /** Completeness requirement_key of the blocking obligation. */
@@ -143,7 +172,7 @@ export interface FilingPrerequisite {
    */
   sameYear: boolean;
   /** i18n key under obligationNotice.prerequisites.reason.* — a DESCRIPTIVE reason. */
-  reasonKey: string;
+  reasonKey: ReasonKey;
 }
 
 export interface FilingRule {
@@ -217,7 +246,7 @@ export interface FilingRule {
    * default `req.*` (art. 41 roster) copy. Omit → the default copy (every existing
    * caller stays byte-identical).
    */
-  copyKey?: string;
+  copyKey?: CopyKey;
   /** Obligations that must be SATISFIED before this filing can be completed. */
   prerequisites: readonly FilingPrerequisite[];
 }

@@ -24,6 +24,7 @@ import {
   filingForRuleKey,
   filingForDocKey,
   type FilingRule,
+  type ReasonKey,
 } from './filing-registry';
 
 /** A prerequisite obligation that is NOT yet satisfied — surfaced in the modal. */
@@ -32,7 +33,7 @@ export interface UnmetPrerequisite {
   year: number | null;
   labelFr: string;
   labelEn: string;
-  reasonKey: string;
+  reasonKey: ReasonKey;
 }
 
 export interface RankedObligation extends Obligation {

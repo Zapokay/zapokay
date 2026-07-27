@@ -33,6 +33,7 @@ import {
   addMonthsClamped,
   completedFiscalYearEnd,
   filingFiscalYear,
+  type CopyKey,
 } from '../filing-registry';
 
 export interface CompanyComplianceInput {
@@ -142,7 +143,7 @@ export function deadlineObligations(
     titleEn: string;
     statutoryBasis: string;
     helpKey: string | null;
-    copyKey?: string;
+    copyKey?: CopyKey;
     requirementKey?: string; // upload attach-key — set on deadline rows that accept an uploaded receipt
     canUpload?: boolean;     // routes to A3Item's Upload SET branch
   }) => {
