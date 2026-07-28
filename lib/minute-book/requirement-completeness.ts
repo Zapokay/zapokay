@@ -18,7 +18,6 @@ import { computeLiveness } from '@/lib/obligations/liveness';
 import type { ObligationLiveness } from '@/lib/obligations/obligation';
 import { filingForRuleKey } from '@/lib/obligations/filing-registry';
 import { fiscalYearSet } from '@/lib/active-years';
-import { parseLocalDate } from '@/lib/utils';
 
 /**
  * PROOF-SLOT requirement keys — obligations whose FILING is already complete by
@@ -104,7 +103,6 @@ export async function computeRequirementCompleteness(
   const pad2 = (n: number) => String(n).padStart(2, '0');
   const today = new Date();
   // Foundational items carry no year — anchor their liveness to incorporation age.
-  const incYear = incorporationDate ? parseLocalDate(incorporationDate).getFullYear() : null;
 
   // 1. Get all applicable requirements
   const { data: requirements, error: reqError } = await supabase
@@ -203,8 +201,8 @@ export async function computeRequirementCompleteness(
     const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
     const isFinalized = matchingDoc?.is_finalized ?? null;
     const state = getDocumentState({ satisfied, source, is_finalized: isFinalized, can_generate: req.can_generate });
-    // Foundational liveness: anchored to incorporation age, floored live→regularize
-    // (owed from day 1 → never "upcoming"). Non-null for any NOT-DONE item (missing,
+    // Foundational liveness: NO year (duration is legally inert — see below), floored
+    // live→regularize (owed from day 1 → never "upcoming"). Non-null for any NOT-DONE item (missing,
     // uploaded-but-uncertified, or generated draft); null only when is_finalized===true.
     //
     // PROOF-SLOT EXEMPTION (Harvey 2026-07-24, GREEN, art. 8-9 LSAQ). For a
@@ -216,14 +214,33 @@ export async function computeRequirementCompleteness(
     // regularize/remediate renders "consulter un professionnel" — the most severe thing
     // the product says — for a download. Disproportionate, so exempt it.
     //
-    // THE FIX IS `year: null`, NOT removing the floor. The call below passes
-    // `year: incYear`, so for an established company computeLiveness already returns
-    // 'remediate' (yearsBehind = today − incYear) BEFORE the floor is ever reached —
-    // dropping the `raw === 'live' ? 'regularize'` override alone would change nothing.
-    // Passing null takes Branch B's "no year, no lateness concept" path → 'live'. This
-    // is an EXEMPTION, not a new liveness value: the union stays live|regularize|
-    // remediate and every consumer (TIER_BADGE, LIVENESS_RANK, A3Item, CompletenessPage
-    // filters) is untouched.
+    // DURATION BASIS REMOVED (Harvey 2026-07-28, GREEN, art. 9 LSAQ + the federal
+    // certificate rule + LPLE publicity — matches the PROOF-SLOT convention above:
+    // GREEN = statutory structure Harvey verified against the texts, which is what
+    // implementation keys on. NOT a content sign-off: the CONTENT launch gate is A1,
+    // where an external lawyer is the sole GREEN authority and has not reviewed this.)
+    // The time a company has operated without its constitutive documents in the book
+    // is LEGALLY NEUTRAL, LSAQ and CBCA alike: validity and opposability flow from
+    // deposit at the registraire and the public register, not from the internal book.
+    // So `year` is null for EVERY foundational row — Branch B's "no year, no lateness
+    // concept" path — and the tier no longer moves with the calendar. Before this,
+    // `year: incYear` made the SAME missing document read 'regularize' at a 2019 clock
+    // and 'remediate' at a 2026 one.
+    //
+    // THE FLOOR BELOW — `raw === 'live' ? 'regularize' : raw` — REMAINS, DELIBERATELY.
+    // Its reason is SEMANTIC, not temporal (see the opening line of this block and
+    // commit 85f5695): `live` is glossed "upcoming / not yet due", and a founding
+    // document is owed from day 1, so it is never "not yet due". Harvey's ruling
+    // retires the duration concept; it does not make these documents current. Net
+    // effect: every unsatisfied foundational row is 'regularize' at every ambient
+    // clock — clock-invariance is the acceptance test for this rule.
+    //
+    // `isProofSlot` now gates ONLY that floor. With `year: null` above, both of
+    // its former branches are identical, so it no longer influences computeLiveness at
+    // all: a proof-slot row skips the floor and stays 'live', every other foundational
+    // row is floored to 'regularize'. The union stays live|regularize|remediate and
+    // every consumer (TIER_BADGE, LIVENESS_RANK, A3Item, CompletenessPage filters) is
+    // untouched.
     //
     // LSA ONLY — load-bearing, not cosmetic. CBCA's RE-200 DEADLINE twin survives
     // (d0c0d44 deliberately left the federal path alone, pending Harvey on the
@@ -243,7 +260,7 @@ export async function computeRequirementCompleteness(
       const raw = computeLiveness({
         daysUntilDue: null,
         legalWindowDays: null,
-        year: isProofSlot ? null : incYear,
+        year: null,
         today,
       });
       liveness = isProofSlot ? raw : raw === 'live' ? 'regularize' : raw;
