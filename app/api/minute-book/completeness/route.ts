@@ -4,7 +4,10 @@ import {
   computeRequirementCompleteness,
   type ChecklistItem,
 } from '@/lib/minute-book/requirement-completeness';
-import { computeEventCompleteness } from '@/lib/minute-book/event-completeness';
+import {
+  computeEventCompleteness,
+  type EventActStatus,
+} from '@/lib/minute-book/event-completeness';
 import { computeHoldYears, type HoldYear } from '@/lib/minute-book/hold-years';
 
 // Re-export ChecklistItem for backward compat — multiple consumers
@@ -52,6 +55,28 @@ export interface CompletenessResponse {
   upcoming: number;
   overdueRegularize: number;
   overdueProlonged: number;
+  /**
+   * The per-act lifecycle rows, verbatim from the event engine already running in
+   * this route's Promise.all. Added 2026-07-28 so CompletenessPage can stop issuing
+   * a SECOND fetch to /api/minute-book/event-completeness, which re-ran the whole
+   * event engine: 8 duplicated queries and ~99 duplicated rows per Complétude load
+   * on Acme, including the 70-row event_documents read executed twice concurrently.
+   * Zero new computation and zero new queries here — `events.acts` was computed and
+   * then discarded.
+   *
+   * NOT A VIOLATION OF THE `checklist` RULE ABOVE. That rule forbids injecting event
+   * acts INTO `checklist`, because UploadDocumentModal's "corresponds to" dropdown
+   * iterates that array and would render acts as requirement options. This is a
+   * SEPARATE field; `checklist` stays requirements-only. Do not merge the two.
+   *
+   * ACCEPTED COST: the route's three other consumers (BinderPage,
+   * UploadDocumentModal, useRowUpload) now receive `acts` they do not read — 11
+   * objects on Acme, 1 on Wick. Deliberate: a slightly larger payload for three
+   * callers against a duplicated engine run removed for one. It also closes a race —
+   * event grouping keys on `data.fiscalYears` from THIS response, so two independent
+   * fetches let acts land first and transiently classify every act as hors-exercice.
+   */
+  acts: EventActStatus[];
 }
 
 export async function GET() {
@@ -142,6 +167,7 @@ export async function GET() {
       upcoming: req.upcoming + events.upcoming,
       overdueRegularize: req.overdueRegularize + events.overdueRegularize,
       overdueProlonged: req.overdueProlonged + events.overdueProlonged,
+      acts: events.acts,
     };
 
     return NextResponse.json(response);

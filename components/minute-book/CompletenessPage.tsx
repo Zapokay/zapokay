@@ -112,10 +112,15 @@ export default function CompletenessPage({
   // Reuse the dashboard verdict's labels so Complétude chips speak the same words.
   const tSV = useTranslations('dashboard.statusVerdict');
   const [data, setData] = useState<CompletenessResponse | null>(null);
-  // #19d Brief 1 — director + officer lifecycle acts grouped by FY. Non-fatal:
-  // when the event-completeness fetch fails, this stays null and the page
-  // renders exactly as today (event sections simply don't appear).
-  const [events, setEvents] = useState<EventActStatus[] | null>(null);
+  // Director + officer lifecycle acts grouped by FY. DERIVED, not state (2026-07-28):
+  // acts now arrive on the completeness payload itself, so there is nothing to sync.
+  // This is what makes the old hors-exercice race structurally impossible rather than
+  // merely unlikely — the grouping below keys on `data.fiscalYears`, and acts and
+  // fiscalYears are now guaranteed to come from the SAME response. Two independent
+  // fetches let acts land first, with `activeYearSet` still empty, which transiently
+  // classified every act as hors-exercice. A payload without `acts` degrades to `[]`:
+  // requirement sections render, event sections simply don't appear.
+  const events: EventActStatus[] = data?.acts ?? [];
   const [loading, setLoading] = useState(true);
   const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -173,28 +178,30 @@ export default function CompletenessPage({
     }
   }, []);
 
-  // #19d Brief 1 — event-completeness fetch is non-fatal. A failure leaves
-  // `events` null and the page renders requirement sections only, exactly as
-  // it did before this brief. We log so a regression is visible in the
-  // console without breaking the user's primary flow.
-  const fetchEvents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/minute-book/event-completeness');
-      if (!res.ok) {
-        console.warn('[CompletenessPage] event-completeness fetch non-OK:', res.status);
-        return;
-      }
-      const json = (await res.json()) as { acts?: EventActStatus[] };
-      setEvents(json.acts ?? []);
-    } catch (e) {
-      console.warn('[CompletenessPage] event-completeness fetch failed:', e);
-    }
-  }, []);
-
+  // ONE FETCH (2026-07-28). The second fetch to /api/minute-book/event-completeness
+  // is gone: that route re-ran the entire event engine, which the completeness route
+  // ALREADY runs inside its Promise.all — 8 duplicated queries and ~99 duplicated rows
+  // per load on Acme, including the 70-row event_documents read executed twice
+  // concurrently. Now one response, one auth, one company lookup.
+  //
+  // FAILURE BEHAVIOUR, stated accurately — the comment this replaces claimed the event
+  // fetch was "non-fatal", which was true of that fetch and misleading about the page:
+  //   - An event-ENGINE throw blanks the page. That is PRE-EXISTING and UNCHANGED: the
+  //     completeness route's Promise.all has no per-engine guard, so a computeEvent-
+  //     Completeness rejection already returned 500 and left `data` null, which renders
+  //     the load-error line and NO requirement sections. Deleting the second fetch does
+  //     not make this worse. (Banked as its own item; deliberately not fixed here.)
+  //   - A payload that arrives WITHOUT `acts` degrades to `[]` — requirement sections
+  //     render normally, event sections simply don't appear.
+  // What the old second fetch actually protected was narrower than it looked: only
+  // failures unique to that extra round-trip (its own auth, its own company lookup, its
+  // own network hop) — all of them duplicates of work the first response already did.
+  //
+  // /api/minute-book/event-completeness is NOT deprecated. Five consumers remain
+  // (Directors/Officers/ShareholdersClient, useEventGenerate, useRowUpload).
   useEffect(() => {
     fetchData();
-    fetchEvents();
-  }, [fetchData, fetchEvents]);
+  }, [fetchData]);
 
   // Filter reconciliation — when a refetch drops a tier's count to 0 (the user
   // resolved every item in it), that chip un-renders on its `> 0` guard, which
@@ -280,17 +287,18 @@ export default function CompletenessPage({
       // eventLink (from the act) so the event_documents link is written server-side
       // exactly as the old direct POST did, and the certify checkbox drives
       // is_finalized. onSuccess reproduces the former onUploadComplete: the tMB
-      // success toast + fetchEvents.
+      // success toast + a refetch. That refetch is now fetchData: acts ride on the
+      // completeness payload, so one call refreshes both halves.
       await openUpload({
         file,
         source: { kind: 'event', act, title, year },
         onSuccess: () => {
           addToast(tMB('completeness.documentUploaded'), 'success');
-          void fetchEvents();
+          void fetchData();
         },
       });
     },
-    [openUpload, addToast, tMB, fetchEvents],
+    [openUpload, addToast, tMB, fetchData],
   );
 
   const handleHoldFileSelected = useCallback(
@@ -332,7 +340,7 @@ export default function CompletenessPage({
   const filteredChecklist: ChecklistItem[] = (data?.checklist ?? []).filter((i) =>
     rowMatchesFilters(i.liveness, getStateForChecklistItem(i) === 'généré', activeFilters),
   );
-  const filteredEvents: EventActStatus[] = (events ?? []).filter((a) =>
+  const filteredEvents: EventActStatus[] = events.filter((a) =>
     rowMatchesFilters(
       a.liveness,
       getDocumentState({
@@ -384,7 +392,7 @@ export default function CompletenessPage({
   const activeYearSet = new Set((data?.fiscalYears ?? []).map((f) => f.year));
   const eventsByYear: Record<number, EventActStatus[]> = {};
   const eventsUnclassifiedByYear: Record<number, EventActStatus[]> = {};
-  if (events) {
+  if (events.length > 0) {
     for (const act of filteredEvents) {
       const isDirectorOrOfficerDeparture =
         (act.event_type === 'director_mandate' || act.event_type === 'officer_appointment') &&
@@ -618,7 +626,7 @@ export default function CompletenessPage({
                   onGenerated={fetchData}
                   eventActs={yearEvents}
                   preferredLanguage={preferredLanguage}
-                  onEventGenerated={fetchEvents}
+                  onEventGenerated={fetchData}
                   onEventFileSelected={(file, act, title) =>
                     handleEventFileSelected(file, act, title, year)
                   }
@@ -645,7 +653,7 @@ export default function CompletenessPage({
                     companyId={companyId}
                     locale={fr ? 'fr' : 'en'}
                     preferredLanguage={preferredLanguage}
-                    onGenerated={fetchEvents}
+                    onGenerated={fetchData}
                     onEventFileSelected={(file, act, title) =>
                       handleEventFileSelected(file, act, title, null)
                     }
