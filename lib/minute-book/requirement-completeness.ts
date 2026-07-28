@@ -16,18 +16,7 @@ import { requirementToDocType, type VaultDocType } from '@/lib/requirement-docty
 import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state';
 import { computeLiveness } from '@/lib/obligations/liveness';
 import type { ObligationLiveness } from '@/lib/obligations/obligation';
-import { filingForRuleKey } from '@/lib/obligations/filing-registry';
 import { fiscalYearSet } from '@/lib/active-years';
-
-/**
- * PROOF-SLOT requirement keys — obligations whose FILING is already complete by
- * operation of law, leaving only the PROOF to collect for the binder. Registry-derived
- * from qc_initial_declaration's requirementKeys so the key list lives in exactly ONE
- * place (no literal here). Consumed by the foundational-liveness exemption below.
- */
-const PROOF_SLOT_KEYS: ReadonlySet<string> = new Set(
-  filingForRuleKey('qc_initial_declaration')?.requirementKeys ?? [],
-);
 
 export interface ChecklistItem {
   id: string;
@@ -170,6 +159,9 @@ export async function computeRequirementCompleteness(
     id: string; requirement_key: string; category: 'foundational' | 'annual'; title_fr: string; title_en: string;
     description_fr: string | null; description_en: string | null; section: string;
     sort_order: number; can_generate: boolean; can_upload: boolean;
+    // Nullable in the type even though the column is NOT NULL-defaulted and uniformly
+    // seeded today: a future INSERT could omit it, and null must read as NOT exempt.
+    exempt_from_lateness: boolean | null;
   };
   type RawDoc = {
     id: string;
@@ -202,23 +194,46 @@ export async function computeRequirementCompleteness(
     const isFinalized = matchingDoc?.is_finalized ?? null;
     const state = getDocumentState({ satisfied, source, is_finalized: isFinalized, can_generate: req.can_generate });
     // Foundational liveness: NO year (duration is legally inert — see below), floored
-    // live→regularize (owed from day 1 → never "upcoming"). Non-null for any NOT-DONE item (missing,
-    // uploaded-but-uncertified, or generated draft); null only when is_finalized===true.
+    // live→regularize (owed from day 1 → never "upcoming"). Null in TWO cases now: a
+    // CERTIFIED row (is_finalized===true), and an EXEMPT row (exempt_from_lateness) —
+    // see the exemption block below. Non-null for every other NOT-DONE item (missing,
+    // uploaded-but-uncertified, or generated draft).
     //
-    // PROOF-SLOT EXEMPTION (Harvey 2026-07-24, GREEN, art. 8-9 LSAQ). For a
-    // PROVINCIALLY incorporated company the RE-200 initial declaration is ALREADY
-    // FILED: art. 8 lets the declaration be attached to the articles of incorporation,
-    // art. 9 transmits the articles and their attachments to the registraire — so
-    // incorporation IS registration ("une quasi-identité"). Nothing is owed to anyone;
-    // the only gap is a receipt the user downloads from the REQ. Flooring that to
-    // regularize/remediate renders "consulter un professionnel" — the most severe thing
-    // the product says — for a download. Disproportionate, so exempt it.
+    // LATENESS EXEMPTION — NOW A CATALOG COLUMN, `minute_book_requirements
+    // .exempt_from_lateness` (migration 20260728120000). An exempt row is COUNTED in
+    // requirementsTotal, stays uploadable/replaceable, and enters the binder on
+    // certification — it simply carries NO tier and feeds NEITHER overdue counter.
+    //
+    // GOVERNING PRINCIPLE (Dom, endorsed by Harvey as the thing to keep explicit):
+    // WHO ELSE HOLDS THE PROOF. The more a document's proof is held elsewhere (the
+    // registraire, the public register), the more benign its absence from the book; the
+    // more it exists only inside the company, the graver. That grades the list without
+    // any reference to duration. Exempt today: statuts + certificat (the registraire
+    // holds them), règlements (supplétif — art. 113-114 LSAQ and the "à défaut"
+    // pattern), acceptation de mandat (directors are declared at the REQ), and the LSA
+    // declaration initiale. NOT exempt: souscription/émission (proof exists ONLY in the
+    // registre des valeurs mobilières) and the first resolutions ("révélateurs" that the
+    // founding acts may never have been performed).
+    //
+    // WHY THIS REPLACED A CODE-SIDE SET. The former PROOF_SLOT_KEYS was a registry-
+    // derived Set gated on `framework === 'LSA'`. Both the membership AND the framework
+    // gate are now DATA: catalog rows are already per-framework with disjoint keys, so
+    // `lsaq_declaration_initiale` can be exempt while `cbca_declaration_initiale_qc` is
+    // not, with no framework literal anywhere. That CBCA row stays non-exempt
+    // deliberately — it is a FILING, not a constitutive document, and for a CBCA company
+    // without hasLaterAnnualFiling its deadline twin IS emitted and genuinely overdue, so
+    // ddf061d's guard remains load-bearing for a company shape we have no fixture for.
+    //
+    // NULL-OR-FALSE IS NOT EXEMPT. The column is NOT NULL-defaulted and uniformly seeded
+    // today, but a future INSERT could omit it; the check is `=== true` so absence can
+    // never silently exempt a row.
     //
     // DURATION BASIS REMOVED (Harvey 2026-07-28, GREEN, art. 9 LSAQ + the federal
-    // certificate rule + LPLE publicity — matches the PROOF-SLOT convention above:
-    // GREEN = statutory structure Harvey verified against the texts, which is what
-    // implementation keys on. NOT a content sign-off: the CONTENT launch gate is A1,
-    // where an external lawyer is the sole GREEN authority and has not reviewed this.)
+    // certificate rule + LPLE publicity. GREEN here = statutory structure Harvey
+    // verified against the texts, which is what implementation keys on — the same sense
+    // used for the exemption grading above. NOT a content sign-off: the CONTENT launch
+    // gate is A1, where an external lawyer is the sole GREEN authority and has not
+    // reviewed this.)
     // The time a company has operated without its constitutive documents in the book
     // is LEGALLY NEUTRAL, LSAQ and CBCA alike: validity and opposability flow from
     // deposit at the registraire and the public register, not from the internal book.
@@ -231,41 +246,40 @@ export async function computeRequirementCompleteness(
     // Its reason is SEMANTIC, not temporal (see the opening line of this block and
     // commit 85f5695): `live` is glossed "upcoming / not yet due", and a founding
     // document is owed from day 1, so it is never "not yet due". Harvey's ruling
-    // retires the duration concept; it does not make these documents current. Net
-    // effect: every unsatisfied foundational row is 'regularize' at every ambient
-    // clock — clock-invariance is the acceptance test for this rule.
+    // retires the duration concept; it does not make these documents current.
     //
-    // `isProofSlot` now gates ONLY that floor. With `year: null` above, both of
-    // its former branches are identical, so it no longer influences computeLiveness at
-    // all: a proof-slot row skips the floor and stays 'live', every other foundational
-    // row is floored to 'regularize'. The union stays live|regularize|remediate and
-    // every consumer (TIER_BADGE, LIVENESS_RANK, A3Item, CompletenessPage filters) is
-    // untouched.
+    // WHAT THE FLOOR STILL GOVERNS, after the exemption: the NON-EXEMPT rows — the first
+    // resolutions and souscription/émission. Nobody else holds THEIR proof, so their
+    // absence is a real gap and 'regularize' is the honest tier. Net effect: every
+    // unsatisfied NON-EXEMPT foundational row is 'regularize' at every ambient clock;
+    // exempt rows carry no tier at all. Clock-invariance remains the acceptance test for
+    // both halves.
     //
-    // LSA ONLY — load-bearing, not cosmetic. CBCA's RE-200 DEADLINE twin survives
-    // (d0c0d44 deliberately left the federal path alone, pending Harvey on the
-    // federal-doing-business-in-Québec registration obligation) and is genuinely
-    // overdue. Exempting the CBCA completeness half would have Complétude say "not late"
-    // while the board says "overdue" about the SAME obligation.
-    //
-    // EVERY OTHER FOUNDATIONAL ROW KEEPS ITS FLOOR: articles, by-laws, first resolutions
-    // are owed from day 1 — the company itself must produce them and nobody else holds a
-    // copy. RE-200 differs precisely because the government already has the filing.
+    // NO TIER USES THE EXISTING NULL PATH. `liveness` is already `ObligationLiveness |
+    // null`, null for certified rows, and every consumer already handles it: the counters
+    // increment inside this same `if (isFinalized !== true)` block, and
+    // CompletenessPage's rowMatchesFilters takes `ObligationLiveness | null` and simply
+    // matches no severity chip on null. So an exempt row needs no new liveness value —
+    // adding one would have meant widening a closed 3-member union that LIVENESS_RANK
+    // and TIER_BADGE switch over exhaustively.
     //
     // Touches ONLY `liveness` and which counter it increments. `satisfied`, `state`,
     // STATE_WEIGHT, requirementsTotal and the completeness % are all unaffected.
     let liveness: ObligationLiveness | null = null;
-    if (isFinalized !== true) {
-      const isProofSlot = framework === 'LSA' && PROOF_SLOT_KEYS.has(req.requirement_key);
+    if (isFinalized !== true && req.exempt_from_lateness !== true) {
       const raw = computeLiveness({
         daysUntilDue: null,
         legalWindowDays: null,
         year: null,
         today,
       });
-      liveness = isProofSlot ? raw : raw === 'live' ? 'regularize' : raw;
-      if (liveness === 'live') upcoming++;
-      else if (liveness === 'regularize') overdueRegularize++;
+      liveness = raw === 'live' ? 'regularize' : raw;
+      // NO `upcoming` BRANCH HERE, and tsc proves it: the floor above narrows `liveness`
+      // to 'regularize' | 'remediate', so a foundational row can no longer reach 'live'
+      // at all. It used to, via the proof-slot escape — that was the ONE row incrementing
+      // `upcoming` from this branch, and it is exactly the "à venir" falsehood this
+      // change removes. Exempt rows now exit above with liveness null and count nowhere.
+      if (liveness === 'regularize') overdueRegularize++;
       else overdueProlonged++;
     }
     checklist.push({
