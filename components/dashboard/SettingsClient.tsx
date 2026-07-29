@@ -167,8 +167,44 @@ export function SettingsClient({
       legal_name_fr: legalName,
       legal_name_en: legalName,
       neq: neq || null,
-      fiscal_year_end_month: fyMonth,
-      fiscal_year_end_day: fyDay,
+    }
+    // ── FISCAL-YEAR-END GATE (A4 plan §9c) ──────────────────────────────────────
+    // The FY-end now writes ONLY when its padlock has been unlocked this session,
+    // matching the three gated fields below. It used to ship on EVERY save of this
+    // form, touched or not.
+    //
+    // WHAT THIS IS: friction. Changing the FY-end retroactively rewrites every
+    // historical due date, because historical fiscal-year endDates are composed from
+    // the company's CURRENT rule. It was the easiest of the five sensitive fields to
+    // trigger and the broadest in blast radius, and the only one with no friction at
+    // all.
+    //
+    // WHAT THIS IS NOT — two things, both load-bearing:
+    //   1. NOT a fix for the retroactive rewrite. Core's "a fiscal year's boundaries
+    //      belong to the year, not the company" remains a PRE-LAUNCH GATE and is
+    //      still UNBUILT. This makes a destructive act deliberate; it does not make
+    //      it safe, and it must not be recorded as closing that work.
+    //   2. NOT validation. Harvey ruled ZapOkay must PROPAGATE an FY-end change, not
+    //      approve one — the user or their accountant owns that value. A padlock
+    //      approves nothing and blocks nothing; it only asks "are you sure". No
+    //      guard, no authorization check, and none should be added.
+    //
+    // ★ THE LEAST OBVIOUS EFFECT, and the most concrete: before this gate, a company
+    // whose fiscal_year_end_month/day were NULL acquired 12/31 the moment it saved
+    // ANY settings change — the form seeds from the read-path default (`?? 12` /
+    // `?? 31`), then wrote it back as if the user had chosen it. That silently
+    // destroyed the signal #175 built two guards to detect: generatePdfDocument and
+    // generate-lifecycle-document both REFUSE to default a null FY-end, deliberately,
+    // so they can surface an unset value rather than mis-frame a document. Gating the
+    // write ends the laundering; every read path keeps its `?? 12` / `?? 31` default,
+    // so nothing user-visible moves.
+    //
+    // Side effect worth keeping: `changed_fields` in the activity log stops naming the
+    // FY-end on every save, so a future entry that DOES name it is real evidence of a
+    // change rather than noise.
+    if (unlockedFields.has('fiscalYearEnd')) {
+      updates.fiscal_year_end_month = fyMonth
+      updates.fiscal_year_end_day = fyDay
     }
     if (unlockedFields.has('incorporationType')) {
       updates.incorporation_type = editIncorpType
@@ -553,33 +589,60 @@ export function SettingsClient({
               </div>
             )}
           </div>
-          {/* Fin d'exercice */}
+          {/* Fin d'exercice — gated (A4 plan §9c); see the FISCAL-YEAR-END GATE note in saveCompany */}
           <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              {fr ? "Fin d'exercice financier" : 'Fiscal Year end'}
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <select
-                value={fyMonth}
-                onChange={e => setFyMonth(parseInt(e.target.value))}
-                className={selectClass}
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-muted)]">
+                {fr ? "Fin d'exercice financier" : 'Fiscal Year end'}
+              </label>
+              <button
+                onClick={() => !unlockedFields.has('fiscalYearEnd') && setPendingUnlock('fiscalYearEnd')}
+                style={{ background: 'none', border: 'none', cursor: unlockedFields.has('fiscalYearEnd') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
+                title={unlockedFields.has('fiscalYearEnd')
+                  ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
+                  : (fr ? 'Cliquer pour déverrouiller' : 'Click to unlock')}
               >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                  <option key={m} value={m}>
-                    {fr ? MONTHS_FR[m - 1] : MONTHS_EN[m - 1]}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={fyDay}
-                onChange={e => setFyDay(parseInt(e.target.value))}
-                className={selectClass}
-              >
-                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+                <Lock size={12} style={{ color: unlockedFields.has('fiscalYearEnd') ? '#2E5425' : 'var(--text-muted)' }} />
+              </button>
             </div>
+            {unlockedFields.has('fiscalYearEnd') ? (
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  value={fyMonth}
+                  onChange={e => setFyMonth(parseInt(e.target.value))}
+                  className={selectClass}
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                    <option key={m} value={m}>
+                      {fr ? MONTHS_FR[m - 1] : MONTHS_EN[m - 1]}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={fyDay}
+                  onChange={e => setFyDay(parseInt(e.target.value))}
+                  className={selectClass}
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div
+                className="px-3 py-2 rounded-lg text-sm border"
+                style={{
+                  borderColor: 'var(--card-border)',
+                  backgroundColor: 'var(--page-bg)',
+                  color: 'var(--text-body)',
+                  opacity: 0.7,
+                }}
+              >
+                {fr
+                  ? `${fyDay} ${MONTHS_FR[fyMonth - 1]}`
+                  : `${MONTHS_EN[fyMonth - 1]} ${fyDay}`}
+              </div>
+            )}
             <p
               className="text-xs mt-2 px-3 py-2 rounded-lg"
               style={{ backgroundColor: 'var(--warning-bg)', color: 'var(--warning-text)', border: '1px solid var(--warning-border)' }}
