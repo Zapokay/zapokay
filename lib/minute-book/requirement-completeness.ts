@@ -17,6 +17,10 @@ import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state';
 import { computeLiveness } from '@/lib/obligations/liveness';
 import type { ObligationLiveness } from '@/lib/obligations/obligation';
 import { fiscalYearSet } from '@/lib/active-years';
+// A4 plan §9a, phase 1 — cadence drives the fan-out. New module edge; no cycle:
+// filing-registry imports only lib/utils and lib/active-years, neither of which
+// reaches lib/minute-book. Two lib/obligations imports already exist above.
+import { filingForRequirementKey, filingFiscalYear } from '@/lib/obligations/filing-registry';
 
 export interface ChecklistItem {
   id: string;
@@ -174,8 +178,50 @@ export async function computeRequirementCompleteness(
   };
 
   // 5. Build checklist
-  const foundationalReqs = (requirements || []).filter((r: RawReq) => r.category === 'foundational');
-  const annualReqs = (requirements || []).filter((r: RawReq) => r.category === 'annual');
+  // ── FAN-OUT: CADENCE WINS WHERE A RULE EXISTS, CATEGORY CONTINUES WHERE IT DOES
+  //    NOT (A4 plan §9a, phase 1) ────────────────────────────────────────────────
+  // The catalog's `category` decided multiplicity alone: 'foundational' → one row,
+  // 'annual' → one row per active fiscal year. That is right for every requirement
+  // whose registry cadence agrees with it, and wrong for one that does not.
+  //
+  // THE DISAGREEMENT, and it is the whole of phase 1: `fed_annual_return` is cadence
+  // 'anniversary' — ONE recurring instance, you are never "behind on your 2023
+  // return" — but its requirement key `cbca_annual_return` is catalog category
+  // 'annual', so the engine fanned it out across every fiscal year. Complétude then
+  // claimed a company owed EIGHT federal annual returns when it owes one. Cadence is
+  // the authority on "what instantiates an instance"; category is not.
+  //
+  // SCOPE — deliberately tiny. 20 of the 25 catalog rows have NO FilingRule at all,
+  // so `filingForRequirementKey` returns undefined and they keep the category path
+  // untouched. Of the 5 that DO have a rule, 4 already agree with their category
+  // ('once' ≡ foundational, 'per-fiscal-year' ≡ annual). Exactly ONE row changes
+  // behaviour: cbca_annual_return, CBCA only. LSA is untouched end to end.
+  //
+  // The anniversary partition is taken FIRST so the two category lists are built from
+  // the remainder. Today no foundational row carries an anniversary cadence (the
+  // initial declarations are 'once'), so the foundational list is byte-identical —
+  // the exclusion is a guard against a future rule landing in both lists, not a
+  // change to the foundational split, whose liveness/exemption path reads no cadence
+  // and no category and is untouched here.
+  const isAnniversary = (r: RawReq) =>
+    filingForRequirementKey(r.requirement_key)?.cadence === 'anniversary';
+  const anniversaryReqs = (requirements || []).filter((r: RawReq) => isAnniversary(r));
+  const foundationalReqs = (requirements || []).filter(
+    (r: RawReq) => r.category === 'foundational' && !isAnniversary(r),
+  );
+  const annualReqs = (requirements || []).filter(
+    (r: RawReq) => r.category === 'annual' && !isAnniversary(r),
+  );
+  // The single instance's year IS the deadline feeder's attach key — the SAME
+  // `filingFiscalYear` call with the same arguments, not a re-derivation. That makes
+  // the two halves definitionally aligned on (requirement_key, year), which is what
+  // the federal clear-gate matches on.
+  const anniversaryYear = filingFiscalYear(
+    fiscalYearEndMonth,
+    fiscalYearEndDay,
+    incorporationDate,
+    today,
+  );
 
   const checklist: ChecklistItem[] = [];
   let requirementsTotal = 0;
@@ -335,6 +381,59 @@ export async function computeRequirementCompleteness(
       if (state === 'téléversé') requirementsUploaded++;
       else if (state === 'généré') requirementsGenerated++;
     }
+  }
+
+  // Anniversary items — ONE instance, at the attach-key year (A4 plan §9a, phase 1).
+  // Identical to the annual loop above in every respect EXCEPT multiplicity: same
+  // document match on (requirement_key, year), same state, same year-based liveness,
+  // same counters, same weights. It is NOT the foundational path — an anniversary
+  // obligation carries a clock, so it must never take the foundational live→regularize
+  // floor, which would make a current, correctly-filed federal return read
+  // 'regularize'. It stays COUNTED in requirementsTotal, stays uploadable, and enters
+  // the binder on certification: the book is the product.
+  //
+  // ★ WHY `_boardSuppressedKeys` SURVIVES THIS PHASE, and must not be removed with it:
+  // it looked like pure reconciliation for a fan-out that should never have happened,
+  // and after this change it does one-eighth the work — but it is now the ONLY thing
+  // keeping this row off the board. `OVERLAP_MERGE` derives from cadence
+  // 'per-fiscal-year', so an 'anniversary' row is NOT a key in it and
+  // `mergeObligations` returns before it ever constructs `${ruleKey}|${year}`. The
+  // halves therefore cannot merge no matter how well their years align. Drop the
+  // suppression and the board gets TWO rows for one obligation — worse than the
+  // disagreement this phase fixes. Counted in Complétude, represented on the board by
+  // the deadline row (which carries the clock AND the upload affordance) is the
+  // intended end state, not an accident.
+  for (const req of anniversaryReqs as RawReq[]) {
+    const matchingDoc = (documents || []).find(
+      (d: RawDoc) =>
+        d.requirement_key === req.requirement_key && d.requirement_year === anniversaryYear,
+    );
+    const satisfied = !!matchingDoc;
+    const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
+    const isFinalized = matchingDoc?.is_finalized ?? null;
+    const state = getDocumentState({ satisfied, source, is_finalized: isFinalized, can_generate: req.can_generate });
+    let liveness: ObligationLiveness | null = null;
+    if (isFinalized !== true) {
+      liveness = computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: anniversaryYear, today });
+      if (liveness === 'live') upcoming++;
+      else if (liveness === 'regularize') overdueRegularize++;
+      else overdueProlonged++;
+    }
+    checklist.push({
+      ...req,
+      year: anniversaryYear,
+      satisfied,
+      liveness,
+      source,
+      document_type: requirementToDocType(req.requirement_key, req.section),
+      document_id: matchingDoc?.id ?? null,
+      document_file_url: matchingDoc?.file_url ?? null,
+      document_is_finalized: isFinalized,
+      document_language: matchingDoc?.language ?? null,
+    });
+    requirementsTotal++;
+    if (state === 'téléversé') requirementsUploaded++;
+    else if (state === 'généré') requirementsGenerated++;
   }
 
   const requirementsMissing = requirementsTotal - requirementsUploaded - requirementsGenerated;
