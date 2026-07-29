@@ -1,21 +1,4 @@
-import { SupabaseClient } from '@supabase/supabase-js'
 import { parseLocalDate } from '@/lib/utils'
-
-export async function getActiveYears(
-  companyId: string,
-  supabase: SupabaseClient
-): Promise<number[]> {
-  const { data, error } = await supabase
-    .from('company_fiscal_years')
-    .select('year')
-    .eq('company_id', companyId)
-    .eq('status', 'active')
-    .order('year', { ascending: true })
-
-  if (error) throw error
-  if (!data) return []
-  return data.map((row: { year: number }) => row.year)
-}
 
 /**
  * Map an arbitrary date to the integer label of the fiscal year that CONTAINS

@@ -20,9 +20,12 @@ export interface ObligationNotice {
 
 /**
  * Adapt a roster FilingRule into the ObligationNotice shape. `obligationName` and
- * `jurisdiction` are notice-shape identifiers (obligationName is consumed by
- * feeders/req.ts for the row id) — not filing-need data, so they stay here as the
- * roster REQ's fixed identity; the drift-prone facts come from the registry.
+ * `jurisdiction` are notice-shape identifiers — not filing-need data, so they stay here
+ * as the roster REQ's fixed identity; the drift-prone facts come from the registry.
+ * `obligationName` has no consumer today: it fed the row id in the REQ feeder, which was
+ * deleted as dead code (zero importers). The live consumers of this module — the event
+ * feeder, EventActRow and the event engine — read only `deadlineDays`, `triggeredBy`,
+ * `statutoryBasis` and `helpKey`.
  */
 function toNotice(rule: FilingRule): ObligationNotice {
   return {

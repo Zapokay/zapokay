@@ -97,8 +97,9 @@ export async function GET() {
     }))
     .sort((a, b) => a.class_name.localeCompare(b.class_name))
 
-  // Framework resolution mirrors lib/priority.ts / generate-lifecycle-document.ts:
-  // anything not CBCA is the Quebec regime (LSAQ / FR: LCSA for the federal term).
+  // Framework resolution mirrors generate-lifecycle-document.ts: anything not CBCA is
+  // the Quebec regime (LSAQ / FR: LCSA for the federal term). (This also cited
+  // lib/priority.ts until that file was deleted as dead code — zero importers.)
   const isCBCA = company.incorporation_type === 'CBCA'
   // ✅ GREEN — Harvey-verified 2026-06-25 — stated-capital citation (art.68 LSAQ / s.26 CBCA): art.68 maintains the account, s.26(1) CBCA equivalent. Lawyer-final pending.
   const citation_fr = isCBCA
