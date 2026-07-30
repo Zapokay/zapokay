@@ -1,9 +1,19 @@
 /**
- * A3 Ranking brain — pure base ranker (no I/O, no side effects, zero consumers).
+ * A3 Ranking brain — pure base ranker (no I/O, no side effects). ONE consumer: the
+ * dashboard server component's A3 board assembly, via `rankObligations`.
  *
  * Turns the merged obligation stream into a fully ordered to-do list: the
  * dashboard board slices the top 5, and the full list backs the "show more (N)"
  * count. Design: a3-ranking-brain-spec-2026-07-03.md §3–§5.
+ *
+ * ★ THIS HEADER USED TO SAY "zero consumers" IN THE LINE ABOVE, WHILE THE PARAGRAPH
+ * IMMEDIATELY BELOW IT DESCRIBED THAT CONSUMER — a document arguing with itself, which is
+ * worse than a merely stale claim: a reader resolves the contradiction by trusting whichever
+ * half suits them. The claim was true when the ranker shipped ahead of its UI; `dc5eb27`
+ * (2026-07-10) wired the dashboard and voided it, and it then survived 48 commits because
+ * nothing type-checks a header. Corrected in A4 phase 3, together with the identical stale
+ * claim in both feeders and the aggregator. Only the COUNT was wrong — `no I/O, no side
+ * effects` is still TRUE.
  *
  * score = stakes × urgency. Stakes = what's at risk (external filing >
  * foundational > internal-annual > low). Urgency = a steep convex ramp on

@@ -1,7 +1,21 @@
 /**
- * A3 obligation aggregator skeleton — pure functions, no I/O.
+ * A3 obligation aggregator — pure functions, no I/O.
  * Design: a3-obligation-contract-design-2026-07-02.md
- * ADDITIVE: zero consumers today. Ranking/sorting is Phase 3, NOT here.
+ *
+ * CONSUMERS: the dashboard server component's A3 board assembly (`mergeObligations`), and
+ * all three feeders (`deriveStatus`).
+ *
+ * ★ RANKING AND SORTING LIVE IN `rank.ts`, NOT HERE — and they SHIPPED. This line used to
+ * read "Ranking/sorting is Phase 3, NOT here", which was a forward-looking instruction when
+ * written and has since become actively misleading twice over: the work is done, and TWO
+ * arcs now have a phase 3, so a reader hitting a bare "Phase 3" this week would take it for
+ * the one currently in flight. Pointing at the MODULE instead of a phase number fixes both —
+ * a symbol is greppable and it moves with the code.
+ *
+ * ★ AND "zero consumers today" WAS STALE, not merely vague: true when the aggregator shipped
+ * ahead of its UI, voided by `dc5eb27` (2026-07-10), then carried through 48 commits because
+ * nothing type-checks a header. Corrected in A4 phase 3 alongside the identical claim in both
+ * feeders and the ranker. Only the COUNT was wrong — `pure functions, no I/O` is still TRUE.
  */
 
 import type { Obligation, ObligationStatus } from './obligation';

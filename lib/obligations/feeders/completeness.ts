@@ -1,13 +1,22 @@
 /**
- * A3 Feeder 1 — completeness → Obligation (pure translation, zero consumers).
+ * A3 Feeder 1 — completeness → Obligation (pure translation). ONE consumer: the dashboard
+ * server component's A3 board assembly.
  *
  * Normalizes each minute-book ChecklistItem (the founding + annual document
  * completeness signal) into the generalized Obligation contract. This is the
  * first real emitter proving the approved contract against live data shapes.
  *
  * Design: a3-obligation-contract-design-2026-07-02.md (§7 feeder mapping).
- * ADDITIVE: no I/O, no side effects, no consumers today. The completeness lib
+ * ADDITIVE: no I/O, no side effects. The completeness lib
  * (requirement-completeness.ts, state.ts) is READ, never modified.
+ *
+ * ★ THIS FILE CLAIMED NO CONSUMERS TWICE — once above and once on the ADDITIVE line — and
+ * both were TRUE WHEN WRITTEN: the feeder shipped ahead of its UI. `dc5eb27` (2026-07-10)
+ * wired the dashboard to it and voided both at once; they then survived 48 commits, because
+ * nothing type-checks a header. Corrected together in A4 phase 3, deliberately: two copies
+ * of one claim that are fixed separately are two copies that drift. Sibling feeder
+ * deadlines.ts carried the identical stale claim and is corrected in the same commit. Only
+ * the COUNT was wrong — `pure translation`, `no I/O` and `no side effects` are still TRUE.
  *
  * This feeder has NO clock: every clock field (dueDate, triggeredBy,
  * deadlineDays, daysUntilDue) is null. deriveStatus is still called so the D1

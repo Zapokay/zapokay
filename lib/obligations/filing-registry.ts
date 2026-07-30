@@ -147,9 +147,18 @@ export interface FilingDueCtx {
   immatriculationDate?: string | null;
   incorporationDate?: string | null;
   /**
-   * NEW, AND UNREAD as of phase 2 — no rule's `dueDate` touches it yet.
+   * NEW, AND STILL UNREAD AS OF A4 PHASE 3 — no rule's `dueDate` touches it, and phase 3
+   * deliberately does NOT populate it.
    *
-   * THIS IS THE PHASE 3 SEAM. It is the SAME set the completeness checklist fans out over
+   * ★ CORRECTED WORDING: this originally read "THIS IS THE PHASE 3 SEAM", which was loose.
+   * A4 phase 3 makes the seam REACHABLE — it puts the fiscal-year set onto
+   * `CompanyComplianceInput`, where the feeder can get at it — but this ctx field stays
+   * UNPOPULATED until A4 phase 4's generic loop actually needs it. Filling it earlier would
+   * mean handing the set to EVERY rule's `dueDate`, including `qc_initial_declaration`, a
+   * `cadence: 'once'` rule with no fiscal year anywhere in its logic — asserting a
+   * relationship that does not exist.
+   *
+   * It is the SAME set the completeness checklist fans out over
    * (`RequirementCompletenessResult.fiscalYears`), which is what makes the phase-4
    * guarantee hold BY CONSTRUCTION rather than by coincidence: a per-year loop over this
    * set is assured a deadline twin for every completeness row, so no row can be emitted

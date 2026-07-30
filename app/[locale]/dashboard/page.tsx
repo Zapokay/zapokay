@@ -105,8 +105,10 @@ export default async function DashboardPage({
     // FIRST-annual-meeting proxy, condition (1): has an annual shareholders'
     // resolution EVER been recorded, for any year? We track no meeting DATE, so this
     // is the closest available fact. Derived from the checklist already in hand (no
-    // new query) — same record-agnostic pattern as hasLaterAnnualFiling /
-    // currentFedReturnFiled: the caller reads the records, the feeder stays pure.
+    // new query) — same as hasLaterAnnualFiling / currentFedReturnFiled, and the reason
+    // widening the feeder's input costs nothing: the caller already holds the records.
+    // The feeder stays PURE (it performs no I/O) but it is no longer record-agnostic —
+    // as of A4 phase 3 it receives the checklist itself. See CompanyComplianceInput.
     // Condition (2) — inc+18mo still in the future, the Wick guard — is applied
     // INSIDE the feeder, which already holds incorporationDate and today.
     const noPriorAnnualMeetingRecorded = !completeness.checklist.some(
@@ -121,6 +123,11 @@ export default async function DashboardPage({
         fyEndDay,
         incorporationDate,
         immatriculationDate: incorporationDate,
+        // A4 phase 3 — the records themselves, both already in hand above. UNREAD by the
+        // feeder; A4 phase 4's generic loop is what consumes them. The three booleans
+        // below are projections of this same checklist and phase 4 deletes them.
+        checklist: completeness.checklist,
+        fiscalYears: completeness.fiscalYears,
         hasLaterAnnualFiling,
         currentFedReturnFiled,
         noPriorAnnualMeetingRecorded,

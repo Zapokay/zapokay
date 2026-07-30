@@ -1,5 +1,12 @@
 /**
- * A3 Feeder 3 — deadline obligations (pure, no I/O, zero consumers).
+ * A3 Feeder 3 — deadline obligations (pure, no I/O). ONE consumer: the dashboard server
+ * component's A3 board assembly.
+ *
+ * ★ THIS READ "zero consumers" UNTIL A4 PHASE 3, AND IT WAS TRUE WHEN WRITTEN (c5adc85,
+ * 2026-07-02) — the feeder shipped ahead of its UI. `dc5eb27` (2026-07-10) wired the
+ * dashboard to it, and the claim then survived 48 commits, because nothing type-checks a
+ * header. Recorded rather than quietly overwritten: a comment that says what it got wrong
+ * stays trustworthy. Only the COUNT was ever wrong — `pure, no I/O` is still TRUE.
  *
  * Emits recurring/calendar statutory + governance deadlines into the
  * generalized Obligation contract, on Harvey-verified deadlines
@@ -20,6 +27,7 @@
 import type { Obligation } from '../obligation';
 import { deriveStatus } from '../aggregate';
 import { computeLiveness } from '../liveness';
+import type { ChecklistItem } from '@/lib/minute-book/requirement-completeness';
 import { composeDisplayName } from '@/lib/display-name';
 import { parseLocalDate } from '@/lib/utils';
 import {
@@ -37,30 +45,104 @@ export interface CompanyComplianceInput {
   incorporationDate: string | null;
   immatriculationDate: string | null;
   /**
-   * RE-200 presumed-done signal (Harvey 2026-07-05). True when the company has
-   * at least one CERTIFIED (satisfied) annual filing for a year strictly after
-   * incorporation — which necessarily means its founding REQ dossier was already
-   * initialized, so the initial declaration must NOT surface as an action. The
-   * caller computes it from the completeness checklist; this feeder stays
-   * record-agnostic (it receives the fact, it does not look filings up).
+   * The completeness checklist, PASSED IN — not fetched. UNREAD as of phase 3: no
+   * expression in this feeder touches it, and the entry destructure deliberately does not
+   * name it. Phase 4's generic loop is what reads it.
+   *
+   * ★ PURITY IS PRESERVED, and that distinction is the reason passing it is safe: this
+   * feeder still performs NO I/O. The caller ALREADY holds this array — it computes all
+   * three booleans below from it — so handing the array over adds a parameter, not a
+   * query.
+   *
+   * What the arrival DOES falsify is an older architectural justification, not the purity
+   * itself. That correction is recorded ONCE, on `hasLaterAnnualFiling` below, where the
+   * claim originated — deliberately not repeated here, because a correction that exists in
+   * two places drifts as soon as someone deletes one copy.
+   */
+  checklist: readonly ChecklistItem[];
+  /**
+   * The company's fiscal-year set — the SAME one the completeness checklist fans out over
+   * (`RequirementCompletenessResult.fiscalYears`). PASSED IN, and UNREAD as of phase 3.
+   *
+   * This is what phase 4's per-year loop will iterate, and taking it from the completeness
+   * result rather than recomputing it is what makes "every per-year deadline row has a
+   * completeness twin" true BY CONSTRUCTION instead of by coincidence.
+   *
+   * ⚠️ INHERITED CAVEAT, carried here so phase 4 does not rediscover it: these `endDate`s
+   * are composed from the company's CURRENT year-end applied to every HISTORICAL year. Per
+   * ZK_Core a fiscal year's boundaries belong to THAT year, so a company that changed its
+   * year-end has years whose real boundaries differ from what this set reports. Phase 4
+   * MULTIPLIES that known blast radius from one anchor to N — it does not create it, and
+   * fixing it is not phase 4's job.
+   */
+  fiscalYears: readonly { year: number; endDate: string }[];
+  // ─── ★ TRANSIENT DOUBLE SOURCE — THE `checklist` ABOVE IS AUTHORITATIVE ──────────
+  // The three booleans below are NOT independent facts. Each is a CALLER-COMPUTED
+  // PROJECTION of the very `checklist` declared above — literally a `checklist.some(...)`
+  // predicate — and now that the array itself arrives on this input, the feeder could
+  // evaluate every one of them itself.
+  //
+  // ★ IF THE TWO EVER DISAGREE, THE BOOLEANS ARE WRONG. The checklist is the record; a
+  // boolean is one question asked of that record, at one moment, by one caller.
+  //
+  // REDUNDANT BY DESIGN AND ONLY TEMPORARILY: phase 4 of the A4 arc deletes all three when
+  // the generic loop derives them internally. They survive this phase only because phase 3
+  // is additive — nothing here may read the checklist yet.
+  //
+  // ★ WHY THIS NOTE EXISTS AND NOT JUST THE @deprecated TAGS: a flag that describes how to
+  // CORRECT another component's output is exactly what `cadence` replaced in the filing
+  // registry — `overlapMerge` and `boardSuppressCompletenessRows` were instructions for
+  // fixing the completeness fan-out, written as though they described the obligation. This
+  // is that same shape, tolerated deliberately for one phase and marked so that no future
+  // reader mistakes a transitional projection for a source of truth.
+  /**
+   * @deprecated Transitional projection of `checklist` — a `checklist.some(...)` over
+   * satisfied annual rows for a year after incorporation. Read `checklist` directly.
+   * Slated for removal in phase 4 of the A4 arc, when the generic loop derives it.
+   *
+   * RE-200 presumed-done signal (Harvey 2026-07-05). True when the company has at least
+   * one CERTIFIED (satisfied) annual filing for a year strictly after incorporation —
+   * which necessarily means its founding REQ dossier was already initialized, so the
+   * initial declaration must NOT surface as an action. The caller computes it from the
+   * completeness checklist.
+   *
+   * ★ HISTORY, RECORDED ONCE FOR ALL THREE OF THESE BOOLEANS: the justification that used
+   * to close this block said the feeder "stays record-agnostic (it receives the fact, it
+   * does not look filings up)", and the other two booleans referred back to it. Phase 3
+   * falsified the label — this feeder now HOLDS the checklist. It still performs no I/O, so
+   * the PURITY the label was reaching for survives; the label itself does not, and nothing
+   * type-checks a justification. The two booleans below therefore carry no such claim.
    */
   hasLaterAnnualFiling: boolean;
   /**
+   * @deprecated Transitional projection of `checklist` — a `checklist.some(...)` matching
+   * (`cbca_annual_return`, the current fiscal year, satisfied). Read `checklist` directly.
+   * Slated for removal in phase 4 of the A4 arc.
+   *
    * Federal-return clear-gate: true when the CURRENT-fiscal-year cbca_annual_return
    * receipt is already uploaded (satisfied). Skips the fed_annual_return push so the
    * row leaves the board once filed; when the next FY-end passes, the fiscal-year
-   * anchor advances → new current-FY row (unsatisfied) → the push fires again. Same
-   * record-agnostic pattern as hasLaterAnnualFiling — the caller derives it from the
-   * checklist.
+   * anchor advances → new current-FY row (unsatisfied) → the push fires again.
+   * Caller-derived from the checklist, like hasLaterAnnualFiling above.
    */
   currentFedReturnFiled: boolean;
   /**
+   * @deprecated Transitional projection of `checklist` — a `checklist.some(...)` over
+   * ANNUAL_MEETING_RECORD_KEYS. Read `checklist` directly. Slated for removal in phase 4
+   * of the A4 arc. ⚠️ REMOVING IT DOES NOT REMOVE CONDITION (2) BELOW: that half is a
+   * date comparison, not a checklist question, so it has no projection to delete and no
+   * `checklist` expression can replace it. Deleting only the first half would leave the
+   * first-meeting predicate incomplete.
+   *
    * FIRST-annual-meeting proxy, condition (1): true when NO annual shareholders'
    * resolution has ever been recorded, for any year (see ANNUAL_MEETING_RECORD_KEYS).
    * Condition (2) — inc + 18mo still in the FUTURE — is applied INSIDE this feeder,
    * which already holds incorporationDate and today. BOTH are load-bearing; see the
-   * annual_meeting push. Same record-agnostic pattern as the two flags above: the
-   * caller derives it from the checklist, this feeder never looks anything up.
+   * annual_meeting push.
+   *
+   * Three separate claims, so each can be checked on its own rather than bundled under one
+   * label: the caller still derives this value — TRUE. This feeder performs no I/O — TRUE.
+   * This feeder cannot see the underlying records — FALSE as of phase 3.
    */
   noPriorAnnualMeetingRecorded: boolean;
 }
