@@ -805,5 +805,10 @@
       }
     },
     "footerAck": "Got it"
+  },
+  "obligationTitle": {
+    "reqAnnualUpdate": "REQ Annual Update",
+    "initialDeclaration": "Initial Declaration (RE-200)",
+    "fedAnnualReturn": "Annual Return — Corporations Canada"
   }
 }

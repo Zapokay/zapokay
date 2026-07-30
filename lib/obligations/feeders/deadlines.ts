@@ -357,6 +357,51 @@ export function deadlineObligations(
     const isFirstMeeting =
       noPriorAnnualMeetingRecorded && firstMeetingDue !== null && firstMeetingDue > today;
     push({
+      // ── WHY THIS ruleKey IS STILL A BARE LITERAL, AND WHEN IT STOPS BEING ONE ──────
+      // IT BELONGS IN THE REGISTRY. Dom's decision D-B admits INTERNAL obligations to
+      // FILING_REGISTRY — the membership test is "does it have a cadence", NOT "is it
+      // filed with a government" — and this rule has one (per-fiscal-year). Its absence
+      // from the table is SCHEDULING, not a judgement that it does not belong there.
+      //
+      // IT LANDS IN PHASE 4, NOT PHASE 2, FOR FOUR REASONS:
+      //
+      // (1) IT CANNOT BE INERT — the disqualifying one. `isExternalRequirementKey` means
+      //     "has a registry entry" and is USED as a proxy for "is external". An INTERNAL
+      //     rule joining the table therefore makes that function silently WRONG the
+      //     moment it is added. Correcting it means `exposure === 'external'`, which is a
+      //     real behaviour change and cannot ride an additive phase.
+      //
+      // (2) ITS BASIS IS THREE LIMBS, HARVEY-VERIFIED WORD FOR WORD: art. 133(1)(a) vs
+      //     (b) LCSA, art. 163 LSAQ, and art. 225 LSAQ — the financial-statement
+      //     constraint Québec's 6-month date actually derives from (see the
+      //     `statutoryBasis` ternary below). Moving that into data is a place to
+      //     introduce a legal error silently.
+      //
+      // (3) The filing→obligation RENAME is its own unit of work and carries its own
+      //     behaviour change. This rule rides that unit, not this one.
+      //
+      // (4) ★ AN UNVERIFIED CONCERN, RECORDED AS A CONCERN — NOT AS A FINDING.
+      //     `noPriorAnnualMeetingRecorded` and the Wick guard (`firstMeetingDue > today`)
+      //     may be ONE first-meeting predicate rather than two independent mechanisms;
+      //     per ZK_Core the first-meeting predicate requires BOTH conditions. If that is
+      //     so, mapping the first half ALONE onto `suppressWhenSatisfied` would suppress
+      //     the annual meeting FOREVER once ANY annual shareholder resolution is
+      //     satisfied — and on a per-fiscal-year cadence that means every later year too.
+      //     PHASE 4 MUST VERIFY THIS FROM CODE BEFORE MOVING EITHER HALF INTO DATA.
+      //
+      // TITLE: the FR/EN literals below are already the right strings. They become
+      // `obligationTitle.annualMeeting` when the entry is added, and that value joins the
+      // TitleKey union in filing-registry.ts at the same time.
+      //
+      // ★ SEPARATE PHASE-2 SCOPE RECORD, NOT ABOUT THIS RULE — the upload-attach pair was
+      // considered as two new registry fields and STRUCK, because both values are
+      // DERIVABLE. `requirementKey` comes from the rule's own `requirementKeys[0]`;
+      // `canUpload` comes from the EXISTING board-suppression derivation — NOT from
+      // re-testing `cadence === 'anniversary'` a second time. Deriving one fact twice from
+      // one source is precisely how `overlapMerge` and `boardSuppressCompletenessRows`
+      // came to exist. The causal chain is single and must stay single: anniversary → the
+      // completeness half is board-suppressed → the deadline row is therefore the ONLY
+      // thing left that can carry the upload affordance.
       ruleKey: 'annual_meeting',
       yearSeg: String(fyYear),
       year: fyYear,

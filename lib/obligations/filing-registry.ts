@@ -24,6 +24,25 @@
 
 import { parseLocalDate } from '@/lib/utils';
 import { fiscalYearForDate } from '@/lib/active-years';
+/**
+ * TYPE-ONLY, AND IT MUST STAY THAT WAY IN BOTH DIRECTIONS.
+ *
+ * `exposure` and `actionKind` are declared ONCE, on the Obligation contract, and reused
+ * here — the registry must NEVER re-declare a parallel narrower union, which is the
+ * two-sources-of-truth defect this table exists to remove. `ObligationAction` is WIDER
+ * than anything the table uses today (it also carries 'generate', 'upload', 'review',
+ * 'none'); reusing the wide union is the point, a trimmed copy would be a second source.
+ *
+ * ⚠️ THIS CLOSES A CYCLE: `obligation.ts` already imports `CopyKey` FROM this module.
+ * Both edges are `import type`, so both are ERASED at compile and NO runtime edge
+ * exists. That erasure is load-bearing, not incidental — `obligation.ts` is a runtime
+ * leaf and `FILING_REGISTRY` enters no client bundle. A VALUE import in EITHER direction
+ * breaks both facts at once: it would pull this module's runtime content — the
+ * `FILING_REGISTRY` table, `addMonthsClamped` / `completedFiscalYearEnd` /
+ * `filingFiscalYear`, and every derived index — into any client bundle that reaches
+ * `obligation.ts`.
+ */
+import type { ObligationAction, ExposureClass } from './obligation';
 
 // ─── Date helpers (moved from deadlines.ts — the only surviving copies) ──────────
 
@@ -127,6 +146,29 @@ export interface FilingDueCtx {
   fyEnd?: Date;
   immatriculationDate?: string | null;
   incorporationDate?: string | null;
+  /**
+   * NEW, AND UNREAD as of phase 2 — no rule's `dueDate` touches it yet.
+   *
+   * THIS IS THE PHASE 3 SEAM. It is the SAME set the completeness checklist fans out over
+   * (`RequirementCompletenessResult.fiscalYears`), which is what makes the phase-4
+   * guarantee hold BY CONSTRUCTION rather than by coincidence: a per-year loop over this
+   * set is assured a deadline twin for every completeness row, so no row can be emitted
+   * for a year that has no checklist row to satisfy it.
+   *
+   * ★ TYPE MISMATCH WITH `fyEnd` ABOVE, ON PURPOSE — `endDate` is a STRING here while
+   * `fyEnd` is a `Date`. Convert with the project's `parseLocalDate`, NEVER a raw
+   * `new Date(string)`: the latter parses 'YYYY-MM-DD' as UTC midnight and shifts the day
+   * BACKWARD in every UTC-negative zone, which is the exact trap `parseLocalDate` exists
+   * to close.
+   *
+   * ⚠️ INHERITED BLAST RADIUS, NAMED SO PHASE 3 DOES NOT DISCOVER IT: these `endDate`s are
+   * composed from the company's CURRENT year-end applied to every HISTORICAL year — see
+   * ZK_Core, a fiscal year's boundaries belong to that year, and a company that changed its
+   * year-end has years whose real boundaries differ from what this set reports. Scaling
+   * from one anchor to N MULTIPLIES that known defect; it does not create it, and phase 3
+   * is not the place that fixes it.
+   */
+  fiscalYears?: readonly { year: number; endDate: string }[];
   today: Date;
 }
 
@@ -158,6 +200,49 @@ export type CopyKey = 'fedAnnualReturn';
  * either locale file.
  */
 export type ReasonKey = 'fedAnnualReturnShareholderMeeting';
+
+/**
+ * i18n keys for an obligation's ROW / DISPLAY TITLE, under `obligationTitle.*`.
+ *
+ * ★ NAMESPACE DISTINCTION, DELIBERATE: `obligationTitle.*` is the title a row RENDERS
+ * UNDER; `obligationNotice.*` is MARKER and MODAL copy. For the federal return the two
+ * are DIFFERENT STRINGS on purpose — `obligationTitle.fedAnnualReturn` is "Rapport annuel
+ * — Corporations Canada" (what the obligation IS), while
+ * `obligationNotice.fedAnnualReturn.title` is "Dépôt à produire auprès de Corporations
+ * Canada" (what the user must DO). Never point one field at the other's namespace: a
+ * `titleKey` resolving to notice copy would render modal text as a board row title.
+ *
+ * ★ OPTIONAL, AND THE REASON IS STRUCTURAL — not "lawyer-pending", not "arriving later".
+ * A cadence 'event' rule is ACT-INSTANTIATED, and an act's title is COMPOSED PER ACT at
+ * the feeder — `{title} · {person} · {year}` via `resolveEventDocTitle` (see
+ * lib/minute-book/event-act-helpers.ts) and `composeDisplayName` — from a docKey variant
+ * that is not recoverable from the act alone. A per-act title can therefore NEVER be a
+ * static registry key. The split follows cadence PERMANENTLY: calendar-instantiated rules
+ * carry a titleKey, act-instantiated ones cannot. `qc_req_roster_update` omits it for
+ * that reason and always will.
+ *
+ * ★ HAND-MAINTAINED, NOT DERIVED — same reasoning as `CopyKey` above (the table is
+ * annotated `readonly FilingRule[]`, which erases every literal) and the same obligation
+ * to add new values here. Failure-to-compile IS the forcing function, and phase 4's
+ * generic loop is where a CALENDAR rule missing a titleKey must fail LOUDLY rather than
+ * render a titleless row.
+ *
+ * ★ NOT narrowed via next-intl's message-key types, AND THAT IS A CHOICE. Doing so is a
+ * real refactor (~8 files — see ZK_Core on a3-presentation's `labelKey`) and it belongs to
+ * phase 4's narrowing chain, traced end to end rather than bolted on here.
+ *
+ * ⚠️ This union does NOT prove the messages exist. Each key must be present in BOTH
+ * messages/fr.json and messages/en.json; typed messages checks FR only (it is the type
+ * source) and EN not at all, so the EN half rests on a grep. That is the standing
+ * bilingual gap, not one this union creates.
+ *
+ * PHASE 4: `'obligationTitle.annualMeeting'` joins this union when `annual_meeting` gets
+ * its registry entry — its FR/EN literal pair already exists in feeders/deadlines.ts.
+ */
+export type TitleKey =
+  | 'obligationTitle.reqAnnualUpdate'
+  | 'obligationTitle.initialDeclaration'
+  | 'obligationTitle.fedAnnualReturn';
 
 /** An obligation that must be SATISFIED before this filing can be completed. */
 export interface FilingPrerequisite {
@@ -247,6 +332,86 @@ export interface FilingRule {
    * caller stays byte-identical).
    */
   copyKey?: CopyKey;
+  /**
+   * ★ FRAMEWORK ALLOW-LIST. Omit = ALL frameworks.
+   *
+   * ⚠️ POLARITY INVERSION vs THE CODE IT DESCRIBES: this is an ALLOW-list, while
+   * feeders/deadlines.ts gates the same fact with a DENY-list (`framework !== 'LSA'`).
+   * The two agree ONLY because the union has exactly TWO members.
+   *
+   * ★ AND THAT TWO-MEMBER UNION IS A DERIVED VIEW, NOT THE STORED COLUMN. `lib/types.ts`
+   * stores `IncorporationType = 'LSAQ' | 'LSA' | 'CBCA'` — THREE members. The narrowing to
+   * two happens at the dashboard page, where LSAQ collapses into LSA.
+   *
+   * ★ DO NOT CONFLATE THE TWO "THIRDS". A third FRAMEWORK means a NEW PROVINCE. The
+   * existing third INCORPORATION_TYPE value ('LSAQ') is already Québec and is NOT one.
+   * Multi-province is on the roadmap: whoever adds a province must revisit EVERY entry in
+   * this table, because omitting a framework here means opting IN, not out.
+   *
+   * FIFTEEN inline copies of this union already exist — 5 in components/, 6 in lib/pdf/
+   * (all written in the REVERSED member order, which is why a one-order grep undercounts
+   * them), 3 elsewhere in lib/, 1 in app/. This is the SIXTEENTH. Consolidation onto one
+   * leaf vocabulary type is BANKED as its own item: a registry-OWNED type would look
+   * canonical without being canonical, since none of the other copies would import it.
+   */
+  frameworks?: readonly ('LSA' | 'CBCA')[];
+  /**
+   * WHO the obligation is exposed to, and HOW it is discharged. Both reuse the Obligation
+   * contract's unions via the type-only import at the top of this file — the registry
+   * declares no parallel, narrower copy of either.
+   *
+   * NON-OPTIONAL, both. Every row in this table has an answer, and a row that forgot one
+   * must fail to compile. That is the entire gate.
+   *
+   * ⚠️ `hasFiling` STAYS DERIVED from `actionKind === 'file_externally'` and must NEVER be
+   * declared here — see ZK_Core: gate on what the row IS, never on a companion flag
+   * someone remembered to set. Declaring it would re-create exactly the
+   * boolean-beside-the-fact drift that `overlapMerge` and `boardSuppressCompletenessRows`
+   * were, and that `cadence` replaced.
+   */
+  exposure: ExposureClass;
+  actionKind: ObligationAction;
+  /**
+   * i18n key for the row's DISPLAY TITLE. OPTIONAL — and see `TitleKey` above for why that
+   * is STRUCTURAL rather than provisional: an act-instantiated rule (cadence 'event')
+   * composes its title PER ACT and can never carry a static key. Every CALENDAR rule
+   * carries one.
+   */
+  titleKey?: TitleKey;
+  /**
+   * Conditions under which this obligation is PRESUMED DISCHARGED and must not be emitted
+   * at all. Generalizes the two caller-computed booleans the deadline feeder takes today —
+   * `hasLaterAnnualFiling` (the RE-200) and `currentFedReturnFiled` (the federal return) —
+   * into one declarative shape.
+   *
+   * `yearScope` — WHICH satisfied instance counts:
+   *   'attachYear'         — ONLY an instance at this row's own attach year (the fiscal
+   *                          year its receipt attaches to). Today's `currentFedReturnFiled`.
+   *   'afterIncorporation' — any satisfied instance for a year STRICTLY AFTER
+   *                          incorporation. Today's `hasLaterAnnualFiling`: a later
+   *                          certified annual filing proves the founding REQ dossier was
+   *                          already initialized, so the initial declaration is presumed
+   *                          done (Harvey 2026-07-05, Option 1).
+   *   'any'                — any satisfied instance, any year.
+   *
+   * ★ WATCH THE AXIS IF A FOURTH VALUE IS EVER ADDED. These three are NOT on one axis:
+   * 'attachYear' and 'any' are QUANTIFIERS OVER YEARS, while 'afterIncorporation' is a
+   * RELATION TO A DATE. They cohere only under the question "WHICH satisfied instance
+   * discharges this obligation?" — so that question, not the list, is what a new value must
+   * answer. A value added on a different axis (e.g. 'sameQuarter', 'ifFiledLate') would
+   * COMPILE, and its suppression behaviour would quietly become false. Same hazard the
+   * `cadence` docblock guards against in its own union, and the same reason that docblock
+   * states its question out loud.
+   *
+   * ★ `requirementKeys` HAS EXACTLY ONE MEANING WHEN OMITTED: ANY key satisfies. It NEVER
+   * defaults to the rule's own `requirementKeys`. Where a SPECIFIC key is meant it is
+   * declared explicitly, always. A field whose omission means two different things
+   * depending on the reader is the defect class this table exists to remove.
+   */
+  suppressWhenSatisfied?: {
+    requirementKeys?: readonly string[];
+    yearScope: 'attachYear' | 'afterIncorporation' | 'any';
+  };
   /** Obligations that must be SATISFIED before this filing can be completed. */
   prerequisites: readonly FilingPrerequisite[];
 }
@@ -260,6 +425,14 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
     requirementKeys: ['lsaq_req_annual_update', 'cbca_req_annual_update_qc'],
     statutoryBasis: 'art. 45 LPLE (RLRQ, c. P-44.1)',
     helpKey: null,
+    // GENERIC-EMISSION FIELDS (phase 2 — declared, deliberately UNREAD).
+    // `frameworks` OMITTED = both: art. 45 LPLE binds every QC-operating company,
+    // whichever regime it was incorporated under.
+    // `suppressWhenSatisfied` OMITTED: each fiscal year's update is a SEPARATELY
+    // outstandable debt, so a satisfied 2024 update can never presume 2025's.
+    exposure: 'external',
+    actionKind: 'file_externally',
+    titleKey: 'obligationTitle.reqAnnualUpdate',
     dueDate: (ctx) => (ctx.fyEnd ? addMonthsClamped(ctx.fyEnd, 6) : null),
     // art. 45 LPLE ties the update to a COMPLETED fiscal year → one separately
     // outstandable instance per FY. The completeness fan-out is CORRECT here, so its
@@ -273,6 +446,24 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
     requirementKeys: ['lsaq_declaration_initiale', 'cbca_declaration_initiale_qc'],
     statutoryBasis: 'art. 38 LPLE',
     helpKey: null,
+    // GENERIC-EMISSION FIELDS (phase 2 — declared, deliberately UNREAD).
+    // ★ THIS IS THE ENTRY WHERE THE ALLOW/DENY POLARITY INVERSION IS LIVE: the allow-list
+    // ['CBCA'] is the translation of feeders/deadlines.ts's `framework !== 'LSA'`. They
+    // agree only while the union has two members — see the `frameworks` docblock. The
+    // exclusion is substantive, not a gate detail: Harvey 2026-07-24 (GREEN, LSAQ art.
+    // 8-9-10) found a QUASI-IDENTITY for provincially-incorporated companies — art. 8 lets
+    // the declaration ride the articles of incorporation and art. 9 transmits them to the
+    // registraire, so being registered IS having filed, and an LSAQ company never owes it.
+    exposure: 'external',
+    actionKind: 'file_externally',
+    titleKey: 'obligationTitle.initialDeclaration',
+    frameworks: ['CBCA'],
+    // Presumed-done (Harvey 2026-07-05, Option 1) — the declarative twin of the deadline
+    // feeder's `hasLaterAnnualFiling`. requirementKeys OMITTED = ANY key satisfies, which
+    // is exactly that flag's meaning: any CERTIFIED annual filing for a year strictly after
+    // incorporation proves the founding REQ dossier was initialized, whichever key carried
+    // it. Never self-defaulting — see the field's docblock.
+    suppressWhenSatisfied: { yearScope: 'afterIncorporation' },
     dueDate: (ctx) => {
       if (!ctx.immatriculationDate) return null;
       const due = parseLocalDate(ctx.immatriculationDate);
@@ -296,6 +487,23 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
     requirementKeys: ['cbca_annual_return'],
     statutoryBasis: 'art. 263 LCSA · délai administratif (Corporations Canada)',
     helpKey: 'fed_annual_return_admin_date',
+    // GENERIC-EMISSION FIELDS (phase 2 — declared, deliberately UNREAD).
+    // ★ THE ONLY ENTRY CARRYING BOTH A titleKey AND A copyKey, AND THEY RESOLVE TO
+    // DIFFERENT STRINGS ON PURPOSE: `obligationTitle.fedAnnualReturn` is "Rapport annuel —
+    // Corporations Canada" (what the obligation IS, the row title), while
+    // `obligationNotice.fedAnnualReturn.title` is "Dépôt à produire auprès de Corporations
+    // Canada" (what the user must DO, the modal). Two namespaces, two jobs — see TitleKey.
+    exposure: 'external',
+    actionKind: 'file_externally',
+    titleKey: 'obligationTitle.fedAnnualReturn',
+    frameworks: ['CBCA'],
+    // The declarative twin of the deadline feeder's `currentFedReturnFiled` clear-gate:
+    // once the receipt for THIS row's attach year is satisfied, the row leaves the board,
+    // and it returns when the next FY-end advances the anchor.
+    // ★ requirementKeys IS WRITTEN OUT EXPLICITLY PRECISELY BECAUSE IT COINCIDES with this
+    // rule's own `requirementKeys`. The coincidence must not be mistaken for a default:
+    // omission means ANY key, never self, so a self-referring rule states its key.
+    suppressWhenSatisfied: { requirementKeys: ['cbca_annual_return'], yearScope: 'attachYear' },
     // ONE recurring instance on the anniversary clock — you are never "behind on
     // your 2023 return" the way you can be behind on 2023's REQ update. The
     // completeness fan-out is WRONG for this entry (its catalog category is
@@ -344,6 +552,18 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
     ],
     statutoryBasis: 'art. 41 LPLE (RLRQ, c. P-44.1)',
     helpKey: 'req',
+    // GENERIC-EMISSION FIELDS (phase 2 — declared, deliberately UNREAD).
+    // ★ titleKey OMITTED, AND PERMANENTLY SO — not pending, not an oversight. cadence
+    // 'event' means ACT-INSTANTIATED, and an act's title is COMPOSED PER ACT at the feeder
+    // (resolveEventDocTitle + composeDisplayName) from a docKey variant that is not
+    // recoverable from the act alone. A per-act title can never be a static registry key.
+    // This is the cadence split: calendar rules carry a titleKey, act-instantiated ones
+    // cannot. See TitleKey.
+    // `frameworks` OMITTED = both: art. 41 LPLE binds every QC-operating company.
+    // `suppressWhenSatisfied` OMITTED: each ACT owes its own filing, so one satisfied
+    // roster update can never presume another act's.
+    exposure: 'external',
+    actionKind: 'file_externally',
     deadlineDays: 30,
     triggeredBy: 'roster_change',
     // Instantiated by an ACT, not a calendar — no act, no obligation. Carries no

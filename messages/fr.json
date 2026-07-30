@@ -805,5 +805,10 @@
       }
     },
     "footerAck": "Compris"
+  },
+  "obligationTitle": {
+    "reqAnnualUpdate": "Mise à jour annuelle au REQ",
+    "initialDeclaration": "Déclaration initiale (RE-200)",
+    "fedAnnualReturn": "Rapport annuel — Corporations Canada"
   }
 }
