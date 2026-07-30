@@ -445,13 +445,15 @@ export function deadlineObligations(
       // filed with a government" — and this rule has one (per-fiscal-year). Its absence
       // from the table is SCHEDULING, not a judgement that it does not belong there.
       //
-      // IT LANDS IN PHASE 4, NOT PHASE 2, FOR FOUR REASONS:
+      // IT LANDS IN PHASE 4, NOT PHASE 2, FOR FOUR REASONS — ONE OF WHICH HAS SINCE
+      // BEEN REMOVED. Numbering kept so (2)(3)(4) still mean what they meant.
       //
-      // (1) IT CANNOT BE INERT — the disqualifying one. `isExternalRequirementKey` means
-      //     "has a registry entry" and is USED as a proxy for "is external". An INTERNAL
-      //     rule joining the table therefore makes that function silently WRONG the
-      //     moment it is added. Correcting it means `exposure === 'external'`, which is a
-      //     real behaviour change and cannot ride an additive phase.
+      // (1) ✔ RESOLVED, and not by phase 4. This used to be the disqualifying reason:
+      //     the completeness feeder derived exposure from a predicate meaning "has a
+      //     registry entry", used as a proxy for "is external", so an INTERNAL rule
+      //     joining the table would have made that function silently wrong the moment
+      //     it was added. The predicate is deleted — exposure and hasFiling now read
+      //     the rule's own `exposure` and `actionKind` fields. No longer a blocker.
       //
       // (2) ITS BASIS IS THREE LIMBS, HARVEY-VERIFIED WORD FOR WORD: art. 133(1)(a) vs
       //     (b) LCSA, art. 163 LSAQ, and art. 225 LSAQ — the financial-statement

@@ -36,16 +36,25 @@ import {
   type DocumentState,
 } from '@/lib/minute-book/state';
 import {
-  isExternalRequirementKey,
   isBoardSuppressedRequirementKey,
+  filingForRequirementKey,
   filingForRuleKey,
 } from '../filing-registry';
 
 /**
- * External (government-facing) requirement keys — now a VIEW onto the filing
- * registry (the AFM set from the Core-locked taxonomy is one registry entry per
- * filing). Was a hardcoded Set here; `isExternalRequirementKey` returns identical
- * membership (any requirement_key that maps to a FILING_REGISTRY entry).
+ * WHERE `exposure` AND `hasFiling` COME FROM — the history, recorded once.
+ *
+ * Both used to be read from a single predicate that meant "this requirement_key HAS A
+ * REGISTRY ENTRY", used as a proxy for "is external". The two agreed only while every
+ * entry in the table was a government filing.
+ *
+ * Dom's decision D-B admits INTERNAL obligations to the registry, so membership stops
+ * implying exposure the instant the first one lands — the predicate would have reported
+ * the annual meeting as external. Both fields now read a DECLARED field off the rule
+ * instead, which removes the proxy rather than correcting it; the predicate itself is
+ * deleted. The mechanics live at the lookup and at each field, not here.
+ *
+ * Before the registry existed, these keys were a hardcoded Set in this file.
  */
 
 /**
@@ -123,6 +132,14 @@ export function completenessToObligations(
     // plain year, no qualifier). Does NOT touch the obligation's own `year:`
     // field below, which feeds ranking/grouping.
     const rowYear = item.year ?? incYear;
+
+    // Hoisted rather than looked up at each field, so the shared INPUT is explicit.
+    // Two separate lookups would let a later edit change one call site and split the
+    // pair silently — the same shape as the flags `cadence` replaced.
+    //
+    // `undefined` when no registry rule maps this requirement_key. That branch is
+    // FORCED BY THE RETURN TYPE (`FilingRule | undefined`), not by convention.
+    const rule = filingForRequirementKey(item.requirement_key);
     return {
       id: `completeness:${item.requirement_key}:${item.year ?? 'foundational'}`,
       source: 'completeness',
@@ -142,14 +159,18 @@ export function completenessToObligations(
       actionKind: actionForState(state, item.can_generate),
       requirementKey: item.requirement_key,
       docKey: null,
-      exposure: isExternalRequirementKey(item.requirement_key)
-        ? 'external'
-        : 'internal',
-      // Registry view — an external requirement is one satisfied by a government
-      // filing (it maps to a FILING_REGISTRY entry). This feeder carries no clock;
-      // the marker/pill only light up once a dueDate arrives — for the REQ annual
-      // update that comes from the deadline twin at the aggregate merge.
-      hasFiling: isExternalRequirementKey(item.requirement_key),
+      exposure: rule ? rule.exposure : 'internal',
+      // hasFiling asks a DIFFERENT question from exposure above, off the same rule:
+      // does discharging this obligation require a filing OUTSIDE ZapOkay? That is the
+      // rule's VERB (`actionKind`), not its audience — and it must never be re-derived
+      // from exposure, or the ranking fact and the display fact become one expression
+      // and merge by accident (ZK_Core). The predicate both fields used to share, and
+      // why it went, are in the file docblock above.
+      //
+      // This feeder carries no clock; the marker/pill only light up once a dueDate
+      // arrives — for the REQ annual update that comes from the deadline twin at the
+      // aggregate merge.
+      hasFiling: rule ? rule.actionKind === 'file_externally' : false,
       statutoryBasis: null,
       helpKey: null,
       fulfilled: false,

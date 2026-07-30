@@ -7,8 +7,16 @@
  * and OVERLAP_MERGE (aggregate). That drift class produced the 5-week #135 leak.
  * This registry makes all four VIEWS onto one table: one entry per filing
  * obligation, holding its deadline rule, statutory basis, the requirement/doc keys
- * it maps to, and its prerequisites. Adding a future government requirement is ONE
- * entry here — no edits elsewhere.
+ * it maps to, and its prerequisites.
+ *
+ * ★ "A FUTURE GOVERNMENT REQUIREMENT IS ONE ENTRY HERE, NO EDITS ELSEWHERE" IS THE
+ * TARGET, NOT TODAY'S BEHAVIOUR — this line used to assert it as present fact. Measured:
+ * NOTHING ITERATES `FILING_REGISTRY` TO EMIT. The deadline feeder reaches this table
+ * through three hardcoded `filingForRuleKey` lookups, one per rule, and the annual
+ * meeting does not consult it at all. So a fifth entry added today produces NO board row
+ * — it can only decorate or suppress rows some other source already emitted. The claim
+ * becomes true when the generic loop in feeders/deadlines.ts replaces those hand-written
+ * blocks.
  *
  * ADAPTABLE BY ITEM (Dom): the three calendar filings have genuinely DIFFERENT
  * anchors (FY-end+6mo · immatriculation+60d · incorporation anniversary), so each
@@ -595,11 +603,6 @@ const _byRequirementKey: ReadonlyMap<string, FilingRule> = new Map(
 const _byDocKey: ReadonlyMap<string, FilingRule> = new Map(
   FILING_REGISTRY.flatMap((r) => (r.docKeys ?? []).map((k) => [k, r] as const)),
 );
-
-/** The external-requirement key set — replaces EXTERNAL_REQUIREMENT_KEYS. */
-export function isExternalRequirementKey(key: string): boolean {
-  return _byRequirementKey.has(key);
-}
 
 /**
  * requirement_keys whose completeness rows are suppressed from the A3 BOARD stream.
