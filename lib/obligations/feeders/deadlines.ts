@@ -31,12 +31,12 @@ import type { ChecklistItem } from '@/lib/minute-book/requirement-completeness';
 import { composeDisplayName } from '@/lib/display-name';
 import { parseLocalDate } from '@/lib/utils';
 import {
-  filingForRuleKey,
+  ruleForRuleKey,
   addMonthsClamped,
   completedFiscalYearEnd,
-  filingFiscalYear,
+  obligationFiscalYear,
   type CopyKey,
-} from '../filing-registry';
+} from '../obligation-registry';
 
 export interface CompanyComplianceInput {
   framework: 'LSA' | 'CBCA';
@@ -90,7 +90,7 @@ export interface CompanyComplianceInput {
   // is additive — nothing here may read the checklist yet.
   //
   // ★ WHY THIS NOTE EXISTS AND NOT JUST THE @deprecated TAGS: a flag that describes how to
-  // CORRECT another component's output is exactly what `cadence` replaced in the filing
+  // CORRECT another component's output is exactly what `cadence` replaced in the obligation
   // registry — `overlapMerge` and `boardSuppressCompletenessRows` were instructions for
   // fixing the completeness fan-out, written as though they described the obligation. This
   // is that same shape, tolerated deliberately for one phase and marked so that no future
@@ -152,7 +152,7 @@ export interface CompanyComplianceInput {
  * meeting happened (the resolution in lieu of meeting / its minutes). The caller
  * derives `noPriorAnnualMeetingRecorded` from these; the list is exported HERE, beside
  * the only rule that consumes it, so it cannot drift from its consumer. Not a filing —
- * deliberately NOT a FILING_REGISTRY entry (annual_meeting is exposure 'internal',
+ * deliberately NOT a OBLIGATION_REGISTRY entry (annual_meeting is exposure 'internal',
  * held in the book and never filed with a government).
  */
 export const ANNUAL_MEETING_RECORD_KEYS: readonly string[] = [
@@ -168,7 +168,7 @@ const DUE_SOON_WINDOW = 30;
 
 // ─── Date helpers ────────────────────────────────────────────────────────────
 // Local formatting helpers. The DATE-ANCHOR helpers (completedFiscalYearEnd,
-// filingFiscalYear, addMonthsClamped) now live in filing-registry.ts — their single
+// obligationFiscalYear, addMonthsClamped) now live in obligation-registry.ts — their single
 // home now that lib/compliance is deleted — and are imported above.
 
 function toISODateString(date: Date): string {
@@ -297,7 +297,7 @@ export function deadlineObligations(
   // rules, the CBCA path keeps today's behaviour exactly (including hasLaterAnnualFiling,
   // which still governs it).
   if (framework !== 'LSA' && immatriculationDate && !hasLaterAnnualFiling) {
-    const rule = filingForRuleKey('qc_initial_declaration')!;
+    const rule = ruleForRuleKey('qc_initial_declaration')!;
     const due = rule.dueDate!({ immatriculationDate, today }); // immatriculation + 60d
     if (due) {
       push({
@@ -330,7 +330,7 @@ export function deadlineObligations(
   // no pair → the REQ update rendered TWICE).
   if (fyEnd) {
     const fyYear = fyEnd.getFullYear();
-    const reqAnnual = filingForRuleKey('qc_req_annual_update')!;
+    const reqAnnual = ruleForRuleKey('qc_req_annual_update')!;
     push({
       ruleKey: reqAnnual.ruleKey,
       yearSeg: String(fyYear),
@@ -354,7 +354,7 @@ export function deadlineObligations(
   // advances). Dom's confirmed gap: between filing and the next FY-end, no
   // federal row shows (current done, next not yet due).
   if (framework === 'CBCA' && incorporationDate && !currentFedReturnFiled) {
-    const fedRule = filingForRuleKey('fed_annual_return')!;
+    const fedRule = ruleForRuleKey('fed_annual_return')!;
     // Next future incorporation anniversary (leap-year Feb-29 edge banked — rare,
     // and this rule is YELLOW). Computed by the registry rule.
     const anniv = fedRule.dueDate!({ incorporationDate, today });
@@ -370,14 +370,14 @@ export function deadlineObligations(
         // NULL-FY ANSWER (c) — this push STILL FIRES. Its dueDate is anniversary-
         // anchored and wholly independent of the fiscal year, so it is correct even
         // before the first FY closes; only the ATTACH-KEY needed fixing.
-        // filingFiscalYear returns the first UPCOMING fiscal year while none has
+        // obligationFiscalYear returns the first UPCOMING fiscal year while none has
         // closed, never the phantom pre-incorporation one — and the year it returns
         // HAS a checklist row BY CONSTRUCTION, because it delegates to
         // fiscalYearForDate, the same function computeDefaultActiveYears uses to
         // build company_fiscal_years. That matters: the clear-gate matches on
         // (requirement_key, year), so a pre-incorporation attach-key was a receipt
         // that could never satisfy anything and a row that could never leave.
-        year: filingFiscalYear(fyEndMonth, fyEndDay, incorporationDate, today),
+        year: obligationFiscalYear(fyEndMonth, fyEndDay, incorporationDate, today),
         dueDate: anniv,
         exposure: 'external',
         actionKind: 'file_externally',
@@ -441,7 +441,7 @@ export function deadlineObligations(
     push({
       // ── WHY THIS ruleKey IS STILL A BARE LITERAL, AND WHEN IT STOPS BEING ONE ──────
       // IT BELONGS IN THE REGISTRY. Dom's decision D-B admits INTERNAL obligations to
-      // FILING_REGISTRY — the membership test is "does it have a cadence", NOT "is it
+      // OBLIGATION_REGISTRY — the membership test is "does it have a cadence", NOT "is it
       // filed with a government" — and this rule has one (per-fiscal-year). Its absence
       // from the table is SCHEDULING, not a judgement that it does not belong there.
       //
@@ -475,7 +475,7 @@ export function deadlineObligations(
       //
       // TITLE: the FR/EN literals below are already the right strings. They become
       // `obligationTitle.annualMeeting` when the entry is added, and that value joins the
-      // TitleKey union in filing-registry.ts at the same time.
+      // TitleKey union in obligation-registry.ts at the same time.
       //
       // ★ SEPARATE PHASE-2 SCOPE RECORD, NOT ABOUT THIS RULE — the upload-attach pair was
       // considered as two new registry fields and STRUCK, because both values are

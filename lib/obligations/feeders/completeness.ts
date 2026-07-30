@@ -37,9 +37,9 @@ import {
 } from '@/lib/minute-book/state';
 import {
   isBoardSuppressedRequirementKey,
-  filingForRequirementKey,
-  filingForRuleKey,
-} from '../filing-registry';
+  ruleForRequirementKey,
+  ruleForRuleKey,
+} from '../obligation-registry';
 
 /**
  * WHERE `exposure` AND `hasFiling` COME FROM — the history, recorded once.
@@ -64,7 +64,7 @@ import {
  * A3 obligation stream ONLY — the minute-book completeness COUNT is unaffected.
  */
 const INITIAL_DECLARATION_KEYS: ReadonlySet<string> = new Set(
-  filingForRuleKey('qc_initial_declaration')?.requirementKeys ?? [],
+  ruleForRuleKey('qc_initial_declaration')?.requirementKeys ?? [],
 );
 
 /**
@@ -138,8 +138,8 @@ export function completenessToObligations(
     // pair silently — the same shape as the flags `cadence` replaced.
     //
     // `undefined` when no registry rule maps this requirement_key. That branch is
-    // FORCED BY THE RETURN TYPE (`FilingRule | undefined`), not by convention.
-    const rule = filingForRequirementKey(item.requirement_key);
+    // FORCED BY THE RETURN TYPE (`ObligationRule | undefined`), not by convention.
+    const rule = ruleForRequirementKey(item.requirement_key);
     return {
       id: `completeness:${item.requirement_key}:${item.year ?? 'foundational'}`,
       source: 'completeness',

@@ -3,9 +3,9 @@
 import { useTranslations } from 'next-intl';
 import type { ObligationModalProps } from './ObligationModal';
 // TYPE-ONLY, deliberately: this file is a CLIENT component ('use client' above), and a
-// type-only import is erased at compile — so filing-registry enters NO client bundle.
+// type-only import is erased at compile — so obligation-registry enters NO client bundle.
 // Matches the form already used for ObligationModalProps on the line above.
-import type { CopyKey, ReasonKey } from '@/lib/obligations/filing-registry';
+import type { CopyKey, ReasonKey } from '@/lib/obligations/obligation-registry';
 
 /** Content half of ObligationModal's props — everything except the caller-owned
  *  open/onClose (which each surface manages as its own per-row state). */
@@ -33,7 +33,7 @@ export function useObligationModalContent(): (args: {
    *  `reasonKey` maps to obligationNotice.prerequisites.reason.*. When absent/empty,
    *  the modal renders exactly as before — no prerequisites section. */
   prerequisites?: Array<{ label: string; reasonKey: ReasonKey }>;
-  /** Per-rule copy namespace (obligation.copyKey, from the filing registry). When set,
+  /** Per-rule copy namespace (obligation.copyKey, from the obligation registry). When set,
    *  title/body come from obligationNotice.{copyKey}.{title,body} (e.g. the federal
    *  annual return names Corporations Canada). Absent → the default req.* copy, so
    *  every existing caller (roster rows, the REQ annual update) is byte-identical. */

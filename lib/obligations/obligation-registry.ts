@@ -1,18 +1,29 @@
 /**
- * FILING REGISTRY — the single source of truth for government filing obligations.
+ * OBLIGATION REGISTRY — the single source of truth for RECURRING OBLIGATIONS.
+ *
+ * ★ THE MEMBERSHIP TEST IS "DOES IT HAVE A CADENCE", NOT "IS IT FILED WITH A
+ * GOVERNMENT". This header read "the single source of truth for government filing
+ * obligations" until A4 R-2, and that was the table's own name asserting a scope it
+ * no longer has: Dom's decision D-B admits INTERNAL obligations — the annual meeting
+ * is held in the book and filed with nobody, and it belongs here. An entry declares
+ * its own `exposure`; the table does not decide it. Renamed rather than annotated,
+ * because a name that misdescribes its contents misleads every reader who never
+ * reaches the docblock.
  *
  * WHY: "this needs a filing" used to be asserted in FOUR hardcoded places that
  * could drift out of sync — EXTERNAL_REQUIREMENT_KEYS (completeness feeder), the
  * deadline feeder's file_externally rules, OBLIGATIONS_BY_DOCKEY (req-obligations),
  * and OVERLAP_MERGE (aggregate). That drift class produced the 5-week #135 leak.
- * This registry makes all four VIEWS onto one table: one entry per filing
- * obligation, holding its deadline rule, statutory basis, the requirement/doc keys
- * it maps to, and its prerequisites.
+ * That history is unchanged and still reads "filing" because, at the time, every
+ * entry was one.
+ * This registry makes all four VIEWS onto one table: one entry per obligation,
+ * holding its deadline rule, statutory basis, the requirement/doc keys it maps to,
+ * and its prerequisites.
  *
  * ★ "A FUTURE GOVERNMENT REQUIREMENT IS ONE ENTRY HERE, NO EDITS ELSEWHERE" IS THE
  * TARGET, NOT TODAY'S BEHAVIOUR — this line used to assert it as present fact. Measured:
- * NOTHING ITERATES `FILING_REGISTRY` TO EMIT. The deadline feeder reaches this table
- * through three hardcoded `filingForRuleKey` lookups, one per rule, and the annual
+ * NOTHING ITERATES `OBLIGATION_REGISTRY` TO EMIT. The deadline feeder reaches this table
+ * through three hardcoded `ruleForRuleKey` lookups, one per rule, and the annual
  * meeting does not consult it at all. So a fifth entry added today produces NO board row
  * — it can only decorate or suppress rows some other source already emitted. The claim
  * becomes true when the generic loop in feeders/deadlines.ts replaces those hand-written
@@ -44,10 +55,10 @@ import { fiscalYearForDate } from '@/lib/active-years';
  * ⚠️ THIS CLOSES A CYCLE: `obligation.ts` already imports `CopyKey` FROM this module.
  * Both edges are `import type`, so both are ERASED at compile and NO runtime edge
  * exists. That erasure is load-bearing, not incidental — `obligation.ts` is a runtime
- * leaf and `FILING_REGISTRY` enters no client bundle. A VALUE import in EITHER direction
+ * leaf and `OBLIGATION_REGISTRY` enters no client bundle. A VALUE import in EITHER direction
  * breaks both facts at once: it would pull this module's runtime content — the
- * `FILING_REGISTRY` table, `addMonthsClamped` / `completedFiscalYearEnd` /
- * `filingFiscalYear`, and every derived index — into any client bundle that reaches
+ * `OBLIGATION_REGISTRY` table, `addMonthsClamped` / `completedFiscalYearEnd` /
+ * `obligationFiscalYear`, and every derived index — into any client bundle that reaches
  * `obligation.ts`.
  */
 import type { ObligationAction, ExposureClass } from './obligation';
@@ -118,10 +129,18 @@ export function completedFiscalYearEnd(
 }
 
 /**
- * The fiscal year a government-filing RECEIPT attaches to — the `year` half of
- * the completeness identity (requirement_key, year). The most recent CLOSED
- * fiscal year the company existed through; before any has closed, the fiscal
- * year currently OPEN. Never a pre-incorporation year.
+ * The fiscal year an obligation ATTACHES TO — the `year` half of the completeness
+ * identity (requirement_key, year). The most recent CLOSED fiscal year the company
+ * existed through; before any has closed, the fiscal year currently OPEN. Never a
+ * pre-incorporation year.
+ *
+ * ★ THIS IS FISCAL-YEAR MATH, NOT FILING MATH, and the distinction is why the name
+ * changed in A4 R-2. It used to open "the fiscal year a government-filing RECEIPT
+ * attaches to" — TRUE of the case it was written for and too narrow for what it
+ * computes. Every completeness row carries a (requirement_key, year) identity,
+ * INTERNAL ones included; an annual meeting has a fiscal year and no filing. The
+ * federal return's receipt remains the clearest EXAMPLE, and it is the one the
+ * clear-gate below describes.
  *
  * The open-year fallback delegates to `fiscalYearForDate` — the declared single
  * source of truth for the FY boundary, and the same function
@@ -132,7 +151,7 @@ export function completedFiscalYearEnd(
  * is a receipt that can never satisfy anything and a row that never leaves the
  * board.
  */
-export function filingFiscalYear(
+export function obligationFiscalYear(
   month: number,
   day: number,
   incorporationDate: string | null,
@@ -150,7 +169,7 @@ export function filingFiscalYear(
 // ─── The contract ────────────────────────────────────────────────────────────
 
 /** Context a filing's date rule may read. Each rule uses only what its anchor needs. */
-export interface FilingDueCtx {
+export interface ObligationDueCtx {
   fyEnd?: Date;
   immatriculationDate?: string | null;
   incorporationDate?: string | null;
@@ -193,8 +212,8 @@ export interface FilingDueCtx {
  * Per-rule modal-copy namespaces under `obligationNotice.*`. A filing sets this when
  * its modal must differ from the default art. 41 roster copy.
  *
- * ★ HAND-MAINTAINED, NOT DERIVED. `FILING_REGISTRY` below is annotated
- * `readonly FilingRule[]`, which erases every literal, so `typeof`-deriving this union
+ * ★ HAND-MAINTAINED, NOT DERIVED. `OBLIGATION_REGISTRY` below is annotated
+ * `readonly ObligationRule[]`, which erases every literal, so `typeof`-deriving this union
  * would require `as const satisfies` on the whole ~120-line table plus knock-ons to
  * every derived index (`_byRuleKey`, `_byRequirementKey`, `_byDocKey`,
  * `_boardSuppressedKeys`, `OVERLAP_MERGE`). Not worth it for one value.
@@ -239,7 +258,7 @@ export type ReasonKey = 'fedAnnualReturnShareholderMeeting';
  * that reason and always will.
  *
  * ★ HAND-MAINTAINED, NOT DERIVED — same reasoning as `CopyKey` above (the table is
- * annotated `readonly FilingRule[]`, which erases every literal) and the same obligation
+ * annotated `readonly ObligationRule[]`, which erases every literal) and the same obligation
  * to add new values here. Failure-to-compile IS the forcing function, and phase 4's
  * generic loop is where a CALENDAR rule missing a titleKey must fail LOUDLY rather than
  * render a titleless row.
@@ -261,8 +280,13 @@ export type TitleKey =
   | 'obligationTitle.initialDeclaration'
   | 'obligationTitle.fedAnnualReturn';
 
-/** An obligation that must be SATISFIED before this filing can be completed. */
-export interface FilingPrerequisite {
+/**
+ * An obligation that must be SATISFIED before the obligation declaring it can be
+ * completed. Both halves are obligations — this used to read "before this FILING can
+ * be completed", which named the blocker correctly and the blocked one wrongly, from
+ * back when every entry was a filing.
+ */
+export interface ObligationPrerequisite {
   /** Completeness requirement_key of the blocking obligation. */
   requirementKey: string;
   /**
@@ -277,7 +301,7 @@ export interface FilingPrerequisite {
   reasonKey: ReasonKey;
 }
 
-export interface FilingRule {
+export interface ObligationRule {
   /** Stable rule key — matches the deadline feeder id namespace `deadline:{ruleKey}:…`. */
   ruleKey: string;
   /** Completeness requirement_key(s) this filing satisfies/maps to. */
@@ -298,7 +322,7 @@ export interface FilingRule {
    * filings; omitted for the event-relative roster filing (which uses deadlineDays).
    * Returns null when the anchor date the rule needs is absent.
    */
-  dueDate?: (ctx: FilingDueCtx) => Date | null;
+  dueDate?: (ctx: ObligationDueCtx) => Date | null;
   /**
    * ★ CADENCE — answers ONE question: WHAT INSTANTIATES AN INSTANCE of this
    * obligation? A fiscal year, an anniversary, the company's founding, or an act.
@@ -430,12 +454,12 @@ export interface FilingRule {
     yearScope: 'attachYear' | 'afterIncorporation' | 'any';
   };
   /** Obligations that must be SATISFIED before this filing can be completed. */
-  prerequisites: readonly FilingPrerequisite[];
+  prerequisites: readonly ObligationPrerequisite[];
 }
 
 // ─── The table ───────────────────────────────────────────────────────────────
 
-export const FILING_REGISTRY: readonly FilingRule[] = [
+export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
   {
     // QC REQ annual update — all QC-operating companies. FY-end + 6 months.
     ruleKey: 'qc_req_annual_update',
@@ -592,16 +616,16 @@ export const FILING_REGISTRY: readonly FilingRule[] = [
 
 // ─── Derived views (nothing re-lists keys — these are the ONLY readers) ──────────
 
-const _byRuleKey: ReadonlyMap<string, FilingRule> = new Map(
-  FILING_REGISTRY.map((r) => [r.ruleKey, r]),
+const _byRuleKey: ReadonlyMap<string, ObligationRule> = new Map(
+  OBLIGATION_REGISTRY.map((r) => [r.ruleKey, r]),
 );
 
-const _byRequirementKey: ReadonlyMap<string, FilingRule> = new Map(
-  FILING_REGISTRY.flatMap((r) => r.requirementKeys.map((k) => [k, r] as const)),
+const _byRequirementKey: ReadonlyMap<string, ObligationRule> = new Map(
+  OBLIGATION_REGISTRY.flatMap((r) => r.requirementKeys.map((k) => [k, r] as const)),
 );
 
-const _byDocKey: ReadonlyMap<string, FilingRule> = new Map(
-  FILING_REGISTRY.flatMap((r) => (r.docKeys ?? []).map((k) => [k, r] as const)),
+const _byDocKey: ReadonlyMap<string, ObligationRule> = new Map(
+  OBLIGATION_REGISTRY.flatMap((r) => (r.docKeys ?? []).map((k) => [k, r] as const)),
 );
 
 /**
@@ -613,7 +637,7 @@ const _byDocKey: ReadonlyMap<string, FilingRule> = new Map(
  * reaches the catalog. Today: fed_annual_return → ['cbca_annual_return'].
  */
 const _boardSuppressedKeys: ReadonlySet<string> = new Set(
-  FILING_REGISTRY.filter((r) => r.cadence === 'anniversary').flatMap((r) => r.requirementKeys),
+  OBLIGATION_REGISTRY.filter((r) => r.cadence === 'anniversary').flatMap((r) => r.requirementKeys),
 );
 
 /**
@@ -625,15 +649,15 @@ export function isBoardSuppressedRequirementKey(key: string): boolean {
   return _boardSuppressedKeys.has(key);
 }
 
-export function filingForRequirementKey(key: string): FilingRule | undefined {
+export function ruleForRequirementKey(key: string): ObligationRule | undefined {
   return _byRequirementKey.get(key);
 }
 
-export function filingForRuleKey(ruleKey: string): FilingRule | undefined {
+export function ruleForRuleKey(ruleKey: string): ObligationRule | undefined {
   return _byRuleKey.get(ruleKey);
 }
 
-export function filingForDocKey(docKey: string): FilingRule | undefined {
+export function ruleForDocKey(docKey: string): ObligationRule | undefined {
   return _byDocKey.get(docKey);
 }
 
@@ -647,7 +671,7 @@ export function filingForDocKey(docKey: string): FilingRule | undefined {
  * the two REQ annual-update keys → qc_req_annual_update).
  */
 export const OVERLAP_MERGE: Readonly<Record<string, string>> = Object.fromEntries(
-  FILING_REGISTRY.filter((r) => r.cadence === 'per-fiscal-year').flatMap((r) =>
+  OBLIGATION_REGISTRY.filter((r) => r.cadence === 'per-fiscal-year').flatMap((r) =>
     r.requirementKeys.map((k) => [k, r.ruleKey] as const),
   ),
 );

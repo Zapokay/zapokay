@@ -19,7 +19,7 @@
  */
 
 import type { Obligation, ObligationStatus } from './obligation';
-import { OVERLAP_MERGE } from './filing-registry';
+import { OVERLAP_MERGE } from './obligation-registry';
 
 /** The three feeder-supplied base states, before the clock overlay. */
 export type BaseState = 'satisfied' | 'to_finalize' | 'open';
@@ -47,9 +47,10 @@ export function deriveStatus(
  * Overlap-merge map (completeness `requirementKey` → deadline `ruleKey`): obligations
  * emitted by BOTH the completeness feeder (a DOCUMENT to have) and the deadline feeder
  * (a statutory FILING with a due date), which collapse to one board row. Now a VIEW
- * onto the FILING REGISTRY — derived from entries with `cadence: 'per-fiscal-year'` (today: the
- * QC REQ annual update; RE-200 suppressed on both sides; fed return a latent pair).
- * Imported above for internal use (line ~86) and re-exported so existing importers of
+ * onto the OBLIGATION REGISTRY — derived from entries with `cadence: 'per-fiscal-year'`
+ * (today: the QC REQ annual update; RE-200 suppressed on both sides; fed return a
+ * latent pair).
+ * Imported above for use inside `mergeObligations` and re-exported so existing importers of
  * this symbol are unaffected.
  */
 export { OVERLAP_MERGE };

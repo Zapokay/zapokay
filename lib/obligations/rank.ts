@@ -30,12 +30,12 @@
 
 import type { Obligation, ObligationAction, ObligationLiveness } from './obligation';
 import {
-  filingForRequirementKey,
-  filingForRuleKey,
-  filingForDocKey,
-  type FilingRule,
+  ruleForRequirementKey,
+  ruleForRuleKey,
+  ruleForDocKey,
+  type ObligationRule,
   type ReasonKey,
-} from './filing-registry';
+} from './obligation-registry';
 
 /** A prerequisite obligation that is NOT yet satisfied — surfaced in the modal. */
 export interface UnmetPrerequisite {
@@ -137,18 +137,18 @@ const ACTION_RANK: Record<ObligationAction, number> = {
   review: 5,
 };
 
-/** Find the filing-registry rule an obligation IS, via requirementKey → ruleKey (deadline id) → docKey. */
-function filingRuleForObligation(o: Obligation): FilingRule | undefined {
+/** Find the obligation-registry rule an obligation IS, via requirementKey → ruleKey (deadline id) → docKey. */
+function ruleForObligation(o: Obligation): ObligationRule | undefined {
   if (o.requirementKey) {
-    const r = filingForRequirementKey(o.requirementKey);
+    const r = ruleForRequirementKey(o.requirementKey);
     if (r) return r;
   }
   if (o.source === 'deadline') {
     const ruleKey = o.id.split(':')[1]; // id = `deadline:{ruleKey}:{yearSeg}`
-    const r = filingForRuleKey(ruleKey);
+    const r = ruleForRuleKey(ruleKey);
     if (r) return r;
   }
-  if (o.docKey) return filingForDocKey(o.docKey);
+  if (o.docKey) return ruleForDocKey(o.docKey);
   return undefined;
 }
 
@@ -175,7 +175,7 @@ function resolveUnmetPrerequisites(
   satisfiedByReqKey: ReadonlySet<string>,
 ): UnmetPrerequisite[] {
   if (o.dueDate == null) return [];
-  const rule = filingRuleForObligation(o);
+  const rule = ruleForObligation(o);
   if (!rule || rule.prerequisites.length === 0) return [];
 
   const out: UnmetPrerequisite[] = [];

@@ -18,9 +18,9 @@ import { computeLiveness } from '@/lib/obligations/liveness';
 import type { ObligationLiveness } from '@/lib/obligations/obligation';
 import { fiscalYearSet } from '@/lib/active-years';
 // A4 plan §9a, phase 1 — cadence drives the fan-out. New module edge; no cycle:
-// filing-registry imports only lib/utils and lib/active-years, neither of which
+// obligation-registry imports only lib/utils and lib/active-years, neither of which
 // reaches lib/minute-book. Two lib/obligations imports already exist above.
-import { filingForRequirementKey, filingFiscalYear } from '@/lib/obligations/filing-registry';
+import { ruleForRequirementKey, obligationFiscalYear } from '@/lib/obligations/obligation-registry';
 
 export interface ChecklistItem {
   id: string;
@@ -191,8 +191,8 @@ export async function computeRequirementCompleteness(
   // claimed a company owed EIGHT federal annual returns when it owes one. Cadence is
   // the authority on "what instantiates an instance"; category is not.
   //
-  // SCOPE — deliberately tiny. 20 of the 25 catalog rows have NO FilingRule at all,
-  // so `filingForRequirementKey` returns undefined and they keep the category path
+  // SCOPE — deliberately tiny. 20 of the 25 catalog rows have NO ObligationRule at all,
+  // so `ruleForRequirementKey` returns undefined and they keep the category path
   // untouched. Of the 5 that DO have a rule, 4 already agree with their category
   // ('once' ≡ foundational, 'per-fiscal-year' ≡ annual). Exactly ONE row changes
   // behaviour: cbca_annual_return, CBCA only. LSA is untouched end to end.
@@ -204,7 +204,7 @@ export async function computeRequirementCompleteness(
   // change to the foundational split, whose liveness/exemption path reads no cadence
   // and no category and is untouched here.
   const isAnniversary = (r: RawReq) =>
-    filingForRequirementKey(r.requirement_key)?.cadence === 'anniversary';
+    ruleForRequirementKey(r.requirement_key)?.cadence === 'anniversary';
   const anniversaryReqs = (requirements || []).filter((r: RawReq) => isAnniversary(r));
   const foundationalReqs = (requirements || []).filter(
     (r: RawReq) => r.category === 'foundational' && !isAnniversary(r),
@@ -213,10 +213,10 @@ export async function computeRequirementCompleteness(
     (r: RawReq) => r.category === 'annual' && !isAnniversary(r),
   );
   // The single instance's year IS the deadline feeder's attach key — the SAME
-  // `filingFiscalYear` call with the same arguments, not a re-derivation. That makes
+  // `obligationFiscalYear` call with the same arguments, not a re-derivation. That makes
   // the two halves definitionally aligned on (requirement_key, year), which is what
   // the federal clear-gate matches on.
-  const anniversaryYear = filingFiscalYear(
+  const anniversaryYear = obligationFiscalYear(
     fiscalYearEndMonth,
     fiscalYearEndDay,
     incorporationDate,

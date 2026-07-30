@@ -7,9 +7,9 @@
  */
 
 // TYPE-ONLY import, deliberately: it is erased at compile, so this contract stays a
-// runtime leaf and the new obligation.ts → filing-registry.ts edge costs nothing in any
+// runtime leaf and the new obligation.ts → obligation-registry.ts edge costs nothing in any
 // bundle. All four importers of this file are themselves `import type`.
-import type { CopyKey } from './filing-registry';
+import type { CopyKey } from './obligation-registry';
 
 export type ObligationSource =
   | 'completeness'
@@ -74,7 +74,7 @@ export interface Obligation {
   statutoryBasis: string | null;
   helpKey: string | null;
   // Per-rule modal-copy namespace under obligationNotice.* (title/body). Display
-  // metadata, stamped by the feeder from the filing registry's `copyKey`. Optional:
+  // metadata, stamped by the feeder from the obligation registry's `copyKey`. Optional:
   // only rows needing copy that differs from the default art. 41 roster text set it
   // (today: the federal annual return). Absent → the default req.* copy.
   copyKey?: CopyKey;

@@ -16,7 +16,7 @@ import { deadlineObligations, ANNUAL_MEETING_RECORD_KEYS } from '@/lib/obligatio
 import { eventsToObligations } from '@/lib/obligations/feeders/events';
 import { mergeObligations } from '@/lib/obligations/aggregate';
 import { rankObligations } from '@/lib/obligations/rank';
-import { filingFiscalYear } from '@/lib/obligations/filing-registry';
+import { obligationFiscalYear } from '@/lib/obligations/obligation-registry';
 import A3Board from '@/components/dashboard/A3Board';
 import StatusVerdict from '@/components/dashboard/StatusVerdict';
 import InventoryLine from '@/components/minute-book/InventoryLine';
@@ -92,12 +92,12 @@ export default async function DashboardPage({
     // Federal-return clear-gate: is the CURRENT-FY cbca_annual_return receipt already
     // uploaded? Derived from the checklist already in hand (no extra query).
     // LOCKSTEP: this calls the SAME function the feeder uses for the fed row's
-    // attach-key (filingFiscalYear), not a re-derivation of it — the gate matches on
+    // attach-key (obligationFiscalYear), not a re-derivation of it — the gate matches on
     // (requirement_key, year), so if the two ever named different years the receipt
     // would attach to one row while the gate watched another and the row could never
     // clear. Sharing the function makes them definitionally identical, including the
     // first-year case where no fiscal year has closed yet.
-    const fyYear = filingFiscalYear(fyEndMonth, fyEndDay, incorporationDate, today);
+    const fyYear = obligationFiscalYear(fyEndMonth, fyEndDay, incorporationDate, today);
     const currentFedReturnFiled = completeness.checklist.some(
       (i) => i.requirement_key === 'cbca_annual_return' && i.year === fyYear && i.satisfied,
     );
