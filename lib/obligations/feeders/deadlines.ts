@@ -24,18 +24,21 @@
  * needed, is the caller's concern — this input carries no province.
  */
 
-import type { Obligation } from '../obligation';
+import type { Obligation, ObligationAction } from '../obligation';
 import { deriveStatus } from '../aggregate';
 import { computeLiveness } from '../liveness';
 import type { ChecklistItem } from '@/lib/minute-book/requirement-completeness';
 import { composeDisplayName } from '@/lib/display-name';
 import { parseLocalDate } from '@/lib/utils';
 import {
-  ruleForRuleKey,
+  OBLIGATION_REGISTRY,
+  isBoardSuppressedRequirementKey,
   addMonthsClamped,
   completedFiscalYearEnd,
   obligationFiscalYear,
   type CopyKey,
+  type TitleKey,
+  type ObligationRule,
 } from '../obligation-registry';
 
 export interface CompanyComplianceInput {
@@ -85,9 +88,20 @@ export interface CompanyComplianceInput {
   // ★ IF THE TWO EVER DISAGREE, THE BOOLEANS ARE WRONG. The checklist is the record; a
   // boolean is one question asked of that record, at one moment, by one caller.
   //
-  // REDUNDANT BY DESIGN AND ONLY TEMPORARILY: phase 4 of the A4 arc deletes all three when
-  // the generic loop derives them internally. They survive this phase only because phase 3
-  // is additive — nothing here may read the checklist yet.
+  // REDUNDANT BY DESIGN AND ONLY TEMPORARILY — AND THE REDUNDANCY IS NOW PARTIAL. A4 phase
+  // 4a's generic loop reads `checklist` and evaluates each rule's own
+  // `suppressWhenSatisfied`, so `hasLaterAnnualFiling` and `currentFedReturnFiled` are
+  // DECLARED AND UNREAD here: still on this interface, still passed by both callers, read by
+  // nothing in this feeder. Nothing in the toolchain flags that — noUnusedLocals is off — so
+  // this comment is the only signal. `noPriorAnnualMeetingRecorded` IS still read, by the
+  // annual_meeting block below.
+  //
+  // ⚠️ SO THE DOUBLE SOURCE STILL EXISTS and the warning above still stands: two
+  // representations of one fact remain on this interface until A4 PHASE 4c deletes all three.
+  //
+  // ⚠️ THIS PARAGRAPH USED TO END "they survive this phase only because phase 3 is additive —
+  // nothing here may read the checklist yet." That was a constraint on PHASE 3, and phase 4a
+  // lifted it. Recorded rather than retrofitted.
   //
   // ★ WHY THIS NOTE EXISTS AND NOT JUST THE @deprecated TAGS: a flag that describes how to
   // CORRECT another component's output is exactly what `cadence` replaced in the obligation
@@ -166,6 +180,92 @@ export const ANNUAL_MEETING_RECORD_KEYS: readonly string[] = [
  */
 const DUE_SOON_WINDOW = 30;
 
+/**
+ * FR/EN strings for each `TitleKey`. A RESOLUTION TABLE, not a second declaration:
+ * WHICH title a rule has is declared on the rule (`titleKey`) and is now READ; WHAT
+ * that title says lives here. One fact, one rendering.
+ *
+ * ★ WHY THE STRINGS ARE HERE AND NOT READ FROM messages/*.json: this feeder is pure
+ * and has no translator. Resolving i18n would make it async and server-bound, which
+ * the module is documented not to be. The destination is `Obligation` gaining a
+ * `titleKey` field so the UI resolves it — at which point THIS MAP IS DELETED and its
+ * contents are already in the locale files. That is a deletion, not a reconciliation.
+ *
+ * ★ `Record<TitleKey, …>` IS EXHAUSTIVE, AND THAT IS THE POINT. A new member of the
+ * TitleKey union with no entry here is a tsc error, so the union's forcing function
+ * reaches the strings instead of stopping at the key.
+ *
+ * ⚠️ WHAT IS **NOT** CHECKED, AND THE RISK IS ONE-DIRECTIONAL. Two things are
+ * compile-checked — the union is complete, and this map covers it. NOTHING checks that
+ * these strings still MATCH `obligationTitle.*` in messages/fr.json and messages/en.json.
+ * They were identical when this map was written (measured, all six). A reader of this
+ * map sees the warning; a reader of the locale files sees nothing, because JSON takes no
+ * comments and the string "obligationTitle.reqAnnualUpdate" does not appear there — so
+ * grep-the-claim breaks at exactly that boundary. AND THE LIKELY EDIT DIRECTION IS THE
+ * UNMITIGATED ONE: translation passes happen in the locale files. Until the map is
+ * deleted, any edit to `obligationTitle.*` must be made here too.
+ */
+const TITLES: Record<TitleKey, { fr: string; en: string }> = {
+  'obligationTitle.initialDeclaration': {
+    fr: 'Déclaration initiale (RE-200)',
+    en: 'Initial Declaration (RE-200)',
+  },
+  'obligationTitle.reqAnnualUpdate': {
+    fr: 'Mise à jour annuelle au REQ',
+    en: 'REQ Annual Update',
+  },
+  'obligationTitle.fedAnnualReturn': {
+    fr: 'Rapport annuel — Corporations Canada',
+    en: 'Annual Return — Corporations Canada',
+  },
+};
+
+/**
+ * REGISTRY VALIDATION, AT MODULE LOAD — deliberately not per call.
+ *
+ * Both checks are pure structural properties of a static const array: they depend on no
+ * company, no clock and no ctx, so evaluating them per render would repeat a constant.
+ * ★ AND THE BLAST RADIUS DECIDES IT: the registry is COMPILE-TIME DATA, so a malformed
+ * entry should break the BUILD, not a user's dashboard. Running here, the module fails on
+ * import. [MEASURED 2026-07-30 — a participating rule with no dueDate, planted in a
+ * throwaway worktree: `npm run build` EXIT 1, "Failed to collect page data for
+ * /[locale]/dashboard", throw text verbatim in stderr. It does not print-and-pass.
+ * ⚠️ Next DOES swallow its own sentinel errors in that same phase — DYNAMIC_SERVER_USAGE
+ * is how it detects a dynamic route — but it propagates arbitrary throws. Do not
+ * generalise from the swallowed ones to this.] Running inside the feeder, a bad entry pushed by someone who never opened the
+ * page would take out /dashboard in production for every company — the wrong failure
+ * surface for a developer mistake.
+ *
+ * WHY THROW RATHER THAN SKIP: both conditions produce INVISIBLE defects. A participating
+ * rule with no date rule is a board row that silently never appears; one with no title is
+ * a blank row. Silence is the hardest defect class here, so neither is a `continue`.
+ *
+ * ★ `titleKey` CANNOT SIMPLY BE MADE NON-OPTIONAL, and the reason is structural rather
+ * than an oversight: an act-instantiated rule (`cadence: 'event'`) composes its title PER
+ * ACT at the feeder and can never carry a static key. So the field is legitimately
+ * optional on the type, while "required for a rule this feeder emits" is an invariant the
+ * type cannot express. That is precisely what an assertion is for.
+ */
+for (const rule of OBLIGATION_REGISTRY) {
+  if (rule.cadence === 'event') continue; // act-instantiated — feeder 2's territory
+  if (typeof rule.dueDate !== 'function') {
+    throw new Error(
+      `OBLIGATION_REGISTRY: '${rule.ruleKey}' has cadence '${rule.cadence}' but no dueDate ` +
+        `function. Calendar-instantiated rules are emitted by this feeder and need one. If ` +
+        `the deadline is genuinely not known yet, declare \`dueDate: () => null\` — the loop ` +
+        `skips a null date by the normal convention, and "we do not know this date" becomes ` +
+        `an explicit declaration rather than an absent field.`,
+    );
+  }
+  if (!rule.titleKey) {
+    throw new Error(
+      `OBLIGATION_REGISTRY: '${rule.ruleKey}' has cadence '${rule.cadence}' but no titleKey. ` +
+        `A rule this feeder emits needs one, or its board row renders blank. Only ` +
+        `cadence 'event' rules may omit it (their titles are composed per act).`,
+    );
+  }
+}
+
 // ─── Date helpers ────────────────────────────────────────────────────────────
 // Local formatting helpers. The DATE-ANCHOR helpers (completedFiscalYearEnd,
 // obligationFiscalYear, addMonthsClamped) now live in obligation-registry.ts — their single
@@ -185,7 +285,12 @@ export function deadlineObligations(
   input: CompanyComplianceInput,
   today: Date,
 ): Obligation[] {
-  const { framework, fyEndMonth, fyEndDay, incorporationDate, immatriculationDate, hasLaterAnnualFiling, currentFedReturnFiled, noPriorAnnualMeetingRecorded } = input;
+  // `hasLaterAnnualFiling` and `currentFedReturnFiled` are NO LONGER DESTRUCTURED: the
+  // generic loop evaluates each rule's own `suppressWhenSatisfied` against `checklist`
+  // instead. Both remain on the interface — the caller still passes them and phase 4c
+  // removes them — so this is the first phase in which they are declared and unread.
+  // `noPriorAnnualMeetingRecorded` is still read, by the annual_meeting block below.
+  const { framework, fyEndMonth, fyEndDay, incorporationDate, immatriculationDate, checklist, noPriorAnnualMeetingRecorded } = input;
   const obligations: Obligation[] = [];
 
   // DISPLAY-year fallback: rows without a fiscal year (RE-200 initial declaration,
@@ -194,15 +299,68 @@ export function deadlineObligations(
   // meeting) already carry o.year and never hit this fallback.
   const incYear = incorporationDate ? parseLocalDate(incorporationDate).getFullYear() : null;
 
+  /**
+   * PRESUMED DISCHARGED — the declarative form of the caller-computed booleans this feeder
+   * used to take. Evaluates a rule's own `suppressWhenSatisfied` against the checklist the
+   * caller now passes whole (A4 phase 3 put it on the input; this is what reads it).
+   *
+   * ★ `requirementKeys` OMITTED MEANS **ANY** KEY, NEVER SELF. The field's docblock says so
+   * explicitly, and `fed_annual_return` writes its keys out even though they COINCIDE with
+   * its own `requirementKeys` — precisely so the coincidence is not mistaken for a default.
+   * Omission therefore skips the key filter entirely rather than defaulting to the rule.
+   *
+   * The two yearScope values in use reproduce the two deleted booleans exactly:
+   *   'afterIncorporation' — any satisfied row for a year STRICTLY AFTER incorporation.
+   *                          Reproduces `hasLaterAnnualFiling`.
+   *   'attachYear'         — a satisfied row at THIS row's attach year.
+   *                          Reproduces `currentFedReturnFiled`.
+   *   'any'                — any satisfied instance, any year. No rule uses it today.
+   *
+   * [MEASURED 2026-07-30 — compared against the CALLER'S CODE, not against the
+   * @deprecated descriptions.] Both reproductions were checked field by field: which rows
+   * count as satisfied, `year === null` excluded via `!= null` on both sides, STRICT `>`
+   * against the incorporation year, and the key filter (caller hardcodes
+   * 'cbca_annual_return'; the rule declares it). The caller computes both booleans from
+   * `completeness.checklist` and passes THAT SAME ARRAY as `checklist`. One structural
+   * difference with no observable effect: the caller tests `incYear !== null` outside its
+   * `.some()`, this helper inside the predicate — both yield false when incYear is null.
+   * `obligationFiscalYear` returns `number`, never null, so the `attachYear !== null`
+   * guard is always true for 'anniversary' and changes nothing.
+   */
+  const isPresumedDischarged = (rule: ObligationRule, attachYear: number | null): boolean => {
+    const s = rule.suppressWhenSatisfied;
+    if (!s) return false;
+    return checklist.some((item) => {
+      if (!item.satisfied) return false;
+      if (s.requirementKeys && !s.requirementKeys.includes(item.requirement_key)) return false;
+      switch (s.yearScope) {
+        case 'attachYear':
+          return attachYear !== null && item.year === attachYear;
+        case 'afterIncorporation':
+          return incYear !== null && item.year != null && item.year > incYear;
+        case 'any':
+          return true;
+      }
+    });
+  };
+
   // Fiscal-year-END anchor + its label year — GUARDED. null until the company's
   // FIRST fiscal year has actually closed (completedFiscalYearEnd). The raw
   // calendar helper returned a PRE-INCORPORATION FY-end for a young company
   // (inc 2026-03-01 + Dec-31 year-end → 2025-12-31), which made every rule
   // anchored here emit a row for a fiscal year the company did not exist in,
-  // marked OVERDUE. Each of the three consumers below DECLARES its own answer for
-  // the null case — there is deliberately no shared default. The label year is
-  // derived INSIDE each guard as a plain `number`, never hoisted as `number | null`,
-  // so `String(fyYear)` can never bake the literal "null" into a row id.
+  // marked OVERDUE.
+  //
+  // ⚠️ THIS USED TO CONTINUE "each of the three consumers below DECLARES its own answer for
+  // the null case — there is deliberately no shared default", which was true of the three
+  // hand-written blocks A4 phase 4a replaced. THE ANSWER IS NOW DECLARED BY EACH RULE, in
+  // one place: its `dueDate` returns null when the anchor it needs is absent, and the loop
+  // skips a null date. Two behaviours, not three — `qc_req_annual_update` and
+  // `annual_meeting` both mean "no row", for different legal reasons recorded on each.
+  //
+  // The label year is still derived as a plain `number` inside the branch that has one,
+  // never hoisted as `number | null`, so `String(year)` can never bake the literal "null"
+  // into a row id.
   const fyEnd = completedFiscalYearEnd(fyEndMonth, fyEndDay, incorporationDate, today);
 
   // Shared builder. Every deadline here is base 'open' (unfulfilled) with a
@@ -214,7 +372,25 @@ export function deadlineObligations(
     year: number | null;
     dueDate: Date;
     exposure: 'external' | 'internal';
-    actionKind: 'file_externally' | 'finalize';
+    // ★ WIDENED TO THE FULL UNION IN A4 PHASE 4a — AND DELIBERATELY NOT ASSERTED. Read
+    // this before adding a fourth assertion to the loop below; the omission is a decision,
+    // not an oversight.
+    //
+    // It used to read `'file_externally' | 'finalize'`, which DESCRIBED the two verbs the
+    // hand-written blocks happened to use. It was never an invariant. The loop now serves
+    // any rule the registry can hold, so the honest type is the registry's own.
+    //
+    // Three assertions guard that loop (dueDate, titleKey, cadence/mode) and a fourth was
+    // considered here and REJECTED. [MEASURED — `grep -rn actionKind components/` and the
+    // VERB_LABEL table in a3-presentation.ts:] a verb with no VERB_LABEL entry renders NO
+    // action button and logs `[A3Item] no verb label for actionKind=…`. And `canRowUpload`
+    // is gated on source/requirementKey/canUpload rather than on actionKind, so a wrong
+    // verb cannot reach the upload path either. An unsupported verb is therefore an ABSENT,
+    // LOGGED control — not a lying one.
+    //
+    // ★ THE RULE THAT DECIDED IT: AN ASSERTION IS FOR A DEFECT THAT WOULD BE INVISIBLE. A
+    // control that is absent and logged is neither invisible nor a lie, and earns no throw.
+    actionKind: ObligationAction;
     titleFr: string;
     titleEn: string;
     statutoryBasis: string;
@@ -264,134 +440,113 @@ export function deadlineObligations(
     });
   };
 
-  // ── GOVERNMENT FILINGS (external · file_externally) ─────────────────────────
+  // ── THE GENERIC LOOP (A4 phase 4a) ──────────────────────────────────────────
+  // Replaces three hand-written blocks — the RE-200, the QC REQ annual update and the
+  // federal annual return — with ONE pass over OBLIGATION_REGISTRY reading declared
+  // fields. Each rule still emits AT MOST ONE ROW, exactly as the blocks did: iterating
+  // per fiscal year is phase 4b and is deliberately NOT here.
+  //
+  // ★ THE REASONED CONTENT THOSE BLOCKS CARRIED NOW LIVES ON THE REGISTRY ENTRIES, beside
+  // the field each piece justifies — the LSAQ quasi-identity, the RE-200 presumed-done
+  // ruling, the NEQ-vs-incorporation reasoning, the CBCA residual case Harvey could not
+  // map, and the null-fiscal-year answers. It was migrated BEFORE these blocks were
+  // deleted, not after.
+  //
+  // `annual_meeting` is NOT here: it has no registry entry yet (phase 4c), so its
+  // hand-written block follows this loop unchanged.
+  for (const rule of OBLIGATION_REGISTRY) {
+    // PARTICIPATION — SEMANTIC, not structural. An act-instantiated rule is feeder 2's
+    // territory (see the file header's SCOPE note). Testing `cadence !== 'event'` rather
+    // than "does it have a dueDate" is deliberate: the latter is a structural proxy that
+    // agrees today and silently SKIPS a calendar rule whose date was forgotten. A missing
+    // board row is the hardest defect class here, so the malformed case throws at module
+    // load instead.
+    if (rule.cadence === 'event') continue;
 
-  // QC initial declaration (RE-200) — all QC-operating companies. One-time:
-  // immatriculation + 60 days. Skipped when immatriculationDate is null (the
-  // CBCA-registered-in-QC exact date is a banked data gap; the caller passes
-  // companies.incorporation_date as the QC-LSA proxy).
-  // Harvey 2026-07-05: a company with a later CERTIFIED annual filing has
-  // necessarily initialized its founding REQ dossier — the initial declaration is
-  // presumed satisfied and must never surface as "file now". hasLaterAnnualFiling
-  // (from the caller) suppresses the emission entirely (Option 1: presumed done).
-  //
-  // LSAQ NEAR-IDENTITY (Harvey 2026-07-24, GREEN, verified against LSAQ art. 8-9-10):
-  // for a PROVINCIALLY-incorporated company the initial declaration is already filed.
-  // Art. 8 lets the declaration be attached to the articles of incorporation; art. 9
-  // transmits the articles, their attachments and the LPLE fees to the registraire. So
-  // provincial incorporation PASSES THROUGH the registraire — being registered IS
-  // having filed. Harvey calls this "une quasi-identité", not an inference. An LSAQ
-  // company therefore never owes this filing, and showing it as overdue is a false
-  // positive of the same family as the pre-incorporation phantom rows (0f7deee).
-  // What may still be missing is the PROOF in the minute book — that is the
-  // completeness row's job (can_upload true / can_generate false), never a deadline.
-  //
-  // The suppression keys on INCORPORATION, deliberately NOT on companies.neq: the NEQ
-  // is OPTIONAL at onboarding (StepCompany.validate does not require it) and both
-  // fixtures hold placeholders, so a null NEQ means "the user skipped a field", never
-  // "not registered". Absence of an identifier is not evidence of non-registration.
-  //
-  // CBCA IS DELIBERATELY EXCLUDED — not an oversight. A federal company that begins
-  // doing business in Québec has a real, genuinely-outstanding registration obligation,
-  // and Harvey could not map that residual case without the full LPLE text. Until he
-  // rules, the CBCA path keeps today's behaviour exactly (including hasLaterAnnualFiling,
-  // which still governs it).
-  if (framework !== 'LSA' && immatriculationDate && !hasLaterAnnualFiling) {
-    const rule = ruleForRuleKey('qc_initial_declaration')!;
-    const due = rule.dueDate!({ immatriculationDate, today }); // immatriculation + 60d
-    if (due) {
-      push({
-        ruleKey: rule.ruleKey,
-        yearSeg: 'initial',
-        year: null,
-        dueDate: due,
-        exposure: 'external',
-        actionKind: 'file_externally',
-        titleFr: 'Déclaration initiale (RE-200)',
-        titleEn: 'Initial Declaration (RE-200)',
-        statutoryBasis: rule.statutoryBasis,
-        helpKey: rule.helpKey,
-      });
-    }
-  }
+    // APPLICABILITY — the frameworks ALLOW-LIST. Omitted = every framework.
+    if (rule.frameworks && !rule.frameworks.includes(framework)) continue;
 
-  // QC REQ annual update — all QC-operating companies. FY-end + 6 MONTHS.
-  // CORRECTION: the deprecated engine used +4mo/day-15; Harvey verified +6mo.
-  //
-  // NULL-FY ANSWER (a) — no closed fiscal year → NO ROW. art. 45 LPLE ties the
-  // annual update to a COMPLETED fiscal year (it is filed alongside the income tax
-  // return); before one closes there is nothing to declare, so a due date here is
-  // not merely early, it is fictional. NOTHING IS LOST: the completeness feeder
-  // already emits a clock-less {lsaq,cbca}_req_annual_update row for the first
-  // fiscal year, so the obligation stays visible as upcoming — it simply has no
-  // deadline yet. When the first FY closes, this deadline twin appears at the SAME
-  // year as that completeness row and OVERLAP_MERGE fires correctly for the first
-  // time (it silently missed before: completeness half 2026 vs deadline half 2025,
-  // no pair → the REQ update rendered TWICE).
-  if (fyEnd) {
-    const fyYear = fyEnd.getFullYear();
-    const reqAnnual = ruleForRuleKey('qc_req_annual_update')!;
-    push({
-      ruleKey: reqAnnual.ruleKey,
-      yearSeg: String(fyYear),
-      year: fyYear,
-      dueDate: reqAnnual.dueDate!({ fyEnd, today })!, // FY-end + 6mo (registry)
-      exposure: 'external',
-      actionKind: 'file_externally',
-      titleFr: 'Mise à jour annuelle au REQ',
-      titleEn: 'REQ Annual Update',
-      statutoryBasis: reqAnnual.statutoryBasis,
-      helpKey: reqAnnual.helpKey,
+    // THE ROW'S FISCAL YEAR, derived from cadence. 'once' carries none (the RE-200 is the
+    // founding declaration, not an annual one). 'anniversary' carries the ATTACH-KEY — the
+    // year an uploaded receipt lands on — which is a different axis from its clock.
+    const year =
+      rule.cadence === 'per-fiscal-year'
+        ? (fyEnd ? fyEnd.getFullYear() : null)
+        : rule.cadence === 'anniversary'
+          ? obligationFiscalYear(fyEndMonth, fyEndDay, incorporationDate, today)
+          : null;
+
+    // PRESUMED DISCHARGED — the declarative form of the caller-computed booleans this
+    // feeder used to take. Evaluated against the checklist the caller now passes whole.
+    if (isPresumedDischarged(rule, year)) continue;
+
+    // THE DATE. A null return means "the anchor this rule needs is absent" — no
+    // immatriculation date, or no fiscal year has closed — and the RULE declares that
+    // itself rather than the feeder guessing on its behalf.
+    const due = rule.dueDate!({
+      fyEnd: fyEnd ?? undefined,
+      immatriculationDate,
+      incorporationDate,
+      today,
     });
-  }
 
-  // Federal annual return (CBCA only) — incorporation anniversary month.
-  // YELLOW (Harvey): the anniversary-month deadline is set administratively by
-  // Corporations Canada, NOT by statute → flagged "à confirmer" + helpKey.
-  // Needs incorporationDate to compute the anniversary; skipped when null.
-  // Clear-gate: once the CURRENT-FY receipt is filed, the row leaves the board (it
-  // rolls over automatically when the next FY-end passes — the fiscal-year anchor
-  // advances). Dom's confirmed gap: between filing and the next FY-end, no
-  // federal row shows (current done, next not yet due).
-  if (framework === 'CBCA' && incorporationDate && !currentFedReturnFiled) {
-    const fedRule = ruleForRuleKey('fed_annual_return')!;
-    // Next future incorporation anniversary (leap-year Feb-29 edge banked — rare,
-    // and this rule is YELLOW). Computed by the registry rule.
-    const anniv = fedRule.dueDate!({ incorporationDate, today });
-    if (anniv) {
-      push({
-        ruleKey: fedRule.ruleKey,
-        yearSeg: 'anniversary',
-        // ANNIVERSARY clock (dueDate) but the FISCAL year is the receipt's attach-key
-        // (upload → cbca_annual_return:{year}). Two axes, deliberately: the clock is
-        // the anniversary, the attach-key is the fiscal year. No year segment is
-        // shown (rowYear null for 'anniversary' — see push).
-        //
-        // NULL-FY ANSWER (c) — this push STILL FIRES. Its dueDate is anniversary-
-        // anchored and wholly independent of the fiscal year, so it is correct even
-        // before the first FY closes; only the ATTACH-KEY needed fixing.
-        // obligationFiscalYear returns the first UPCOMING fiscal year while none has
-        // closed, never the phantom pre-incorporation one — and the year it returns
-        // HAS a checklist row BY CONSTRUCTION, because it delegates to
-        // fiscalYearForDate, the same function computeDefaultActiveYears uses to
-        // build company_fiscal_years. That matters: the clear-gate matches on
-        // (requirement_key, year), so a pre-incorporation attach-key was a receipt
-        // that could never satisfy anything and a row that could never leave.
-        year: obligationFiscalYear(fyEndMonth, fyEndDay, incorporationDate, today),
-        dueDate: anniv,
-        exposure: 'external',
-        actionKind: 'file_externally',
-        titleFr: 'Rapport annuel — Corporations Canada',
-        titleEn: 'Annual Return — Corporations Canada',
-        statutoryBasis: fedRule.statutoryBasis,
-        helpKey: fedRule.helpKey,
-        copyKey: fedRule.copyKey,
-        // Upload identity — makes the row take A3Item's Upload SET branch; the receipt
-        // attaches to the current-FY completeness row (requirement_key + year).
-        requirementKey: 'cbca_annual_return',
-        canUpload: true,
-      });
+    // ★ THE CADENCE ASSERTION (A4 phase 4a). Only testable on this branch, and free here
+    // because it reads the call already made above.
+    //
+    // The loop does NOT branch on cadence to decide skip-vs-fire — it just skips a null
+    // date. That works because every 'per-fiscal-year' rule returns null without a closed
+    // fiscal year and no other cadence does. [MEASURED 2026-07-30, all four entries.]
+    // ⚠️ BUT THAT CORRESPONDENCE RESTS ON ONE PER-FISCAL-YEAR RULE — it may be
+    // construction or it may be coincidence, and a probe cannot tell the difference. So it
+    // is asserted rather than assumed, and the assertion protects the rule that does not
+    // exist yet.
+    if (!fyEnd) {
+      const wantsSkip = rule.cadence === 'per-fiscal-year';
+      if (wantsSkip !== (due === null)) {
+        throw new Error(
+          `OBLIGATION_REGISTRY: '${rule.ruleKey}' (cadence '${rule.cadence}') returns ` +
+            `${due === null ? 'null' : 'a date'} when no fiscal year has closed, which does ` +
+            `not match its cadence. If that is INTENTIONAL, the loop can no longer derive ` +
+            `its mode from cadence and the rule needs a DECLARED mode field — a gap A4 ` +
+            `phase 4 deferred on the evidence that cadence encoded it. Decide that before ` +
+            `relaxing this check.`,
+        );
+      }
     }
+
+    if (!due) continue;
+
+    // UPLOAD AFFORDANCE — one causal chain, not two. A board-suppressed requirement has no
+    // completeness half left on the board, so this deadline row is the ONLY thing that can
+    // carry the upload. `requirementKey` is the ATTACH-KEY for that upload, so it is gated
+    // on the same condition rather than set for every rule.
+    const attachKey = rule.requirementKeys[0];
+    const canUpload = attachKey !== undefined && isBoardSuppressedRequirementKey(attachKey);
+
+    const title = TITLES[rule.titleKey!];
+    push({
+      ruleKey: rule.ruleKey,
+      // yearSeg — DERIVED FROM CADENCE. ⚠️ 'once' maps to 'initial', NOT 'once': row ids
+      // are `deadline:{ruleKey}:{yearSeg}`, so emitting the cadence name here would change
+      // the RE-200's id and move the board for a reason unrelated to this phase.
+      yearSeg:
+        rule.cadence === 'once'
+          ? 'initial'
+          : rule.cadence === 'anniversary'
+            ? 'anniversary'
+            : String(year),
+      year,
+      dueDate: due,
+      exposure: rule.exposure,
+      actionKind: rule.actionKind,
+      titleFr: title.fr,
+      titleEn: title.en,
+      statutoryBasis: rule.statutoryBasis,
+      helpKey: rule.helpKey,
+      copyKey: rule.copyKey,
+      requirementKey: canUpload ? attachKey : undefined,
+      canUpload: canUpload || undefined,
+    });
   }
 
   // ── INTERNAL GOVERNANCE (internal · finalize — HOLD/RECORD, never file) ──────

@@ -350,15 +350,33 @@ export interface ObligationRule {
    * fan-out away"). They are cadence written in reconciliation language, so they are
    * now DERIVED FROM cadence rather than declared alongside it.
    *
-   * ★ TWO SOURCES DISAGREE ABOUT MULTIPLICITY — READ BEFORE TRUSTING THIS FIELD.
-   * `fed_annual_return` is cadence 'anniversary', but its requirement key
-   * `cbca_annual_return` is catalog category 'annual' in `minute_book_requirements`.
-   * So the completeness engine DOES fan it out per fiscal year, and the
-   * board-suppression derivation exists purely to throw that fan-out away. Cadence
-   * NAMES that conflict; it does NOT remove it. Removing it means either changing
-   * the catalog category (a migration — it would move `requirementsTotal` and the %
-   * denominator users see) or letting cadence drive the fan-out itself (the
-   * registry-first stream). Both are out of scope and neither is implied here.
+   * ★ TWO SOURCES DISAGREE ABOUT MULTIPLICITY, AND CADENCE NOW WINS — ADJUDICATED,
+   * NOT RESOLVED. `fed_annual_return` is cadence 'anniversary' while its requirement key
+   * `cbca_annual_return` is still catalog category 'annual' in `minute_book_requirements`.
+   * BOTH FACTS ARE STILL TRUE; what changed is which one governs fan-out.
+   *
+   * ⚠️ THIS PARAGRAPH USED TO SAY THE OPPOSITE, AND IT DISPATCHED READERS TO REDO SHIPPED
+   * WORK — recorded rather than retrofitted, so it is not reinstated. It read: "the
+   * completeness engine DOES fan it out per fiscal year, and the board-suppression
+   * derivation exists purely to throw that fan-out away... Removing it means either
+   * changing the catalog category or letting cadence drive the fan-out itself. Both are
+   * out of scope." A4 PHASE 1 (`5e4ba52`, titled "cadence drives the fan-out, not
+   * category") DID THE SECOND ONE. [MEASURED: Wick's checklist holds
+   * `cbca_annual_return:2026` alone rather than one row per active year, and its
+   * `requirementsTotal` moved 49 → 42 — the seven removed per-year rows.]
+   *
+   * ★ THE ADJUDICATION IS PARTIAL, AND THE BOUNDARY IS NARROWER THAN "CADENCE WINS".
+   * [MEASURED — `requirement-completeness.ts` builds its foundational/annual sets as
+   * `category === … && !isAnniversary(r)`.] Cadence overrides category ONLY where a
+   * registry rule exists AND declares 'anniversary'. For every other requirement —
+   * including the majority that have no registry entry at all, where the lookup yields
+   * `undefined` — CATEGORY IS STILL AUTHORITATIVE FOR MULTIPLICITY. Whether that boundary
+   * should move is banked, not decided here.
+   *
+   * ⚠️ AND DO NOT DESCRIBE THE BOARD-SUPPRESSION DERIVATION AS VESTIGIAL WITHOUT CHECKING
+   * WHAT IT STILL DOES. It no longer discards a per-year fan-out that no longer happens,
+   * but it still drops the single anniversary row from the BOARD stream while leaving it
+   * in the completeness count, Complétude and the verdict.
    *
    * ★ WHERE THIS VOCABULARY WOULD FIRST CRACK: an obligation that is
    * per-fiscal-year but due on an ANNIVERSARY has nowhere to sit — 'anniversary'
@@ -474,6 +492,23 @@ export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
     exposure: 'external',
     actionKind: 'file_externally',
     titleKey: 'obligationTitle.reqAnnualUpdate',
+    // ★ THE `: null` BRANCH IS NOT A FALLBACK, IT IS A LEGAL ANSWER — migrated from
+    // feeders/deadlines.ts ("NULL-FY ANSWER (a)") in A4 phase 4a, where the `if (fyEnd)`
+    // guard that expressed it has been deleted. The generic loop now reads this null as
+    // "emit nothing", so this comment is the only remaining statement of WHY.
+    //
+    // No closed fiscal year → NO ROW. art. 45 LPLE ties the annual update to a COMPLETED
+    // fiscal year (it is filed alongside the income tax return); before one closes there
+    // is nothing to declare, so a due date here is NOT MERELY EARLY, IT IS FICTIONAL.
+    //
+    // NOTHING IS LOST. The completeness feeder fans over the company's active fiscal
+    // years, which for a first-year company is exactly its incorporation year, and emits a
+    // clock-less {lsaq,cbca}_req_annual_update row there — so the obligation stays visible
+    // as upcoming and simply has no deadline yet. (That a due=null completeness row DOES
+    // render on the board is measured, on the rendering path rather than on the first-year
+    // case: Acme's 2019-2024 REQ rows carry due=null and all six appear in the ranked
+    // stream.) When the first FY closes, this deadline twin appears at the SAME year as
+    // that completeness row and the pair forms.
     dueDate: (ctx) => (ctx.fyEnd ? addMonthsClamped(ctx.fyEnd, 6) : null),
     // art. 45 LPLE ties the update to a COMPLETED fiscal year → one separately
     // outstandable instance per FY. The completeness fan-out is CORRECT here, so its
@@ -498,6 +533,22 @@ export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
     exposure: 'external',
     actionKind: 'file_externally',
     titleKey: 'obligationTitle.initialDeclaration',
+    // ★★ A NEGATIVE FINDING, AND IT IS THE REASON THIS IS AN ALLOW-LIST OF ONE RATHER
+    // THAN AN OMITTED FIELD. Migrated from feeders/deadlines.ts in A4 phase 4a, where the
+    // code that expressed it (`framework !== 'LSA'`) has been deleted — so nothing points
+    // at it any more and it survives only if it is written down here.
+    //
+    // CBCA IS DELIBERATELY NOT COVERED BY THE LSAQ QUASI-IDENTITY ABOVE — not an
+    // oversight. A federal company that begins doing business in Québec has a real,
+    // genuinely-outstanding registration obligation, and Harvey COULD NOT MAP that
+    // residual case without the full LPLE text. Until he rules, the CBCA path keeps
+    // today's behaviour exactly: the row is emitted, governed only by
+    // `suppressWhenSatisfied` below.
+    //
+    // AND THE SUPPRESSION KEYS ON INCORPORATION, DELIBERATELY NOT ON `companies.neq`: the
+    // NEQ is OPTIONAL at onboarding (StepCompany.validate does not require it) and both
+    // fixtures hold placeholders, so a null NEQ means "the user skipped a field", never
+    // "not registered". ABSENCE OF AN IDENTIFIER IS NOT EVIDENCE OF NON-REGISTRATION.
     frameworks: ['CBCA'],
     // Presumed-done (Harvey 2026-07-05, Option 1) — the declarative twin of the deadline
     // feeder's `hasLaterAnnualFiling`. requirementKeys OMITTED = ANY key satisfies, which
@@ -544,13 +595,93 @@ export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
     // ★ requirementKeys IS WRITTEN OUT EXPLICITLY PRECISELY BECAUSE IT COINCIDES with this
     // rule's own `requirementKeys`. The coincidence must not be mistaken for a default:
     // omission means ANY key, never self, so a self-referring rule states its key.
+    // ★ WHAT THE CLEAR-GATE DOES, AND WHAT IT DOES NOT — migrated and EXTENDED from
+    // feeders/deadlines.ts in A4 phase 4a.
+    //
+    // [MEASURED — code] Once the CURRENT-FY receipt is satisfied this stops the row being
+    // emitted. It returns when the next FY-end passes, because the fiscal-year anchor
+    // advances and the new year has no receipt.
+    //
+    // [REASONED from the clear-gate + board-suppression code, NOT measured] Between filing
+    // and the next FY-end, NO federal row shows on the board at all: the deadline row is
+    // suppressed by this gate, and the completeness half is board-suppressed by cadence
+    // 'anniversary'. Dom's confirmed gap. Neither fixture currently exercises it — Wick's
+    // federal receipt was deleted 2026-07-29, so its gate is open and the row is showing.
+    //
+    // ★ THE CLEAR-GATE GOVERNS BOARD VISIBILITY ONLY. [MEASURED — code]
+    // `isBoardSuppressedRequirementKey`'s own docblock states the suppression "does NOT
+    // affect the completeness COUNT / Complétude / verdict", so the hidden checklist row
+    // keeps feeding the verdict.
+    //
+    // ── THE ANNIVERSARY ROLLOVER — mechanism, then instance ──────────────────────────
+    // [MEASURED — 1100 daily clocks, 2026-01-01..2029-01-05: zero negative, minimum 0.]
+    // This rule's `dueDate` below rolls the anniversary FORWARD once it passes, so
+    // `daysUntilDue` is NON-NEGATIVE BY CONSTRUCTION and this row CAN NEVER BE OVERDUE.
+    //
+    // The consequence, on the board: at the anniversary the row reads "due in 0 days" at
+    // the top; the next day it reads "due in 364 days" near the bottom. No filing occurred
+    // in between, and the board never states that anything was missed.
+    //
+    // [MEASURED] First observable occurrence: Wick, incorporated 2018-08-08 —
+    // 2026-08-08 (due in 0) → 2026-08-09 (due in 364).
+    //
+    // ⚠️ DESCRIBED, NOT CHARACTERISED. Whether "late" even exists for this filing is a
+    // LEGAL question we do not have an answer to — Harvey 2026-07-24 records that art. 263
+    // LCSA fixes no statutory deadline and the anniversary is Corporations Canada's
+    // ADMINISTRATIVE practice. Banked for Dom and Harvey; not this commit's business, and
+    // not phase 4b's either (4b iterates per CLOSED FISCAL YEAR, and cadence 'anniversary'
+    // is never iterated).
+    //
+    // ★ AND WHAT IS **NOT** TRUE, recorded so it is not re-derived: this is NOT a
+    // divergence between the deadline row and `ChecklistItem.liveness`. BOTH paths agree —
+    // neither escalates. An anniversary row's year is current by construction
+    // (`obligationFiscalYear` never returns a past year), so a year-based lateness proxy
+    // reads 0 years behind, and the deadline row cannot go negative either. An earlier
+    // reading held that these two disagreed; measurement shows they do not.
     suppressWhenSatisfied: { requirementKeys: ['cbca_annual_return'], yearScope: 'attachYear' },
     // ONE recurring instance on the anniversary clock — you are never "behind on
-    // your 2023 return" the way you can be behind on 2023's REQ update. The
-    // completeness fan-out is WRONG for this entry (its catalog category is
-    // 'annual', so the engine fans it out anyway — see the multiplicity-conflict
-    // note on `cadence`), so its per-year board rows are suppressed and this single
-    // deadline row represents it. Complétude keeps the per-year record.
+    // your 2023 return" the way you can be behind on 2023's REQ update.
+    //
+    // ⚠️ THIS COMMENT USED TO CONTINUE "the completeness fan-out is WRONG for this entry
+    // (its catalog category is 'annual', so the engine fans it out anyway), so its per-year
+    // board rows are suppressed" — FALSIFIED BY A4 PHASE 1 (`5e4ba52`) and recorded rather
+    // than retrofitted. The engine no longer fans this entry out: cadence drives the
+    // fan-out, so an 'anniversary' requirement gets ONE row. [MEASURED: Wick's checklist
+    // holds `cbca_annual_return:2026` alone.] The board-suppression derivation still drops
+    // that single row from the BOARD stream; Complétude and the verdict still count it.
+    //
+    // ★ NULL-FY ANSWER (c) — migrated from feeders/deadlines.ts in A4 phase 4a, where the
+    // block that carried it has been deleted.
+    //
+    // THIS RULE FIRES EVEN WHEN NO FISCAL YEAR HAS CLOSED. [MEASURED — probe 2026-07-30:
+    // `dueDate({no fyEnd})` returns a date, not null.] Its clock is anniversary-anchored
+    // and wholly independent of the fiscal year, so it is correct before the first FY
+    // closes; only the ATTACH-KEY ever needed fixing.
+    //
+    // TWO AXES, DELIBERATELY: the CLOCK is the incorporation anniversary; the ATTACH-KEY is
+    // the fiscal year the receipt lands on (upload → `cbca_annual_return:{year}`).
+    //
+    // ★ THE ATTACH-KEY AND THE CHECKLIST ROW ARE DEFINITIONALLY THE SAME YEAR — and the
+    // mechanism is NOT the one this note used to give. [MEASURED — code, both call sites
+    // on disk.] `requirement-completeness.ts` places the single anniversary row at
+    // `obligationFiscalYear(fyEndMonth, fyEndDay, incorporationDate, today)`, and this
+    // rule's attach-key is THE SAME FUNCTION WITH THE SAME ARGUMENTS. Not two derivations
+    // that agree; one call made twice.
+    //
+    // ⚠️ THE OLDER EXPLANATION IS OBSOLETE AND IS RECORDED SO IT IS NOT REINSTATED: it said
+    // the year "has a checklist row by construction because `obligationFiscalYear`
+    // delegates to `fiscalYearForDate`, the same function `computeDefaultActiveYears` uses."
+    // That was true when anniversary requirements were FANNED OUT per fiscal year. Since
+    // phase 1 they are not, and this row is never drawn from the year set at all.
+    //
+    // WHY IT MATTERS: the clear-gate matches on (requirement_key, year), so a
+    // pre-incorporation attach-key was a receipt that could never satisfy anything and a
+    // row that could never leave the board.
+    //
+    // [REASONED, not measured] The row's existence additionally assumes
+    // `cbca_annual_return` is among the company's catalog requirements. It is, for CBCA
+    // companies; that is data rather than code. An LSA company has neither the requirement
+    // nor this rule (`frameworks: ['CBCA']`), so the two stay consistent.
     cadence: 'anniversary',
     // Per-rule modal copy: names Corporations Canada, presents the administrative
     // deadline — NOT the art. 41 / 30-day Registraire roster copy.
