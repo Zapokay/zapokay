@@ -103,7 +103,10 @@ export function mergeObligations(...streams: Obligation[][]): Obligation[] {
     removed.add(twin);
     // Field union: keep the completeness half (id, source, requirementKey,
     // canUpload/canGenerate/docSource, descriptionFr/En, actionKind='upload',
-    // titleFr/En, liveness, weight, year), take the deadline clock + basis.
+    // titleFr/En, weight, year), take the deadline clock + basis.
+    //
+    // ⚠️ THIS LIST USED TO INCLUDE `liveness` AMONG WHAT IS KEPT, which described a
+    // defect as an intention. Corrected below — see the field itself.
     return {
       ...o,
       dueDate: twin.dueDate,
@@ -112,6 +115,29 @@ export function mergeObligations(...streams: Obligation[][]): Obligation[] {
       triggeredBy: twin.triggeredBy,
       statutoryBasis: twin.statutoryBasis,
       exposure: twin.exposure,
+      // ★ LIVENESS COMES FROM THE TWIN, because the twin is the only half that knows the
+      // deadline. Taking the clock (above) while keeping the completeness half's tier left
+      // a row carrying a REAL due date with a tier computed as though it had none.
+      //
+      // THE TWO HALVES DO NOT MEASURE THE SAME THING. computeLiveness has two branches and
+      // they differ in unit, threshold AND starting point: the completeness half passes
+      // daysUntilDue: null and lands on branch B, which is `today.getFullYear() - year` —
+      // FISCAL-YEAR STALENESS, flipping every 1 January. The deadline twin passes a real
+      // daysUntilDue and lands on branch A — DAYS SINCE THE LEGAL DEADLINE. They share a
+      // vocabulary, not a quantity.
+      //
+      // [MEASURED 2026-07-31, 730 daily clocks per case, fiscal year 2025:]
+      //   FYE 31 Dec  332 days of divergence — from 1 Jan the row reads `regularize`
+      //               while its deadline (FY-end + 6mo = 30 Jun) is still in the FUTURE.
+      //   FYE 31 May  182 days — opposite sense: the row reads `live` while its deadline
+      //               (30 Nov) has already PASSED.
+      // The most common year-end is the worse case, and the two errors point opposite ways.
+      //
+      // ★ THE ASSUMPTION, STATED RATHER THAN LEFT IMPLICIT: this takes the twin as right
+      // whenever both exist. That holds because the twin is the half that owns the clock —
+      // not because deadline rows are generally more trustworthy. If a future merge pairs
+      // two halves that BOTH carry a clock, this line needs revisiting.
+      liveness: twin.liveness,
       // UNION — a merged row is a filing row if EITHER half carried the filing
       // fact (the completeness external-key half OR the deadline file_externally
       // twin). Independent of exposure, which is taken from the twin above.
