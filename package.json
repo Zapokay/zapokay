@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "audit:doctypes": "node scripts/audit-doctypes.mjs"
+    "audit:doctypes": "node scripts/audit-doctypes.mjs",
+    "check:obligations": "tsx scripts/check-obligations.ts",
+    "export:registry": "tsx scripts/export-registry.ts"
   },
   "dependencies": {
     "@sparticuz/chromium": "^147.0.0",
