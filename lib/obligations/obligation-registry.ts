@@ -90,6 +90,22 @@ export function addMonthsClamped(date: Date, months: number): Date {
 }
 
 /**
+ * The federal annual return's filing window: DAYS AFTER the incorporation anniversary.
+ *
+ * [Harvey 2026-08-10, GREEN] art. 263 LCSA fixes no deadline itself — it DELEGATES to the
+ * Director, and the Director has set 60 days after the anniversary. The anniversary is the
+ * ANCHOR; the deadline is the anniversary plus this window. `statutoryBasis` on the rule
+ * has always read "délai administratif (Corporations Canada)"; this is that delay, given
+ * its number for the first time.
+ *
+ * ⚠️ ADMINISTRATIVE, NOT LEGISLATIVE — and that is why it is a named constant rather than
+ * a literal in the date rule. The Director can move it with no amendment to the CBCA, so a
+ * change here is a change of practice, not of statute. Do not cite it as a statutory
+ * figure, and do not fold it into the anniversary arithmetic.
+ */
+export const FED_RETURN_FILING_WINDOW_DAYS = 60;
+
+/**
  * The most recent fiscal-year END the company ACTUALLY EXISTED THROUGH — or
  * `null` when no fiscal year has closed yet (a company inside its first one).
  *
@@ -686,12 +702,64 @@ export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
     // Per-rule modal copy: names Corporations Canada, presents the administrative
     // deadline — NOT the art. 41 / 30-day Registraire roster copy.
     copyKey: 'fedAnnualReturn',
+    // ── THE DUE DATE: anniversary + FED_RETURN_FILING_WINDOW_DAYS, and NO ROLLOVER ───
+    //
+    // ★★ WHY THE ROLLOVER IS GONE, AND WHY REMOVING IT WAS THE WHOLE FIX.
+    // This function used to end with `if (anniv < ctx.today) anniv.setFullYear(+1)`. It
+    // came from `b561cd7` ("Sprint 3 — Compliance Engine complet" — a one-line commit
+    // message with no body) and was carried forward untouched through the A3 port and into
+    // this registry. ★ NEITHER COMMIT EVER ARGUED FOR IT: both comments only paraphrased
+    // the instruction ("If already passed this year, next year"). It was written as "the
+    // next occurrence of a recurring date" — the logic of an ANNIVERSARY. That is correct
+    // for a birthday and destructive for a DEADLINE: a date that moves forward the instant
+    // it passes can never be missed, so this row could never be overdue and no default
+    // counter could ever start.
+    //
+    // [MEASURED 2026-08-10 — 1100 daily clocks per variant, Wick (inc 08-08) and Acme
+    // (inc 04-17), evaluated against the rule as shipped and three alternatives:]
+    //     V0  anniversary, rollover on the anniversary (as shipped)  min d 0    negatives 0
+    //     V1  anniversary+60, rollover on the anniversary            min d 60   negatives 0
+    //     V2  anniversary+60, rollover on the due date               min d 0    negatives 0
+    //     V3  anniversary+60, NO rollover                            min d -85  negatives 255
+    //
+    // ★ THE +60 ALONE CHANGES NOTHING, AND THE NAIVE PORT IS WORSE THAN WHAT IT REPLACED.
+    // Under V1 the row reads "due in 60 days" on the anniversary and "due in 424 days" the
+    // next morning — the 60-day window is never walked at all. V2 walks the window (60 → 0)
+    // and then glides anyway on day 61 (0 → 364). Only removing the rollover makes lateness
+    // expressible. DO NOT REINTRODUCE IT IN EITHER POSITION.
+    //
+    // The observable defect this closes, seen in production this month: Wick read "due in
+    // 0 days" at the top of the board on 2026-08-08 and "due in 364 days" near the bottom
+    // on 2026-08-09, with no filing in between and no statement that anything was missed.
+    //
+    // ⚠️ THE YEAR OF INCORPORATION OWES NO RETURN (Harvey 2026-08-10, GREEN) AND THIS
+    // FUNCTION DOES NOT EXPRESS THAT. It returns the current calendar year's due date
+    // whatever the year, so for a company still inside its incorporation year it names a
+    // deadline that is not owed. Stated rather than patched in passing: the guard needs a
+    // year to compare against, and this signature has none. It belongs with multiplicity.
+    //
+    // ⚠️ ONE ROW, N YEARS OWED — the known incompleteness, recorded so it is not read as a
+    // fix. Harvey 2026-08-10 corrected an earlier reading: the federal return is settled
+    // YEAR BY YEAR, not by a single act of regularisation. [MEASURED at clock 2026-08-10:
+    // Wick owes 7 returns, 2019..2025; an Acme-shaped CBCA company would owe 8.] This
+    // function returns ONE date and the generic loop emits ONE row, so the board now says
+    // "late" without saying "by seven returns". INCOMPLETE, NOT WRONG. Multiplicity is
+    // absent from five independent places — this signature, the loop's one-row-per-rule
+    // pass (feeders/deadlines.ts:443-447), its single derived `year`, the catalog's single
+    // anniversary row (requirement-completeness.ts:406), and `suppressWhenSatisfied`'s
+    // single attach year. That is phase 4b.
     dueDate: (ctx) => {
       if (!ctx.incorporationDate) return null;
       const inc = parseLocalDate(ctx.incorporationDate);
-      const anniv = new Date(ctx.today.getFullYear(), inc.getMonth(), inc.getDate());
-      if (anniv < ctx.today) anniv.setFullYear(ctx.today.getFullYear() + 1);
-      return anniv;
+      // Day overflow in the Date constructor carries into the following month(s), and across
+      // a year boundary, correctly — so no month arithmetic is needed and addMonthsClamped
+      // does not apply (this is a DAY window, not a month one). LOCAL fields throughout;
+      // never toISOString (#159 / §8.54).
+      return new Date(
+        ctx.today.getFullYear(),
+        inc.getMonth(),
+        inc.getDate() + FED_RETURN_FILING_WINDOW_DAYS,
+      );
     },
     // NOT in OVERLAP_MERGE (cadence 'anniversary', not 'per-fiscal-year'): the
     // completeness cbca_annual_return row and this deadline row are a latent
