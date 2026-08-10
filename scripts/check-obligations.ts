@@ -1,9 +1,9 @@
 /**
- * OBLIGATION INVARIANTS — three facts that must hold, checked by execution.
+ * OBLIGATION INVARIANTS — four facts that must hold, checked by execution.
  *
  *   npm run check:obligations      (or: npx tsx scripts/check-obligations.ts)
  *
- * Exit 0 = all three hold. Exit 1 = one failed, naming WHICH, the EXPECTED value
+ * Exit 0 = all four hold. Exit 1 = one failed, naming WHICH, the EXPECTED value
  * and the ACTUAL one. An anonymous failure is not worth writing.
  *
  * ★ PURE. No database, no .env.local, no supabase client, nothing company-specific.
@@ -17,23 +17,30 @@
  * DECISION fails on the day the decision is taken, and it fails LOOKING LIKE A
  * REGRESSION — costing an investigation for nothing.
  *
- * A fourth candidate was considered and REJECTED on exactly that ground: the
+ * A candidate was considered and REJECTED on exactly that ground: the
  * board/Complétude divergence on foundational rows (9 of 9 on Wick — 4 by the floor
  * in requirement-completeness.ts, 5 by exempt_from_lateness). It is a real, open
  * defect, but it would hold here because a decision has NOT YET BEEN TAKEN, not
  * because it is true. It lives in ZK_Queue as an open subject with its measurement
  * and its method — a signpost, not an assertion.
  *
- * ★ WHY THESE THREE ARE WRITTEN DOWN AT ALL. Each was measured once by a throwaway
- * probe, and each probe was deleted. Nothing accumulated. These three guard
+ * ★ FACT 4 WAS ADMITTED UNDER THE SAME RULE, AND PASSES IT. "Two mechanisms cannot
+ * both claim one requirement key" is not a position anyone can change their mind
+ * about: a key that is discarded before the merge cannot also be merged. Dom can
+ * reassign a cadence from one mechanism to the other and FACT 4 still holds — it
+ * asserts the partition, never which side a given key falls on.
+ *
+ * ★ WHY THESE FOUR ARE WRITTEN DOWN AT ALL. Each was measured once by a throwaway
+ * probe, and each probe was deleted. Nothing accumulated. These four guard
  * invariants that no other gate covers: tsc cannot see them (they are runtime
  * relationships, not types) and the byte-identity capture cannot see them (it
- * compares output, and all three are currently satisfied so the output looks fine).
+ * compares output, and all four are currently satisfied so the output looks fine).
  */
 
 import {
   OBLIGATION_REGISTRY,
   OVERLAP_MERGE,
+  isBoardSuppressedRequirementKey,
   type ObligationDueCtx,
 } from '@/lib/obligations/obligation-registry';
 import { mergeObligations } from '@/lib/obligations/aggregate';
@@ -245,6 +252,84 @@ const pass = (fact: string, detail: string) => console.log('✓ ' + fact + ' —
     else if (!has(otherYearIds, attach.ruleKey)) fail(FACT, '`' + attach.ruleKey + '` with `' + attachKey + '` satisfied at a DIFFERENT year', 'emitted', 'suppressed');
     else if (!has(unsatisfiedIds, attach.ruleKey)) fail(FACT, '`' + attach.ruleKey + '` with `' + attachKey + '` present but UNSATISFIED', 'emitted', 'suppressed');
     else pass(FACT + ' / attachYear', '`' + attach.ruleKey + '` suppressed only by `' + attachKey + '` satisfied at year ' + attachYear);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FACT 4 — OVERLAP_MERGE AND _boardSuppressedKeys PARTITION THE CATALOG KEYS.
+//
+// Two mechanisms can retire a completeness half, and they are mutually exclusive:
+//   MERGE      — OVERLAP_MERGE pairs the half with its deadline twin (aggregate.ts).
+//   SUPPRESS   — isBoardSuppressedRequirementKey drops it before the merge ever runs
+//                (feeders/completeness.ts:122).
+// A key claimed by BOTH is incoherent: suppression happens first, so the merge entry
+// would be dead code that reads as live policy. A key claimed by NEITHER is a
+// completeness half with no owner — the 0-or-2 defect this pair exists to prevent.
+//
+// ★ WHY THIS IS WRITTEN, AND WHY THE OTHER THREE DID NOT COVER IT. The 'once' widening
+// (OVERLAP_MERGE gaining the two initial-declaration keys) ran green against FACTS 1-3
+// — and would have run green just as well if it had ALSO swept in 'anniversary', which
+// must never be here. Measured: the three earlier facts read the REGISTRY, never the
+// map, so none of them can see a mis-derived OVERLAP_MERGE. The only thing standing
+// between the map and a wrong widening was a docblock, and prose is not a gate.
+//
+// ★ OPINION-INDEPENDENT, per the rule at the top of this file. It asserts the PARTITION,
+// never which side a key falls on: reassign a cadence from one mechanism to the other
+// and this still holds. It fails only on a key owned twice, or owned by no one.
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const FACT = 'FACT 4 · merge and board-suppression partition the catalog keys';
+  const before = failures;
+
+  // Keep BOTH shapes: the array is what we iterate, the Set is what we probe. tsconfig
+  // sets no `target`, so `for (const k of someSet)` demands --downlevelIteration and
+  // fails tsc — the same trap recorded at active-years.ts:143. Iterate the array.
+  const mergedKeys = Object.keys(OVERLAP_MERGE);
+  const merged = new Set(mergedKeys);
+  // Every requirement key the registry knows about. 'event' rules declare none (acts
+  // instantiate them), so they contribute nothing and are covered by construction.
+  const allKeys = OBLIGATION_REGISTRY.flatMap((r) => r.requirementKeys);
+
+  if (allKeys.length === 0) {
+    fail(FACT, 'the registry declares no requirementKeys at all', '> 0', 0);
+  }
+
+  for (const key of allKeys) {
+    const isMerged = merged.has(key);
+    const isSuppressed = isBoardSuppressedRequirementKey(key);
+    if (isMerged && isSuppressed) {
+      fail(
+        FACT,
+        '`' + key + '` is claimed by BOTH mechanisms — suppression runs first, so the ' +
+          'OVERLAP_MERGE entry is dead code posing as policy',
+        'exactly one of { merged, board-suppressed }',
+        { merged: true, boardSuppressed: true },
+      );
+    } else if (!isMerged && !isSuppressed) {
+      fail(
+        FACT,
+        '`' + key + '` is claimed by NEITHER mechanism — its completeness half has no ' +
+          'owner, which is the 0-or-2 duplicate shape',
+        'exactly one of { merged, board-suppressed }',
+        { merged: false, boardSuppressed: false },
+      );
+    }
+  }
+
+  // A merge entry pointing at a key no registry rule declares would be unreachable.
+  for (const key of mergedKeys) {
+    if (!allKeys.includes(key)) {
+      fail(FACT, 'OVERLAP_MERGE key `' + key + '` matches no registry requirementKey', 'a declared key', key);
+    }
+  }
+
+  if (failures === before) {
+    const suppressed = allKeys.filter((k) => isBoardSuppressedRequirementKey(k));
+    pass(
+      FACT,
+      allKeys.length + ' catalog keys partitioned: ' + merged.size + ' merged, ' +
+        suppressed.length + ' board-suppressed, 0 claimed twice, 0 unclaimed',
+    );
   }
 }
 

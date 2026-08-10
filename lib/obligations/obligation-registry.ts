@@ -794,15 +794,72 @@ export function ruleForDocKey(docKey: string): ObligationRule | undefined {
 
 /**
  * OVERLAP_MERGE view: completeness `requirementKey` → deadline `ruleKey`.
- * DERIVED FROM CADENCE: only a 'per-fiscal-year' obligation has a completeness half
- * and a deadline half describing the SAME per-year instance, so only it collapses to
- * one board row. 'anniversary' is suppressed instead (its halves are a latent,
- * not-yet-merged pair); 'once' is suppressed on both sides by other means; 'event'
- * has no completeness half at all. Reproduces the former literal map exactly (today:
- * the two REQ annual-update keys → qc_req_annual_update).
+ *
+ * DERIVED FROM CADENCE, AND ONLY TWO CADENCES QUALIFY — 'per-fiscal-year' and 'once'.
+ * Both have a completeness half (a DOCUMENT to hold) and a deadline half (a statutory
+ * FILING with a clock) describing the SAME instance, so both collapse to one board row
+ * carrying the union: the completeness identity and upload affordance, plus the twin's
+ * clock, tier, due date and statutory basis (the exact field list is in aggregate.ts).
+ *
+ * ★ WHY 'once' WAS ADDED, AND WHY THE CLAIM THAT STOOD HERE WAS FALSE. This docblock
+ * used to read "'once' is suppressed on both sides by other means". Measured 2026-08-10
+ * against the real fixtures, that is not what the two suppressions do:
+ *
+ *     framework | hasLaterAnnualFiling | completeness half | deadline half | board rows
+ *     CBCA      | false                | 1                 | 1             | 2  ← DOUBLON
+ *     CBCA      | true                 | 0                 | 0             | 0
+ *     LSA       | false                | 1                 | 0             | 1
+ *     LSA       | true                 | 0                 | 0             | 0
+ *
+ * ★ IN CBCA NO STATE PRODUCES ONE ROW — it is 0 or 2, never 1, and the `false` row is
+ * every CBCA company on day one. The cause is structural rather than a bug in either
+ * gate: `feeders/completeness.ts`'s INITIAL_DECLARATION_KEYS filter and this registry's
+ * `suppressWhenSatisfied: { yearScope: 'afterIncorporation' }` read THE SAME predicate
+ * over THE SAME array, so they can only ever agree. Two gates of STATE ("is it presumed
+ * done?") were standing in for a rule of OWNERSHIP ("which half owns the row?"). Merging
+ * supplies the missing ownership rule; both gates are correct for what they express and
+ * are deliberately left untouched.
+ *
+ * ★★ WHY NOT SIMPLY "EVERY CADENCE" — READ THIS BEFORE WIDENING AGAIN. A naive
+ * all-cadence derivation adds THREE keys, and the third one must NOT be here:
+ *     'once'        → +2   lsaq_declaration_initiale, cbca_declaration_initiale_qc  ✅
+ *     'anniversary' → +1   cbca_annual_return                                       ❌ NEVER
+ *     'event'       → +0   requirementKeys is empty (act-instantiated, no catalog half)
+ * `cbca_annual_return` is SUPPRESSED, not merged: `_boardSuppressedKeys` (thirty lines
+ * above) discards its completeness half from the BOARD stream, in favour of the deadline
+ * row that carries both the clock and the upload affordance.
+ *
+ * ★ AND THE HONEST REASON FOR THE PROHIBITION, because the first draft of this docblock
+ * got it wrong and a wrong reason is worse than none. Adding 'anniversary' here would be
+ * INERT, not destructive: `feeders/completeness.ts:122` filters the key out with
+ * `isBoardSuppressedRequirementKey` BEFORE `mergeObligations` ever runs (measured
+ * 2026-08-10: the federal return's completeness half = 0 rows, both before and after this
+ * change), so the twin lookup would never happen and nothing would move. The first draft
+ * claimed it "would resurrect the per-year fan-out"; that stopped being true at A4 phase
+ * 1, which collapsed the anniversary fan-out to ONE instance
+ * (requirement-completeness.ts:406).
+ *
+ * The prohibition holds on AMBIGUITY, not danger: two mechanisms would claim one key, one
+ * live and one dead, and the next reader would have to measure to learn which wins. ★ A
+ * barrier whose justification collapses on inspection is worse than no barrier — a
+ * careful reader checks the reason, finds it false, and concludes the rule is folklore.
+ * So the rule is not left to this text: FACT 4 in `scripts/check-obligations.ts` asserts
+ * that `OVERLAP_MERGE` and `_boardSuppressedKeys` never claim the same requirement key,
+ * and it FAILS on exactly this widening. Prose persuades; the invariant enforces.
+ *
+ * ★ `lsaq_declaration_initiale` GAINS AN INERT ENTRY, on purpose. Its deadline twin can
+ * never exist: `qc_initial_declaration` declares `frameworks: ['CBCA']` (Harvey
+ * 2026-07-24, GREEN, LSAQ art. 8-9-10 — a provincial company's declaration rides its
+ * articles, so being registered IS having filed), and `feeders/deadlines.ts` skips the
+ * rule on that allow-list. The lookup therefore misses and `mergeObligations` returns the
+ * row unchanged through `if (!twin) return o`. Keying this map on the RULE rather than on
+ * the framework keeps one source of truth; the inertness costs one map miss.
+ *
+ * Today: the two REQ annual-update keys → qc_req_annual_update, and the two initial
+ * declaration keys → qc_initial_declaration.
  */
 export const OVERLAP_MERGE: Readonly<Record<string, string>> = Object.fromEntries(
-  OBLIGATION_REGISTRY.filter((r) => r.cadence === 'per-fiscal-year').flatMap((r) =>
-    r.requirementKeys.map((k) => [k, r.ruleKey] as const),
-  ),
+  OBLIGATION_REGISTRY.filter(
+    (r) => r.cadence === 'per-fiscal-year' || r.cadence === 'once',
+  ).flatMap((r) => r.requirementKeys.map((k) => [k, r.ruleKey] as const)),
 );
