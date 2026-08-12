@@ -145,6 +145,75 @@ export function completedFiscalYearEnd(
 }
 
 /**
+ * THE BOOK-CURRENCY CAP — the date from which ZapOkay stops presuming a company's
+ * minute book is up to date. ONE DATE PER COMPANY, never per row.
+ *
+ * = the FIRST fiscal year closed after incorporation, PLUS SIX MONTHS.
+ *
+ * ⚠️ A PRODUCT RULE, NOT A LEGAL CLAIM. No statute sets a deadline for the
+ * organisational documents this governs — Harvey, GREEN, texts read word for word,
+ * LSAQ and CBCA alike. The six months are not a limitation period: they are the
+ * LONGEST production window observed among our real obligations (the REQ annual
+ * update, art. 45 LPLE). Nothing here may be presented to a user as a legal deadline.
+ *
+ * ★★ "FIRST" IS NOT "MOST RECENT", AND A YOUNG FIXTURE CANNOT TELL THEM APART.
+ * `completedFiscalYearEnd` above returns the MOST RECENT closed year-end. Using it as
+ * the cap anchor is the obvious mistake and it is silent: for WICK (inc 2018-08-08,
+ * FYE 31/05) the first closed year-end is 2019-05-31 -> cap 2019-11-30, long past,
+ * while the most recent is 2026-05-31 -> cap 2026-11-30, still in the FUTURE. The rule
+ * would look broken while being correct. ★ CAFE DU COIN CANNOT REVEAL THIS:
+ * incorporated 2025-06-19, its first closed year-end IS its most recent one and the two
+ * coincide. The youngest fixture is the one that would have let the error through; the
+ * OLD one is what catches it. Test this against an old company, always.
+ *
+ * `completedFiscalYearEnd` is still used here — as the EXISTENCE TEST. It is null
+ * exactly when no fiscal year has closed yet, which is the one thing we need it for.
+ *
+ * ★ A FIXTURE FOR THE NOT-YET-REACHED CAP EXISTS, and it is neither of the two above:
+ * FIXTURE CAP INC. (f4757132-041c-4480-b7a5-2a7fc9fc9a23), CBCA, incorporated
+ * 2026-03-02, FYE 31/12, zero documents. Its first close is 2026-12-31 -> cap
+ * 2027-06-30. It is the ONLY fixture that separates the two ways this function returns
+ * a live-keeping answer: TODAY it returns null (no fiscal year closed yet), and between
+ * 2027-01-01 and 2027-06-30 it returns a cap that EXISTS but has not been reached. Wick
+ * and Cafe du Coin are both long past their caps; Acme has no foundational rows at all.
+ * Do not read the paragraph above as "no fixture covers the not-yet-due case" — one does.
+ *
+ * TWO WAYS THIS RETURNS null, and they are different decisions:
+ *
+ *   no fiscal year closed yet -> null. The cap does not exist, so nothing is overdue.
+ *   Before its first full cycle a company has not yet had the time the cap measures;
+ *   flipping it on the day of incorporation would put every new customer in default on
+ *   arrival.
+ *
+ *   incorporationDate null -> null. The first fiscal year is underivable, and we do not
+ *   tell a user their book may be out of date on the strength of a date we do not have.
+ *   NOTE this is the OPPOSITE policy to `completedFiscalYearEnd`, which falls back to the
+ *   raw calendar answer on a null incorporation date because hiding real obligations is
+ *   the worse failure there. Here the worse failure is asserting one. Deliberate.
+ */
+export function bookCurrencyCap(
+  fiscalYearEndMonth: number,
+  fiscalYearEndDay: number,
+  incorporationDate: string | null,
+  today: Date,
+): Date | null {
+  if (!incorporationDate) return null;
+  // Existence test only — its VALUE is the most recent close, not the first.
+  if (completedFiscalYearEnd(fiscalYearEndMonth, fiscalYearEndDay, incorporationDate, today) === null) {
+    return null;
+  }
+  const inc = parseLocalDate(incorporationDate);
+  // The first (month/day) occurrence STRICTLY after incorporation — same strict boundary
+  // as completedFiscalYearEnd, so a company incorporated exactly on its year-end day is
+  // not credited with a zero-length first fiscal year.
+  let firstEnd = new Date(inc.getFullYear(), fiscalYearEndMonth - 1, fiscalYearEndDay);
+  if (firstEnd <= inc) {
+    firstEnd = new Date(inc.getFullYear() + 1, fiscalYearEndMonth - 1, fiscalYearEndDay);
+  }
+  return addMonthsClamped(firstEnd, 6);
+}
+
+/**
  * The fiscal year an obligation ATTACHES TO — the `year` half of the completeness
  * identity (requirement_key, year). The most recent CLOSED fiscal year the company
  * existed through; before any has closed, the fiscal year currently OPEN. Never a

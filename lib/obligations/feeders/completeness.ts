@@ -104,6 +104,7 @@ export function completenessToObligations(
   today: Date,
   hasLaterAnnualFiling: boolean,
   incYear: number | null,
+  bookCurrencyCap: Date | null,
 ): Obligation[] {
   return items
     // Harvey 2026-07-05 presumed-done — a company with later satisfied annuals has
@@ -148,8 +149,27 @@ export function completenessToObligations(
       descriptionFr: item.description_fr,
       descriptionEn: item.description_en,
       status,
-      // No clock — year-based liveness (foundational year==null → 'live').
-      liveness: computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: item.year, today }),
+      // No clock — year-based liveness. FOUNDATIONAL ROWS (year === null) TAKE THE
+      // BOOK-CURRENCY CAP INSTEAD, when it exists and has passed: they carry no legal
+      // deadline (Harvey GREEN), so 'live' — glossed "not yet due" — was asserting a
+      // currency the book may no longer have. See bookCurrencyCap in
+      // obligation-registry.ts for the rule, and why it is a PRODUCT rule, not a legal
+      // claim. ONE DATE PER COMPANY: the cap arrives as a parameter, identical for
+      // every row, and is never re-derived per row.
+      //
+      // ⚠️ THE CAP IS APPLIED HERE, AT THE CALL SITE, AND NOT IN liveness.ts. That
+      // function's `year === null → 'live'` branch is SHARED with the checklist path
+      // (requirement-completeness.ts), which feeds Complétude and the verdict counters.
+      // Measured 2026-08-11: moving the 8 Wick foundational rows on the BOARD left all
+      // four verdict counters untouched (10/8/20, defaut_prolonge). Changing liveness.ts
+      // would have moved both. The two paths are disjoint; keep them that way.
+      //
+      // cap null — no fiscal year closed yet, or no incorporation date — keeps 'live'.
+      // Both cases are argued on bookCurrencyCap itself.
+      liveness:
+        item.year === null && bookCurrencyCap !== null && today > bookCurrencyCap
+          ? 'regularize'
+          : computeLiveness({ daysUntilDue: null, legalWindowDays: null, year: item.year, today }),
       weight: STATE_WEIGHT[state],
       dueDate: null,
       triggeredBy: null,

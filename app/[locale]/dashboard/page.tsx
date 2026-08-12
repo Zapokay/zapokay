@@ -16,7 +16,7 @@ import { deadlineObligations, ANNUAL_MEETING_RECORD_KEYS } from '@/lib/obligatio
 import { eventsToObligations } from '@/lib/obligations/feeders/events';
 import { mergeObligations } from '@/lib/obligations/aggregate';
 import { rankObligations } from '@/lib/obligations/rank';
-import { obligationFiscalYear } from '@/lib/obligations/obligation-registry';
+import { bookCurrencyCap, obligationFiscalYear } from '@/lib/obligations/obligation-registry';
 import A3Board from '@/components/dashboard/A3Board';
 import StatusVerdict from '@/components/dashboard/StatusVerdict';
 import InventoryLine from '@/components/minute-book/InventoryLine';
@@ -87,7 +87,14 @@ export default async function DashboardPage({
       incYear !== null &&
       completeness.checklist.some((i) => i.satisfied && i.year != null && i.year > incYear);
 
-    const completenessObs = completenessToObligations(completeness.checklist, today, hasLaterAnnualFiling, incYear);
+    // THE BOOK-CURRENCY CAP — one date per company, computed once here where the three
+    // inputs already are (no extra query), and handed to the feeder as a parameter so
+    // the feeder stays pure. Never re-derived per row. Rule + rationale:
+    // bookCurrencyCap in obligation-registry.ts.
+    const cap = bookCurrencyCap(fyEndMonth, fyEndDay, incorporationDate, today);
+
+    const completenessObs = completenessToObligations(
+      completeness.checklist, today, hasLaterAnnualFiling, incYear, cap);
 
     // Federal-return clear-gate: is the CURRENT-FY cbca_annual_return receipt already
     // uploaded? Derived from the checklist already in hand (no extra query).
