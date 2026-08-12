@@ -604,42 +604,96 @@ export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
   {
     // QC initial declaration (RE-200) — immatriculation + 60 days (day math, no clamp).
     ruleKey: 'qc_initial_declaration',
-    requirementKeys: ['lsaq_declaration_initiale', 'cbca_declaration_initiale_qc'],
-    statutoryBasis: 'art. 38 LPLE',
+    requirementKeys: ['lsaq_declaration_initiale'],
+    statutoryBasis: 'art. 38 LPLE · art. 8 al. 2 LSAQ (voie 2 seulement)',
     helpKey: null,
-    // GENERIC-EMISSION FIELDS (phase 2 — declared, deliberately UNREAD).
-    // ★ THIS IS THE ENTRY WHERE THE ALLOW/DENY POLARITY INVERSION IS LIVE: the allow-list
-    // ['CBCA'] is the translation of feeders/deadlines.ts's `framework !== 'LSA'`. They
-    // agree only while the union has two members — see the `frameworks` docblock. The
-    // exclusion is substantive, not a gate detail: Harvey 2026-07-24 (GREEN, LSAQ art.
-    // 8-9-10) found a QUASI-IDENTITY for provincially-incorporated companies — art. 8 lets
-    // the declaration ride the articles of incorporation and art. 9 transmits them to the
-    // registraire, so being registered IS having filed, and an LSAQ company never owes it.
+    // ═══ INERT — THIS RULE EMITS FOR NO FRAMEWORK. Read this before re-enabling it. ═══
+    //
+    // `frameworks: []` is the empty ALLOW-LIST: feeders/deadlines.ts tests
+    // `!rule.frameworks.includes(framework)` and an empty array matches nothing, so the
+    // generic loop skips this rule for every company. The rule is kept, not deleted,
+    // because feeders/completeness.ts derives INITIAL_DECLARATION_KEYS from its
+    // `requirementKeys`, and the LSAQ half of that Set is LIVE — measured 2026-08-12 on
+    // the Acme fixture, which reports SUPPRESSED_INITIAL_DECLARATION. Deleting the entry
+    // would remove a working mechanism to fix a broken one.
+    //
+    // ── CBCA — THE OBLIGATION DOES NOT EXIST ────────────────────────────────────────
+    // [OUR LEGAL COUNSEL, 2026-08-11] art. 38 LPLE does not reach a federal corporation:
+    // art. 30 reserves the deposit-of-the-constituting-act route to legal persons
+    // INCORPORATED IN QUEBEC. A federal corporation's obligation is art. 32, the
+    // declaration of registration — and PRODUCING that declaration is the LEGAL CAUSE of
+    // registration (art. 30), the NEQ being assigned at registration (art. 37).
+    // ★ HOLDING A NEQ IS HAVING PRODUCED IT. Not a presumption to compute — an identity.
+    // There is no state in which a registered federal corporation owes this filing.
+    //
+    // ⚠️ THE COMMENT THIS REPLACES IS PERIMED, AND SAID SO ITSELF. It read: "Harvey COULD
+    // NOT MAP that residual case without the full LPLE text. Until he rules, the CBCA path
+    // keeps today's behaviour exactly." He ruled on 2026-08-11. The condition the old
+    // comment named has been met; its instruction expired with it.
+    //
+    // The catalog row `cbca_declaration_initiale_qc` was DELETED on 2026-08-12
+    // (migration 20260812120100), which is why it no longer appears in requirementKeys.
+    //
+    // ── LSAQ — THE OBLIGATION IS REAL, BUT WE CANNOT TELL WHO OWES IT ───────────────
+    // art. 8 al. 2 LSAQ makes annexing the declaration to the articles FACULTATIVE, so a
+    // Quebec corporation takes one of two routes:
+    //   VOIE 1  declaration annexed to the articles — it travels with them, art. 9
+    //           transmits both to the registraire. Being registered IS having filed.
+    //           A proof slot: nothing is owed.
+    //   VOIE 2  articles filed alone — the declaration is then owed within 60 days,
+    //           with a real penalty (art. 86, 100% of the annual fees).
+    //
+    // ★ THE DISTINCTION IS NOT MODELLED ANYWHERE. There is no column, no field and no
+    // predicate that says which route a company took — searched 2026-08-12 across the
+    // catalog, the companies table and this registry. Emitting for every LSAQ company
+    // would call the majority late; emitting for none says nothing to those who are.
+    //
+    // ★★ THE DATA THAT WOULD REOPEN THIS RULE, named so it is not re-derived: the REQ
+    // PUBLIC RECORD carries the FILING DATE of each document. Filed the same day as
+    // registration = voie 1, nothing owed. Filed later, or absent = voie 2, sixty days
+    // from registration and art. 86 exposure. It is an OBSERVABLE FACT, not a
+    // presumption — the moment that date is available to us, this rule can scope to
+    // ['LSA'] and be correct rather than merely quiet.
+    //
+    // ⚠️ THIS IS A KNOWINGLY ACCEPTED COVERAGE GAP, NOT A COMPLETED FIX. Max decided on
+    // 2026-08-12 to stop reporting a REAL obligation to a population we cannot identify,
+    // because the alternative was a mass false positive. Someone chose to say NOTHING
+    // rather than say something FALSE. That is a product decision with a cost, and the
+    // cost is that a voie-2 LSAQ company in default hears nothing from us. Do not read
+    // the silence of this rule as evidence that nothing is owed.
+    //
+    // ⚠️ POSITION OF OUR LEGAL COUNSEL, NOT AN EXTERNAL LAWYER'S VERDICT. The A1 CONTENT
+    // gate remains the sole GREEN authority and has not reviewed any of this.
     exposure: 'external',
     actionKind: 'file_externally',
     titleKey: 'obligationTitle.initialDeclaration',
-    // ★★ A NEGATIVE FINDING, AND IT IS THE REASON THIS IS AN ALLOW-LIST OF ONE RATHER
-    // THAN AN OMITTED FIELD. Migrated from feeders/deadlines.ts in A4 phase 4a, where the
-    // code that expressed it (`framework !== 'LSA'`) has been deleted — so nothing points
-    // at it any more and it survives only if it is written down here.
-    //
-    // CBCA IS DELIBERATELY NOT COVERED BY THE LSAQ QUASI-IDENTITY ABOVE — not an
-    // oversight. A federal company that begins doing business in Québec has a real,
-    // genuinely-outstanding registration obligation, and Harvey COULD NOT MAP that
-    // residual case without the full LPLE text. Until he rules, the CBCA path keeps
-    // today's behaviour exactly: the row is emitted, governed only by
-    // `suppressWhenSatisfied` below.
-    //
     // AND THE SUPPRESSION KEYS ON INCORPORATION, DELIBERATELY NOT ON `companies.neq`: the
     // NEQ is OPTIONAL at onboarding (StepCompany.validate does not require it) and both
     // fixtures hold placeholders, so a null NEQ means "the user skipped a field", never
     // "not registered". ABSENCE OF AN IDENTIFIER IS NOT EVIDENCE OF NON-REGISTRATION.
-    frameworks: ['CBCA'],
+    // ★ This paragraph gains weight under the 2026-08-11 ruling above, which turns on a
+    // company HOLDING a NEQ — the identity holds on the registration fact, never on
+    // whether our own column happens to be filled in.
+    frameworks: [],
     // Presumed-done (Harvey 2026-07-05, Option 1) — the declarative twin of the deadline
     // feeder's `hasLaterAnnualFiling`. requirementKeys OMITTED = ANY key satisfies, which
     // is exactly that flag's meaning: any CERTIFIED annual filing for a year strictly after
     // incorporation proves the founding REQ dossier was initialized, whichever key carried
     // it. Never self-defaulting — see the field's docblock.
+    //
+    // ⚠️ INERT SINCE 2026-08-12, WITH THE RULE ITSELF. `frameworks: []` means this rule
+    // is never emitted, so `isPresumedDischarged` is never called for it and this field
+    // has no effect on anything. IT IS KEPT, NOT DELETED: it is the correct suppression
+    // for this obligation, and removing it would force whoever reopens the rule to
+    // rediscover it.
+    //
+    // ★ AND IT PUTS AN INVARIANT TO SLEEP, which is why this note points at the test.
+    // This rule is the ONLY one declaring `yearScope: 'afterIncorporation'`, so
+    // scripts/check-obligations.ts FACT 3 now reports ⊘ NO SUBJECT / UNTESTED for that
+    // limb instead of ✓. The 'afterIncorporation' branch of isPresumedDischarged is no
+    // longer covered by anything. Reopening this rule (LSAQ voie 2, REQ filing date)
+    // relights FACT 3 automatically — it selects its subject by scope AND emittability,
+    // never by name.
     suppressWhenSatisfied: { yearScope: 'afterIncorporation' },
     dueDate: (ctx) => {
       if (!ctx.immatriculationDate) return null;

@@ -464,6 +464,9 @@ export function deadlineObligations(
     if (rule.cadence === 'event') continue;
 
     // APPLICABILITY — the frameworks ALLOW-LIST. Omitted = every framework.
+    // EMPTY ARRAY = none: the rule is inert and this loop skips it for every company
+    // (an empty array is truthy, and `[].includes(x)` is always false). Live example:
+    // `qc_initial_declaration`, whose entry explains why.
     if (rule.frameworks && !rule.frameworks.includes(framework)) continue;
 
     // THE ROW'S FISCAL YEAR, derived from cadence. 'once' carries none (the RE-200 is the

@@ -58,6 +58,17 @@ const fail = (fact: string, what: string, expected: unknown, actual: unknown) =>
   console.error('    actual   : ' + JSON.stringify(actual));
 };
 const pass = (fact: string, detail: string) => console.log('✓ ' + fact + ' — ' + detail);
+/**
+ * A third state, between ✓ and ✗: the assertion could not run because it has no
+ * SUBJECT. It does not touch `failures`, so the script still exits 0 — but it must never
+ * read as a success. Every skip prints the word UNTESTED for that reason: a bare ⊘ looks
+ * like a pass by the third run.
+ */
+let skipped = 0;
+const skip = (fact: string, why: string) => {
+  skipped++;
+  console.log('⊘ ' + fact + ' — NO SUBJECT: ' + why + ' This path is UNTESTED.');
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FACT 1 — CADENCE DETERMINES MODE, over the WHOLE registry.
@@ -183,13 +194,55 @@ const pass = (fact: string, detail: string) => console.log('✓ ' + fact + ' —
 // Tested through EMISSION, not by calling the helper: isPresumedDischarged is a
 // local inside deadlineObligations. Emission is the behaviour that matters anyway.
 //
-// ★ WRITTEN NOW BECAUSE PHASE 4c DELETES THE ORIGINALS. After that, nothing can
+// ★ WRITTEN BECAUSE PHASE 4c DELETES THE ORIGINALS. After that, nothing can
 // attest the equivalence — the thing being reproduced will be gone.
 //
 // ★ AND THE BOOLEANS ARE PASSED DELIBERATELY WRONG. hasLaterAnnualFiling and
 // currentFedReturnFiled are set to values that CONTRADICT the checklist. If the
 // loop still behaves correctly, it is reading the checklist through the rule's own
 // suppressWhenSatisfied — which is the claim.
+//
+// ═══ 2026-08-12 — THE 'afterIncorporation' LIMB LOST ITS SUBJECT ═════════════
+// `qc_initial_declaration` went INERT (`frameworks: []`) because our legal counsel
+// ruled the federal RE-200 obligation does not exist and the Quebec one cannot be
+// scoped without data we do not hold. It was the ONLY rule declaring
+// `yearScope: 'afterIncorporation'`, and it is no longer emitted for any framework —
+// so there is nothing left to observe through emission.
+//
+// ⚠️ THE PATH IS NOW COMPLETELY UNTESTED. If someone breaks the 'afterIncorporation'
+// branch of isPresumedDischarged, nothing here will say so. That is a REAL LOSS,
+// accepted deliberately rather than papered over. The alternative was worse: see below.
+//
+// ★ THE PARAGRAPH ABOVE PREDICTED ITS OWN DEATH AND DID NOT SAY WHAT TO DO NEXT.
+// "WRITTEN BECAUSE PHASE 4c DELETES THE ORIGINALS. After that, nothing can attest the
+// equivalence." It expected to die when the deleted booleans were removed. It died a
+// year early, through a different door — the rule went inert, not the booleans.
+//
+// ── TWO WAYS TO KEEP IT GREEN WERE CONSIDERED AND REJECTED ───────────────────
+// (a) INSERT A FICTITIOUS RULE into OBLIGATION_REGISTRY for the duration of the test.
+//     `deadlineObligations` takes no registry parameter — it iterates the module
+//     constant — so this is the only way a fabricated rule could reach the emission
+//     path. Rejected: the test would MUTATE THE ARTEFACT IT OBSERVES, and FACT 4
+//     iterates that same array a few lines later. A try/finally would seal a hazard we
+//     would have created ourselves.
+// (b) LIFT isPresumedDischarged out of the closure and export it. Rejected: it captures
+//     `checklist` AND `incYear` from deadlineObligations' scope, so exporting it changes
+//     its position, its signature and its call site — and `incYear` would either travel
+//     as a parameter or be re-derived, which is the two-implementations-of-one-derivation
+//     defect corrected this same morning on the book-currency cap.
+//
+// ★ FABRICATING A SUBJECT SO A TEST STAYS GREEN IS THE TEST LYING. A skip that says
+// UNTESTED is worth more than a pass that measures a fixture of our own making.
+//
+// ── HOW IT RELIGHTS ITSELF ───────────────────────────────────────────────────
+// The subject is found DYNAMICALLY, by scope and by emittability — never by name. The
+// day any rule declares `yearScope: 'afterIncorporation'` AND is emittable under this
+// test's framework, the limb runs again with no edit here. First candidate:
+// `qc_initial_declaration` reopened, which needs the REQ public record's FILING DATE to
+// separate LSAQ voie 1 (nothing owed) from voie 2 (sixty days, art. 86).
+//
+// The 'attachYear' limb is UNAFFECTED — `fed_annual_return` still carries it and is
+// still emitted.
 // ─────────────────────────────────────────────────────────────────────────────
 {
   const FACT = 'FACT 3 · suppressWhenSatisfied reproduces the booleans';
@@ -219,28 +272,42 @@ const pass = (fact: string, detail: string) => console.log('✓ ' + fact + ' —
       CLOCK,
     ).map((o) => o.id);
 
-  // Find the rules by their DECLARED scope, so the test follows the registry.
-  const afterInc = OBLIGATION_REGISTRY.find((r) => r.suppressWhenSatisfied?.yearScope === 'afterIncorporation');
-  const attach = OBLIGATION_REGISTRY.find((r) => r.suppressWhenSatisfied?.yearScope === 'attachYear');
+  // Find the rules by their DECLARED scope, so the test follows the registry — and by
+  // EMITTABILITY, so an inert rule is not mistaken for a live subject. The emittability
+  // predicate mirrors feeders/deadlines.ts's frameworks gate against THIS test's
+  // framework; it is declarative and does not depend on the mechanism under test, so it
+  // cannot confuse "inert" with "broken".
+  const emittable = (r: (typeof OBLIGATION_REGISTRY)[number]) =>
+    !r.frameworks || r.frameworks.includes('CBCA');
+  const afterInc = OBLIGATION_REGISTRY.find(
+    (r) => r.suppressWhenSatisfied?.yearScope === 'afterIncorporation' && emittable(r),
+  );
+  const attach = OBLIGATION_REGISTRY.find(
+    (r) => r.suppressWhenSatisfied?.yearScope === 'attachYear' && emittable(r),
+  );
 
-  if (!afterInc || !attach) {
-    // String(undefined) rather than the raw value: JSON.stringify DROPS undefined
-    // keys, so the missing one would vanish from the failure message entirely.
-    fail(FACT, 'expected one rule declaring each yearScope', 'afterIncorporation + attachYear', {
-      afterIncorporation: String(afterInc?.ruleKey), attachYear: String(attach?.ruleKey),
-    });
+  if (!attach) {
+    fail(FACT, 'expected one emittable rule declaring yearScope attachYear', 'a rule', 'none');
   } else {
     const attachKey = attach.suppressWhenSatisfied?.requirementKeys?.[0] ?? attach.requirementKeys[0];
     const has = (ids: string[], rk: string) => ids.some((i) => i.startsWith('deadline:' + rk + ':'));
 
     // — 'afterIncorporation': any satisfied row for a year STRICTLY AFTER incorporation.
+    // `emptyIds` is computed unconditionally: the attachYear limb below needs it too.
     const emptyIds = emit([]);
-    const laterIds = emit([item('any_annual_key', INC_YEAR + 3, true)]);
-    const sameYearIds = emit([item('any_annual_key', INC_YEAR, true)]); // NOT strictly after
-    if (!has(emptyIds, afterInc.ruleKey)) fail(FACT, '`' + afterInc.ruleKey + '` with an EMPTY checklist', 'emitted', 'suppressed');
-    else if (has(laterIds, afterInc.ruleKey)) fail(FACT, '`' + afterInc.ruleKey + '` with a satisfied row for year ' + (INC_YEAR + 3), 'suppressed', 'emitted');
-    else if (!has(sameYearIds, afterInc.ruleKey)) fail(FACT, '`' + afterInc.ruleKey + '` with a satisfied row for the INCORPORATION year (strict > required)', 'emitted', 'suppressed');
-    else pass(FACT + ' / afterIncorporation', '`' + afterInc.ruleKey + '` suppressed only by a year strictly after incorporation');
+    if (!afterInc) {
+      skip(FACT + ' / afterIncorporation',
+        "no EMITTABLE rule declares yearScope 'afterIncorporation' — qc_initial_declaration " +
+        'still declares it but went inert on 2026-08-12 (frameworks: []), so nothing reaches ' +
+        'the emission path. It relights by itself the day an emittable rule carries the scope.');
+    } else {
+      const laterIds = emit([item('any_annual_key', INC_YEAR + 3, true)]);
+      const sameYearIds = emit([item('any_annual_key', INC_YEAR, true)]); // NOT strictly after
+      if (!has(emptyIds, afterInc.ruleKey)) fail(FACT, '`' + afterInc.ruleKey + '` with an EMPTY checklist', 'emitted', 'suppressed');
+      else if (has(laterIds, afterInc.ruleKey)) fail(FACT, '`' + afterInc.ruleKey + '` with a satisfied row for year ' + (INC_YEAR + 3), 'suppressed', 'emitted');
+      else if (!has(sameYearIds, afterInc.ruleKey)) fail(FACT, '`' + afterInc.ruleKey + '` with a satisfied row for the INCORPORATION year (strict > required)', 'emitted', 'suppressed');
+      else pass(FACT + ' / afterIncorporation', '`' + afterInc.ruleKey + '` suppressed only by a year strictly after incorporation');
+    }
 
     // — 'attachYear': a satisfied row for the declared key at THIS row's attach year.
     const attachYear = 2025; // most recent closed FY for a 31-Dec year-end at 2026-07-27
@@ -339,5 +406,13 @@ if (failures > 0) {
   console.error(failures + ' failure(s).');
   process.exit(1);
 }
-console.log('all invariants hold.');
+// ★ THE SUMMARY MUST NOT OVER-CLAIM. A skip is not a failure — the exit code stays 0 —
+// but "all invariants hold" beside a ⊘ takes back with the last line what the skip just
+// said, and a reader who scans only the summary would see an unqualified success. The
+// count of untested paths travels with the verdict.
+if (skipped > 0) {
+  console.log('invariants hold, EXCEPT ' + skipped + ' path(s) reported UNTESTED above (no subject).');
+} else {
+  console.log('all invariants hold.');
+}
 process.exit(0);
