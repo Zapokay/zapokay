@@ -493,28 +493,35 @@ export function deadlineObligations(
       today,
     });
 
-    // ★ THE CADENCE ASSERTION (A4 phase 4a). Only testable on this branch, and free here
-    // because it reads the call already made above.
+    // ★ THE PHANTOM-ROW ASSERTION — ONE DIRECTION, AND THE OTHER ONE IS GONE ON EVIDENCE.
     //
-    // The loop does NOT branch on cadence to decide skip-vs-fire — it just skips a null
-    // date. That works because every 'per-fiscal-year' rule returns null without a closed
-    // fiscal year and no other cadence does. [MEASURED 2026-07-30, all four entries.]
-    // ⚠️ BUT THAT CORRESPONDENCE RESTS ON ONE PER-FISCAL-YEAR RULE — it may be
-    // construction or it may be coincidence, and a probe cannot tell the difference. So it
-    // is asserted rather than assumed, and the assertion protects the rule that does not
-    // exist yet.
-    if (!fyEnd) {
-      const wantsSkip = rule.cadence === 'per-fiscal-year';
-      if (wantsSkip !== (due === null)) {
-        throw new Error(
-          `OBLIGATION_REGISTRY: '${rule.ruleKey}' (cadence '${rule.cadence}') returns ` +
-            `${due === null ? 'null' : 'a date'} when no fiscal year has closed, which does ` +
-            `not match its cadence. If that is INTENTIONAL, the loop can no longer derive ` +
-            `its mode from cadence and the rule needs a DECLARED mode field — a gap A4 ` +
-            `phase 4 deferred on the evidence that cadence encoded it. Decide that before ` +
-            `relaxing this check.`,
-        );
-      }
+    // It used to enforce a two-way correspondence: no closed fiscal year meant a
+    // 'per-fiscal-year' rule MUST return null and every other cadence MUST return a date.
+    // The second half — call it half B — IS FALSE, and shipped false on 2026-08-12: the
+    // federal return now stays silent in the incorporation year, which is CORRECT (Harvey),
+    // and half B rejected that fix with the very message it reserved for a regression.
+    // ★ A CHECK THAT CANNOT TELL A FIX FROM A BUG GUARDS NEITHER. [MEASURED 2026-08-12:
+    // half B fails identically on the legitimate fix and on a rule silenced by mutation.]
+    //
+    // WHAT SURVIVES IS HALF A, and it survives because it is still true and still load
+    // bearing: a 'per-fiscal-year' instance is INSTANTIATED BY a closed fiscal year, so a
+    // date produced without one belongs to no year and surfaces as a phantom deadline on a
+    // first-year company. That is `0f7deee`, shipped once already.
+    //
+    // ★ AND IT GENERALISES TO PHASE 4b UNCHANGED — the check is per emitted date, not per
+    // rule, so N rows run it N times. Half B could not have followed: "emits or stays
+    // silent" has no answer once a rule emits a SET.
+    //
+    // ⚠️ WHETHER A RULE SHOULD BE SILENT IS NOT A PROPERTY OF ITS CADENCE. That question
+    // moved to scripts/check-obligations.ts FACT 5, which asserts the ROW SET on both sides
+    // of the first-year boundary instead of asking cadence to predict it.
+    if (!fyEnd && rule.cadence === 'per-fiscal-year' && due !== null) {
+      throw new Error(
+        `OBLIGATION_REGISTRY: '${rule.ruleKey}' (cadence 'per-fiscal-year') returns a date ` +
+          `when no fiscal year has closed. A per-fiscal-year instance is instantiated BY a ` +
+          `closed fiscal year, so this row has no year to belong to and would surface as a ` +
+          `phantom deadline on a first-year company (the 0f7deee defect class).`,
+      );
     }
 
     if (!due) continue;

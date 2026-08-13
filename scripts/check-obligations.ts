@@ -71,20 +71,29 @@ const skip = (fact: string, why: string) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FACT 1 — CADENCE DETERMINES MODE, over the WHOLE registry.
+// FACT 1 — A PER-FISCAL-YEAR RULE CANNOT FIRE WITHOUT A CLOSED FISCAL YEAR.
 //
-// Every 'per-fiscal-year' rule returns null when the fiscal-year anchor is absent
-// (= "emit nothing"); every other non-event cadence returns a date (= "emit
-// anyway"). The generic loop in feeders/deadlines.ts relies on this WITHOUT ever
-// branching on cadence — it just skips a null date.
+// ONE DIRECTION, over the whole registry: a 'per-fiscal-year' rule must return null when
+// the fiscal-year anchor is absent. Nothing is asked of any other cadence.
 //
-// ⚠️ TRUE ON ONE per-fiscal-year RULE TODAY. That is precisely why it is written:
-// a sample of one cannot distinguish construction from coincidence, and the loop's
-// correctness depends on which it is. Iterating the whole registry means a rule
-// added tomorrow is covered without touching this file.
+// ★ IT USED TO ASK BOTH DIRECTIONS, and the second one — "every other non-event cadence
+// returns a date" — WAS FALSE AND WAS REMOVED ON EVIDENCE (2026-08-12). The federal return
+// legitimately stays silent in its incorporation year (Harvey), and half B failed that fix
+// with the identical message it produced for a rule silenced by mutation: same fact, same
+// wording, same exit code. A check that cannot separate a fix from a bug guards neither,
+// and this one blocked the fix while claiming to protect it.
+//
+// ⚠️ TRUE ON ONE per-fiscal-year RULE TODAY, which is still why it is written: a sample of
+// one cannot distinguish construction from coincidence. Iterating the whole registry means
+// a rule added tomorrow is covered without touching this file.
+//
+// ★ WHAT REPLACED HALF B IS FACT 5, NOT NOTHING. Whether a rule SHOULD be silent is a
+// question about the ROW SET a company gets, and FACT 5 asserts it directly on both sides
+// of the first-year boundary. This fact keeps the half that is about cadence; that one
+// takes the half that never was.
 // ─────────────────────────────────────────────────────────────────────────────
 {
-  const FACT = 'FACT 1 · cadence determines mode';
+  const FACT = 'FACT 1 · a per-fiscal-year rule cannot fire without a closed fiscal year';
   const before = failures;
   const ctx: ObligationDueCtx = {
     // fyEnd DELIBERATELY ABSENT — the "no fiscal year has closed" case
@@ -92,7 +101,13 @@ const skip = (fact: string, why: string) => {
     incorporationDate: '2018-04-17',
     today: new Date(2026, 6, 27),
   };
+  // TWO COUNTERS, AND THE SECOND IS THE ONE THAT MATTERS. `checked` counts rules whose
+  // dueDate was callable; `asserted` counts rules this fact actually put a claim on. They
+  // were the same number while the test ran in both directions. They are not any more, and
+  // reporting the first as though it were the second would print a ✓ for a fact with no
+  // subject — the exact shape the header of this file forbids.
   let checked = 0;
+  let asserted = 0;
   for (const rule of OBLIGATION_REGISTRY) {
     if (rule.cadence === 'event') continue; // feeder 2's territory, no date rule
     if (typeof rule.dueDate !== 'function') {
@@ -100,22 +115,27 @@ const skip = (fact: string, why: string) => {
       continue;
     }
     const skips = rule.dueDate(ctx) === null;
-    const wantsSkip = rule.cadence === 'per-fiscal-year';
-    if (skips !== wantsSkip) {
-      fail(
-        FACT,
-        'rule `' + rule.ruleKey + '` (cadence ' + rule.cadence + ') with no fiscal-year anchor',
-        wantsSkip ? 'null (skip)' : 'a Date (fire)',
-        skips ? 'null (skip)' : 'a Date (fire)',
-      );
+    if (rule.cadence === 'per-fiscal-year') {
+      asserted++;
+      if (!skips) {
+        fail(
+          FACT,
+          'rule `' + rule.ruleKey + '` (cadence per-fiscal-year) with no fiscal-year anchor',
+          'null (skip)',
+          'a Date (fire)',
+        );
+      }
     }
     checked++;
   }
-  const pfy = OBLIGATION_REGISTRY.filter((r) => r.cadence === 'per-fiscal-year').length;
   if (checked === 0) fail(FACT, 'no participating rule was checked', '> 0', 0);
+  else if (asserted === 0)
+    skip(FACT, 'the registry holds no per-fiscal-year rule, so this fact asserted nothing — ' +
+      checked + ' non-event rule(s) were iterated and none was a subject.');
   // Only report a pass if nothing failed INSIDE this fact — the loop above can fail
   // per rule, and a ✓ printed beside a ✗ for the same fact is worse than no ✓.
-  else if (failures === before) pass(FACT, checked + ' participating rules, of which ' + pfy + ' per-fiscal-year');
+  else if (failures === before)
+    pass(FACT, asserted + ' per-fiscal-year rule(s) asserted, of ' + checked + ' participating');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -397,6 +417,100 @@ const skip = (fact: string, why: string) => {
       allKeys.length + ' catalog keys partitioned: ' + merged.size + ' merged, ' +
         suppressed.length + ' board-suppressed, 0 claimed twice, 0 unclaimed',
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FACT 5 — THE FIRST-YEAR BOUNDARY, ASSERTED AS A ROW SET RATHER THAN A CORRESPONDENCE.
+//
+// A company incorporated this calendar year owes no federal annual return (Harvey
+// 2026-08-10, GREEN). The year after, it owes one. This asserts BOTH, on one synthetic
+// company at two clocks, through `deadlineObligations` — the real emission path.
+//
+// ★ WHY IT EXISTS: IT IS THE ONLY GATE THAT SAW THE DEFECT. On 2026-08-12, with the
+// incorporation-year fix removed, FACT 1 printed ✓ and FACT 3 printed ✓ while a company
+// incorporated 2026-03-02 was shown a return "overdue by 102 days" at score 1.0000. Both
+// facts ask questions this defect answers correctly; only a claim about the ROW SET
+// catches it.
+//
+// ★ AND IT ESCAPES THE BLIND SPOT THAT LET THE DEFECT SHIP. Every other gate builds a
+// MATURE company — FACT 1 and FACT 3 both use inc 2018-04-17 against a 2026 clock, so
+// their subject has closed fiscal years and the boundary is never crossed. The subject
+// here is a first-year company BY CONSTRUCTION: its clock is derived from its own
+// incorporation year, so no future edit to a date literal can quietly age it out.
+//
+// ★ INVARIANT TO THE OPEN ITEM. `fed_annual_return.dueDate` compares CALENDAR YEARS where
+// its clock is an ANNIVERSARY — known, deliberate, out of scope. This fact never reads
+// that comparison: it asks which rows a company gets. Correcting the comparison to an
+// anniversary basis leaves both limbs true, so this does not become a decision freezer —
+// the rule the header of this file lays down.
+//
+// ⚠️ THE TWO LIMBS ARE NOT REDUNDANT AND NEITHER MAY BE DROPPED. Limb 1 alone would pass
+// under a fix that silences the rule FOREVER; limb 2 alone would pass under no fix at all.
+// [MEASURED 2026-08-12, both directions, by two opposite mutations.]
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const FACT = 'FACT 5 · the first-year boundary';
+  const before = failures;
+  const RULE_KEY = 'fed_annual_return';
+  const rule = OBLIGATION_REGISTRY.find((r) => r.ruleKey === RULE_KEY);
+
+  // The subject is SYNTHESISED, not a fixture: one company, two clocks, everything else
+  // held constant. An empty checklist keeps `suppressWhenSatisfied` out of the answer —
+  // this fact is about the boundary, not about suppression (that is FACT 3's).
+  const emitAt = (incorporationDate: string, today: Date): string[] =>
+    deadlineObligations(
+      {
+        framework: 'CBCA',
+        fyEndMonth: 12,
+        fyEndDay: 31,
+        incorporationDate,
+        immatriculationDate: incorporationDate,
+        checklist: [],
+        fiscalYears: [],
+        hasLaterAnnualFiling: false,
+        currentFedReturnFiled: false,
+        noPriorAnnualMeetingRecorded: true,
+      },
+      today,
+    ).map((o: Obligation) => o.id);
+  const hasRow = (ids: string[], rk: string): boolean =>
+    ids.some((id: string) => id.startsWith('deadline:' + rk + ':'));
+
+  if (!rule) {
+    skip(FACT, 'no rule named `' + RULE_KEY + '` is in the registry, so there is no subject.');
+  } else if (rule.frameworks && !rule.frameworks.includes('CBCA')) {
+    // Emittability, checked declaratively — an inert rule must not be read as a broken one.
+    skip(FACT, '`' + RULE_KEY + '` does not apply to CBCA, the framework this fact emits under.');
+  } else {
+    const INC = '2026-03-02';
+    const incYear = Number(INC.slice(0, 4));
+    const foundingYearIds = emitAt(INC, new Date(incYear, 7, 11));
+    const yearAfterIds = emitAt(INC, new Date(incYear + 1, 7, 11));
+
+    if (hasRow(foundingYearIds, RULE_KEY)) {
+      fail(
+        FACT,
+        '`' + RULE_KEY + '` for a company incorporated ' + INC + ', clock ' + incYear +
+          '-08-11 — its INCORPORATION YEAR, which produces no return',
+        'no row',
+        'a row',
+      );
+    } else if (!hasRow(yearAfterIds, RULE_KEY)) {
+      fail(
+        FACT,
+        '`' + RULE_KEY + '` for a company incorporated ' + INC + ', clock ' + (incYear + 1) +
+          '-08-11 — the year AFTER incorporation, when the first return is owed',
+        'a row',
+        'no row',
+      );
+    } else if (failures === before) {
+      pass(
+        FACT,
+        '`' + RULE_KEY + '` silent in ' + incYear + ', emitted in ' + (incYear + 1) +
+          ' — the boundary holds in both directions',
+      );
+    }
   }
 }
 

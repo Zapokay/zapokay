@@ -874,6 +874,19 @@ export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
     dueDate: (ctx) => {
       if (!ctx.incorporationDate) return null;
       const inc = parseLocalDate(ctx.incorporationDate);
+      // ★ THE INCORPORATION YEAR PRODUCES NO RETURN. Harvey 2026-08-10, GREEN: the federal
+      // return is settled year by year, and the founding year is not one of them. Without
+      // this, a company incorporated in March 2026 is told on 2026-08-11 that a return was
+      // due 2026-05-01 — overdue by 102 days, ranked at score 1.0000. [MEASURED on
+      // FIXTURECAP, 2026-08-12.]
+      //
+      // ⚠️ THE COMPARISON IS TOO NARROW AND THAT IS DELIBERATE, NOT AN OVERSIGHT. It reads
+      // CALENDAR YEARS where the clock this rule runs on is an ANNIVERSARY, so a company
+      // incorporated late in a year is over-served by up to the gap between 1 January and
+      // its anniversary window. A SEPARATE ITEM. Kept as-is so the boundary FACT 5 asserts
+      // is the one that shipped — and FACT 5 is INVARIANT to its correction: it asserts a
+      // ROW SET at two clocks, never a comparison.
+      if (ctx.today.getFullYear() === inc.getFullYear()) return null;
       // Day overflow in the Date constructor carries into the following month(s), and across
       // a year boundary, correctly — so no month arithmetic is needed and addMonthsClamped
       // does not apply (this is a DAY window, not a month one). LOCAL fields throughout;
