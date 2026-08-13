@@ -77,6 +77,22 @@ function actionForState(state: DocumentState): ObligationAction {
  * (unknown type) are skipped. Done SHARE acts (finalized, no filing) are
  * skipped. Everything else emits its Stage-1 or Stage-2 obligation.
  */
+/**
+ * Days from `today` to a filing deadline — ONE implementation, used by BOTH stages.
+ *
+ * It was written twice before: stage 2 computed it inline and stage 1 hardcoded `null`.
+ * Two copies of one calculation diverge at the first change to either (the `968a7ae`
+ * book-currency motive), and a clock that disagrees with itself between two rows of the
+ * same act is worse than no clock at all.
+ *
+ * Returns null only when there is no deadline to measure against — a SHARE event, which
+ * carries no REQ filing.
+ */
+function daysUntilDueFrom(dueDate: string | null, today: Date): number | null {
+  if (!dueDate) return null;
+  return Math.round((parseLocalDate(dueDate).getTime() - today.getTime()) / 86_400_000);
+}
+
 export function eventsToObligations(acts: EventActStatus[], today: Date): Obligation[] {
   const out: Obligation[] = [];
 
@@ -121,6 +137,7 @@ export function eventsToObligations(acts: EventActStatus[], today: Date): Obliga
       const notice = hasReqFiling ? obligationsForDocKey(docKey)[0] : null;
       const stage1DueDate = notice ? addDays(act.date, notice.deadlineDays) : null;
       const stage1DeadlineDays = notice ? notice.deadlineDays : null;
+      const stage1DaysUntilDue = daysUntilDueFrom(stage1DueDate, today);
 
       out.push({
         id,
@@ -137,7 +154,42 @@ export function eventsToObligations(acts: EventActStatus[], today: Date): Obliga
         dueDate: stage1DueDate, // roster: event date + 30 (marker only); share: null
         triggeredBy: null,
         deadlineDays: stage1DeadlineDays,
-        daysUntilDue: null, // keep status on the DOCUMENT state, not the filing clock
+        // ★ THE CLOCK REACHES THE RANKER. This field used to be `null` here, with the note
+        // "keep status on the DOCUMENT state, not the filing clock". THAT REASON IS STILL
+        // VALID and is still honoured — the status pill above must follow the document
+        // (to produce / produced / finalized), never the filing deadline. Dom's locked
+        // decision; nothing here touches it.
+        //
+        // ★★ WHAT WAS WRONG IS THAT ONE FIELD CARRIED TWO RESPONSIBILITIES: the status
+        // label AND the ranking urgency. Nulling it here switched off the first and lost
+        // the second as collateral damage. `obligation.ts` calls this field "THE ranking
+        // number"; `rank.ts`'s urgencyFor is its ONLY reader outside the feeders (measured
+        // 2026-08-13, no component, no view), and a null there means the URGENCY FLOOR
+        // while an overdue clock means URGENCY_MAX — the widest gap the function produces.
+        //
+        // ★ THE TWO USES WERE ALREADY INDEPENDENT AT THE CALL SITE, which is why this costs
+        // nothing: deriveStatus does not read this field, it takes a PARAMETER, and it is
+        // still handed a LITERAL null a few lines above. Setting the field cannot move a
+        // pill. [MEASURED: 0 status changes, 0 bucket changes, four fixtures, by id.]
+        //
+        // THE COST WAS VISIBLE ON ACME: a director's departure 47 days past its art. 41
+        // LPLE deadline sat at rank 6, behind TWO share issuances carrying no deadline at
+        // all at ranks 1-2. The row's date was on screen the whole time — the marker
+        // rendered it — and the ranker was the only thing not reading it.
+        //
+        // ⚠️ AND THE BUCKET DOES NOT MOVE FOR A REASON WORTH STATING PRECISELY, because the
+        // obvious wording is wrong: it is NOT that liveness ignores the filing clock. A
+        // roster act's tier IS derived from that clock, UPSTREAM, in
+        // event-completeness.ts ("roster acts tier by the 30-day REQ filing window"). This
+        // feeder nulled the field DOWNSTREAM, after the tier was already computed. So this
+        // line RESTORES AN AGREEMENT THAT ALREADY EXISTED — it does not create one, and it
+        // cannot reopen the 2026-07-05 absolute-bucket decision.
+        //
+        // ⚠️ GUARDED BY FACT 6 in scripts/check-obligations.ts: at equal bucket, a row with
+        // a PAST deadline must outrank a row with none. Re-null this field and that fact
+        // fails by name. Nothing else covers this path — tsc cannot (null is a legal value
+        // of `number | null`) and no other gate imports this feeder.
+        daysUntilDue: stage1DaysUntilDue,
         year,
         actionKind: actionForState(state),
         requirementKey: null,
@@ -172,9 +224,7 @@ export function eventsToObligations(acts: EventActStatus[], today: Date): Obliga
     // the always-on ObligationMarker date stay in lockstep.
     const notice = obligationsForDocKey(docKey)[0];
     const dueDate = addDays(act.date, notice.deadlineDays);
-    const daysUntilDue = Math.round(
-      (parseLocalDate(dueDate).getTime() - today.getTime()) / 86_400_000,
-    );
+    const daysUntilDue = daysUntilDueFrom(dueDate, today);
     // docSource carries forward whatever finalized the doc (generated vs uploaded).
     const docSource: 'uploaded' | 'generated' | null =
       act.documentSource === 'uploaded' ? 'uploaded' : 'generated';

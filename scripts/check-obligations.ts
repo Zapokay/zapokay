@@ -46,8 +46,11 @@ import {
 import { mergeObligations } from '@/lib/obligations/aggregate';
 import { computeLiveness } from '@/lib/obligations/liveness';
 import { deadlineObligations } from '@/lib/obligations/feeders/deadlines';
+import { eventsToObligations } from '@/lib/obligations/feeders/events';
+import { rankObligations, type RankedObligation } from '@/lib/obligations/rank';
 import type { Obligation } from '@/lib/obligations/obligation';
 import type { ChecklistItem } from '@/lib/minute-book/requirement-completeness';
+import type { EventActStatus } from '@/lib/minute-book/event-completeness';
 
 let failures = 0;
 const fail = (fact: string, what: string, expected: unknown, actual: unknown) => {
@@ -511,6 +514,157 @@ const skip = (fact: string, why: string) => {
           ' — the boundary holds in both directions',
       );
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FACT 6 — AT EQUAL BUCKET, A PAST DEADLINE OUTRANKS NO DEADLINE AT ALL.
+//
+// The A3 board ranked a director's departure 47 days past its art. 41 LPLE filing
+// deadline BELOW two share issuances that carry no deadline of any kind. Measured on
+// ACME, 2026-08-13: ranks 1-2 clock-less, rank 6 overdue.
+//
+// ★ THE CAUSE WAS ONE FIELD DOING TWO JOBS. `daysUntilDue` is the ranker's only clock
+// input (rank.ts → urgencyFor, its sole reader outside the feeders), and the events
+// feeder set it to null at stage 1 so the STATUS PILL would follow the document state
+// rather than the filing clock. The pill reason was and remains correct — deriveStatus
+// takes a literal null argument and is untouched — but nulling the field also removed
+// the row's urgency, dropping it from URGENCY_MAX to the floor.
+//
+// ★ THIS ASSERTS AN OUTPUT, NOT A CORRESPONDENCE (§100). It does not check that any
+// particular line of code exists, nor that any field is non-null. It builds two acts,
+// runs the REAL path — eventsToObligations then rankObligations — and asserts the ORDER
+// that comes out. Re-null the field for any reason and this fails by name; change how the
+// clock is computed and it keeps passing, as it should.
+//
+// ⚠️ ITS SUBJECT IS CONSTRUCTED, NEVER FOUND. FACT 1 and FACT 3 are blind to whole
+// classes of defect because their subject is pinned at inc 2018 against a 2026 clock —
+// a company that never crosses the boundary they describe. Both acts below are built
+// here, with their dates derived from the test clock, so no future edit to a date
+// literal can quietly move the subject out of the state under test.
+//
+// ⚠️ AND THE TWO ACTS ARE GIVEN THE SAME `liveness` ON PURPOSE. Liveness is an ABSOLUTE
+// sort bucket (Dom, 2026-07-05): if the two rows landed in different buckets, this test
+// would pass on the bucket alone and measure nothing about the clock.
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const FACT = 'FACT 6 · a past deadline outranks no deadline, at equal bucket';
+  const before = failures;
+  const CLOCK: Date = new Date(2026, 7, 13);
+  // ★ THE ACT DATES DERIVE FROM THE CLOCK — genuinely, through this helper. An earlier
+  // version RE-WROTE the clock's literals (`new Date(2026, 7, 13 - 200)`) under a comment
+  // claiming it derived them; moving CLOCK would have left both acts behind and silently
+  // falsified the offsets. CLOCK itself stays a fixed literal on purpose: this file is
+  // pure and never reads the wall clock. What must hold is the two OFFSETS.
+  const minusDays = (d: Date, n: number): Date =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate() - n);
+  // 200 days: well past the art. 41 LPLE 30-day window, at any clock.
+  const LATE_ACT_DATE: Date = minusDays(CLOCK, 200);
+  // ★★ THE CLOCK-LESS ACT IS DELIBERATELY OLDER, AND THIS IS THE WHOLE TEST.
+  // A first version of this fact gave both acts the SAME date and PASSED under the very
+  // mutation it exists to catch. Reason, measured 2026-08-13: with no clock on either row
+  // the scores tie, the comparator falls through to the tie-break ladder, and the first
+  // four rungs (exposure, foundational, action, year) were identical — so rung 5,
+  // `id.localeCompare`, decided it: `event:director_mandate:…` sorts before
+  // `event:shareholding:…` because 'd' < 's'. The right answer, for a reason that has
+  // nothing to do with deadlines. THE DEFECT THIS FACT GUARDS, REPRODUCED INSIDE IT.
+  // Making the clock-less act two years older hands it rung 4 ("oldest year first"), so
+  // WITHOUT a clock it wins and this fact fails; WITH one, score decides BEFORE the ladder
+  // is ever reached and the overdue act wins. The clock is now the only thing that can
+  // produce the expected order.
+  // 900 days: two full calendar years earlier, so rung 4 is decided and not a coin toss.
+  const CLOCKLESS_ACT_DATE: Date = minusDays(CLOCK, 900);
+  const iso = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // Both acts share every field that could influence the order EXCEPT two: the deadline
+  // (the subject) and the date (which biases the BASELINE order AGAINST the expected
+  // answer, on purpose — see above). Same liveness = same bucket, same not-done state.
+  const act = (
+    event_type: EventActStatus['event_type'],
+    event_phase: EventActStatus['event_phase'],
+    id: string,
+    date: Date,
+  ): EventActStatus => ({
+    event_type,
+    event_id: id,
+    event_phase,
+    label_fr: 'sonde',
+    label_en: 'probe',
+    personName: 'Sonde',
+    date: iso(date),
+    satisfied: false,
+    documentId: null,
+    endReason: null,
+    officerTitle: null,
+    officerCustomTitle: null,
+    documentSource: null,
+    documentIsFinalized: null,
+    documentLanguage: null,
+    liveness: 'regularize', // IDENTICAL on both — see the ⚠️ above
+    filed: false,
+  });
+
+  // WITH a deadline: a roster act, art. 41 LPLE, 30 days from the act — long past.
+  const withClock: EventActStatus = act('director_mandate', 'departure', 'probe-late', LATE_ACT_DATE);
+  // WITHOUT any deadline: a share act carries no REQ filing, so dueDate stays null.
+  const noClock: EventActStatus = act('shareholding', 'issuance', 'probe-clockless', CLOCKLESS_ACT_DATE);
+
+  const rows: Obligation[] = eventsToObligations([noClock, withClock], CLOCK);
+  const ranked: RankedObligation[] = rankObligations(rows, CLOCK);
+  const late = ranked.find((r: RankedObligation) => r.id.includes('probe-late'));
+  const clockless = ranked.find((r: RankedObligation) => r.id.includes('probe-clockless'));
+
+  if (!late || !clockless) {
+    // Not a failure of the invariant — a failure to build its subject. Say which.
+    skip(FACT, 'the synthetic acts did not both produce a ranked row (' +
+      (late ? '' : 'the roster act is missing; ') + (clockless ? '' : 'the share act is missing; ') +
+      'ranked ' + ranked.length + ' row(s)). The invariant was not exercised.');
+  } else if (late.liveness !== clockless.liveness) {
+    // PRECONDITION, asserted before the claim: equal buckets, or this measures nothing.
+    fail(FACT, 'PRECONDITION: both rows must share a liveness bucket or the absolute ' +
+      'bucket sort decides the order by itself', 'the same bucket',
+      late.liveness + ' vs ' + clockless.liveness);
+  } else if (late.dueDate === null) {
+    fail(FACT, 'PRECONDITION: the roster act must carry a filing deadline for this fact ' +
+      'to have a subject', 'a dueDate', 'null');
+  } else if (clockless.dueDate !== null) {
+    fail(FACT, 'PRECONDITION: the share act must carry NO deadline, or both rows have a ' +
+      'clock and the contrast under test does not exist', 'null', String(clockless.dueDate));
+  } else if ((clockless.year ?? Infinity) >= (late.year ?? Infinity)) {
+    // ★★ THE PRECONDITION THAT THE FIRST VERSION OF THIS FACT LACKED, AND WHICH LET IT
+    // PASS UNDER ITS OWN MUTATION. The clock-less row must WIN the tie-break ladder, so
+    // that only the clock can put the overdue row ahead of it. If a later edit equalises
+    // the two dates, the ladder falls through to `id.localeCompare` — which happens to
+    // favour the overdue row — and this fact would go green while measuring nothing.
+    fail(
+      FACT,
+      'PRECONDITION: the clock-less act must be OLDER than the overdue one, so it wins ' +
+        'tie-break rung 4 (oldest year first) when neither row has a clock. Otherwise a ' +
+        'pass proves nothing: rung 5 (id.localeCompare) alone would produce the expected ' +
+        'order, deadline or no deadline',
+      'clockless.year < late.year',
+      'clockless ' + clockless.year + ' vs late ' + late.year,
+    );
+  } else if (late.rank > clockless.rank) {
+    fail(
+      FACT,
+      'clock ' + iso(CLOCK) + ' · both rows in bucket `' + late.liveness + '` · ' +
+        'ROSTER departure of ' + iso(LATE_ACT_DATE) + ' (year ' + late.year + '), due ' +
+        late.dueDate + ', daysUntilDue=' + late.daysUntilDue + ' -> ranked #' + late.rank +
+        '  ·  SHARE issuance of ' + iso(CLOCKLESS_ACT_DATE) + ' (year ' + clockless.year +
+        '), NO deadline, daysUntilDue=' + clockless.daysUntilDue + ' -> ranked #' +
+        clockless.rank + '. A daysUntilDue of null on the overdue row means the ranker ' +
+        'read no clock: both rows fell to the urgency floor, the scores tied, and the ' +
+        'tie-break ladder handed rung 4 (oldest year first) to the OLDER clock-less act',
+      'the row with the past deadline first',
+      '#' + late.rank + ' (overdue) behind #' + clockless.rank + ' (no deadline)',
+    );
+  } else if (failures === before) {
+    pass(FACT, 'overdue roster act #' + late.rank + ' (year ' + late.year + ', due ' +
+      late.dueDate + ', daysUntilDue=' + late.daysUntilDue + ') ahead of the OLDER ' +
+      'clock-less share act #' + clockless.rank + ' (year ' + clockless.year +
+      ', daysUntilDue=null), both in bucket `' + late.liveness + '`');
   }
 }
 
