@@ -784,7 +784,8 @@
       "comingSoonBadge": "À venir"
     },
     "marker": {
-      "label": "Formalité à produire"
+      "label": "Formalité à produire",
+      "fiscalYear": "Exercice {year}"
     },
     "filing": {
       "button": "J'ai fait la déclaration",

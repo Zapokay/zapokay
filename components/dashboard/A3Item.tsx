@@ -433,7 +433,19 @@ export default function A3Item({
   //    so the merged REQ row (source 'completeness') and a Stage-1 roster event
   //    (source 'event', exposure 'internal') render IDENTICALLY. Deliberately does
   //    NOT read `exposure` (which drives ranking) or `source`. ──
-  const isFilingRow = o.hasFiling === true && o.dueDate != null;
+  // ⚠️ THE DEADLINE LEFT THIS PREDICATE ON 2026-08-14, and the two questions it used to
+  // conflate are now separate: "is this a FILING?" is `hasFiling`; "does it have a
+  // CLOCK?" is `dueDate`, asked where a clock is actually needed. A REQ annual update
+  // for 2024 is owed to the registrar whether or not the product can date it — art. 45
+  // LPLE does not stop applying because a row carries `due=null`.
+  //
+  // What this widened, deliberately, in the two other readers:
+  //   `showHowTo`  — a filing row without a date needs the how-to MORE, not less (Dom).
+  //   `dueLine`    — no change in VALUE. [MEASURED: all 15 such rows carry a non-null
+  //                  `year`, so `isFoundational` is false for every one of them; they
+  //                  already fell through the whole chain to `null`. Same result, one
+  //                  branch earlier.]
+  const isFilingRow = o.hasFiling === true;
 
   // ── "Comment faire ?" pill — replaces the old static guide-i. INTERACTIVE:
   //    opens the generalized ObligationModal (how to file this obligation).
@@ -504,19 +516,33 @@ export default function A3Item({
     </span>
   );
 
-  // ── filing marker (A-3) — DISPLAY-ONLY, shown on any FILING row (isFilingRow):
-  //    the merged REQ annual-update row AND roster event rows, from Stage 1 onward,
-  //    driven by the deadline carried on the obligation, independent of feeder or
-  //    button stage. Part B makes it interactive ("J'ai fait la déclaration").
-  //    Share events / internal rows carry no filing → no marker. ──
-  const filingMarker =
-    isFilingRow && o.dueDate ? ( // `&& o.dueDate` narrows string|null → string for TS; isFilingRow already implies it
-      <ObligationMarker
-        interactive={false}
-        label={tObl('marker.label')}
-        deadline={formatDate(o.dueDate, locale, { day: 'numeric', month: 'short', year: 'numeric' })}
-      />
-    ) : null;
+  // ── filing marker (A-3) — DISPLAY-ONLY, shown on EVERY filing row. ──
+  //    The merged REQ annual-update row AND roster event rows, from Stage 1 onward.
+  //    Share events / internal rows carry no filing → no marker.
+  //    Part B makes it interactive ("J'ai fait la déclaration").
+  //
+  // ⚠️ THE COMMENT USED TO SAY "shown on any FILING row" WHILE THE CODE REQUIRED A
+  // DATE — a promise the predicate did not keep. [MEASURED 2026-08-14: 15 rows across
+  // the four fixtures are `hasFiling` with `due=null`, and up to two of them sit in a
+  // board's visible five. WICK's hero and ACME's showed a title, then a button, and
+  // nothing in between.]
+  //
+  // ★ THE RIGHT-HAND MEMBER IS A FACT, NEVER AN INSTRUCTION. With a deadline it is the
+  // date, byte for byte as before. Without one it is the FISCAL YEAR the filing is
+  // owed for — which the row always carries. `ObligationMarker` is untouched: its
+  // `deadline` prop is typed `string` and its render assumes nothing about dates, so
+  // Complétude (its other consumer, EventActRow) does not move.
+  const filingMarker = isFilingRow ? (
+    <ObligationMarker
+      interactive={false}
+      label={tObl('marker.label')}
+      deadline={
+        o.dueDate
+          ? formatDate(o.dueDate, locale, { day: 'numeric', month: 'short', year: 'numeric' })
+          : tObl('marker.fiscalYear', { year: o.year ?? '' })
+      }
+    />
+  ) : null;
 
   // ── due line — a date (with past-due prefix when overdue), else a foundation tag.
   //    FILING rows show the filing marker (above) instead of this plain line, so the
