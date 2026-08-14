@@ -1,6 +1,7 @@
 # A4 — The Obligation Engine Arc
 
-**Version:** v20 · **Date:** 2026-08-13
+**Version:** v21 · **Date:** 2026-08-14
+**v21 :** ⚠️★★★ **L'ORDRE DU PLAN A ÉTÉ RENVERSÉ, ET LA MESURE QUI LE JUSTIFIAIT ÉTAIT FAUSSE — §9t CORRIGÉE, §9u AJOUTÉE.** Le *« zéro `d` négatif à aucune horloge »* de v20 était un **artefact du choix des horloges de sonde** : les cinq tombaient hors de la fenêtre négative (Wick, 2026-10-08 → 2026-12-31), trois au 1ᵉʳ janvier. **Wick atteint `d=−55` au 1ᵉʳ décembre.** L'axe de conséquence a donc été livré EN PREMIER — **C1 `5721871`, C2 `22b9fa9`, §9u** — et **(iii) n'est pas livré**.
 **v20 :** ★★★ **LE PLAN D'ATTAQUE EST ARRÊTÉ — §9t.** Trois lots : **(iii) l'ajout fédéral · puis l'axe de conséquence · puis (ii) + l'alerte art. 52.** ★★ **Et (iii) est le PRÉALABLE des deux autres, mesuré :** `dueDate` recalcule l'anniversaire de l'année en cours, donc **la ligne fédérale se répare toute seule chaque 1ᵉʳ janvier** — la seule ÉLEVÉE calculable du produit n'est en retard que quelques semaines par an. *13 lignes fédérales dans le harnais, **zéro `d` négatif à aucune horloge**.* · ✅ **(ii) EST DÉBLOQUÉ** — Harvey a fermé l'art. 52 : les bornes se dérivent de la fin d'année d'imposition (P-44.1 r. 1, art. 3 par. 1°).
 **v19 :** ✅ **`12ebd51` — (E)/(F1) EST LIVRÉ, §9s AJOUTÉ.** Le ranker lit enfin l'horloge qu'il recevait déjà : un champ portait DEUX responsabilités, et la nuller pour éteindre la première perdait la seconde. ★ **Et le seau ne bouge pas pour une raison qu'il faut énoncer précisément — la formulation évidente est FAUSSE** : le seau EST dérivé de l'horloge, en amont ; ce feeder la nullait en aval. **(F1) rétablit un accord qui existait déjà.** · ★★ **FACT 6 est le seul des sept dont on SACHE qu'il fonctionne — il a échoué deux fois avant de passer, dont une par sa propre faute de construction.** · ⚠️ **CE LOT NE REMONTE PAS LES MANQUEMENTS PROLONGÉS** — ils sont enterrés par l'ORDRE DES SEAUX. **Le lot suivant est la CONSÉQUENCE comme axe de classement** : la condition de la décision du 2026-07-05 n'a jamais été implémentée.
 **v18 :** ✅ **`19d86b8` — (C2) EST LIVRÉ. Le geste (i) de (F) est fermé.** Le faux positif de l'année de constitution est corrigé, l'assertion cadence↔mode passe à SENS UNIQUE, et **FACT 5** — table exécutable de la frontière — est en place, **prouvé rejetant dans les deux sens**. ★ **Le crash latent que §9q décrivait est parti avec, dans le même commit : c'était la seule façon.** · ⚠️ **RESTENT (ii) LE RETRAIT QUÉBÉCOIS et (iii) L'AJOUT FÉDÉRAL** — voir §9p. FACT 5 est le **critère d'acceptation** de (iii) : il affirme un ENSEMBLE de lignes, donc il grandit avec la multiplicité.
@@ -657,7 +658,19 @@ Ce n'est **pas** que la liveness ignore l'horloge : **le seau d'un acte de rôle
 
 ---
 
-## 9t. ★★★ LE PLAN D'ATTAQUE (2026-08-13) — ET POURQUOI (iii) VIENT EN PREMIER
+## 9t. ⚠️★★★ LE PLAN D'ATTAQUE (2026-08-13) — L'ORDRE A ÉTÉ RENVERSÉ ET LA PRÉMISSE EST MESURÉE FAUSSE (corrigée 2026-08-14)
+
+> ⚠️⚠️ **CETTE SECTION EST CONSERVÉE PARCE QU'ELLE EXPLIQUE POURQUOI ON A CRU UNE CHOSE FAUSSE. Ne la lisez pas comme le plan en vigueur.**
+>
+> **CE QU'ELLE AFFIRMAIT**, cité : *« `dueDate` recalcule l'anniversaire de l'année en cours à chaque appel… La ligne se répare toute seule, et n'est en retard que quelques semaines par an »* · *« 13 lignes fédérales dans le harnais, **zéro `d` négatif** — le niveau ÉLEVÉE n'a jamais été exercé dans la simulation de l'axe de conséquence. Il y était décoratif. »*
+>
+> ⚠️ **POURQUOI C'ÉTAIT FAUX — UN ARTEFACT DU CHOIX DES HORLOGES, PAS UNE PROPRIÉTÉ DU PRODUIT.** Les cinq horloges de `CLOCKS` tombaient TOUTES hors de la fenêtre où la ligne fédérale est négative — pour Wick, **2026-10-08 → 2026-12-31** — et **TROIS au 1ᵉʳ janvier**, le point le plus positif de l'année. [MESURÉ 2026-08-13, une fois l'horloge `2026-12-01` ajoutée : **Wick atteint `d=−55` au 1ᵉʳ décembre et `d=−85` au 31 décembre**.] Le négatif existe **85 jours par an, ~23 %**. Le harnais ne pouvait pas le voir.
+>
+> ★ **CE QUI RESTE VRAI**, pour ne pas sur-corriger : `dueDate` recalcule bien l'anniversaire de l'année en cours, donc **la ligne SE RÉPARE chaque 1ᵉʳ janvier** — `−85` le 31 décembre, `+279` le lendemain. Ce qui était faux, c'est la CONCLUSION : que le négatif n'existerait jamais.
+>
+> ★★ **CE QUI SURVIT DU MOTIF, ET PLUS FORT QUE L'ARGUMENT D'ORIGINE :** Wick doit **HUIT rapports fédéraux**, le produit en affiche **UN**, et c'est celui **qui n'est pas encore dû**. La substitution est un défaut à part entière ; elle n'a jamais eu besoin de l'argument sur ÉLEVÉE, qui était le maillon faible.
+>
+> **→ Lessons §105 :** un état à **zéro occurrence** a TROIS causes — *impossible* · *possible et non atteint* · *possible et **NON OBSERVABLE***. Les trois se lisent **identiquement** dans l'artefact. Ici c'était la troisième, et on a conclu la première.
 
 ### 1️⃣ (iii) L'AJOUT FÉDÉRAL — **le préalable, pas un lot parallèle**
 
@@ -679,6 +692,83 @@ Ce n'est **pas** que la liveness ignore l'horloge : **le seau d'un acte de rôle
 **★★ Et l'art. 53 inscrit la satisfaction, donc la guérison efface l'année du décompte de l'art. 59 :** *« une société ayant manqué deux années dont la plus récente est encore guérissable peut, par ce seul geste, **sortir de l'exposition à la radiation** »*.
 ⚠️ **Une seule année guérissable à la fois** — le compte à rebours ne concerne jamais plus d'une ligne.
 ⚠️ **Et le retrait déplace le dénominateur de 6** si le geste passe par le site 4. **Décision produit non tranchée.**
+
+---
+
+## 9u. ✅✅ L'AXE DE CONSÉQUENCE — LIVRÉ `5721871` + `22b9fa9` (2026-08-14). Et le défaut d'affordance qu'il a révélé.
+
+**LA MESURE QUI A RENVERSÉ L'ORDRE.** WICK, `deadline:fed_annual_return:anniversary`, par id, à deux horloges : au **2026-08-11** `d=+57` · `live` · score **0.1500** · **RANG 1**. Au **2026-12-01** `d=−55` · `regularize` · score **1.0000** · **RANG 9**. Le jour où l'obligation devient réellement en retard, son score atteint son **MAXIMUM** et son rang **SORT de la coupe des cinq**, derrière huit lignes non échues dont quatre pour un exercice qui n'a pas commencé. **Le board cachait l'obligation au moment précis où elle comptait.**
+
+### C1 `5721871` — LE MODULE, INERTE ET GATÉ SEUL
+
+`lib/obligations/consequence.ts`, **zéro importateur**. Livré à part parce que l'échelle est une **affirmation de droit** et qu'elle devait être lue seule avant de pouvoir déplacer une ligne de board.
+
+**Quatre niveaux qui nomment un MÉCANISME, pas un grade** — `none` · `penalty` (art. 87 LPLE) · `default` (art. 263 + art. 212(1)a)(iii) LCSA) · `strikeoff` (art. 59 al. 1 LPLE). *`BAS/MOYENNE/ÉLEVÉE` aurait été une opinion ; ceux-là se vérifient contre un texte.* **Chaque constante nomme son article À SA LIGNE**, jamais dans un docblock d'en-tête : le voisin `REMEDIATE_THRESHOLD_YEARS = 2` est une **convention 🟡 révisable**, celles-ci sont du **droit 🟢**, et les deux modules se ressemblent.
+
+**★ L'INCONNU N'EST PAS `none`, ET LE TYPE L'IMPOSE.** Le refus est un **ARM séparé** de `ConsequenceAssessment`, pas un cinquième niveau. **[MESURÉ — le gate de ce ship est `tsc` PROUVÉ REJETANT, parce qu'un artefact immobile ne prouve rien sur un fichier sans importateur.]** Une sonde a produit **TS2322** sur un niveau illégal et **TS2339** sur un accès à `.level` sans narrowing sur `known` : *« Property 'level' does not exist on type '{ readonly known: false; … }' »*. Aucun appelant ne peut lire un niveau qu'il n'a pas d'abord narrowé.
+
+⚠️ **CE QU'IL NE SAIT PAS CALCULER :** tout ce qui passe par la **mise en demeure de l'art. 73 LPLE**. Cette date **n'existe nulle part** — ni sur `companies`, ni au catalogue, ni dans un feeder. La branche `strikeoff` dit que l'exposition est **OUVERTE** ; elle ne dira jamais qu'elle est **PROCHE**. *Interdit explicite d'ajouter un champ : une date inventée serait pire que pas de date.*
+
+### C2 `22b9fa9` — LA VOIE, ET POURQUOI LA DÉRIVATION EST PAR ÉCHELLE
+
+**UNE comparaison, AVANT le seau.** Une ligne dont la conséquence est `strikeoff` ou `default` précède une ligne qui ne l'est pas. **À L'INTÉRIEUR de chaque groupe l'ordre existant est INCHANGÉ, seau compris** — rien n'est repondéré, rien n'est descendu, et c'est pourquoi une conséquence **inconnue** y siège sans dommage : elle ne promeut simplement pas. Seuls ces deux paliers qualifient — **l'EXISTENCE de la société y est en jeu**.
+
+**★ C'est la seconde moitié de la règle de Dom du 2026-07-05**, en entier : *« éviter de prendre du retard SI ET SEULEMENT SI les items à haute conséquence n'y sont plus. »* Le seau a toujours été la première moitié. **La condition ne pouvait pas s'écrire avant que la conséquence existe comme axe.**
+
+**★★ LA DÉRIVATION EST PAR ÉCHELLE, ET C'EST UNE DIFFÉRENCE DE FORME DES DONNÉES, PAS UN CAS PARTICULIER.** Le Québec compte des **ANNÉES** : `today.getFullYear() - Y >= 2`, qui observe au 1ᵉʳ janvier de Y+2 — **après toute échéance art. 45 possible** (fin d'exercice + 6 mois, donc au plus tard juin de Y+1), quelle que soit la fin d'exercice et **sans avoir à la connaître**. ⚠️ **Cela SOUS-DÉCLARE d'au plus un an, délibérément** : un faux `strikeoff` envoie chez un avocat pour rien, un tardif décale une promotion. **Ce n'est PAS `liveness`**, dont la branche B bascule au 1ᵉʳ janvier et diverge de l'art. 45 de **jusqu'à 332 jours** pour un exercice décembre.
+
+Le fédéral lit **SA PROPRE HORLOGE** (`daysUntilDue < 0`) parce qu'il le doit. **[MESURÉ 2026-08-13 : les HUIT lignes `cbca_req_annual_update_qc` de Wick portent `daysUntilDue: null`, historiques comprises — il n'existe aucune horloge côté QC. Et `obligationFiscalYear` ne rend jamais une année passée, donc l'écart `today.getFullYear() - year` de la ligne fédérale vaut toujours 0 ou 1 : un compte d'années ne pourrait JAMAIS y atteindre 2.]**
+
+**UNE SEULE LIGNE PROMUE PAR OBLIGATION** — la plus récente en défaut. La conséquence est une propriété de **l'ÉTAT DE LA SOCIÉTÉ** sur une obligation, pas de chaque ligne-année : Wick a cinq années REQ en défaut et Acme six, et toutes les promouvoir remplirait un board de cinq lignes de rangées sans action utile séparée (**art. 52 — une seule année guérissable à la fois**).
+
+### ★★ FACT 7 EST PASSÉ INERT À SA PREMIÈRE ÉCRITURE — LE DEUXIÈME DE SUITE
+
+**[MESURÉ : avec ses deux premières sondes, élargir la voie pour promouvoir TOUS les niveaux connus laissait le fait VERT, message byte-identique.]** Le défaut n'était pas l'assertion mais son **SUJET** : à la première horloge **aucune des deux sondes n'est EN DÉFAUT**, donc les deux quittent `promotedRowIds` sur `inDefault.length === 0` — **AVANT que le filtre de niveau soit atteint**. L'assertion vérifiait qu'un **ENSEMBLE VIDE** ne promeut pas : vrai par construction, muet sur les niveaux.
+
+**★ LA TROISIÈME SONDE EXISTE POUR ATTEINDRE LE FILTRE ET Y ÊTRE REFUSÉE.** Elle est **en défaut** (une année manquée), son niveau est **`penalty`** — non promouvant — et elle siège dans le **seau INFÉRIEUR**, parce que promouvoir à tort une ligne déjà première ne la déplacerait pas et rendrait l'assertion vide une seconde fois, autrement. *Une sonde sans `requirementKey` n'aurait jamais atteint `byReqKey` et aurait été refusée sur sa FORME ; celle-ci l'est sur son NIVEAU.*
+
+**Sept préconditions**, chacune échouant par son nom et disant ce qu'elle empêche. **Preuve à trois états, deux sens de rejet :** voie retirée → **✗ assertion (1)** à la seconde horloge, `#2 derrière #1` · voie élargie → **✗ assertion (2)** à la PREMIÈRE horloge, `#1 devant #2` · arbre réel → **✓**. Les six autres FACTS n'ont bougé sous aucune mutation.
+
+**★★ ET C'EST LE DEUXIÈME FAIT DE SUITE À PASSER INERT, POUR UNE CAUSE DIFFÉRENTE. → §109**
+> **FACT 6** — le sujet produisait la **bonne réponse par un AUTRE mécanisme** (`id.localeCompare`, `'d' < 's'`).
+> **FACT 7** — le sujet **n'atteignait JAMAIS le mécanisme testé**.
+> *Deux formes d'inertie, une seule chose qui les distingue : la preuve de rejet. Un fait vert qui n'a jamais dit non n'est pas un garde, c'est un ornement.*
+
+### ★★ LE HÉROS, ET LE DÉFAUT D'AFFORDANCE ANTÉRIEUR QUE C2 A RÉVÉLÉ
+
+Le garde `liveness === 'live'` est retiré, et le `console.warn` derrière lui **supprimé plutôt que réécrit** — sa condition ne peut plus se produire. **[MESURÉ 2026-08-14, quatre fixtures × deux horloges : 5 combinaisons sur 8 mettent une ligne non-`live` au rang 1.]** Avec le garde en place, le board ne rendait **AUCUN héros** sur **trois fixtures sur quatre** — cinq cartes identiques, et un board bâti pour dire *« commence ici »* ne disait rien. **Le héros imprime désormais `tierBadge`**, qu'il omettait : *la ligne la plus grave doit être celle dont la gravité se VOIT, pas la seule à la cacher.*
+
+**★★ ET UN DÉFAUT PLUS ANCIEN, QUE CE LOT A RENDU VISIBLE ET CORRIGE. → §111**
+
+Le board décidait **quoi OFFRIR à partir de la GRAVITÉ**. Une branche `if (isRemediate)` précédait toute la chaîne de verbes et remplaçait l'action réelle par un `<button>` **inerte** — aucun `onClick`, aucun `href`, `cursor-default` dans sa propre classe, mesuré : il ne faisait rien tout en étant focusable et annoncé comme bouton. Et `showHowTo = isFilingRow && !isRemediate` retirait **AUSSI** la pastille « Comment faire ? » : **DEUX affordances jetées, pas une.**
+
+**La donnée était CORRECTE de bout en bout** — `completeness:cbca_req_annual_update_qc:2024` de Wick arrive avec `actionKind: 'upload'`, `canUpload: true`, `canGenerate: false`. **Complétude offre Téléverser sur CETTE MÊME LIGNE**, et `grep remediate` dans `RequirementRow.tsx` rend **ZÉRO** : elle lit ce qui est POSSIBLE et ne consulte jamais le seau. **Deux surfaces, une ligne, réponses opposées — la forme de `6f0a48c` sur une quatrième ligne de code.**
+
+⚠️ **LE DÉFAUT PRÉCÉDAIT LA VOIE.** `probe-dec.txt` et `probe-c2b.txt` portent des champs **IDENTIQUES** sur cette ligne. Il vivait **au rang 28**, où personne ne le voyait. **Le commit qui révèle un défaut est celui qui le corrige.**
+
+> **★★ LA RÈGLE QUI TRANSFÈRE : DÉCIDER QUOI OFFRIR À PARTIR DE CE QUI EST POSSIBLE, JAMAIS DE LA GRAVITÉ.** La sévérité est déjà dite **une fois**, par `tierBadge`. *Un verbe qui disparaît quand la ligne empire retire le seul moyen de la réparer.* « Consulter un professionnel » est désormais une **mention `<span>` À CÔTÉ** du verbe, pas un contrôle qui ment.
+
+### LES CHIFFRES, PAR FIXTURE — comparaison PAR ID, deux horloges
+
+| fixture | promues 2026-08-11 | promues 2026-12-01 | ligne promue |
+|---|---|---|---|
+| **WICK** | 1 | **2** | `…req_annual_update_qc:2024` (28→1) · `fed_annual_return` (9→1) |
+| **ACME** | 1 | 1 | `completeness:lsaq_req_annual_update:2024` (17→1) |
+| **CAFEDUCOIN** | 0 | **1** | `deadline:fed_annual_return:anniversary` (8→1) |
+| **FIXTURECAP** | 0 | 0 | — |
+
+**★ TOUS LES NOMBRES SONT IDENTIQUES, SEUL L'ORDRE BOUGE.** `ranked.length` identique **24 fois sur 24** · ensembles d'ids identiques · les quatre compteurs du verdict, `requirementsTotal` et le pourcentage : **`diff` sur les agrégats → aucune différence**. Le déplacement est une **ROTATION** : une ligne saute, les autres glissent d'exactement +1 (+2 là où deux sont promues), et les lignes déjà sous la promue **ne bougent pas du tout**.
+
+⚠️ **ACME est le contrôle négatif FÉDÉRAL (LSA, aucune ligne `cbca_annual_return`) mais PAS un contrôle neutre** : elle porte **six années QC consécutives manquées** et est promue sur l'échelle québécoise. *Une fixture peut être négative sur un axe et positive sur l'autre — le dire évite de lire son mouvement comme une fuite.*
+
+**LE HARNAIS A ÉTÉ RÉPARÉ DANS LA MÊME SESSION.** Il appelait `rankObligations` avec **deux arguments** et était **mort depuis le câblage**, en silence, parce que `tsc` ne voit pas un fichier hors dépôt. Il a aussi gagné l'horloge **`2026-12-01`** — sans elle il ne pouvait pas voir ce lot. *La sauvegarde a été rafraîchie APRÈS la caméra, jamais avant : tant que rien n'est publié et vu, l'ancien état est le seul entièrement vérifié.*
+
+### ⚠️ CE QUI RESTE OUVERT
+
+- **C3 — l'assemblée annuelle descend.** Non scopé.
+- **C2d — le marqueur `Formalité à produire · Exercice {année}`** sur les lignes de formalité **sans échéance**. **[MESURÉ : 15 lignes sur les quatre fixtures.]** `ObligationMarker` n'a **pas** besoin de changer (`deadline: string`, aucune sémantique de date dans son rendu) — mais desserrer `isFilingRow` toucherait aussi `showHowTo` et la suppression de `dueLine`, et il faut **deux clés i18n neuves, FR et EN**.
+- **Le traitement visuel d'un héros en retard** — décision produit ouverte, **Dom + Aria**. Le rang 1 est désormais toujours le héros, quel que soit son seau.
+- **★ Le lot (iii) — et il a DEUX chemins, pas un.** Faire émettre N lignes fédérales ne suffit pas : **le catalogue détient l'appariement des documents**. Un reçu ne se rattache qu'à `(requirement_key, requirement_year)`, et l'année d'attache de la ligne anniversaire est **UNE** valeur. Sans une seconde décision côté catalogue, N lignes seraient visibles et **infermables individuellement**.
 
 ---
 
