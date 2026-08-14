@@ -162,7 +162,7 @@ export default async function DashboardPage({
     const eventObs = eventsToObligations(events.acts, today);
 
     const merged = mergeObligations(completenessObs, deadlineObs, eventObs);
-    ranked = rankObligations(merged, today);
+    ranked = rankObligations(merged, today, framework);
     progress = {
       done: completeness.checklist.filter((i) => i.satisfied).length,
       total: completeness.checklist.length,

@@ -141,15 +141,30 @@ export default function A3Item({
     });
   }
 
-  // Hero-trap guard (§11): only a `live` item may render as the hero. The ranker
-  // sorts live > regularize > remediate so rank 1 is always live — assert it here
-  // too and fail safe to a normal row if violated.
-  const asHero = hero && o.liveness === 'live';
-  if (hero && !asHero) {
-    console.warn(
-      `[A3Item] hero requested for non-live obligation ${o.id} (liveness=${o.liveness}); rendering as normal item.`,
-    );
-  }
+  // ── RANK 1 IS ALWAYS THE HERO — and the guard that used to prevent it is gone. ──
+  //
+  // ⚠️ WHAT THIS REPLACED, AND WHY IT HAD TO GO. It read: "Hero-trap guard (§11):
+  // only a `live` item may render as the hero. The ranker sorts live > regularize >
+  // remediate so rank 1 is always live." That premise died with the consequence lane
+  // (`5721871`, wired in C2): a `strikeoff` or `default` row is now promoted ABOVE
+  // the liveness bucket, so rank 1 is routinely NOT live. [MEASURED 2026-08-14, four
+  // fixtures × two clocks: 5 of 8 combinations put a non-`live` row first.] With the
+  // guard in place the board rendered NO hero at all on three fixtures out of four —
+  // five identical cards, and a board built to say "start here" said nothing.
+  //
+  // ★ SO A LATE ROW CAN LEAD THE BOARD, AND THAT IS THE POINT, NOT AN ACCIDENT.
+  // Which is why the hero layout below now prints `tierBadge`, which it used to omit:
+  // the gravest row must be the one whose gravity is VISIBLE, not the only one hiding
+  // it. Same component, same tokens as the normal row — a second severity style would
+  // be a second source of truth about severity.
+  //
+  // The `console.warn` that stood here is DELETED rather than rewritten: its condition
+  // (`hero && !asHero`) can no longer occur at all, and a warning that would have
+  // fired on 5 renders out of 8 is wallpaper, not a signal.
+  //
+  // A DISTINCT visual treatment for a late hero is an OPEN product decision (Dom,
+  // 2026-08-14, with Aria) — deliberately not made here.
+  const asHero = hero;
 
   const isRemediate = o.liveness === 'remediate';
   const isRegularize = o.liveness === 'regularize';
@@ -224,18 +239,43 @@ export default function A3Item({
     // receipt attaches by (requirementKey, year) via handleFileChange's requirementRef
     // path. Only the fed return sets these on a deadline row today.
     (o.source === 'deadline' && o.requirementKey != null && o.canUpload === true);
+  // ── CONSULT — a MENTION, not a control. ──
+  //
+  // ⚠️ IT USED TO BE A `<button>`, AND IT DID NOTHING. No `onClick`, no `href`, and
+  // `cursor-default` in its own class list — measured 2026-08-14. An element that
+  // performs no action must not claim to be a control: a bordered <button> is
+  // focusable by keyboard and announced as a button by a screen reader. Removing the
+  // border without removing the element would have hidden the defect, not fixed it.
+  const ConsultIcon = CONSULT.Icon;
+  const consultMention = isRemediate ? (
+    <span className={`${actBase} text-[12px] py-[7px] text-[var(--lv-remediate)]`}>
+      <ConsultIcon className="w-3.5 h-3.5" />
+      {t(CONSULT.labelKey)}
+    </span>
+  ) : null;
+
+  // ── THE VERB — from what the row PERMITS, never from how grave it is. ──
+  //
+  // ⚠️ THE FAULT THIS REMOVED, RECORDED SO IT IS NOT REMADE. A branch stood here,
+  // `if (isRemediate) { … }`, ahead of every other, and it replaced the row's real
+  // verb with that inert button. [MEASURED 2026-08-14 on WICK's
+  // `completeness:cbca_req_annual_update_qc:2024`: the obligation arrives carrying
+  // `actionKind: 'upload'`, `canUpload: true`, `canGenerate: false`. The data is
+  // CORRECT end to end — catalog, feeder, contract. The board received it and threw
+  // it away.] Complétude offers Téléverser on that same row, and `grep remediate` in
+  // RequirementRow.tsx returns ZERO: it reads what is POSSIBLE and never consults the
+  // tier. Two surfaces, one row, opposite answers — the `6f0a48c` shape again.
+  //
+  // ★★ THE RULE: DECIDE WHAT TO OFFER FROM WHAT IS POSSIBLE, NEVER FROM HOW BAD IT
+  // IS. Severity is already stated once, by `tierBadge`. A verb that vanishes as a
+  // row gets worse takes away the only means of fixing it.
+  //
+  // ⚠️ AND THE DEFECT WAS OLDER THAN IT LOOKED. `probe-dec.txt` (before the
+  // consequence lane) and `probe-c2b.txt` carry IDENTICAL fields on that row. It
+  // lived at rank 28 where nobody saw it; C2 promoted the row to rank 1 and made it
+  // visible. The commit that reveals a defect is the commit that fixes it.
   let verbButton: React.ReactNode = null;
-  if (isRemediate) {
-    const ConsultIcon = CONSULT.Icon;
-    verbButton = (
-      <button
-        className={`${actBase} cursor-default text-[12px] px-3.5 py-[7px] bg-transparent text-[var(--lv-remediate)] border-[1.5px] border-[var(--lv-remediate-bd)]`}
-      >
-        <ConsultIcon className="w-3.5 h-3.5" />
-        {t(CONSULT.labelKey)}
-      </button>
-    );
-  } else if (canRowUpload) {
+  if (canRowUpload) {
     // Per-state SET (mirrors RequirementRow): empty → [Upload, Generate]; généré →
     // [Upload, Regenerate]; uploaded-WIP → [Replace]. docSource (EDIT 1) distinguishes
     // généré from uploaded-WIP. Replace drops the canUpload gate (an uploaded row is
@@ -397,10 +437,17 @@ export default function A3Item({
 
   // ── "Comment faire ?" pill — replaces the old static guide-i. INTERACTIVE:
   //    opens the generalized ObligationModal (how to file this obligation).
-  //    Shown on filing rows; never on remediate (that row is "consult a pro"). The
+  //    Shown on EVERY filing row, `remediate` included — see the note below. The
   //    modal's data (dueDate / statutoryBasis / descriptionFr-En) is already on
   //    the obligation; content falls back to the fixed art. 41 copy when absent. ──
-  const showHowTo = isFilingRow && !isRemediate;
+  // ⚠️ THIS DOCBLOCK USED TO READ "never on remediate (that row is 'consult a pro')",
+  // and that is exactly the behaviour removed on 2026-08-14. A grave row needs the
+  // how-to MORE, not less, and this was the SECOND affordance the tier branch took
+  // away — the verb was the first. "Consulter un professionnel" now stands as a
+  // MENTION BESIDE the verb instead of replacing it, so nothing is displaced by
+  // showing this. Same fault as the verb chain above; the note there carries the
+  // reasoning.
+  const showHowTo = isFilingRow;
   const howToPill = showHowTo ? (
     <button
       type="button"
@@ -510,11 +557,15 @@ export default function A3Item({
     const HeroBadgeIcon = ICONS.heroBadge;
     return (
       <div className="mb-[9px] flex flex-col gap-0 p-[18px] rounded-[14px] border-[1.5px] border-[var(--amber-400)] bg-[linear-gradient(180deg,var(--amber-50),var(--card-bg)_60%)] dark:bg-[linear-gradient(180deg,rgba(245,185,30,0.08),var(--card-bg)_60%)] shadow-[0_3px_14px_rgba(245,185,30,0.12)]">
+        {/* tierBadge BEFORE statusChip — the same order the normal row uses, so
+            severity reads identically wherever a row lands. It is null for a `live`
+            row, so a healthy hero renders exactly as before. */}
         <div className="flex items-center gap-[9px] mb-[11px]">
           <span className="inline-flex items-center gap-1 text-[9.5px] font-extrabold tracking-[0.08em] uppercase text-[var(--navy-900)] bg-[var(--amber-400)] px-2.5 py-[3px] rounded-full">
             <HeroBadgeIcon className="w-3 h-3" />
             {t('hero.badge')}
           </span>
+          {tierBadge}
           {statusChip}
         </div>
         <div className="flex items-start gap-1.5 mb-1">
@@ -532,6 +583,7 @@ export default function A3Item({
         </div>
         <div className="flex items-center gap-[9px] flex-wrap">
           {verbButton}
+          {consultMention}
           {howToPill}
           {dep}
         </div>
@@ -576,6 +628,7 @@ export default function A3Item({
         </div>
         <div className="flex items-center gap-[7px] mt-[11px] flex-wrap">
           {verbButton}
+          {consultMention}
           {howToPill}
         </div>
         {obligationModalEl}

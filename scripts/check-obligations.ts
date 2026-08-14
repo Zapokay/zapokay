@@ -48,6 +48,7 @@ import { computeLiveness } from '@/lib/obligations/liveness';
 import { deadlineObligations } from '@/lib/obligations/feeders/deadlines';
 import { eventsToObligations } from '@/lib/obligations/feeders/events';
 import { rankObligations, type RankedObligation } from '@/lib/obligations/rank';
+import { computeConsequence } from '@/lib/obligations/consequence';
 import type { Obligation } from '@/lib/obligations/obligation';
 import type { ChecklistItem } from '@/lib/minute-book/requirement-completeness';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
@@ -611,7 +612,10 @@ const skip = (fact: string, why: string) => {
   const noClock: EventActStatus = act('shareholding', 'issuance', 'probe-clockless', CLOCKLESS_ACT_DATE);
 
   const rows: Obligation[] = eventsToObligations([noClock, withClock], CLOCK);
-  const ranked: RankedObligation[] = rankObligations(rows, CLOCK);
+  // framework: the lane's only use of it is the federal guard, and this fact's two
+  // acts are QC roster events under art. 41 LPLE — either value yields the same
+  // order here. 'CBCA' matches FACT 3 and FACT 5, which emit under it.
+  const ranked: RankedObligation[] = rankObligations(rows, CLOCK, 'CBCA');
   const late = ranked.find((r: RankedObligation) => r.id.includes('probe-late'));
   const clockless = ranked.find((r: RankedObligation) => r.id.includes('probe-clockless'));
 
@@ -665,6 +669,291 @@ const skip = (fact: string, why: string) => {
       late.dueDate + ', daysUntilDue=' + late.daysUntilDue + ') ahead of the OLDER ' +
       'clock-less share act #' + clockless.rank + ' (year ' + clockless.year +
       ', daysUntilDue=null), both in bucket `' + late.liveness + '`');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FACT 7 — A HIGH-CONSEQUENCE ROW RISES ABOVE THE LIVENESS BUCKET, AND ONLY IT DOES.
+//
+// The board ranked Wick's federal annual return #1 while it was still due (+57 days)
+// and #9 the day it went overdue (-55): its score reached its MAXIMUM and it fell out
+// of the five rows the board shows, behind eight not-yet-due rows, four of them for a
+// fiscal year that has not started. Measured 2026-08-13 at two clocks, by id.
+//
+// ★ THE CAUSE IS NOT A BUG IN THE BUCKET. Dom 2026-07-05, in full: "avoid falling
+// behind IF AND ONLY IF the high-consequence items are gone." The bucket implements
+// the first half. The condition could not be written until consequence existed as an
+// axis, which it did not on 5 July. This fact guards the second half.
+//
+// ★ TWO ASSERTIONS, AND THE SECOND GUARDS WHAT THE LANE DOES *NOT* DO:
+//   (1) at a clock where the row's consequence PROMOTES, it precedes a row in a
+//       HIGHER liveness bucket — the lane crosses the bucket.
+//   (2) at a clock where NEITHER consequence promotes, the order is the bucket's,
+//       unchanged — the lane crosses nothing it should not.
+// Remove the lane and (1) fails. Widen it so everything promotes and (2) fails.
+//
+// ⚠️ AND ASSERTION (2) NEEDS A THIRD PROBE — THIS FACT PASSED INERT WITHOUT IT.
+// [MEASURED 2026-08-13: with only probes A and B, widening the lane to promote EVERY
+// known level left this fact GREEN, its message byte-identical.] The flaw was not the
+// assertion but its SUBJECT: at the first clock neither probe is IN DEFAULT, so both
+// leave `promotedRowIds` on `inDefault.length === 0` — BEFORE the level filter is
+// ever reached. The assertion was checking that an EMPTY SET does not promote, which
+// is true by construction and says nothing whatever about levels.
+//
+// ★ SO PROBE C EXISTS TO REACH THE LEVEL FILTER AND BE REFUSED THERE. It is IN
+// DEFAULT (one missed year), its level is `penalty` — non-promoting — and it sits in
+// the INFERIOR bucket, because promoting a row that is already first would move
+// nothing and the assertion would be vacuous a second time, differently. Do not
+// "simplify" the subject back to two probes: that is the exact edit this paragraph
+// exists to stop.
+//
+// ⚠️ ITS PRECONDITION IS THE INVERSE OF FACT 6's, AND THAT IS THE TRAP. FACT 6 gives
+// both probes the SAME bucket so the bucket cannot decide alone. FACT 7 must give
+// them DIFFERENT buckets and put the NON-promoted row in the SUPERIOR one — otherwise
+// the promotion has nothing to cross and the fact passes on the bucket while
+// measuring nothing. Biasing the subject AGAINST the expected answer, applied:
+// without the lane the non-promoted row wins; with it, it loses.
+//
+// ⚠️ AND IT NEEDS TWO INSTANTS. No other FACT asserts an ESCALATION — the other six
+// assert a state at one clock. The same two rows are ranked at two clocks DERIVED
+// from each other, so what must hold is the OFFSETS, not two editable literals.
+// FACT 5 is the precedent for asserting on both sides of a boundary.
+//
+// ⚠️ SUBJECTS CONSTRUCTED, NEVER FOUND — the FACT 5 / FACT 6 rule. Wick carries this
+// state today (measured 2026-08-13: one promoted row at 2026-08-11, two at
+// 2026-12-01), and a fixture can change under a test. Both rows are built here.
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const FACT = 'FACT 7 · high consequence rises above the bucket, and only it does';
+  const before = failures;
+
+  // CLOCK_BEFORE stays a fixed literal — this file is pure and never reads the wall
+  // clock. EVERYTHING ELSE DERIVES FROM IT, so moving it moves the whole subject and
+  // the OFFSETS are what must hold.
+  const CLOCK_BEFORE: Date = new Date(2026, 7, 13);
+  const addDays = (d: Date, n: number): Date =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const daysBetween = (a: Date, b: Date): number =>
+    Math.round((b.getTime() - a.getTime()) / 86_400_000);
+  const iso = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // The federal deadline falls BETWEEN the two clocks: still 30 days future at the
+  // first, 80 days past at the second. That gap IS the escalation.
+  const FED_DUE: Date = addDays(CLOCK_BEFORE, 30);
+  const CLOCK_AFTER: Date = addDays(CLOCK_BEFORE, 110);
+  // ★ SAME CALENDAR YEAR ON BOTH CLOCKS, DELIBERATELY. The QC ladder is a year count,
+  // so keeping both instants inside one calendar year holds it CONSTANT — and the only
+  // thing that moves between the two rankings is the federal row's own clock.
+  const YEAR = CLOCK_BEFORE.getFullYear();
+
+  // PROBE C's year: two calendar years behind BOTH clocks, so the lane counts it as
+  // missed (>= 2) and it is the ONLY missed year on its key — one element, no
+  // consecutive run, level `penalty`.
+  const C_YEAR = YEAR - 2;
+
+  // The level probe C must carry, computed from the SAME input the lane derives for
+  // it: one missed year on `qc_req_annual_update`. Asserted as a PRECONDITION below,
+  // so the fact fails loudly if that level ever stops being `penalty`.
+  const cLevel = computeConsequence({
+    ruleKey: 'qc_req_annual_update',
+    framework: 'CBCA',
+    outstandingYears: [C_YEAR],
+  });
+
+  // PROBE A — the row that PROMOTES. `cbca_annual_return` resolves to
+  // `fed_annual_return`, whose ladder reads the row's OWN clock: one unfiled return
+  // puts the corporation in default and opens the art. 212(1)a)(iii) exposure.
+  //
+  // ★ BUCKET `regularize` — THE INFERIOR ONE. This is the inverted precondition made
+  // concrete: without the lane this row loses to the `live` one below, and the whole
+  // fact is whether the lane makes it win.
+  const promoting = (today: Date): Obligation => ({
+    id: 'deadline:fed_annual_return:probe-promoting',
+    source: 'deadline',
+    titleFr: 'sonde',
+    titleEn: 'probe',
+    descriptionFr: null,
+    descriptionEn: null,
+    status: 'open',
+    liveness: 'regularize',
+    weight: 0,
+    dueDate: iso(FED_DUE),
+    triggeredBy: null,
+    deadlineDays: null,
+    daysUntilDue: daysBetween(today, FED_DUE),
+    year: YEAR,
+    actionKind: 'file_externally',
+    requirementKey: 'cbca_annual_return',
+    docKey: null,
+    exposure: 'external',
+    hasFiling: true,
+    statutoryBasis: null,
+    helpKey: null,
+    fulfilled: false,
+  });
+
+  // PROBE B — the row that must NEVER promote, in the SUPERIOR bucket.
+  //
+  // `cbca_req_annual_update_qc` resolves to `qc_req_annual_update`, whose ladder is a
+  // YEAR COUNT (art. 59 al. 1 LPLE, two CONSECUTIVE missed years). At `year === YEAR`
+  // it is nought years behind at both clocks, so its consequence is `none` throughout.
+  //
+  // ★ IT GOES THROUGH THE WHOLE LANE AND COMES OUT UNPROMOTED, which is what makes
+  // assertion (2) MEANINGFUL rather than vacuous. A probe carrying no requirementKey
+  // would also never promote — structurally, never reaching `byReqKey` — and would
+  // therefore prove nothing about which LEVELS promote. This one is refused on its
+  // level, not on its shape.
+  const neverPromoting: Obligation = {
+    id: 'completeness:cbca_req_annual_update_qc:probe-live',
+    source: 'completeness',
+    titleFr: 'sonde',
+    titleEn: 'probe',
+    descriptionFr: null,
+    descriptionEn: null,
+    status: 'open',
+    liveness: 'live',
+    weight: 0,
+    dueDate: null,
+    triggeredBy: null,
+    deadlineDays: null,
+    daysUntilDue: null,
+    year: YEAR,
+    actionKind: 'upload',
+    requirementKey: 'cbca_req_annual_update_qc',
+    docKey: null,
+    exposure: 'external',
+    hasFiling: true,
+    statutoryBasis: null,
+    helpKey: null,
+    fulfilled: false,
+  };
+
+  // PROBE C — IN DEFAULT, non-promoting LEVEL, INFERIOR bucket. See the docblock:
+  // this is the probe that makes assertion (2) discriminate at all.
+  //
+  // `lsaq_req_annual_update` is `qc_req_annual_update`'s OTHER requirementKey
+  // (obligation-registry l. 569, measured), so probe C gets its OWN entry in
+  // `byReqKey` and its outstanding set never mixes with probe B's. Both keys resolve
+  // to the same rule and the same ladder; only the sets stay apart.
+  const penaltyOnly: Obligation = {
+    id: 'completeness:lsaq_req_annual_update:probe-penalty',
+    source: 'completeness',
+    titleFr: 'sonde',
+    titleEn: 'probe',
+    descriptionFr: null,
+    descriptionEn: null,
+    status: 'open',
+    liveness: 'regularize',
+    weight: 0,
+    dueDate: null,
+    triggeredBy: null,
+    deadlineDays: null,
+    daysUntilDue: null,
+    year: C_YEAR,
+    actionKind: 'upload',
+    requirementKey: 'lsaq_req_annual_update',
+    docKey: null,
+    exposure: 'external',
+    hasFiling: true,
+    statutoryBasis: null,
+    helpKey: null,
+    fulfilled: false,
+  };
+
+  // Both clocks, the SAME three rows. `framework: 'CBCA'` — the federal ladder's guard
+  // rejects the (fed_annual_return, 'LSA') pair, and probe A must reach the ladder.
+  const rankAt = (today: Date): RankedObligation[] =>
+    rankObligations([neverPromoting, penaltyOnly, promoting(today)], today, 'CBCA');
+  const find = (rows: RankedObligation[], marker: string): RankedObligation | undefined =>
+    rows.find((r: RankedObligation) => r.id.includes(marker));
+
+  const rowsBefore = rankAt(CLOCK_BEFORE);
+  const rowsAfter = rankAt(CLOCK_AFTER);
+  const aBefore = find(rowsBefore, 'probe-promoting');
+  const bBefore = find(rowsBefore, 'probe-live');
+  const cBefore = find(rowsBefore, 'probe-penalty');
+  const aAfter = find(rowsAfter, 'probe-promoting');
+  const bAfter = find(rowsAfter, 'probe-live');
+
+  // How many rows share probe C's requirementKey — ASSERTED below, never assumed.
+  const cKeyRows = rowsBefore.filter(
+    (r: RankedObligation) => r.requirementKey === 'lsaq_req_annual_update',
+  ).length;
+
+  if (!aBefore || !bBefore || !cBefore || !aAfter || !bAfter) {
+    // Not a failure of the invariant — a failure to build its subject. Say which.
+    skip(FACT, 'the three synthetic rows did not all survive ranking at both clocks (' +
+      rowsBefore.length + ' row(s) at the first, ' + rowsAfter.length + ' at the second). ' +
+      'The invariant was not exercised.');
+  } else if (bAfter.liveness !== 'live' || aAfter.liveness === 'live') {
+    // ★ THE INVERTED PRECONDITION. With equal buckets, or with the promoted row in the
+    // higher one, a pass would prove nothing: the bucket sort alone would produce the
+    // expected order.
+    fail(FACT, 'PRECONDITION: the NON-promoted row must sit in a HIGHER liveness bucket ' +
+      'than the promoted one, or the promotion crosses nothing and this fact passes on ' +
+      'the bucket alone',
+      'non-promoted `live`, promoted not `live`',
+      'non-promoted `' + bAfter.liveness + '`, promoted `' + aAfter.liveness + '`');
+  } else if (aBefore.daysUntilDue === null || aBefore.daysUntilDue < 0) {
+    fail(FACT, 'PRECONDITION: at the FIRST clock the federal row must NOT yet be in ' +
+      'default, or there is no "before" state and no escalation is measured',
+      'daysUntilDue >= 0', aBefore.daysUntilDue);
+  } else if (aAfter.daysUntilDue === null || aAfter.daysUntilDue >= 0) {
+    fail(FACT, 'PRECONDITION: at the SECOND clock the federal row must BE in default, ' +
+      'or nothing has escalated between the two instants',
+      'daysUntilDue < 0', aAfter.daysUntilDue);
+  } else if (bBefore.year === null || CLOCK_AFTER.getFullYear() - bBefore.year >= 2) {
+    // Guards assertion (2): a QC probe old enough to be in default would promote too,
+    // both rows would be promoted, and "the order is the bucket's" would then be true
+    // for a reason that has nothing to do with the lane declining to promote.
+    fail(FACT, 'PRECONDITION: the QC probe must be too RECENT to be in default at either ' +
+      'clock, or it promotes as well and assertion (2) becomes vacuous',
+      'fewer than 2 calendar years behind at both clocks', bBefore.year);
+  } else if (cBefore.year === null || CLOCK_BEFORE.getFullYear() - cBefore.year < 2) {
+    fail(FACT, 'PRECONDITION: probe C must be IN DEFAULT at the first clock, or it ' +
+      'leaves the lane on an EMPTY outstanding set — before the level filter — and ' +
+      'assertion (2) goes back to checking that nothing promotes nothing, which is how ' +
+      'this fact passed inert on 2026-08-13',
+      'at least 2 calendar years behind', cBefore.year);
+  } else if (cKeyRows !== 1) {
+    fail(FACT, 'PRECONDITION: probe C must be ALONE on its requirementKey. A second row ' +
+      'on `lsaq_req_annual_update` would put two years in its outstanding set, a ' +
+      'consecutive run would make its level `strikeoff` — which PROMOTES — and ' +
+      'assertion (2) would be vacuous again, silently',
+      'exactly 1 row on lsaq_req_annual_update', cKeyRows);
+  } else if (!cLevel.known || cLevel.level !== 'penalty') {
+    fail(FACT, "PRECONDITION: probe C's level must be `penalty` — refused on its LEVEL " +
+      'and not on its shape. A promoting level and it would rise here legitimately; ' +
+      '`none` and it would never reach the level filter at all',
+      'penalty', cLevel.known ? cLevel.level : 'unknown (known: false)');
+  } else if (aAfter.rank > bAfter.rank) {
+    // ASSERTION (1) — the lane crosses the bucket.
+    fail(FACT, 'clock ' + iso(CLOCK_AFTER) + ' · the federal row (bucket `' +
+      aAfter.liveness + '`, due ' + aAfter.dueDate + ', daysUntilDue=' +
+      aAfter.daysUntilDue + ', consequence `default` — art. 263 · art. 212 LCSA) ranked #' +
+      aAfter.rank + ', BEHIND the not-yet-due row (bucket `' + bAfter.liveness + '`) at #' +
+      bAfter.rank + '. The promotion lane did not cross the bucket',
+      'the high-consequence row first', '#' + aAfter.rank + ' behind #' + bAfter.rank);
+  } else if (cBefore.rank < bBefore.rank) {
+    // ASSERTION (2) — and the lane crosses nothing it should not. Its subject is probe
+    // C, not probe A: A is not in default at this clock and would never reach the level
+    // filter, which is why the first version of this assertion measured nothing.
+    fail(FACT, 'clock ' + iso(CLOCK_BEFORE) + ' · probe C is IN DEFAULT with level ' +
+      '`penalty` (art. 87 LPLE) — a NON-promoting level — and sits in bucket `' +
+      cBefore.liveness + '`, below the `' + bBefore.liveness + '` row. It ranked #' +
+      cBefore.rank + ', AHEAD of #' + bBefore.rank + ': something promoted it. Widening ' +
+      'the lane past `strikeoff` and `default` is the edit this assertion exists to catch',
+      'the `live` row ahead of the in-default `penalty` row',
+      '#' + cBefore.rank + ' ahead of #' + bBefore.rank);
+  } else if (failures === before) {
+    pass(FACT, 'escalation across two clocks · ' + iso(CLOCK_BEFORE) + ': nothing promotes — `' +
+      bBefore.liveness + '` #' + bBefore.rank + ' ahead of the in-default `penalty` row #' +
+      cBefore.rank + ' and of `' + aBefore.liveness + '` #' + aBefore.rank +
+      ' (bucket order, federal daysUntilDue=' + aBefore.daysUntilDue + ') · ' +
+      iso(CLOCK_AFTER) + ': federal daysUntilDue=' + aAfter.daysUntilDue + ' → consequence ' +
+      '`default` → `' + aAfter.liveness + '` #' + aAfter.rank + ' ahead of `' +
+      bAfter.liveness + '` #' + bAfter.rank);
   }
 }
 

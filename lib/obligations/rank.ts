@@ -18,7 +18,8 @@
  * score = stakes × urgency. Stakes = what's at risk (external filing >
  * foundational > internal-annual > low). Urgency = a steep convex ramp on
  * daysUntilDue (D2), with a virtual floor so clock-less foundational work still
- * competes (D3). Ties break by a locked ladder (D5).
+ * competes (D3). Ties break by a locked ladder (D5). ABOVE ALL OF IT sits one lane:
+ * a row whose consequence is `strikeoff` or `default` precedes one that is not.
  *
  * ADDITIVE: reads the shipped Obligation contract; does NOT modify it, the
  * aggregator, or any feeder. Constants are PROVISIONAL (the tuning point) — the
@@ -29,6 +30,7 @@
  */
 
 import type { Obligation, ObligationAction, ObligationLiveness } from './obligation';
+import { computeConsequence, type ConsequenceFramework } from './consequence';
 import {
   ruleForRequirementKey,
   ruleForRuleKey,
@@ -111,13 +113,21 @@ function urgencyFor(o: Obligation): number {
   return URGENCY_FLOOR_LOW;
 }
 
-// ── LIVENESS BUCKET (Harvey 2026-07-05) — PRIMARY sort key, absolute hierarchy ──
+// ── LIVENESS BUCKET (Harvey 2026-07-05) — absolute, WITHIN a promotion group ──────
 // Liveness is an ABSOLUTE bucket, not a weight: every 'live' obligation ranks above
-// every 'regularize', which ranks above every 'remediate' — no exceptions. It's the
-// orthogonal "is this still the right action" axis (Harvey: due ≠ still-the-right-
-// action). stakes × urgency (`score`) orders WITHIN a bucket only; it never crosses
-// bucket boundaries, so a high-base ancient remediate item can't edge out a current
-// live one. (Replaces the Part-1 liveness multiplier, now redundant under buckets.)
+// every 'regularize', which ranks above every 'remediate'. It's the orthogonal "is
+// this still the right action" axis (Harvey: due ≠ still-the-right-action). stakes ×
+// urgency (`score`) orders WITHIN a bucket only; it never crosses bucket boundaries,
+// so a high-base ancient remediate item can't edge out a current live one.
+// (Replaces the Part-1 liveness multiplier, now redundant under buckets.)
+//
+// ⚠️ THIS USED TO READ "PRIMARY sort key" AND "no exceptions". BOTH BECAME FALSE WITH
+// THE CONSEQUENCE LANE, and are corrected here rather than left standing. Exactly ONE
+// thing now sits above the bucket: a row whose consequence is `strikeoff` or
+// `default` (see `promotedRowIds`). Dom 2026-07-05, in full — "avoid falling behind
+// IF AND ONLY IF the high-consequence items are gone". The bucket was always the
+// first half of that rule; the condition could not be written until consequence
+// existed as an axis, which it did not on 5 July.
 const LIVENESS_RANK: Record<ObligationLiveness, number> = {
   live: 0,
   regularize: 1,
@@ -209,11 +219,115 @@ function resolveUnmetPrerequisites(
   return out;
 }
 
-export function rankObligations(obligations: Obligation[], today: Date): RankedObligation[] {
-  // `today` is reserved: the v1 urgency ramp reads each obligation's pre-computed
-  // daysUntilDue (baked by the feeders); kept in the signature for API symmetry
-  // with the feeders and a future freshness recompute.
-  void today;
+/**
+ * A QC annual-update year counts as MISSED once the clock is this many CALENDAR
+ * years past it.
+ *
+ * WHY TWO: the art. 45 LPLE deadline falls at fiscal-year end + 6 months, so at the
+ * latest in June of Y+1 (worst case, a 31-December year end). `today.getFullYear()
+ * - Y >= 2` first observes on 1 January of Y+2 — AFTER every possible deadline,
+ * whatever the company's year end, and WITHOUT having to know it.
+ *
+ * ⚠️ IT UNDER-REPORTS BY UP TO ONE YEAR, DELIBERATELY, and this line is the only
+ * place that says so. A year missed in Y is not counted until Y+2. The bias is
+ * chosen: a false `strikeoff` sends someone to a lawyer for nothing, while a late
+ * one merely delays a promotion.
+ *
+ * ⚠️ AND IT IS NOT `liveness`. Branch B of computeLiveness flips on 1 January, which
+ * diverges from the art. 45 deadline by up to 332 days for a 31-December year end
+ * (measured, ZK_Core). A December-year-end company would be counted in default
+ * nearly a year early, and could reach `strikeoff` on two false positives.
+ */
+const QC_MISSED_YEARS_BEHIND = 2;
+
+/**
+ * Is THIS row in default for its ladder?
+ *
+ * ★ THE TWO LADDERS READ DIFFERENT SIGNALS, AND THAT IS A DIFFERENCE IN THE SHAPE
+ * OF THE DATA, NOT A SPECIAL CASE.
+ *
+ * QC rows carry NO clock — measured 2026-08-13, eight of Wick's eight
+ * `cbca_req_annual_update_qc` rows have `daysUntilDue: null`, historical ones
+ * included. A year count is the only signal that exists there.
+ *
+ * The federal obligation is ONE row carrying its own clock, and a year count could
+ * never work for it: `obligationFiscalYear` never returns a past year, so that row's
+ * `today.getFullYear() - year` is always 0 or 1 and would never reach 2. Measured
+ * the same day at four clocks.
+ */
+function isInDefault(ruleKey: string, o: Obligation, today: Date): boolean {
+  if (ruleKey === 'fed_annual_return') {
+    return o.daysUntilDue !== null && o.daysUntilDue < 0;
+  }
+  if (ruleKey === 'qc_req_annual_update') {
+    return o.year !== null && today.getFullYear() - o.year >= QC_MISSED_YEARS_BEHIND;
+  }
+  // Any other rule: not in default here. Its consequence law is not established, and
+  // `computeConsequence` would decline anyway.
+  return false;
+}
+
+/**
+ * The row ids this ranker PROMOTES above the liveness bucket — AT MOST ONE PER
+ * OBLIGATION, the most recent one in default.
+ *
+ * ★ ONE ROW, NOT ALL OF THEM. Consequence is a property of the COMPANY'S STATE on an
+ * obligation, not of each year-row: measured 2026-08-13, Wick has five REQ years in
+ * default and Acme six, and promoting them all would fill a five-row board with rows
+ * that carry no separately useful action (art. 52 — one year is curable at a time).
+ * The most recent row carries the state; the others are already below it.
+ *
+ * ★ ONLY `strikeoff` AND `default` PROMOTE — the two levels where the company's
+ * EXISTENCE is at stake (radiation art. 59 al. 1 · dissolution art. 212). `penalty`
+ * is money and `none` is nothing. A refusal (`known: false`) promotes nothing AND
+ * demotes nothing: we never assign a level we do not know, which is exactly why this
+ * is a LANE and not a re-scoring.
+ */
+function promotedRowIds(
+  byReqKey: ReadonlyMap<string, Obligation[]>,
+  framework: ConsequenceFramework,
+  today: Date,
+): ReadonlySet<string> {
+  const out = new Set<string>();
+  // Array.from over .entries(), not `for … of` on the Map: this repo's tsconfig
+  // rejects direct Map/Set iteration (TS2802) — the same constraint that shapes
+  // `Array.from(new Set(...))` in consequence.ts.
+  for (const [requirementKey, rows] of Array.from(byReqKey.entries())) {
+    const rule = ruleForRequirementKey(requirementKey);
+    if (!rule) continue;
+    // ⚠️ `status !== 'satisfied'` IS LOAD-BEARING, NOT HYGIENE. `byReqKey` is built
+    // from the RAW array, which still holds satisfied rows; `scored` is built from
+    // `active`, which does not. Promote a satisfied row and its id would match no
+    // entry in `scored` — the promotion would vanish SILENTLY, the worst failure
+    // mode this lane has. The two filters must keep agreeing.
+    const inDefault = rows.filter(
+      (o) => o.status !== 'satisfied' && isInDefault(rule.ruleKey, o, today),
+    );
+    if (inDefault.length === 0) continue;
+    // consequence.ts never decides what "outstanding" means — it reads the set it is
+    // given, and the set is derived just above, per ladder.
+    const outstandingYears = inDefault
+      .map((o) => o.year)
+      .filter((y): y is number => y !== null);
+    const assessment = computeConsequence({ ruleKey: rule.ruleKey, framework, outstandingYears });
+    // Narrowing on `known` is NOT defensive — tsc refuses to read `.level` without
+    // it. That is the whole point of the discriminated arm.
+    if (!assessment.known) continue;
+    if (assessment.level !== 'strikeoff' && assessment.level !== 'default') continue;
+    const mostRecent = mostRecentByYear(inDefault);
+    if (mostRecent) out.add(mostRecent.id);
+  }
+  return out;
+}
+
+export function rankObligations(
+  obligations: Obligation[],
+  today: Date,
+  framework: ConsequenceFramework,
+): RankedObligation[] {
+  // `today` was RESERVED and unread until the consequence lane. It is now consumed by
+  // `isInDefault` for the QC year count. The urgency ramp still reads each
+  // obligation's pre-computed `daysUntilDue`, unchanged.
 
   // ★ PREREQUISITE INDICES — built from the RAW `obligations` param, NOT `active`.
   // `active` (below) drops satisfied rows, which would make a SATISFIED prerequisite
@@ -236,13 +350,29 @@ export function rankObligations(obligations: Obligation[], today: Date): RankedO
   const active = obligations.filter((o) => o.status !== 'satisfied');
 
   // 2. Score: stakes × urgency — the WITHIN-bucket priority. Liveness is applied
-  //    as the primary sort bucket below, NOT folded into the score.
-  const scored = active.map((o) => ({ o, score: stakesFor(o) * urgencyFor(o) }));
+  //    as a sort bucket below, NOT folded into the score.
+  //
+  //    `promoted` is computed HERE, ONCE PER ROW, and never inside the comparator:
+  //    the comparator runs O(n log n) times, and a criterion recomputed per
+  //    comparison would be both wasteful and unstable the day it stopped being a
+  //    pure function of the row.
+  const promoted = promotedRowIds(byReqKey, framework, today);
+  const scored = active.map((o) => ({
+    o,
+    score: stakesFor(o) * urgencyFor(o),
+    promoted: promoted.has(o.id),
+  }));
 
   // 3. Sort desc by score; break ties by the locked D5 ladder.
   scored.sort((a, b) => {
-    // PRIMARY bucket: liveness (live < regularize < remediate) — ABSOLUTE. Every
-    // live item ranks above every regularize, above every remediate. No exceptions.
+    // ★ PROMOTION LANE — the ONLY comparison above the liveness bucket. A row whose
+    // consequence is `strikeoff` or `default` precedes one that is not; WITHIN each
+    // of the two groups the existing order is UNTOUCHED, bucket included. Nothing is
+    // re-scored and nothing is demoted — which is why a consequence we do NOT know
+    // (`known: false`) sits here harmlessly: it simply does not promote.
+    if (a.promoted !== b.promoted) return a.promoted ? -1 : 1;
+    // Bucket: liveness (live < regularize < remediate) — ABSOLUTE within a promotion
+    // group. Every live item ranks above every regularize, above every remediate.
     const livA = LIVENESS_RANK[a.o.liveness];
     const livB = LIVENESS_RANK[b.o.liveness];
     if (livA !== livB) return livA - livB;
