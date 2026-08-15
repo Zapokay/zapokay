@@ -7,6 +7,8 @@ import { AlertTriangle } from 'lucide-react';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { uploadErrorMessageKey } from '@/lib/upload-error-message';
 import { composeDisplayName } from '@/lib/display-name';
+import { mustBlockUpload } from '@/lib/fiscal-year-open';
+import { formatDate } from '@/lib/utils';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 
 const DOC_TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre'] as const;
@@ -97,6 +99,9 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
 
   const fr = locale === 'fr';
   const t = useTranslations('documents');
+  // The gate's sentence is single-sourced with Complétude and the board — the same
+  // key, so the three surfaces cannot drift into three phrasings of one fact.
+  const tReq = useTranslations('requirementRow');
 
   // -- State --
   const [title, setTitle] = useState(prefill?.title ?? '');
@@ -111,6 +116,10 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     prefill?.requirementYear ?? null,
   );
   const [requirements, setRequirements] = useState<ChecklistItem[]>([]);
+  // The fiscal-year ENDS, for the upload gate on the corresponds-to options. They
+  // ride in on the SAME response as `requirements` below — the fetch was already
+  // throwing them away. No second request, no new prop.
+  const [fiscalYears, setFiscalYears] = useState<{ year: number; endDate: string }[]>([]);
   const [isCertified, setIsCertified] = useState(false);
   const [step, setStep] = useState<Step>('form');
   const [error, setError] = useState('');
@@ -146,6 +155,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
       .then((data) => {
         if (cancelled) return;
         if (data?.checklist) setRequirements(data.checklist);
+        if (data?.fiscalYears) setFiscalYears(data.fiscalYears);
       })
       .catch(() => {
         /* non-fatal */
@@ -180,6 +190,34 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
           req.category === 'foundational' || docYear === '' || req.year === docYear,
       ),
     [requirements, docYear],
+  );
+
+  // ── THE UPLOAD GATE, ON THE CORRESPONDS-TO OPTIONS. ──
+  //
+  // Third and last surface of the gate (Complétude row, A3 board card, here). Same
+  // predicate, same sentence, no second copy of the comparison.
+  //
+  // ⚠️ IT MATTERS MOST IN THE `docYear === ''` STATE. The filter above shows EVERY
+  // requirement while no year is chosen, so an open-year annual resolution is
+  // offered before the user has picked anything. Keying on the requirement's own
+  // `req.year` — never on `docYear` — makes the gate correct in that state too.
+  //
+  // ⚠️ NO `eventLink` ARGUMENT, AND IT IS NOT AN OMISSION. Options come from
+  // `data.checklist`, which the API contract keeps requirements-only precisely
+  // because THIS dropdown iterates it ("would render acts as requirement options",
+  // app/api/minute-book/completeness/route.ts). Acts arrive in a separate `acts`
+  // field this modal does not read, so the lifecycle-act exclusion is unreachable
+  // here. If that contract ever changes, this call must gain the argument.
+  const uploadBlockedFor = useCallback(
+    (req: ChecklistItem): boolean =>
+      mustBlockUpload(
+        req.requirement_key,
+        req.year,
+        req.year === null
+          ? null
+          : fiscalYears.find((f) => f.year === req.year)?.endDate ?? null,
+      ),
+    [fiscalYears],
   );
 
   // -- Cascade: requirement change → set type/title/docYear (vault mode only) --
@@ -571,16 +609,39 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                 }}
                 className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
               >
+                {/* ★ "Aucune" STAYS, AND THE FIELD STAYS OPTIONAL — Dom's product
+                    decision, 2026-08-15, not an oversight: "un utilisateur qui veut
+                    téléverser un document propre à son entreprise, non prévu par la
+                    plateforme, peut quand même le faire s'il considère qu'il doit
+                    aller dans son livre des minutes." A conformity form with an
+                    optional classification field looks like a gap; it is a choice.
+                    ★ It is also what makes the disabled options SAFE. The gate never
+                    traps a user with a real document and nowhere to put it — it
+                    closes one wrong shelf, never the door. */}
                 <option value="">{t('upload.correspondsToOptional')}</option>
-                {filteredRequirements.map((req) => (
-                  <option
-                    key={`${req.requirement_key}-${req.year ?? 'f'}`}
-                    value={`${req.requirement_key}|${req.year ?? ''}`}
-                  >
-                    {fr ? req.title_fr : req.title_en}
-                    {req.year ? ` (${req.year})` : ''}
-                  </option>
-                ))}
+                {filteredRequirements.map((req) => {
+                  // The reason has to live INSIDE the label: an <option> renders text
+                  // and nothing else — no sibling <span>, and `title=` is not shown
+                  // consistently across browsers. Measured before choosing this.
+                  const blocked = uploadBlockedFor(req);
+                  const endDate =
+                    req.year === null
+                      ? null
+                      : fiscalYears.find((f) => f.year === req.year)?.endDate ?? null;
+                  return (
+                    <option
+                      key={`${req.requirement_key}-${req.year ?? 'f'}`}
+                      value={`${req.requirement_key}|${req.year ?? ''}`}
+                      disabled={blocked}
+                    >
+                      {fr ? req.title_fr : req.title_en}
+                      {req.year ? ` (${req.year})` : ''}
+                      {blocked && endDate
+                        ? ` — ${tReq('generateUnavailableUntil', { date: formatDate(endDate, locale) })}`
+                        : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}

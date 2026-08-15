@@ -22,7 +22,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import type { RankedObligation } from '@/lib/obligations/rank';
 import { formatDate } from '@/lib/utils';
-import { mustBlockGeneration } from '@/lib/fiscal-year-open';
+import { mustBlockGeneration, mustBlockUpload } from '@/lib/fiscal-year-open';
 import {
   STATUS_CHIP,
   TIER_BADGE,
@@ -261,12 +261,32 @@ export default function A3Item({
   // although the year closed on 2026-05-31. Branching on it would block a
   // perfectly legitimate document. See lib/fiscal-year-open.ts.
   const generationBlocked = mustBlockGeneration(o.year, fiscalYearEndDate);
+  // ── UPLOAD JOINS THE GATE, AND THIS IS THE ONE SITE WHERE BOTH EXCLUSIONS FIRE. ──
+  //
+  // ⚠️ `o.eventLink` MUST BE PASSED HERE. Unlike RequirementRow — which only ever
+  // renders catalog rows — this component also renders LIFECYCLE ACT rows, and the
+  // event feeder gives them `requirementKey: null`, `canUpload: true` and a
+  // non-null `year`. MEASURED 2026-08-15: eleven such acts across the fixtures, ten
+  // of them inside an open fiscal year. Drop this argument and Fixture Cap is
+  // refused the upload of the resolution appointing its own directors — dated
+  // 2026-03-02, the day it was incorporated.
+  //
+  // The other exclusion (the federal annual return's anniversary clock) reaches
+  // this component through its deadline row, which carries requirementKey +
+  // canUpload and would otherwise be gated on a fiscal year it has no relation to.
+  const uploadBlocked = mustBlockUpload(o.requirementKey, o.year, fiscalYearEndDate, o.eventLink);
   // A FACT, never an instruction. Rendered beside the button it explains, in the
   // action row — the shape `consultMention` below already established: a plain
   // <span> that is a MENTION, not a control. Visible without hover, because a
   // greyed button with no stated reason reads as a broken product.
+  //
+  // ⚠️ KEYED ON `uploadBlocked`, which is the STRICTER-SCOPED of the two: it is
+  // false on act rows and on the federal return, where generationBlocked is true
+  // but no GenerateDocumentButton is rendered (that button needs requirementKey,
+  // which acts lack, and can_generate, which the federal return lacks). Keying on
+  // generation would print a fiscal-year sentence on rows this gate does not touch.
   const blockedNote =
-    generationBlocked && fiscalYearEndDate ? (
+    uploadBlocked && fiscalYearEndDate ? (
       <span className="text-[11.5px] text-[var(--text-muted)]">
         {tReq('generateUnavailableUntil', { date: formatDate(fiscalYearEndDate, locale) })}
       </span>
@@ -321,14 +341,20 @@ export default function A3Item({
     // dual-outline (Complétude parity). No dedicated --amber-border token exists;
     // --amber-400 (the solid amber) is reused as the border color — Aria to confirm.
     const setBase = `${actBase} cursor-pointer text-[12px] px-3.5 py-[7px] border-[1.5px] transition-colors`;
-    const uploadCls = asHero
-      ? `${setBase} bg-[var(--amber-400)] text-[var(--navy-900)] border-transparent hover:bg-[var(--amber-hover)] active:opacity-90`
-      : `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)]`;
-    // ⚠️ THE DISABLED VARIANTS LIVE ON `genCls`, NEVER ON `setBase`. setBase is
-    // shared with uploadCls, and Téléverser is not part of this gate — uploading a
-    // real document is never a false entry. Widening setBase would have been one
-    // line instead of two and would have quietly restyled a button this lot
-    // promised not to touch.
+    // ⚠️ THE DISABLED VARIANTS LIVE ON `uploadCls` AND `genCls`, NEVER ON `setBase`.
+    // ⚠️ THIS COMMENT USED TO SAY "on genCls, NEVER on setBase … Téléverser is not
+    // part of this gate — uploading a real document is never a false entry". THAT
+    // RULE WAS REVERSED ON 2026-08-15: on an OPEN fiscal year we know no legitimate
+    // annual resolution can exist, so accepting the upload lets the user file a
+    // false entry. Upload is gated now — but the variants STILL do not go on
+    // setBase, because the two buttons need DIFFERENT disabled-hover targets (see
+    // below) and setBase is also the base of the static-verb branches further down.
+    //
+    // ★ THE HOVER TARGET IS EACH BUTTON'S OWN REST COLOUR, AND THEY DIFFER. A hero
+    // Téléverser rests on solid `--amber-400`; neutralizing it to `transparent`
+    // would make a disabled hero button LOSE its fill under the pointer — a bigger
+    // visual lie than the one being fixed. Hence `disabled:hover:bg-[var(--amber-400)]`
+    // there, and `disabled:hover:bg-transparent` on every outline variant.
     //
     // `disabled:hover:*` is not decoration: :hover still fires on a disabled
     // button, so opacity alone would leave it reacting to the pointer. A control
@@ -338,11 +364,13 @@ export default function A3Item({
     // `cursor-pointer` on setBase does NOT win: `.cursor-pointer` scores (0,1,0)
     // while `.disabled\:cursor-not-allowed:disabled` scores (0,2,0). Specificity
     // decides it, not source order — no `!important` needed here.
-    const genDisabledCls =
-      'disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent';
+    const gatedDisabledCls = 'disabled:opacity-60 disabled:cursor-not-allowed';
+    const uploadCls = asHero
+      ? `${setBase} bg-[var(--amber-400)] text-[var(--navy-900)] border-transparent hover:bg-[var(--amber-hover)] active:opacity-90 ${gatedDisabledCls} disabled:hover:bg-[var(--amber-400)]`
+      : `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)] ${gatedDisabledCls} disabled:hover:bg-transparent`;
     const genCls = asHero
-      ? `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--amber-400)] hover:bg-[var(--warning-bg)] hover:text-[var(--warning-text)] active:opacity-90 ${genDisabledCls} disabled:hover:text-[var(--text-heading)]`
-      : `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)] ${genDisabledCls}`;
+      ? `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--amber-400)] hover:bg-[var(--warning-bg)] hover:text-[var(--warning-text)] active:opacity-90 ${gatedDisabledCls} disabled:hover:bg-transparent disabled:hover:text-[var(--text-heading)]`
+      : `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)] ${gatedDisabledCls} disabled:hover:bg-transparent`;
 
     const uploadBtn = isUploadedWip
       ? { show: true, label: tReq('replace') }
@@ -363,27 +391,34 @@ export default function A3Item({
     verbButton = (
       <>
         {uploadBtn.show && (
-          <button type="button" onClick={() => fileInputRef.current?.click()} className={uploadCls}>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadBlocked}
+            className={uploadCls}
+          >
             <Upload className="w-3.5 h-3.5" />
             {uploadBtn.label}
           </button>
         )}
         {genBtn.show && o.requirementKey && (
-          <>
-            <GenerateDocumentButton
-              companyId={companyId}
-              requirementKey={o.requirementKey}
-              year={o.year}
-              documentLanguage={documentLanguage}
-              onSuccess={handleGenerated}
-              locale={locale}
-              label={genBtn.label}
-              className={genCls}
-              disabled={generationBlocked}
-            />
-            {blockedNote}
-          </>
+          <GenerateDocumentButton
+            companyId={companyId}
+            requirementKey={o.requirementKey}
+            year={o.year}
+            documentLanguage={documentLanguage}
+            onSuccess={handleGenerated}
+            locale={locale}
+            label={genBtn.label}
+            className={genCls}
+            disabled={generationBlocked}
+          />
         )}
+        {/* ONE note per card, after both buttons — never inside a button's own
+            fragment. A row showing Téléverser AND Régénérer would otherwise carry
+            the same sentence twice, and a row whose only gated button is Téléverser
+            (the REQ annual update: can_upload, no can_generate) would carry none. */}
+        {blockedNote}
         {genBtn.show && eventLink && (
           <button
             type="button"

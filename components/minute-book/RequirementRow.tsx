@@ -6,7 +6,7 @@ import { CheckCircle2, XCircle, Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import { getDocumentState } from '@/lib/minute-book/state';
-import { mustBlockGeneration } from '@/lib/fiscal-year-open';
+import { mustBlockGeneration, mustBlockUpload } from '@/lib/fiscal-year-open';
 import { formatDate } from '@/lib/utils';
 
 interface RequirementRowProps {
@@ -109,13 +109,20 @@ export default function RequirementRow({
   // empty-state, generated, and uploaded button surfaces.
   const buttonClass =
     'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
-  // ── THE DISABLED-HOVER NEUTRALIZERS, ON THE GENERATE BUTTON ALONE. ──
+  // ── THE DISABLED-HOVER NEUTRALIZERS, ON THE GATED BUTTONS. ──
   //
-  // ⚠️ THEY DO NOT BELONG ON `buttonClass`, AND THAT IS THE WHOLE POINT. That
-  // string is shared with Téléverser and Remplacer, which this gate never
-  // disables — uploading a real document is never a false entry. Widening it
-  // would have been one line instead of two and would have restyled buttons this
-  // lot promised to leave alone. Same call, same reason, as genCls vs setBase on
+  // ⚠️ THIS COMMENT USED TO READ "ON THE GENERATE BUTTON ALONE", and said that
+  // buttonClass was shared with Téléverser and Remplacer "which this gate never
+  // disables — uploading a real document is never a false entry". THAT RULE WAS
+  // REVERSED ON 2026-08-15, deliberately: on an OPEN fiscal year we know no
+  // legitimate annual resolution can exist (art. 155(1)a) CBCA anchors financial
+  // statements on CLOSED periods), so accepting the upload lets the user file a
+  // false entry in their own book. Upload is now gated too — see mustBlockUpload.
+  //
+  // ⚠️ IT STILL DOES NOT BELONG ON `buttonClass`. That string stays the plain
+  // shared base; this is the derived variant the gate's buttons wear. Keeping the
+  // two separate is what lets a future reader disable a button WITHOUT inheriting
+  // this gate's styling decisions. Same call, same reason, as genCls vs setBase on
   // the board (A3Item).
   //
   // ⚠️ WHY THEY ARE NEEDED AT ALL — found by eye on 2026-08-15, not by a gate:
@@ -134,7 +141,7 @@ export default function RequirementRow({
   //   `.disabled\:hover\:text-[…]:disabled:hover`  → (0,3,0)  ← wins
   // The extra pseudo-class decides it; source order is not involved, and no
   // `!important` is needed.
-  const generateButtonClass = `${buttonClass} disabled:hover:bg-transparent disabled:hover:text-[var(--text-body)]`;
+  const gatedButtonClass = `${buttonClass} disabled:hover:bg-transparent disabled:hover:text-[var(--text-body)]`;
 
   // ── THE FISCAL-YEAR GATE — computed ONCE, read by both generate surfaces. ──
   //
@@ -149,13 +156,31 @@ export default function RequirementRow({
   // button reads as a broken product; a greyed one with its reason beside it
   // reads as an answer. `buttonClass` already carries disabled:opacity-60.
   const generationBlocked = mustBlockGeneration(year, fiscalYearEndDate);
+  // Upload joins the gate (2026-08-15). `eventLink` is left undefined ON PURPOSE
+  // and it is not an omission: this component only ever renders catalog
+  // requirement rows — `requirementKey` is typed non-nullable above, and lifecycle
+  // acts have their own component (EventActRow). The act exclusion cannot fire
+  // here, and saying so with `undefined` is more honest than threading a value
+  // that is always absent.
+  const uploadBlocked = mustBlockUpload(requirementKey, year, fiscalYearEndDate);
   // The reason is a FACT, never an instruction: it states when the document
   // becomes available, and asks the user for nothing. Plain sibling <span>,
   // visible without hover — the row's own idiom for "no action here yet"
-  // (see t('notAvailable') below). fiscalYearEndDate is re-tested for the
-  // type narrowing; generationBlocked alone cannot prove it non-null.
+  // (see t('notAvailable') below).
+  //
+  // ⚠️ KEYED ON `uploadBlocked`, NOT ON `generationBlocked`, AND ONE NOTE PER ROW.
+  // The two agree on every row that renders a generate button (a generate button
+  // needs can_generate, which the anniversary-clocked federal return does not
+  // have). They differ on exactly one row — that federal return — where upload
+  // stays LIVE and generationBlocked is meaningless because no generate button is
+  // rendered. Keying the note on generation would print "available after
+  // 31 December" beside a perfectly clickable Téléverser.
+  //
+  // Rendered ONCE per state branch, after the buttons, never inside a button's
+  // own fragment: a row showing both Téléverser and Régénérer would otherwise
+  // carry the same sentence twice.
   const blockedNote =
-    generationBlocked && fiscalYearEndDate ? (
+    uploadBlocked && fiscalYearEndDate ? (
       <span className="text-xs text-[var(--text-muted)]">
         {t('generateUnavailableUntil', { date: formatDate(fiscalYearEndDate, locale) })}
       </span>
@@ -222,28 +247,26 @@ export default function RequirementRow({
             {canUpload && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className={buttonClass}
+                disabled={isUploading || uploadBlocked}
+                className={gatedButtonClass}
               >
                 <Upload className="h-3.5 w-3.5" />
                 {isUploading ? t('uploadingButton') : t('uploadButton')}
               </button>
             )}
             {canGenerate && companyId && (
-              <>
-                <GenerateDocumentButton
-                  companyId={companyId}
-                  requirementKey={requirementKey}
-                  year={year}
-                  onSuccess={onGenerated}
-                  locale={locale}
-                  documentLanguage={documentLanguage}
-                  className={generateButtonClass}
-                  disabled={generationBlocked}
-                />
-                {blockedNote}
-              </>
+              <GenerateDocumentButton
+                companyId={companyId}
+                requirementKey={requirementKey}
+                year={year}
+                onSuccess={onGenerated}
+                locale={locale}
+                documentLanguage={documentLanguage}
+                className={gatedButtonClass}
+                disabled={generationBlocked}
+              />
             )}
+            {blockedNote}
             {!canUpload && !canGenerate && (
               <span className="text-xs text-[var(--text-muted)]">
                 {t('notAvailable')}
@@ -258,42 +281,43 @@ export default function RequirementRow({
             {canUpload && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className={buttonClass}
+                disabled={isUploading || uploadBlocked}
+                className={gatedButtonClass}
               >
                 <Upload className="h-3.5 w-3.5" />
                 {isUploading ? t('uploadingButton') : t('uploadButton')}
               </button>
             )}
             {canGenerate && companyId && (
-              <>
-                <GenerateDocumentButton
-                  companyId={companyId}
-                  requirementKey={requirementKey}
-                  year={year}
-                  onSuccess={onGenerated}
-                  locale={locale}
-                  documentLanguage={documentLanguage}
-                  label={t('regenerate')}
-                  className={generateButtonClass}
-                  disabled={generationBlocked}
-                />
-                {blockedNote}
-              </>
+              <GenerateDocumentButton
+                companyId={companyId}
+                requirementKey={requirementKey}
+                year={year}
+                onSuccess={onGenerated}
+                locale={locale}
+                documentLanguage={documentLanguage}
+                label={t('regenerate')}
+                className={gatedButtonClass}
+                disabled={generationBlocked}
+              />
             )}
+            {blockedNote}
           </>
         )}
 
         {/* Uploaded (any finalized state) — single Remplacer button */}
         {satisfied && source === 'uploaded' && (
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className={buttonClass}
-          >
-            <Upload className="h-3.5 w-3.5" />
-            {isUploading ? t('uploadingButton') : t('replace')}
-          </button>
+          <>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading || uploadBlocked}
+              className={gatedButtonClass}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {isUploading ? t('uploadingButton') : t('replace')}
+            </button>
+            {blockedNote}
+          </>
         )}
 
         {/* Single hidden file input shared across all surfaces — only one
