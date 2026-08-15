@@ -326,7 +326,8 @@
     "replace": "Replace",
     "uploadButton": "Upload",
     "uploadingButton": "Uploading…",
-    "notAvailable": "Coming soon"
+    "notAvailable": "Coming soon",
+    "generateUnavailableUntil": "Available after {date}"
   },
   "events": {
     "sectionTitle": "Events {year}",

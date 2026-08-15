@@ -15,6 +15,15 @@ interface RequirementSectionProps {
   items: ChecklistItem[];
   companyId?: string;
   /**
+   * The END of this section's fiscal year, bare ISO `YYYY-MM-DD`. Pure
+   * pass-through to RequirementRow's generation gate — the section never reads
+   * it. CompletenessPage resolves it per year from `data.fiscalYears` so the
+   * section is handed ONE date rather than a list to search.
+   *
+   * Absent on the foundational section, whose rows carry `year === null`.
+   */
+  fiscalYearEndDate?: string | null;
+  /**
    * Phase B B5 — forwarded from CompletenessPage to RequirementRow so the
    * row's bilingual button labels (Régénérer/Regenerate, etc.) and the
    * GenerateDocumentButton's locale-driven copy stay in sync with the URL
@@ -54,6 +63,7 @@ export default function RequirementSection({
   title,
   items,
   companyId,
+  fiscalYearEndDate,
   locale,
   onFileSelected,
   onGenerated,
@@ -129,6 +139,7 @@ export default function RequirementSection({
               canUpload={item.can_upload}
               canGenerate={item.can_generate}
               year={item.year}
+              fiscalYearEndDate={fiscalYearEndDate}
               companyId={companyId}
               locale={locale}
               documentLanguage={preferredLanguage === 'en' ? 'en' : 'fr'}

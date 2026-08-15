@@ -47,6 +47,12 @@ export default async function DashboardPage({
   // client already loaded above (no second company load, no early return).
   let ranked: Awaited<ReturnType<typeof rankObligations>> = [];
   let progress = { done: 0, total: 0 };
+  // The fiscal-year set, hoisted like ranked/progress so the JSX below can reach
+  // it (`completeness` is scoped to the if(company) block). Feeds the board's
+  // generation gate — lib/fiscal-year-open.ts — and comes from the SAME
+  // computeRequirementCompleteness call the deadline feeder already reads at
+  // `fiscalYears: completeness.fiscalYears` below. No second load.
+  let fiscalYears: { year: number; endDate: string }[] = [];
   // Completeness liveness aggregates (hoisted like ranked/progress — assigned in the
   // if(company) block). 0 defaults → no-company falls to en_regle. Verdict STATE +
   // metrics both source from these (Dom: all numbers from completeness).
@@ -167,6 +173,7 @@ export default async function DashboardPage({
       done: completeness.checklist.filter((i) => i.satisfied).length,
       total: completeness.checklist.length,
     };
+    fiscalYears = completeness.fiscalYears;
   }
 
   // Verdict STATE from completeness (one source with the metrics). Boundary B —
@@ -211,7 +218,7 @@ export default async function DashboardPage({
         />
 
         {/* A3 board — "quoi faire maintenant"; the board follows the verdict */}
-        {company && <A3Board ranked={ranked} progress={progress} companyId={company.id} documentLanguage={(profile.preferred_language as 'fr' | 'en') ?? 'fr'} framework={company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA'} />}
+        {company && <A3Board ranked={ranked} progress={progress} companyId={company.id} documentLanguage={(profile.preferred_language as 'fr' | 'en') ?? 'fr'} framework={company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA'} fiscalYears={fiscalYears} />}
 
 
         {/* Gap Analysis Panel — full width, between stat cards and main content */}

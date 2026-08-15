@@ -6,6 +6,8 @@ import { CheckCircle2, XCircle, Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import { getDocumentState } from '@/lib/minute-book/state';
+import { mustBlockGeneration } from '@/lib/fiscal-year-open';
+import { formatDate } from '@/lib/utils';
 
 interface RequirementRowProps {
   requirementKey: string;
@@ -24,6 +26,15 @@ interface RequirementRowProps {
   canUpload: boolean;
   canGenerate: boolean;
   year: number | null;
+  /**
+   * The END of the fiscal year `year` names, bare ISO `YYYY-MM-DD`, threaded
+   * from CompletenessPage's `data.fiscalYears` through RequirementSection. ONE
+   * date, already resolved for this row's year — the section does not search.
+   *
+   * Absent/null on foundational rows (`year === null`), which never need it:
+   * mustBlockGeneration returns on its first branch before reading any date.
+   */
+  fiscalYearEndDate?: string | null;
   companyId?: string;
   /**
    * Locale forwarded from CompletenessPage → RequirementSection. Drives
@@ -53,6 +64,7 @@ export default function RequirementRow({
   canUpload,
   canGenerate,
   year,
+  fiscalYearEndDate,
   companyId,
   locale,
   documentLanguage,
@@ -97,6 +109,57 @@ export default function RequirementRow({
   // empty-state, generated, and uploaded button surfaces.
   const buttonClass =
     'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
+  // ── THE DISABLED-HOVER NEUTRALIZERS, ON THE GENERATE BUTTON ALONE. ──
+  //
+  // ⚠️ THEY DO NOT BELONG ON `buttonClass`, AND THAT IS THE WHOLE POINT. That
+  // string is shared with Téléverser and Remplacer, which this gate never
+  // disables — uploading a real document is never a false entry. Widening it
+  // would have been one line instead of two and would have restyled buttons this
+  // lot promised to leave alone. Same call, same reason, as genCls vs setBase on
+  // the board (A3Item).
+  //
+  // ⚠️ WHY THEY ARE NEEDED AT ALL — found by eye on 2026-08-15, not by a gate:
+  // `disabled:opacity-60` dims the button but `hover:text-[var(--text-heading)]`
+  // still fires on a disabled button, so word and icon LIGHTEN under the pointer.
+  // A control that answers the mouse says "click me"; an inert one that says it is
+  // the interface lie this whole lot exists to remove. No automated check can see
+  // this: tsc does not read CSS and hover does not exist in a build.
+  //
+  // The hover target is `--text-body` — buttonClass's REST colour. A disabled
+  // hover must return the resting state, never introduce a third colour. The
+  // Sparkles icon inherits currentColor, so the text rule carries it too.
+  //
+  // Specificity, computed not assumed:
+  //   `.hover\:text-[…]:hover`                     → (0,2,0)
+  //   `.disabled\:hover\:text-[…]:disabled:hover`  → (0,3,0)  ← wins
+  // The extra pseudo-class decides it; source order is not involved, and no
+  // `!important` is needed.
+  const generateButtonClass = `${buttonClass} disabled:hover:bg-transparent disabled:hover:text-[var(--text-body)]`;
+
+  // ── THE FISCAL-YEAR GATE — computed ONCE, read by both generate surfaces. ──
+  //
+  // An annual resolution APPROVES financial statements. Generated while the
+  // fiscal year is still open, it approves statements that do not exist yet —
+  // art. 493 al. 2 LSAQ, a false entry in a company book. `canGenerate` above is
+  // a static property of the document TYPE and has never known which YEAR it was
+  // asked about; mustBlockGeneration is that missing half. Foundational rows
+  // (year === null) are never blocked: they record facts that already happened.
+  //
+  // ⚠️ The button stays RENDERED and goes inert — never hidden. A vanished
+  // button reads as a broken product; a greyed one with its reason beside it
+  // reads as an answer. `buttonClass` already carries disabled:opacity-60.
+  const generationBlocked = mustBlockGeneration(year, fiscalYearEndDate);
+  // The reason is a FACT, never an instruction: it states when the document
+  // becomes available, and asks the user for nothing. Plain sibling <span>,
+  // visible without hover — the row's own idiom for "no action here yet"
+  // (see t('notAvailable') below). fiscalYearEndDate is re-tested for the
+  // type narrowing; generationBlocked alone cannot prove it non-null.
+  const blockedNote =
+    generationBlocked && fiscalYearEndDate ? (
+      <span className="text-xs text-[var(--text-muted)]">
+        {t('generateUnavailableUntil', { date: formatDate(fiscalYearEndDate, locale) })}
+      </span>
+    ) : null;
 
   return (
     <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
@@ -167,15 +230,19 @@ export default function RequirementRow({
               </button>
             )}
             {canGenerate && companyId && (
-              <GenerateDocumentButton
-                companyId={companyId}
-                requirementKey={requirementKey}
-                year={year}
-                onSuccess={onGenerated}
-                locale={locale}
-                documentLanguage={documentLanguage}
-                className={buttonClass}
-              />
+              <>
+                <GenerateDocumentButton
+                  companyId={companyId}
+                  requirementKey={requirementKey}
+                  year={year}
+                  onSuccess={onGenerated}
+                  locale={locale}
+                  documentLanguage={documentLanguage}
+                  className={generateButtonClass}
+                  disabled={generationBlocked}
+                />
+                {blockedNote}
+              </>
             )}
             {!canUpload && !canGenerate && (
               <span className="text-xs text-[var(--text-muted)]">
@@ -199,16 +266,20 @@ export default function RequirementRow({
               </button>
             )}
             {canGenerate && companyId && (
-              <GenerateDocumentButton
-                companyId={companyId}
-                requirementKey={requirementKey}
-                year={year}
-                onSuccess={onGenerated}
-                locale={locale}
-                documentLanguage={documentLanguage}
-                label={t('regenerate')}
-                className={buttonClass}
-              />
+              <>
+                <GenerateDocumentButton
+                  companyId={companyId}
+                  requirementKey={requirementKey}
+                  year={year}
+                  onSuccess={onGenerated}
+                  locale={locale}
+                  documentLanguage={documentLanguage}
+                  label={t('regenerate')}
+                  className={generateButtonClass}
+                  disabled={generationBlocked}
+                />
+                {blockedNote}
+              </>
             )}
           </>
         )}

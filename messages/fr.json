@@ -326,7 +326,8 @@
     "replace": "Remplacer",
     "uploadButton": "Téléverser",
     "uploadingButton": "Téléversement…",
-    "notAvailable": "Bientôt disponible"
+    "notAvailable": "Bientôt disponible",
+    "generateUnavailableUntil": "Disponible après le {date}"
   },
   "events": {
     "sectionTitle": "Événements {year}",

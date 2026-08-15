@@ -22,6 +22,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import type { RankedObligation } from '@/lib/obligations/rank';
 import { formatDate } from '@/lib/utils';
+import { mustBlockGeneration } from '@/lib/fiscal-year-open';
 import {
   STATUS_CHIP,
   TIER_BADGE,
@@ -54,6 +55,13 @@ interface Props {
   documentLanguage: 'fr' | 'en';
   framework: 'LSA' | 'CBCA';
   addToast: (message: string, type: 'success' | 'error') => void;
+  /**
+   * The END of the fiscal year `obligation.year` names, bare ISO `YYYY-MM-DD`,
+   * already resolved by A3Board. Null on foundational rows (year === null) and
+   * on any year the fiscal-year list does not carry. Same prop name and shape as
+   * RequirementRow's, so the two surfaces read one gate the same way.
+   */
+  fiscalYearEndDate?: string | null;
 }
 
 export default function A3Item({
@@ -63,6 +71,7 @@ export default function A3Item({
   documentLanguage,
   framework,
   addToast,
+  fiscalYearEndDate,
 }: Props) {
   const locale = useLocale();
   const t = useTranslations('dashboard.a3Board');
@@ -239,6 +248,30 @@ export default function A3Item({
     // receipt attaches by (requirementKey, year) via handleFileChange's requirementRef
     // path. Only the fed return sets these on a deadline row today.
     (o.source === 'deadline' && o.requirementKey != null && o.canUpload === true);
+
+  // ── THE FISCAL-YEAR GATE — the same one Complétude reads, same predicate. ──
+  //
+  // An annual resolution APPROVES financial statements; generated while the year
+  // is still open it approves statements that do not exist yet (art. 493 al. 2
+  // LSAQ, false entry in a company book). `o.canGenerate` is a static property of
+  // the document TYPE and has never known which YEAR it was asked about.
+  //
+  // ⚠️ NOT `o.liveness`. That field is YEAR-founded, not closure-founded: Wick's
+  // fiscal year ends 31 MAY, so its 2026 rows still read `live` on 2026-08-15
+  // although the year closed on 2026-05-31. Branching on it would block a
+  // perfectly legitimate document. See lib/fiscal-year-open.ts.
+  const generationBlocked = mustBlockGeneration(o.year, fiscalYearEndDate);
+  // A FACT, never an instruction. Rendered beside the button it explains, in the
+  // action row — the shape `consultMention` below already established: a plain
+  // <span> that is a MENTION, not a control. Visible without hover, because a
+  // greyed button with no stated reason reads as a broken product.
+  const blockedNote =
+    generationBlocked && fiscalYearEndDate ? (
+      <span className="text-[11.5px] text-[var(--text-muted)]">
+        {tReq('generateUnavailableUntil', { date: formatDate(fiscalYearEndDate, locale) })}
+      </span>
+    ) : null;
+
   // ── CONSULT — a MENTION, not a control. ──
   //
   // ⚠️ IT USED TO BE A `<button>`, AND IT DID NOTHING. No `onClick`, no `href`, and
@@ -291,9 +324,25 @@ export default function A3Item({
     const uploadCls = asHero
       ? `${setBase} bg-[var(--amber-400)] text-[var(--navy-900)] border-transparent hover:bg-[var(--amber-hover)] active:opacity-90`
       : `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)]`;
+    // ⚠️ THE DISABLED VARIANTS LIVE ON `genCls`, NEVER ON `setBase`. setBase is
+    // shared with uploadCls, and Téléverser is not part of this gate — uploading a
+    // real document is never a false entry. Widening setBase would have been one
+    // line instead of two and would have quietly restyled a button this lot
+    // promised not to touch.
+    //
+    // `disabled:hover:*` is not decoration: :hover still fires on a disabled
+    // button, so opacity alone would leave it reacting to the pointer. A control
+    // that answers the mouse says "click me"; an inert one that says "click me" is
+    // the same class of interface lie this whole lot exists to remove.
+    //
+    // `cursor-pointer` on setBase does NOT win: `.cursor-pointer` scores (0,1,0)
+    // while `.disabled\:cursor-not-allowed:disabled` scores (0,2,0). Specificity
+    // decides it, not source order — no `!important` needed here.
+    const genDisabledCls =
+      'disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent';
     const genCls = asHero
-      ? `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--amber-400)] hover:bg-[var(--warning-bg)] hover:text-[var(--warning-text)] active:opacity-90`
-      : `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)]`;
+      ? `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--amber-400)] hover:bg-[var(--warning-bg)] hover:text-[var(--warning-text)] active:opacity-90 ${genDisabledCls} disabled:hover:text-[var(--text-heading)]`
+      : `${setBase} bg-transparent text-[var(--text-heading)] border-[var(--card-border)] hover:bg-[var(--hover)] ${genDisabledCls}`;
 
     const uploadBtn = isUploadedWip
       ? { show: true, label: tReq('replace') }
@@ -320,16 +369,20 @@ export default function A3Item({
           </button>
         )}
         {genBtn.show && o.requirementKey && (
-          <GenerateDocumentButton
-            companyId={companyId}
-            requirementKey={o.requirementKey}
-            year={o.year}
-            documentLanguage={documentLanguage}
-            onSuccess={handleGenerated}
-            locale={locale}
-            label={genBtn.label}
-            className={genCls}
-          />
+          <>
+            <GenerateDocumentButton
+              companyId={companyId}
+              requirementKey={o.requirementKey}
+              year={o.year}
+              documentLanguage={documentLanguage}
+              onSuccess={handleGenerated}
+              locale={locale}
+              label={genBtn.label}
+              className={genCls}
+              disabled={generationBlocked}
+            />
+            {blockedNote}
+          </>
         )}
         {genBtn.show && eventLink && (
           <button

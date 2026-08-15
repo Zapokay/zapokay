@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToasts } from '@/components/ui/Toasts';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { fiscalYearForDate } from '@/lib/active-years';
+import { mustBlockGeneration } from '@/lib/fiscal-year-open';
 import { getDocumentState, getStateForChecklistItem } from '@/lib/minute-book/state';
 import type { ObligationLiveness } from '@/lib/obligations/obligation';
 import RequirementSection from '@/components/minute-book/RequirementSection';
@@ -390,6 +391,18 @@ export default function CompletenessPage({
   // years — filtering changes which ROWS show, never which YEARS are active.
   // Unfiltered this equals today's set (annual years == fiscalYears).
   const activeYearSet = new Set((data?.fiscalYears ?? []).map((f) => f.year));
+  // Fiscal-year END per year, for the generation gate (lib/fiscal-year-open.ts).
+  // SAME source as activeYearSet above — `data.fiscalYears`, already in the
+  // response. No refetch, no second data path. Keyed so a year section can hand
+  // its rows ONE resolved date instead of a list to search.
+  //
+  // A section year with no entry here (an event-only year, or the anniversary
+  // row's year) yields undefined → the predicate blocks on its second branch.
+  // That is the safe default and it reaches no button today: the only annual
+  // requirement built outside this list carries can_generate = false.
+  const fiscalYearEndByYear = new Map<number, string>(
+    (data?.fiscalYears ?? []).map((f) => [f.year, f.endDate]),
+  );
   const eventsByYear: Record<number, EventActStatus[]> = {};
   const eventsUnclassifiedByYear: Record<number, EventActStatus[]> = {};
   if (events.length > 0) {
@@ -457,7 +470,22 @@ export default function CompletenessPage({
             i.category === 'annual' &&
             i.year === fy.year &&
             !i.satisfied &&
-            i.can_generate,
+            i.can_generate &&
+            // ── FIFTH CONDITION — the fiscal-year gate. ──
+            //
+            // ⚠️ THIS PATH IS NOT THE BUTTONS'. Closing RequirementRow's two
+            // generate surfaces and the board's does NOT close this one: Bulk
+            // Catch-Up reads the checklist directly and hands its own list to the
+            // generator. On a company whose year is still open it would produce, in
+            // one click, exactly the documents the row buttons now refuse — annual
+            // resolutions approving financial statements that do not exist yet
+            // (art. 493 al. 2 LSAQ). Four gates, one predicate, no shortcut.
+            //
+            // `i.year`, not `fy.year`: the LINE's year decides. The filter above
+            // already proves they are equal, so this is the same value today — but
+            // if the two ever diverge, reading the row is the correct behaviour and
+            // reading the loop variable is the silent bug.
+            !mustBlockGeneration(i.year, fy.endDate),
         )
         .map((i) => ({
           requirementKey: i.requirement_key,
@@ -621,6 +649,7 @@ export default function CompletenessPage({
                   title={getFiscalYearLabel(year, locale)}
                   items={yearItems}
                   companyId={companyId}
+                  fiscalYearEndDate={fiscalYearEndByYear.get(year) ?? null}
                   locale={fr ? 'fr' : 'en'}
                   onFileSelected={handleFileSelected}
                   onGenerated={fetchData}

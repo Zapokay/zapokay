@@ -20,11 +20,19 @@ interface Props {
   companyId: string;
   documentLanguage: 'fr' | 'en';
   framework: 'LSA' | 'CBCA';
+  /**
+   * The company's fiscal years with their END dates, straight from the server
+   * page's `computeRequirementCompleteness` result — the same list Complétude
+   * reads. THIS component resolves them per row, because THIS is the component
+   * that iterates; A3Item receives one already-resolved date and never searches.
+   * Mirrors CompletenessPage → RequirementSection → RequirementRow.
+   */
+  fiscalYears: { year: number; endDate: string }[];
 }
 
 const SORA = { fontFamily: 'Sora, sans-serif' } as const;
 
-export default function A3Board({ ranked, progress, companyId, documentLanguage, framework }: Props) {
+export default function A3Board({ ranked, progress, companyId, documentLanguage, framework, fiscalYears }: Props) {
   const locale = useLocale();
   const t = useTranslations('dashboard.a3Board');
   // One toast stack for the whole board; addToast threads into each A3Item's
@@ -32,6 +40,15 @@ export default function A3Board({ ranked, progress, companyId, documentLanguage,
   const { addToast, ToastStack } = useToasts();
 
   const top = ranked.slice(0, 5);
+  // Year → that year's END, for the row-level generation gate.
+  const fiscalYearEndByYear = new Map<number, string>(fiscalYears.map((f) => [f.year, f.endDate]));
+  // ⚠️ `o.year` IS NULLABLE, and nullable here is not an edge case: a foundational
+  // obligation (first board resolution, share subscription, …) carries year null by
+  // definition, and Wick alone puts eight of them on this board. They resolve to
+  // null — there is no fiscal year to look up — and mustBlockGeneration's first
+  // branch leaves them generable, because they record facts that already happened.
+  const fiscalYearEndFor = (year: number | null): string | null =>
+    year === null ? null : fiscalYearEndByYear.get(year) ?? null;
   const remaining = Math.max(0, ranked.length - 5);
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
@@ -59,7 +76,7 @@ export default function A3Board({ ranked, progress, companyId, documentLanguage,
       </div>
       {/* top-5 (rank 1 = hero) */}
       {top.map((o, i) => (
-        <A3Item key={o.id} obligation={o} hero={i === 0} companyId={companyId} documentLanguage={documentLanguage} framework={framework} addToast={addToast} />
+        <A3Item key={o.id} obligation={o} hero={i === 0} companyId={companyId} documentLanguage={documentLanguage} framework={framework} addToast={addToast} fiscalYearEndDate={fiscalYearEndFor(o.year)} />
       ))}
 
       {/* show-more: route out to Completeness (never expands in place) */}

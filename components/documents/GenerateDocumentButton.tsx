@@ -24,6 +24,18 @@ interface GenerateDocumentButtonProps {
   label?: string;
   /** When provided, applied to the button element and overrides default inline styles */
   className?: string;
+  /**
+   * EXTERNAL inertness, decided by the caller. OR'd with the button's own
+   * in-flight state — it never replaces it, so a caller passing `false` can
+   * still not click through a generation already running.
+   *
+   * ★ THE REASON DOES NOT LIVE HERE, AND THAT IS DELIBERATE. Why a caller
+   * blocks is caller-shaped: it needs the UI locale, a date format, and a place
+   * in its own row to put the text. This component would have to be handed all
+   * three to say one sentence. Callers render their own explanation next to the
+   * button (see RequirementRow / A3Item); this prop only makes it inert.
+   */
+  disabled?: boolean;
 }
 
 const NO_SIGNATORIES_ERROR: Record<string, string> = {
@@ -40,6 +52,7 @@ export function GenerateDocumentButton({
   locale = 'fr',
   label,
   className,
+  disabled,
 }: GenerateDocumentButtonProps) {
   const fr = locale === 'fr';
   const [showModal, setShowModal] = useState(false);
@@ -106,7 +119,7 @@ export function GenerateDocumentButton({
     <>
       <button
         onClick={handleClick}
-        disabled={isBusy}
+        disabled={isBusy || disabled}
         {...(className
           ? { className }
           : {
