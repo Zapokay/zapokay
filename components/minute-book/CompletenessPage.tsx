@@ -600,7 +600,13 @@ export default function CompletenessPage({
               total={data.totalRequired}
               uploaded={data.totalUploaded}
               generated={data.totalGenerated}
-              missing={data.totalMissing}
+              // ⚠️ `totalToGenerate`, NOT `totalMissing`. The two are both `number`, so
+              // tsc cannot tell them apart — this is the one substitution in the lot that
+              // no automatic gate catches. Passing totalMissing here would print
+              // "13 à générer · 4 à venir" against a Total of 12 and the row would stop
+              // adding up. The split lives in the engine; this site only routes it.
+              missing={data.totalToGenerate}
+              upcoming={data.totalUpcoming}
               archived={(data.holdYears ?? []).reduce((s, hy) => s + hy.documents.length, 0)}
             />
           </>
@@ -650,6 +656,10 @@ export default function CompletenessPage({
                   items={yearItems}
                   companyId={companyId}
                   fiscalYearEndDate={fiscalYearEndByYear.get(year) ?? null}
+                  // The assistant's OWN count for this year — `bulkMissingByYear` is
+                  // already built above from the five-condition filter, so the banner and
+                  // the button can never disagree about whether there is work to do.
+                  catchUpCount={bulkMissingByYear[year]?.items.length ?? 0}
                   locale={fr ? 'fr' : 'en'}
                   onFileSelected={handleFileSelected}
                   onGenerated={fetchData}

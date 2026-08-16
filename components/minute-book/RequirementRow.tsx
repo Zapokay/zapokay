@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, XCircle, Upload } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import { getDocumentState } from '@/lib/minute-book/state';
@@ -35,6 +35,15 @@ interface RequirementRowProps {
    * mustBlockGeneration returns on its first branch before reading any date.
    */
   fiscalYearEndDate?: string | null;
+  /**
+   * The window axis, stamped by the completeness engine and read off the row's own
+   * ChecklistItem — NOT a section-level prop. Unlike `fiscalYearEndDate`, which the
+   * section resolves once per year, this varies per row (a section can hold both an
+   * annual resolution and the federal return, on different clocks).
+   *
+   * Only 'upcoming' changes anything here: it swaps the red cross for a clock.
+   */
+  availability?: 'open' | 'upcoming';
   companyId?: string;
   /**
    * Locale forwarded from CompletenessPage → RequirementSection. Drives
@@ -65,6 +74,7 @@ export default function RequirementRow({
   canGenerate,
   year,
   fiscalYearEndDate,
+  availability,
   companyId,
   locale,
   documentLanguage,
@@ -190,7 +200,19 @@ export default function RequirementRow({
     <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
       {/* Left side: icon + title */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        {!satisfied ? (
+        {/* ── THE FOURTH STATE, AND WHY IT HAD TO EXIST. ──
+            Until 2026-08-16 this ternary opened on `!satisfied` alone, so "the document
+            does not exist" and "the document is late" were THE SAME PIXEL. A company in
+            perfect order on its first day — Fixture Cap, incorporated 2026-03-02, zero
+            overdue rows measured — was shown thirteen red crosses.
+            A row whose window has not opened is not a failing: it is a date. Clock,
+            muted, same icon and same token as InventoryLine's "À venir" case, so Aria
+            revises two lines in this whole lot and nothing else.
+            ⚠️ The red branch below is UNCHANGED and must stay so: a missing document on
+            an OPEN window is exactly what it always was. */}
+        {!satisfied && availability === 'upcoming' ? (
+          <Clock className="h-5 w-5 flex-shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+        ) : !satisfied ? (
           <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
         ) : isSignedFinal ? (
           <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />

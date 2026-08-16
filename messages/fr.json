@@ -583,6 +583,7 @@
       "legendSignedUploaded": "Final (Signé et téléversé)",
       "legendToSign": "À signer",
       "legendToGenerate": "À générer ou à téléverser",
+      "legendUpcoming": "À venir",
       "legendArchive": "Classé aux archives",
       "loadError": "Impossible de charger le livre de minutes.",
       "foundingDocuments": "Documents fondateurs",

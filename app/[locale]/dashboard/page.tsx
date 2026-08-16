@@ -63,6 +63,7 @@ export default async function DashboardPage({
   let invUploaded = 0;
   let invGenerated = 0;
   let invMissing = 0;
+  let invUpcoming = 0;
   let invArchived = 0;
 
   if (company) {
@@ -82,7 +83,31 @@ export default async function DashboardPage({
       fyEndDay,
       incorporationDate,
     );
-    cUpcoming = completeness.upcoming;
+    // ── "À VENIR" EXISTS TWICE ON PURPOSE. THREE NUMBERS, TWO QUESTIONS. ──
+    //
+    //   cUpcoming (here)            → the VERDICT's headline number
+    //   Complétude's "À VENIR" chip → the same composition, on the other page
+    //   InventoryLine's "À venir"   → `requirementsUpcoming` alone
+    //
+    // The first two are SUMMARIES — "here is what is coming for you" — and they must
+    // agree with EACH OTHER, or the same product says 4 on one page and 5 on the other
+    // about the same company. The third is a CENSUS — "how many are missing" — and a
+    // census differing from a summary in a row of labelled figures troubles no one.
+    //
+    // ★ THE COMPOSITION, AND WHY EACH HALF USES A DIFFERENT SIGNAL:
+    //   requirements → `requirementsUpcoming` (window-founded). A requirement's window
+    //     either has opened or has not; that is a fact about the calendar, and
+    //     `liveness` gets it wrong in both directions — Wick's fiscal year ended 31 MAY
+    //     so its 2026 rows read `live` while they are due now; Café du Coin's federal
+    //     window opened 2026-06-19 and reads `regularize` while it is still inside it.
+    //   acts → `events.upcoming` (liveness-founded), UNCHANGED below. An act has no
+    //     window: it records something that already happened. "Is this the action of the
+    //     moment?" is the right question for one, and that is what liveness answers.
+    //
+    // ⚠️ SO THE OLD `completeness.upcoming` IS GONE FROM THIS LINE, AND THE FIELD STAYS.
+    // It is still computed and still exported — the checklist's severity chips read the
+    // same buckets — it simply no longer decides what the verdict announces.
+    cUpcoming = completeness.requirementsUpcoming;
     cRegularize = completeness.overdueRegularize;
     cProlonged = completeness.overdueProlonged;
 
@@ -163,7 +188,14 @@ export default async function DashboardPage({
     invTotal = completeness.requirementsTotal + events.totalActs;
     invUploaded = completeness.requirementsUploaded + events.eventsUploaded;
     invGenerated = completeness.requirementsGenerated + events.eventsGenerated;
-    invMissing = completeness.requirementsMissing + events.totalMissing;
+    // ⚠️ `requirementsToGenerate`, NOT `requirementsMissing`. Both are `number`; tsc
+    // cannot distinguish them, and this is the one substitution in the lot with no
+    // automatic gate behind it. `requirementsMissing` still exists and still means what
+    // it always meant — it is simply no longer what the inventory line displays.
+    invMissing = completeness.requirementsToGenerate + events.totalMissing;
+    // Requirements-only by construction: an act can never be `upcoming` (it records
+    // something that already happened), so nothing from the event engine belongs here.
+    invUpcoming = completeness.requirementsUpcoming;
     invArchived = (holdYears ?? []).reduce((s, hy) => s + hy.documents.length, 0);
     const eventObs = eventsToObligations(events.acts, today);
 
@@ -214,6 +246,7 @@ export default async function DashboardPage({
           uploaded={invUploaded}
           generated={invGenerated}
           missing={invMissing}
+          upcoming={invUpcoming}
           archived={invArchived}
         />
 

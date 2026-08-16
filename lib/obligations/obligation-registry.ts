@@ -251,6 +251,72 @@ export function obligationFiscalYear(
   return fiscalYearForDate(todayISO, month, day);
 }
 
+/**
+ * THE FEDERAL ANNUAL RETURN'S WINDOW — both bounds, from one arithmetic.
+ *
+ * The CBCA annual return runs on the INCORPORATION ANNIVERSARY, not on the fiscal
+ * year. It opens on the anniversary and is due `FED_RETURN_FILING_WINDOW_DAYS`
+ * later. Until this function existed the OPENING was never a value: the 60 days
+ * were added straight into the Date constructor's `day` argument, so the product
+ * could say when the return was DUE and never when it became POSSIBLE.
+ *
+ * ★ AND THAT IS WHAT THE CONSTANT'S OWN DOCBLOCK ASKED FOR. It says "do not fold
+ * it into the anniversary arithmetic" — which is exactly what the inline form did.
+ * Extracting the window is not a new idea; it is that instruction, finally obeyed.
+ *
+ * ⚠️ THE `null` IS THREE-VALUED IN DISGUISE — READ BEFORE COLLAPSING IT.
+ * It does NOT mean "not yet open". It means NO RETURN EXISTS THIS CYCLE, and the
+ * caller must treat that differently from a closed window:
+ *
+ *   incorporationDate null      → unknowable. We do not assert a filing on a date
+ *                                 we do not have.
+ *   today is the incorporation  → Harvey 2026-08-10, GREEN: the federal return is
+ *   YEAR                          settled year by year and the founding year is not
+ *                                 one of them. A company in its first calendar year
+ *                                 does not have an UPCOMING return — it has NO
+ *                                 return. Counting it as "à venir" asserts a filing
+ *                                 that does not exist; counting it as "à générer"
+ *                                 asserts one that is already owed. Both are wrong;
+ *                                 the row itself should not be there.
+ *
+ * WHAT THAT BRANCH COSTS WHEN IT IS ABSENT, measured rather than argued: without it a
+ * company incorporated in March 2026 was told on 2026-08-11 that a return had been due
+ * 2026-05-01 — overdue by 102 days, ranked at score 1.0000, at the top of its board.
+ * [MEASURED on FIXTURECAP, 2026-08-12.]
+ *
+ * ⚠️ THE CALENDAR-YEAR TEST IS TOO NARROW, DELIBERATELY, AND IT IS NOT MINE TO FIX.
+ * It compares CALENDAR years while the clock is an ANNIVERSARY, so a company
+ * incorporated late in a year is over-served between 1 January and its anniversary.
+ * See the `dueDate` rule's own note; a separate item tracks it. What this extraction
+ * DOES change: during that gap `opensOn` is correctly in the FUTURE, so a caller
+ * asking "is the window open?" now gets the right answer even while the row's
+ * existence stays questionable. The defect moves from "wrong window" to "row that
+ * may not be owed" — a narrowing, not a repair.
+ *
+ * The comparison is kept as-is so the boundary FACT 5 asserts is the one that shipped
+ * — and FACT 5 is INVARIANT to its correction: it asserts a ROW SET at two clocks,
+ * never a comparison.
+ *
+ * LOCAL calendar fields throughout; never toISOString (#159 / §8.54). Day overflow
+ * in the Date constructor carries across months and years correctly, which is why
+ * no month arithmetic (and no addMonthsClamped) appears here: this is a DAY window.
+ */
+export function fedAnnualReturnWindow(
+  incorporationDate: string | null,
+  today: Date,
+): { opensOn: Date; dueOn: Date } | null {
+  if (!incorporationDate) return null;
+  const inc = parseLocalDate(incorporationDate);
+  if (today.getFullYear() === inc.getFullYear()) return null;
+  const opensOn = new Date(today.getFullYear(), inc.getMonth(), inc.getDate());
+  const dueOn = new Date(
+    today.getFullYear(),
+    inc.getMonth(),
+    inc.getDate() + FED_RETURN_FILING_WINDOW_DAYS,
+  );
+  return { opensOn, dueOn };
+}
+
 // ─── The contract ────────────────────────────────────────────────────────────
 
 /** Context a filing's date rule may read. Each rule uses only what its anchor needs. */
@@ -855,11 +921,28 @@ export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
     // 0 days" at the top of the board on 2026-08-08 and "due in 364 days" near the bottom
     // on 2026-08-09, with no filing in between and no statement that anything was missed.
     //
-    // ⚠️ THE YEAR OF INCORPORATION OWES NO RETURN (Harvey 2026-08-10, GREEN) AND THIS
-    // FUNCTION DOES NOT EXPRESS THAT. It returns the current calendar year's due date
-    // whatever the year, so for a company still inside its incorporation year it names a
-    // deadline that is not owed. Stated rather than patched in passing: the guard needs a
-    // year to compare against, and this signature has none. It belongs with multiplicity.
+    // ── THE YEAR OF INCORPORATION — WHAT THIS PARAGRAPH USED TO SAY, AND WHY IT IS NO
+    //    LONGER TRUE. ────────────────────────────────────────────────────────────────
+    // It read, verbatim: "⚠️ THE YEAR OF INCORPORATION OWES NO RETURN (Harvey 2026-08-10,
+    // GREEN) AND THIS FUNCTION DOES NOT EXPRESS THAT. It returns the current calendar
+    // year's due date whatever the year, so for a company still inside its incorporation
+    // year it names a deadline that is not owed. Stated rather than patched in passing:
+    // the guard needs a year to compare against, and this signature has none. It belongs
+    // with multiplicity."
+    //
+    // FALSE SINCE 2026-08-12, when the guard was added — four days after this paragraph
+    // was written, and it was never revised. Harvey's ruling still holds; only the claim
+    // that the code ignores it is wrong.
+    //
+    // The guard lives in `fedAnnualReturnWindow` today (its incorporation-year branch),
+    // which returns null for a company inside its founding year. Its docblock carries the
+    // argument, the FIXTURECAP measurement, and why that null is not "not yet open" —
+    // read it there rather than here.
+    //
+    // ★ KEPT RATHER THAN DELETED because the mistake is the useful part: a comment can
+    // outlive the code it describes by four days and still read as authoritative in the
+    // file that carries the law. What survives of the original point is narrower and
+    // still open — the ROW may not be owed at all (see multiplicity below).
     //
     // ⚠️ ONE ROW, N YEARS OWED — the known incompleteness, recorded so it is not read as a
     // fix. Harvey 2026-08-10 corrected an earlier reading: the federal return is settled
@@ -871,32 +954,18 @@ export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
     // pass (feeders/deadlines.ts:443-447), its single derived `year`, the catalog's single
     // anniversary row (requirement-completeness.ts:406), and `suppressWhenSatisfied`'s
     // single attach year. That is phase 4b.
-    dueDate: (ctx) => {
-      if (!ctx.incorporationDate) return null;
-      const inc = parseLocalDate(ctx.incorporationDate);
-      // ★ THE INCORPORATION YEAR PRODUCES NO RETURN. Harvey 2026-08-10, GREEN: the federal
-      // return is settled year by year, and the founding year is not one of them. Without
-      // this, a company incorporated in March 2026 is told on 2026-08-11 that a return was
-      // due 2026-05-01 — overdue by 102 days, ranked at score 1.0000. [MEASURED on
-      // FIXTURECAP, 2026-08-12.]
-      //
-      // ⚠️ THE COMPARISON IS TOO NARROW AND THAT IS DELIBERATE, NOT AN OVERSIGHT. It reads
-      // CALENDAR YEARS where the clock this rule runs on is an ANNIVERSARY, so a company
-      // incorporated late in a year is over-served by up to the gap between 1 January and
-      // its anniversary window. A SEPARATE ITEM. Kept as-is so the boundary FACT 5 asserts
-      // is the one that shipped — and FACT 5 is INVARIANT to its correction: it asserts a
-      // ROW SET at two clocks, never a comparison.
-      if (ctx.today.getFullYear() === inc.getFullYear()) return null;
-      // Day overflow in the Date constructor carries into the following month(s), and across
-      // a year boundary, correctly — so no month arithmetic is needed and addMonthsClamped
-      // does not apply (this is a DAY window, not a month one). LOCAL fields throughout;
-      // never toISOString (#159 / §8.54).
-      return new Date(
-        ctx.today.getFullYear(),
-        inc.getMonth(),
-        inc.getDate() + FED_RETURN_FILING_WINDOW_DAYS,
-      );
-    },
+    // ★ THE ARITHMETIC LIVES IN `fedAnnualReturnWindow` (above), which returns BOTH
+    // bounds from ONE computation. This rule reads the due bound off it instead of
+    // recomputing, so the opening and the deadline cannot drift apart — the inventory's
+    // "à venir" and this date are the same clock by construction, not by two copies
+    // happening to agree.
+    //
+    // THE THREE ARGUMENTS THAT USED TO SIT INSIDE THIS FUNCTION NOW LIVE WITH THE CODE
+    // THEY DESCRIBE, in that function's docblock: why the incorporation year owes no
+    // return (with the FIXTURECAP measurement), why the calendar-year test is
+    // deliberately too narrow and invariant to FACT 5, and why day-overflow arithmetic
+    // needs no clamp. They were moved, not deleted — do not restate them here.
+    dueDate: (ctx) => fedAnnualReturnWindow(ctx.incorporationDate ?? null, ctx.today)?.dueOn ?? null,
     // NOT in OVERLAP_MERGE (cadence 'anniversary', not 'per-fiscal-year'): the
     // completeness cbca_annual_return row and this deadline row are a latent
     // (not-yet-merged) pair; the board suppresses the completeness half so only this

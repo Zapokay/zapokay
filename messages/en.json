@@ -583,6 +583,7 @@
       "legendSignedUploaded": "Final (Signed and uploaded)",
       "legendToSign": "To sign",
       "legendToGenerate": "To generate or upload",
+      "legendUpcoming": "Upcoming",
       "legendArchive": "Archived",
       "loadError": "Unable to load minute book.",
       "foundingDocuments": "Founding documents",

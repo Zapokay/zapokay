@@ -280,6 +280,12 @@ const skip = (fact: string, why: string) => {
     title_fr: 'probe', title_en: 'probe', description_fr: null, description_en: null,
     section: 'probe', sort_order: 1, can_generate: true, can_upload: true,
     year, satisfied, liveness: 'regularize',
+    // FACT 3 probes `suppressWhenSatisfied`, which reads requirement_key + year +
+    // satisfied and nothing else. The window axis is inert here: 'open' is the value
+    // that changes no behaviour under test, and the fact asserts a ROW SET, never an
+    // availability. Added because the field is required on ChecklistItem — tsc caught
+    // this fixture the moment it was, which is the field doing its job.
+    availability: 'open',
     document_type: 'autre' as ChecklistItem['document_type'],
   });
 

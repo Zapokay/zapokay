@@ -20,7 +20,12 @@ import { fiscalYearSet } from '@/lib/active-years';
 // A4 plan §9a, phase 1 — cadence drives the fan-out. New module edge; no cycle:
 // obligation-registry imports only lib/utils and lib/active-years, neither of which
 // reaches lib/minute-book. Two lib/obligations imports already exist above.
-import { ruleForRequirementKey, obligationFiscalYear } from '@/lib/obligations/obligation-registry';
+import {
+  ruleForRequirementKey,
+  obligationFiscalYear,
+  fedAnnualReturnWindow,
+} from '@/lib/obligations/obligation-registry';
+import { mustBlockGeneration } from '@/lib/fiscal-year-open';
 
 export interface ChecklistItem {
   id: string;
@@ -35,6 +40,23 @@ export interface ChecklistItem {
   can_generate: boolean;
   can_upload: boolean;
   year: number | null;
+  /**
+   * CAN THIS DOCUMENT EXIST YET? — the window axis, orthogonal to `liveness`.
+   *
+   * `liveness` answers "is this still the right action now?" and is YEAR-founded.
+   * This answers "has the obligation's window opened?" and is CLOSURE-founded (or
+   * ANNIVERSARY-founded for the federal return). They disagree, measured 2026-08-15:
+   * Wick's fiscal year ends 31 MAY, so its 2026 rows read `live` while their window
+   * has been open since 2026-05-31 — four rows the year-based axis calls "upcoming"
+   * and this one calls actionable.
+   *
+   * ⚠️ TWO MEMBERS, NOT THREE. `availabilityFor` returns a third, `not_owed`, for a
+   * row that has no obligation this cycle at all — and such a row is dropped before
+   * it is ever pushed here, so the field cannot carry it. `tsc` proves the narrowing;
+   * no consumer has to handle a case it can never see, and nobody can invent a
+   * display for one.
+   */
+  availability: Exclude<RequirementAvailability, 'not_owed'>;
   satisfied: boolean;
   /**
    * Liveness tier for a NOT-DONE item — any doc where is_finalized !== true (missing,
@@ -62,6 +84,70 @@ export interface ChecklistItem {
   document_language?: string | null;
 }
 
+/**
+ * THE WINDOW AXIS — three states, and the third is why it is not a boolean.
+ *
+ *   open      — the document can exist now. Its window is open, or it has none
+ *               (a foundational row records a fact that already happened).
+ *   upcoming  — the obligation is real but its window has not opened. Generating or
+ *               uploading now would file a document that cannot yet legitimately
+ *               exist (art. 155(1)a) CBCA anchors financial statements on CLOSED
+ *               periods).
+ *   not_owed  — NO obligation exists this cycle. Distinct from `upcoming` and it
+ *               must stay distinct: "à venir" asserts a filing that is coming,
+ *               "à générer" asserts one already owed, and for a company inside its
+ *               incorporation year the federal return is NEITHER. The row should not
+ *               be counted at all — which is exactly what the engine does with it.
+ */
+export type RequirementAvailability = 'open' | 'upcoming' | 'not_owed';
+
+/**
+ * The window axis for one catalog row. PRIVATE to this engine on purpose: the shared
+ * signal is the FIELD it stamps (`ChecklistItem.availability`), read by the inventory,
+ * the chip, the filter and the row icon. One computation, one stamp, four readers.
+ *
+ * ⚠️ THE FISCAL BRANCH CALLS `mustBlockGeneration`; IT DOES NOT REIMPLEMENT IT. That
+ * predicate is the single copy of the closure comparison across three lots (`5b21967`,
+ * `f830f85`, and this one). A second copy would diverge at the first change — the
+ * `968a7ae` shape this repo has already paid for.
+ *
+ * ⚠️ LIFECYCLE ACTS DO NOT PASS THROUGH HERE, and that is a contract, not an accident:
+ * `checklist` is requirements-only precisely because UploadDocumentModal's dropdown
+ * iterates it (see the API route's own note). Acts keep `liveness` as their axis — an
+ * act has no window, and "is this the action of the moment?" is the right question for
+ * one. The exclusion written into `mustBlockUpload` was about the AFFORDANCE (do not
+ * disable a button for a document that already exists); reusing it as a census rule
+ * would be a different claim.
+ */
+function availabilityFor(
+  requirementKey: string,
+  year: number | null,
+  fiscalYearEndDate: string | null,
+  fedWindow: { opensOn: Date; dueOn: Date } | null,
+  today: Date,
+): RequirementAvailability {
+  // The anniversary clock — no relation to the fiscal year. Measured 2026-08-15, the
+  // gap between what a fiscal reading would say and the real opening: Fixture Cap TEN
+  // MONTHS, Café du Coin six, Wick two.
+  if (ANNIVERSARY_CLOCK_REQUIREMENT_KEYS.has(requirementKey)) {
+    if (fedWindow === null) return 'not_owed';
+    return fedWindow.opensOn > today ? 'upcoming' : 'open';
+  }
+  // Foundational: no fiscal year, so no window to wait for.
+  if (year === null) return 'open';
+  return mustBlockGeneration(year, fiscalYearEndDate, today) ? 'upcoming' : 'open';
+}
+
+/**
+ * The keys whose window is the incorporation ANNIVERSARY rather than the fiscal year.
+ * A manual copy of `cadence: 'anniversary'` in the registry — kept local because the
+ * registry's own derivation (`isBoardSuppressedRequirementKey`) answers a different
+ * question, and because this engine already imports what it needs by name.
+ * ⚠️ If a second anniversary-clocked key ever lands, derive this from `cadence`
+ * instead of extending the set: the registry is already imported here.
+ */
+const ANNIVERSARY_CLOCK_REQUIREMENT_KEYS: ReadonlySet<string> = new Set(['cbca_annual_return']);
+
 export interface RequirementCompletenessResult {
   checklist: ChecklistItem[];
   fiscalYears: { year: number; endDate: string }[];
@@ -70,6 +156,22 @@ export interface RequirementCompletenessResult {
   /** Count of généré rows (incl. WIP uploads). */
   requirementsGenerated: number;
   requirementsMissing: number;
+  /**
+   * Of the MISSING rows, how many are waiting on a window that has not opened.
+   * ★ "MISSING" IS THE LOAD-BEARING WORD. A row that already has a draft is not
+   * missing, so a generated-but-unsigned document sitting on an unopened window is
+   * counted as "à signer", never as "à venir" — the document EXISTS and the user has
+   * a gesture to make. The state of the document outranks the state of the window,
+   * and that ruling is expressed by this clause rather than by a comment.
+   * (Zero such rows in the fixtures on 2026-08-16; there were six the day before.)
+   */
+  requirementsUpcoming: number;
+  /**
+   * `requirementsMissing − requirementsUpcoming`. Exposed rather than left to the two
+   * pages to subtract: `InventoryLine` is rendered by both, and an arithmetic done
+   * twice is an arithmetic that will disagree once.
+   */
+  requirementsToGenerate: number;
   requirementsTotal: number;
   /** Weighted numerator: requirementsUploaded × 1.0 + requirementsGenerated × 0.5. */
   requirementsWeightedNum: number;
@@ -227,6 +329,13 @@ export async function computeRequirementCompleteness(
   let requirementsTotal = 0;
   let requirementsUploaded = 0;
   let requirementsGenerated = 0;
+  // Missing rows whose window has not opened. Incremented in the same passes as the
+  // three above, from `availabilityFor` — never re-derived downstream.
+  let requirementsUpcoming = 0;
+  // ONE call per company, not per row: the federal window depends only on the
+  // incorporation date and the clock. Null means NO return is owed this cycle — see
+  // fedAnnualReturnWindow's docblock for why that is not the same as "not yet open".
+  const fedWindow = fedAnnualReturnWindow(incorporationDate, today);
   // Liveness breakdown of MISSING items (Core §4: no year filtered out).
   let upcoming = 0;
   let overdueRegularize = 0;
@@ -234,6 +343,28 @@ export async function computeRequirementCompleteness(
 
   // Foundational items
   for (const req of foundationalReqs as RawReq[]) {
+    // ── THE WINDOW GATE — FIRST STATEMENT OF THE BODY, AND THE PLACEMENT IS THE POINT. ──
+    //
+    // ⚠️ DO NOT MOVE THIS LOWER. It is tempting to put it next to `requirementsTotal++`,
+    // where the row visibly joins the census. That would be too late: `upcoming`,
+    // `overdueRegularize` and `overdueProlonged` are incremented ABOVE the push, and those
+    // three are exactly what the dashboard verdict reads (`app/[locale]/dashboard/
+    // page.tsx` — cProlonged > 0 ? defaut_prolonge : cRegularize > 0 ? attention :
+    // en_regle). A `not_owed` row skipped only from the Total would still weigh on the
+    // verdict and still sit inside the "à venir" chip — the exact contradiction this lot
+    // exists to remove, reproduced by its own fix.
+    //
+    // At the top, one `continue` takes the row out of the checklist, the three liveness
+    // counters, the Total, the score denominator and the state counters at once.
+    //
+    // ⚠️ UNREACHABLE ON THIS BRANCH TODAY, AND KEPT ANYWAY. A foundational row has
+    // year === null and no foundational key carries an anniversary clock, so
+    // availabilityFor cannot return 'not_owed' here — but that is a property of the
+    // CATALOG, not of the type. Routing every branch through the same function and the
+    // same guard is what makes a future foundational key with a clock safe by default.
+    // Same shape, same reason, as mustBlockGeneration's branch 2.
+    const availability = availabilityFor(req.requirement_key, null, null, fedWindow, today);
+    if (availability === 'not_owed') continue;
     const matchingDoc = (documents || []).find((d: RawDoc) => d.requirement_key === req.requirement_key);
     const satisfied = !!matchingDoc;
     const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
@@ -331,6 +462,7 @@ export async function computeRequirementCompleteness(
     checklist.push({
       ...req,
       year: null,
+      availability,
       satisfied,
       liveness,
       source,
@@ -343,11 +475,25 @@ export async function computeRequirementCompleteness(
     requirementsTotal++;
     if (state === 'téléversé') requirementsUploaded++;
     else if (state === 'généré') requirementsGenerated++;
+    // Reaching here means state === 'missing' — getDocumentState returns exactly three
+    // values and the two above consumed the others, so the chain makes double-counting
+    // structurally impossible rather than merely avoided.
+    //
+    // ★ "MISSING" IS THE RULING, NOT A DETAIL. A row that already has a draft is "à
+    // signer" even when its window has not opened: the document EXISTS and the user has
+    // a gesture to make. The state of the document outranks the state of the window.
+    else if (availability === 'upcoming') requirementsUpcoming++;
   }
 
   // Annual items — one set per active fiscal year
   for (const fy of fyFormatted) {
     for (const req of annualReqs as RawReq[]) {
+      // Same gate, same placement, same reason as the foundational loop above — the
+      // three liveness counters below feed the verdict and are incremented before the
+      // push. `fy.endDate` is the closure this row waits for; availabilityFor delegates
+      // the comparison to mustBlockGeneration rather than repeating it.
+      const availability = availabilityFor(req.requirement_key, fy.year, fy.endDate, fedWindow, today);
+      if (availability === 'not_owed') continue;
       const matchingDoc = (documents || []).find(
         (d: RawDoc) => d.requirement_key === req.requirement_key && d.requirement_year === fy.year,
       );
@@ -368,6 +514,7 @@ export async function computeRequirementCompleteness(
       checklist.push({
         ...req,
         year: fy.year,
+        availability,
         satisfied,
         liveness,
         source,
@@ -380,6 +527,9 @@ export async function computeRequirementCompleteness(
       requirementsTotal++;
       if (state === 'téléversé') requirementsUploaded++;
       else if (state === 'généré') requirementsGenerated++;
+      // state === 'missing' here — see the note on the foundational loop above for why
+      // the chain is the guarantee, and why "missing" is the ruling.
+      else if (availability === 'upcoming') requirementsUpcoming++;
     }
   }
 
@@ -404,6 +554,29 @@ export async function computeRequirementCompleteness(
   // the deadline row (which carries the clock AND the upload affordance) is the
   // intended end state, not an accident.
   for (const req of anniversaryReqs as RawReq[]) {
+    // ★ THE ONLY BRANCH WHERE `not_owed` ACTUALLY FIRES TODAY. A company inside its
+    // incorporation year owes no federal return at all (Harvey 2026-08-10, GREEN), so
+    // fedAnnualReturnWindow returns null and this row leaves the checklist entirely —
+    // it is not "à venir" and it is not "à générer", it does not exist.
+    //
+    // ⚠️ THIS IS THE ONE PLACE THE ROW COUNT CHANGES, and it changes on a third page.
+    // Dropping the row lowers requirementsTotal, which is the score's denominator
+    // (`route.ts` combinedDenom / requirementsScore) — and `BinderPage.tsx` renders that
+    // score. MEASURED 2026-08-16: Fixture Cap is the only company inside its founding
+    // year and holds zero documents, so its score moves 0/13 → 0/12, still 0 %. Invisible
+    // today, real the day such a company certifies anything. The moving number is the
+    // MORE correct one: the denominator stops counting an obligation that does not exist.
+    //
+    // Same placement rule as the two loops above — before the liveness counters that feed
+    // the verdict, not merely before requirementsTotal++.
+    const availability = availabilityFor(
+      req.requirement_key,
+      anniversaryYear,
+      null,
+      fedWindow,
+      today,
+    );
+    if (availability === 'not_owed') continue;
     const matchingDoc = (documents || []).find(
       (d: RawDoc) =>
         d.requirement_key === req.requirement_key && d.requirement_year === anniversaryYear,
@@ -422,6 +595,7 @@ export async function computeRequirementCompleteness(
     checklist.push({
       ...req,
       year: anniversaryYear,
+      availability,
       satisfied,
       liveness,
       source,
@@ -434,9 +608,22 @@ export async function computeRequirementCompleteness(
     requirementsTotal++;
     if (state === 'téléversé') requirementsUploaded++;
     else if (state === 'généré') requirementsGenerated++;
+    // Reaching here means state === 'missing' — getDocumentState returns exactly three
+    // values and the two above consumed the others, so the chain makes double-counting
+    // structurally impossible rather than merely avoided.
+    //
+    // ★ "MISSING" IS THE RULING, NOT A DETAIL. A row that already has a draft is "à
+    // signer" even when its window has not opened: the document EXISTS and the user has
+    // a gesture to make. The state of the document outranks the state of the window.
+    else if (availability === 'upcoming') requirementsUpcoming++;
   }
 
   const requirementsMissing = requirementsTotal - requirementsUploaded - requirementsGenerated;
+  // Derived ONCE, here, rather than left to the two pages that render InventoryLine:
+  // an arithmetic performed twice is an arithmetic that will disagree once.
+  // `requirementsMissing` keeps its meaning untouched — page.tsx already reads it, and a
+  // field whose value changes while its name does not is the defect this lot is about.
+  const requirementsToGenerate = requirementsMissing - requirementsUpcoming;
   const requirementsWeightedNum =
     requirementsUploaded * STATE_WEIGHT['téléversé'] +
     requirementsGenerated * STATE_WEIGHT['généré'];
@@ -447,6 +634,8 @@ export async function computeRequirementCompleteness(
     requirementsUploaded,
     requirementsGenerated,
     requirementsMissing,
+    requirementsUpcoming,
+    requirementsToGenerate,
     requirementsTotal,
     requirementsWeightedNum,
     upcoming,

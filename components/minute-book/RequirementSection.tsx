@@ -24,6 +24,15 @@ interface RequirementSectionProps {
    */
   fiscalYearEndDate?: string | null;
   /**
+   * How many rows in THIS section the Bulk Catch-Up assistant can actually act on.
+   * Supplied by CompletenessPage from `bulkMissingByYear` — the same five-condition
+   * filter the assistant itself uses, never a second count. Absent on the foundational
+   * section, which the assistant never touches (its filter carries
+   * `category === 'annual'`), so it defaults to 0 and the banner below vanishes there
+   * without a special case.
+   */
+  catchUpCount?: number;
+  /**
    * Phase B B5 — forwarded from CompletenessPage to RequirementRow so the
    * row's bilingual button labels (Régénérer/Regenerate, etc.) and the
    * GenerateDocumentButton's locale-driven copy stay in sync with the URL
@@ -64,6 +73,7 @@ export default function RequirementSection({
   items,
   companyId,
   fiscalYearEndDate,
+  catchUpCount = 0,
   locale,
   onFileSelected,
   onGenerated,
@@ -118,7 +128,21 @@ export default function RequirementSection({
       {/* Items — only when expanded */}
       {isExpanded && (
         <div className="divide-y divide-[var(--card-border)] relative">
-          {totalCount > 0 && satisfiedCount === 0 && (
+          {/* ── THE BANNER ONLY SPEAKS WHEN THE ASSISTANT CAN ACT. ──
+              It says "Utilisez l'assistant de rattrapage pour générer les résolutions
+              manquantes", and until 2026-08-16 it appeared on ANY section with nothing
+              satisfied. Measured, it was wrong four ways at once on the foundational
+              section: it says "cet exercice" where there is no fiscal year; "les
+              résolutions" where the rows are the certificate, the articles and the
+              by-laws; and "générer" for five keys carrying can_generate = false.
+              ⚠️ THE FOURTH WAS OURS. Since `5b21967` closed generation on an open fiscal
+              year, this banner has been sitting above rows whose every button is greyed
+              — telling the user to do exactly what the page forbids. And on Fixture Cap
+              it pointed at a button that is not on screen at all: the bulk count fell
+              from 3 to 0 and BulkCatchUpButton renders null below 2.
+              One condition closes all five, because the count comes from the assistant's
+              own filter: if the assistant can do nothing here, the banner says nothing. */}
+          {totalCount > 0 && satisfiedCount === 0 && catchUpCount > 0 && (
             <div className="mx-4 my-3 flex items-start gap-3 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3">
               <AlertTriangle className="h-5 w-5 text-[var(--warning-text)] flex-shrink-0 mt-0.5" />
               <p className="text-sm text-[var(--warning-text)]">
@@ -140,6 +164,11 @@ export default function RequirementSection({
               canGenerate={item.can_generate}
               year={item.year}
               fiscalYearEndDate={fiscalYearEndDate}
+              // Read off the ROW, not off a section prop: `fiscalYearEndDate` is one
+              // date per year and the section resolves it once, but availability varies
+              // per row — a year section can hold an annual resolution and the federal
+              // return, which run on different clocks.
+              availability={item.availability}
               companyId={companyId}
               locale={locale}
               documentLanguage={preferredLanguage === 'en' ? 'en' : 'fr'}

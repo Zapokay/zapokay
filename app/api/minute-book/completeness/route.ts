@@ -33,6 +33,25 @@ export interface CompletenessResponse {
   /** Per-state counts for three-state header display, combined across both engines. */
   totalUploaded: number;
   totalGenerated: number;
+  /**
+   * The two halves of `totalMissing`, split on the WINDOW axis so the inventory line
+   * can stop calling both of them "à générer ou à téléverser".
+   *
+   * ⚠️ THE ASYMMETRY IS DELIBERATE AND IT IS NOT A BUG — READ BEFORE "FIXING" EITHER
+   * FIELD. `totalMissing` spans BOTH engines (requirements + lifecycle acts), while
+   * `totalUpcoming` comes from the requirements engine ALONE. Subtracting one from the
+   * other is still exact, because an ACT can never be `upcoming`: an act records
+   * something that already happened, so its document exists from that day and waits for
+   * no window. Every missing act therefore lands, correctly and entirely, in
+   * `totalToGenerate`.
+   *
+   * That is also why the "à venir" CHIP on Complétude is not this number: the chip
+   * selects rows and keeps `liveness` for acts, because "is this the action of the
+   * moment?" is the right question for an act. Two signals, on purpose, and the chip's
+   * own comment carries the argument.
+   */
+  totalUpcoming: number;
+  totalToGenerate: number;
   /** UNCHANGED: requirements-only checklist. UploadDocumentModal "corresponds to"
    *  dropdown depends on this array shape — do NOT inject events. */
   checklist: ChecklistItem[];
@@ -148,6 +167,14 @@ export async function GET() {
     const totalMissing    = totalRequired - totalSatisfied;
     const totalUploaded   = req.requirementsUploaded   + events.eventsUploaded;
     const totalGenerated  = req.requirementsGenerated  + events.eventsGenerated;
+    // See the contract note above for why a requirements-only term is subtracted from a
+    // combined one. The four display counts close on the total:
+    //   totalUploaded + totalGenerated + totalToGenerate + totalUpcoming === totalRequired
+    // — algebraically, not by coincidence: both engines count satisfied rows as exactly
+    // téléversé + généré (event-completeness iterates the same `acts` array with no
+    // filter), so uploaded + generated === totalSatisfied and the rest is totalMissing.
+    const totalUpcoming   = req.requirementsUpcoming;
+    const totalToGenerate = totalMissing - req.requirementsUpcoming;
 
     const response: CompletenessResponse = {
       score: combinedScore,
@@ -156,6 +183,8 @@ export async function GET() {
       totalMissing,
       totalUploaded,
       totalGenerated,
+      totalUpcoming,
+      totalToGenerate,
       checklist: req.checklist,
       fiscalYears: req.fiscalYears,
       requirementsScore,
