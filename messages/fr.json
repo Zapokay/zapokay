@@ -578,6 +578,7 @@
       "complete": "complet",
       "toSign": "à signer",
       "upcoming": "à venir",
+      "actionableNow": "à faire maintenant",
       "filterBanner": "Filtré : {tiers} — {n, plural, =0 {aucun élément} one {# élément} other {# éléments}} sur {total}",
       "filterClearAll": "Tout afficher",
       "legendSignedUploaded": "Final (Signé et téléversé)",

@@ -43,8 +43,8 @@ interface CompletenessPageProps {
 // Chip-filter vocabulary: the 3 severity chips map to liveness tiers; "à signer"
 // maps to DocumentState==='généré'. FILTER_ORDER is the chip display order,
 // reused for the banner's tier-label join.
-type FilterKey = 'remediate' | 'regularize' | 'asigner' | 'live';
-const FILTER_ORDER: FilterKey[] = ['remediate', 'regularize', 'asigner', 'live'];
+type FilterKey = 'remediate' | 'regularize' | 'now' | 'asigner' | 'live';
+const FILTER_ORDER: FilterKey[] = ['remediate', 'regularize', 'now', 'asigner', 'live'];
 
 // A row matches the active chips (OR-combine). Empty set → everything shows.
 //
@@ -56,32 +56,82 @@ const FILTER_ORDER: FilterKey[] = ['remediate', 'regularize', 'asigner', 'live']
 // plan routed the "à venir" chip onto the window axis and whose edit list never
 // reached this function. This lot is that missing half.
 //
-// TWO AXES, and the chips are split across them:
-//   remediate · regularize → LATENESS, `liveness`. Unchanged.
-//   asigner                → the DOCUMENT's state. Unchanged.
-//   live ("à venir")       → the WINDOW, `isUpcoming`. This lot.
+// ── AND THIS LIST USED TO READ: "TWO AXES, and the chips are split across them:
+//    remediate · regularize → LATENESS, `liveness`. Unchanged. / asigner → the
+//    DOCUMENT's state. Unchanged. / live ("à venir") → the WINDOW, `isUpcoming`." ──
+// It named FOUR chips. There are now FIVE, and `live` changed population:
+//   remediate · regularize → LATENESS, `liveness`. Still unchanged.
+//   asigner                → the DOCUMENT's state. Still unchanged.
+//   live ("à venir")       → the WINDOW, requirements ONLY.
+//   now ("à faire maintenant") → ACTIONABILITY: open window, not late, nothing filed
+//                                yet — plus every act, which is actionable from its
+//                                own date.
 //
-// ⚠️ AND `isUpcoming` IS FED FROM A DIFFERENT FIELD BY EACH CALLER — that is the
-// point of taking a pre-derived boolean rather than a row. A REQUIREMENT passes
-// `availability === 'upcoming'`: its window either has opened or has not, and
-// `liveness` gets that wrong in both directions (Wick's fiscal year ends 31 MAY, so
-// its 2026 rows read `live` while they are actionable; Café du Coin's federal window
-// opened 2026-06-19 and reads `regularize` while it is still inside it). An ACT
-// passes `liveness === 'live'`, because an act has NO window — it records something
-// that already happened, and "is this the action of the moment?" is the right
-// question for one.
+// ⚠️ WHY THE FIFTH EXISTS. "À régulariser" means to-do AND late; "à venir" means not
+// yet possible. A row that is possible NOW and not late answered neither, and 29 such
+// rows were measured across five fixtures on 2026-08-16 — including the ENTIRE
+// founding file of a company on day one (8 on Fixture Cap, 8 on Café du Coin). They
+// were visible without a filter and unreachable under every one of them.
+//
+// ⚠️ EACH FLAG IS FED FROM A DIFFERENT FIELD BY EACH CALLER — that is the point of
+// taking pre-derived booleans rather than a row. A REQUIREMENT's window either has
+// opened or has not (`availability`), and `liveness` gets that wrong in both
+// directions: Wick's fiscal year ends 31 MAY, so its 2026 rows read `live` while they
+// are actionable; Café du Coin's federal window opened 2026-06-19 and reads
+// `regularize` while it is still inside it. An ACT has NO window at all — it records
+// something that already happened — so it passes `isUpcoming: false` and lands in
+// `now`.
+//
+// ── ⚠️ WHY THIS TAKES AN OBJECT, AND MUST NOT GO BACK TO POSITIONAL ARGUMENTS. ──
+// Until this lot the signature was `(liveness, isASigner, isUpcoming, filters)`.
+// Adding `isNow` would have put THREE adjacent booleans in a positional list, and at
+// the act call site the two neighbours are literally `false` and
+// `a.liveness === 'live'`. Swapping them compiles: same type, same arity, no error,
+// no failing test, and nothing visible on screen until a user clicks the chip and
+// finds every act back under "à venir".
+// ★ That is the exact failure class of `9ace7d6`, where a missing branch passed seven
+// tsc runs and a build and was found by a user's question in production. Named fields
+// make the swap unrepresentable, and they make the act site SAY `isUpcoming: false`
+// instead of carrying an anonymous constant.
 function rowMatchesFilters(
-  liveness: ObligationLiveness | null,
-  isASigner: boolean,
-  isUpcoming: boolean,
+  row: {
+    liveness: ObligationLiveness | null;
+    isASigner: boolean;
+    isUpcoming: boolean;
+    isNow: boolean;
+  },
   filters: Set<FilterKey>,
 ): boolean {
   if (filters.size === 0) return true;
   return (
-    (filters.has('remediate') && liveness === 'remediate') ||
-    (filters.has('regularize') && liveness === 'regularize') ||
-    (filters.has('live') && isUpcoming) ||
-    (filters.has('asigner') && isASigner)
+    (filters.has('remediate') && row.liveness === 'remediate') ||
+    (filters.has('regularize') && row.liveness === 'regularize') ||
+    (filters.has('live') && row.isUpcoming) ||
+    (filters.has('now') && row.isNow) ||
+    (filters.has('asigner') && row.isASigner)
+  );
+}
+
+/**
+ * "À faire maintenant" for a REQUIREMENT row — the fifth chip's whole definition, in
+ * one place, read by the filter AND by the chip's count.
+ *
+ * The four conditions are the exact negations of the four older chips, which is why
+ * this chip adds NO overlap: `missing` excludes "à signer", the two liveness tests
+ * exclude both lateness chips, and `open` excludes "à venir". Measured 2026-08-16 on
+ * five fixtures: it catches 29 rows, all of them previously unreachable, and 0 rows
+ * already answering another chip.
+ *
+ * ⚠️ ACTS DO NOT COME THROUGH HERE. Their rule is one line at their own call site
+ * (`liveness === 'live'`) because they have no window and no `availability` field.
+ * Two populations, two derivations, one chip.
+ */
+function isRequirementActionableNow(item: ChecklistItem, isMissing: boolean): boolean {
+  return (
+    item.availability === 'open' &&
+    item.liveness !== 'regularize' &&
+    item.liveness !== 'remediate' &&
+    isMissing
   );
 }
 
@@ -174,9 +224,32 @@ export default function CompletenessPage({
   // 2026-08-16, and the family is in EXTINCTION — `5b21967` made creating one
   // impossible, so the stock can only shrink. Written down so a reader who one day sees
   // verdict ≠ chip finds the reason instead of deducing it.
-  const upcomingChipCount =
-    (data?.checklist ?? []).filter((i) => i.availability === 'upcoming').length +
-    events.filter((a) => a.liveness === 'live').length;
+  // ⚠️ THE ACT HALF MOVED OUT OF THIS COUNT AND INTO `nowChipCount` BELOW, AND THE TWO
+  // CHANGES ARE ONE CHANGE. An act used to be counted here because `liveness: 'live'`
+  // was read as "not yet due"; Dom's ruling: "Board resolution — Share issuance · 2026
+  // ne devrait pas être dans à venir" — the event HAPPENED. If either half moved
+  // without the other, an act would answer BOTH chips, which is the double-counting
+  // this lot exists to avoid.
+  // ★ CONSEQUENCE, and it is the point: "à venir" is now PURELY requirements, so it
+  // equals the inventory case exactly. Each chip answers one question — this one asks
+  // about WINDOWS, the next about ACTIONABILITY.
+  const upcomingChipCount = (data?.checklist ?? []).filter(
+    (i) => i.availability === 'upcoming',
+  ).length;
+
+  // ── "À FAIRE MAINTENANT" — the fifth chip's count. ──
+  //
+  // Same two-reader rule as above, and it is the lesson of `9ace7d6`: the render and
+  // `countFor` must see ONE number, or the chip purges itself on a count the user
+  // never saw. Declared here, above the reconciliation effect, for that reason.
+  //
+  // Requirements go through `isRequirementActionableNow` — one definition, shared with
+  // the filter. Acts are `liveness === 'live'`: no window, actionable from their own
+  // date. UNFILTERED on both halves, like every chip count.
+  const nowChipCount =
+    (data?.checklist ?? []).filter((i) =>
+      isRequirementActionableNow(i, getStateForChecklistItem(i) === 'missing'),
+    ).length + events.filter((a) => a.liveness === 'live').length;
 
   const [loading, setLoading] = useState(true);
   const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
@@ -217,6 +290,7 @@ export default function CompletenessPage({
   const FILTER_LABEL: Record<FilterKey, string> = {
     remediate: tSV('defaut_prolonge.label'),
     regularize: tSV('attention.label'),
+    now: tMB('completeness.actionableNow'),
     asigner: tMB('completeness.toSign'),
     live: tMB('completeness.upcoming'),
   };
@@ -277,6 +351,7 @@ export default function CompletenessPage({
       // Must be the SAME number the chip renders, or this purge fires on a count the
       // user never saw. `data.upcoming` (the liveness bucket) was that mismatch.
       live: upcomingChipCount,
+      now: nowChipCount,
     };
     setActiveFilters((prev) => {
       let changed = false;
@@ -396,28 +471,38 @@ export default function CompletenessPage({
   // activeFilters is empty, rowMatchesFilters returns true for everything, so
   // these arrays are IDENTICAL to data.checklist / events — unfiltered behaviour
   // is byte-identical. data.* aggregates (chip counts, stats line) stay UNFILTERED.
-  const filteredChecklist: ChecklistItem[] = (data?.checklist ?? []).filter((i) =>
-    rowMatchesFilters(
-      i.liveness,
-      getStateForChecklistItem(i) === 'généré',
-      i.availability === 'upcoming',
+  const filteredChecklist: ChecklistItem[] = (data?.checklist ?? []).filter((i) => {
+    const state = getStateForChecklistItem(i);
+    return rowMatchesFilters(
+      {
+        liveness: i.liveness,
+        isASigner: state === 'généré',
+        isUpcoming: i.availability === 'upcoming',
+        isNow: isRequirementActionableNow(i, state === 'missing'),
+      },
       activeFilters,
-    ),
-  );
-  const filteredEvents: EventActStatus[] = events.filter((a) =>
-    rowMatchesFilters(
-      a.liveness,
-      getDocumentState({
-        satisfied: a.satisfied,
-        source: a.documentSource,
-        is_finalized: a.documentIsFinalized,
-      }) === 'généré',
-      // An act has no window — see rowMatchesFilters. `liveness` stays its axis here,
-      // and this is the ONE place the two populations diverge.
-      a.liveness === 'live',
+    );
+  });
+  const filteredEvents: EventActStatus[] = events.filter((a) => {
+    const state = getDocumentState({
+      satisfied: a.satisfied,
+      source: a.documentSource,
+      is_finalized: a.documentIsFinalized,
+    });
+    return rowMatchesFilters(
+      {
+        liveness: a.liveness,
+        isASigner: state === 'généré',
+        // ★ NOT A PLACEHOLDER — the decision itself, written down. An act has no
+        // window: it records something that already happened, so its document exists
+        // from that day. It can never be "à venir", whatever its liveness says.
+        isUpcoming: false,
+        // …and it is actionable from that same day, so a live act belongs here.
+        isNow: a.liveness === 'live',
+      },
       activeFilters,
-    ),
-  );
+    );
+  });
 
   const foundationalItems: ChecklistItem[] = filteredChecklist.filter(
     (i) => i.category === 'foundational',
@@ -615,6 +700,21 @@ export default function CompletenessPage({
                   className="bg-[var(--lv-regularize-bg)] border-[var(--lv-regularize-bd)] text-[var(--lv-regularize)]"
                   active={activeFilters.has('regularize')}
                   onClick={() => toggleFilter('regularize')}
+                />
+              )}
+              {/* ★ Third position, between "à régulariser" and "à signer": the chips
+                  descend in gravity, and this one is to-do WITHOUT lateness.
+                  ⚠️ Outline style, TEMPORARY, pending Aria — and deliberately NOT
+                  --lv-regularize, which "à signer" already reuses: a fifth chip in
+                  that colour would read as "à régulariser", the exact word Dom needs
+                  it not to mean. One className to change, in this file only. */}
+              {nowChipCount > 0 && (
+                <Chip
+                  value={nowChipCount}
+                  label={tMB('completeness.actionableNow')}
+                  className="bg-transparent border-[var(--text-heading)] text-[var(--text-heading)]"
+                  active={activeFilters.has('now')}
+                  onClick={() => toggleFilter('now')}
                 />
               )}
               {data.totalGenerated > 0 && (
