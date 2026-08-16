@@ -116,22 +116,70 @@ function rowMatchesFilters(
  * "À faire maintenant" for a REQUIREMENT row — the fifth chip's whole definition, in
  * one place, read by the filter AND by the chip's count.
  *
- * The four conditions are the exact negations of the four older chips, which is why
- * this chip adds NO overlap: `missing` excludes "à signer", the two liveness tests
- * exclude both lateness chips, and `open` excludes "à venir". Measured 2026-08-16 on
- * five fixtures: it catches 29 rows, all of them previously unreachable, and 0 rows
- * already answering another chip.
+ * ── THIS BLOCK USED TO ARGUE THE OPPOSITE, AND THE ARGUMENT WAS WRONG. It read:
+ *    "The four conditions are the exact negations of the four older chips, which is
+ *    why this chip adds NO overlap: `missing` excludes 'à signer', the two liveness
+ *    tests exclude both lateness chips, and `open` excludes 'à venir'. Measured
+ *    2026-08-16 on five fixtures: it catches 29 rows, all of them previously
+ *    unreachable, and 0 rows already answering another chip." ──
+ *
+ * The `missing` clause was there to buy that zero. Dom found the cost by clicking:
+ * "les catégories défaut prolongé et à régulariser contiennent aussi les documents à
+ * signer quand on applique le filtre. Mais avec à faire maintenant, les fichiers à
+ * signer ne s'affichent pas, même s'ils sont à faire maintenant."
+ *
+ * ★ HE IS RIGHT, AND THE ASYMMETRY WAS INDEFENSIBLE. Neither lateness chip excludes a
+ * draft — they overlap "à signer" on 28 rows, measured, and that overlap is old and
+ * accepted. This chip was the only one refusing it, for tidiness. SIGNING IS SOMETHING
+ * YOU CAN DO NOW. Coherence beats a clean number.
+ *
+ * ★ THE CASE THAT SETTLES IT, measured: Wick's 2026 board resolution — generated, not
+ * signed, on a fiscal year that CLOSED on 2026-05-31. The most obvious "à faire
+ * maintenant" a company can have, and it answered none of the five chips.
+ *
+ * NEW COST, measured: +7 rows enter (droussy 6, Wick 1), all of them also answering
+ * "à signer" — overlap 7, against 28 already there. No row answers three chips.
+ *
+ * ⚠️ AND `isNotDone` IS NOT THE SAME AS DROPPING THE PARAMETER. Removing the state
+ * test outright would admit CERTIFIED rows: a finished document has `liveness: null`
+ * — so neither `regularize` nor `remediate` — and `availability: 'open'`. It would
+ * pass both remaining conditions. [MEASURED 2026-08-16: 12 such rows across the
+ * fixtures, all `is_finalized = true`; Acme would show 12 instead of 1, eleven of
+ * them signed, uploaded and filed.] The lateness chips cannot have that problem
+ * because they test for a POSITIVE tier; this one tests for absences, so it needs
+ * this floor.
+ *
+ * ── ⚠️ THE STATE NAMES DO NOT MEAN WHAT THEY LOOK LIKE. READ THIS BEFORE REASONING
+ *    ABOUT THEM. `getDocumentState` returns `'généré'` for `uploaded` +
+ *    `is_finalized === false`, and `'téléversé'` only for `is_finalized` true OR
+ *    null. So A DOCUMENT THAT WAS UPLOADED AND NOT SIGNED IS `'généré'`, NOT
+ *    `'téléversé'`: the state names the STAGE, never the source. `'téléversé'` is the
+ *    FINAL state — green check — not an intermediate one.
+ * ★ This cost a full round of review on 2026-08-16: work-in-progress uploads were
+ *   believed to be orphaned by "à signer", which keys on `'généré'`. They are not —
+ *   they ARE `'généré'`, and they were already in both chips. [MEASURED: zero rows
+ *   in the whole database carry `is_finalized = NULL`, so the drift branch that would
+ *   produce a genuinely uncertified `'téléversé'` has no instance at all.]
+ *
+ * ⚠️ THE CHIP NOW COVERS TWO KINDS OF WORK — producing a document and signing a draft.
+ * "À faire maintenant" spans both by design (Dom, 2026-08-16); noted here because a
+ * later reader may find one label over two verbs surprising.
+ *
+ * ITEM ON FILE, and it is a LABEL problem rather than a coverage one: "à signer"
+ * contains uploaded-but-unsigned documents as well as generated drafts, and its name
+ * says only the second. Dom wants it renamed "À signer / certifier" (2026-08-16).
+ * Nothing is unreachable today; the word is simply narrower than the contents.
  *
  * ⚠️ ACTS DO NOT COME THROUGH HERE. Their rule is one line at their own call site
  * (`liveness === 'live'`) because they have no window and no `availability` field.
  * Two populations, two derivations, one chip.
  */
-function isRequirementActionableNow(item: ChecklistItem, isMissing: boolean): boolean {
+function isRequirementActionableNow(item: ChecklistItem, isNotDone: boolean): boolean {
   return (
     item.availability === 'open' &&
     item.liveness !== 'regularize' &&
     item.liveness !== 'remediate' &&
-    isMissing
+    isNotDone
   );
 }
 
@@ -248,7 +296,7 @@ export default function CompletenessPage({
   // date. UNFILTERED on both halves, like every chip count.
   const nowChipCount =
     (data?.checklist ?? []).filter((i) =>
-      isRequirementActionableNow(i, getStateForChecklistItem(i) === 'missing'),
+      isRequirementActionableNow(i, getStateForChecklistItem(i) !== 'téléversé'),
     ).length + events.filter((a) => a.liveness === 'live').length;
 
   const [loading, setLoading] = useState(true);
@@ -478,7 +526,7 @@ export default function CompletenessPage({
         liveness: i.liveness,
         isASigner: state === 'généré',
         isUpcoming: i.availability === 'upcoming',
-        isNow: isRequirementActionableNow(i, state === 'missing'),
+        isNow: isRequirementActionableNow(i, state !== 'téléversé'),
       },
       activeFilters,
     );
