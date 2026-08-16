@@ -46,19 +46,41 @@ interface CompletenessPageProps {
 type FilterKey = 'remediate' | 'regularize' | 'asigner' | 'live';
 const FILTER_ORDER: FilterKey[] = ['remediate', 'regularize', 'asigner', 'live'];
 
-// A row matches the active chips (OR-combine). Tiers key off liveness; 'asigner'
-// keys off a pre-derived DocumentState==='généré' flag so this stays shape-
-// agnostic across requirement rows and event acts. Empty set → everything shows.
+// A row matches the active chips (OR-combine). Empty set → everything shows.
+//
+// ── THIS NOTE USED TO READ: "Tiers key off liveness; 'asigner' keys off a
+//    pre-derived DocumentState==='généré' flag so this stays shape-agnostic across
+//    requirement rows and event acts." ──
+// The second half still holds and is now the pattern for two flags, not one. The
+// first half became FALSE for ONE of the four chips in `9936932`, whose written
+// plan routed the "à venir" chip onto the window axis and whose edit list never
+// reached this function. This lot is that missing half.
+//
+// TWO AXES, and the chips are split across them:
+//   remediate · regularize → LATENESS, `liveness`. Unchanged.
+//   asigner                → the DOCUMENT's state. Unchanged.
+//   live ("à venir")       → the WINDOW, `isUpcoming`. This lot.
+//
+// ⚠️ AND `isUpcoming` IS FED FROM A DIFFERENT FIELD BY EACH CALLER — that is the
+// point of taking a pre-derived boolean rather than a row. A REQUIREMENT passes
+// `availability === 'upcoming'`: its window either has opened or has not, and
+// `liveness` gets that wrong in both directions (Wick's fiscal year ends 31 MAY, so
+// its 2026 rows read `live` while they are actionable; Café du Coin's federal window
+// opened 2026-06-19 and reads `regularize` while it is still inside it). An ACT
+// passes `liveness === 'live'`, because an act has NO window — it records something
+// that already happened, and "is this the action of the moment?" is the right
+// question for one.
 function rowMatchesFilters(
   liveness: ObligationLiveness | null,
   isASigner: boolean,
+  isUpcoming: boolean,
   filters: Set<FilterKey>,
 ): boolean {
   if (filters.size === 0) return true;
   return (
     (filters.has('remediate') && liveness === 'remediate') ||
     (filters.has('regularize') && liveness === 'regularize') ||
-    (filters.has('live') && liveness === 'live') ||
+    (filters.has('live') && isUpcoming) ||
     (filters.has('asigner') && isASigner)
   );
 }
@@ -122,6 +144,40 @@ export default function CompletenessPage({
   // classified every act as hors-exercice. A payload without `acts` degrades to `[]`:
   // requirement sections render, event sections simply don't appear.
   const events: EventActStatus[] = data?.acts ?? [];
+
+  // ── THE "À VENIR" CHIP'S OWN COUNT. ──
+  //
+  // Declared HERE, above the filter-reconciliation effect, because that effect reads it
+  // too: `countFor.live` decides whether an active chip whose count fell to 0 gets
+  // purged. Both readers must see the SAME number or a user can end up filtered to an
+  // empty page with no chip left to toggle off — a failure that only appears after a
+  // click, which no screenshot catches.
+  //
+  // Computed rather than read off `data.*` because NO response field is this number:
+  // `totalUpcoming` is requirements-only (it feeds the inventory census) and `upcoming`
+  // is the liveness bucket this lot removes from the chip. Both lists are already in
+  // memory, so composing them here beats adding a route field that would freeze a
+  // display rule into the contract.
+  //
+  // ⚠️ UNFILTERED, DELIBERATELY — over data.checklist and events, never over
+  // filteredChecklist. Chip counts stay unfiltered (see the chokepoint note below), and
+  // the reason bites hardest here: counted on the filtered list, this chip would read
+  // its own count as 0 the instant it was clicked, and the effect would purge it — a
+  // chip that switches itself off one render after being switched on.
+  //
+  // ⚠️ AND IT DIFFERS FROM THE VERDICT'S NUMBER, BY ONE FAMILY, ON PURPOSE. The verdict
+  // composes `requirementsUpcoming` — MISSING rows only, Dom's ruling that a draft is
+  // "à signer" and not "à venir" — with the same act count. This chip selects every row
+  // whose window is shut, draft or not, because a chip filters ROWS and someone
+  // filtering "à venir" expects to see all of them. The gap is exactly one family:
+  // generated or WIP-uploaded, on a window that has not opened. ZERO such rows on
+  // 2026-08-16, and the family is in EXTINCTION — `5b21967` made creating one
+  // impossible, so the stock can only shrink. Written down so a reader who one day sees
+  // verdict ≠ chip finds the reason instead of deducing it.
+  const upcomingChipCount =
+    (data?.checklist ?? []).filter((i) => i.availability === 'upcoming').length +
+    events.filter((a) => a.liveness === 'live').length;
+
   const [loading, setLoading] = useState(true);
   const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -218,7 +274,9 @@ export default function CompletenessPage({
       remediate: data.overdueProlonged,
       regularize: data.overdueRegularize,
       asigner: data.totalGenerated,
-      live: data.upcoming,
+      // Must be the SAME number the chip renders, or this purge fires on a count the
+      // user never saw. `data.upcoming` (the liveness bucket) was that mismatch.
+      live: upcomingChipCount,
     };
     setActiveFilters((prev) => {
       let changed = false;
@@ -339,7 +397,12 @@ export default function CompletenessPage({
   // these arrays are IDENTICAL to data.checklist / events — unfiltered behaviour
   // is byte-identical. data.* aggregates (chip counts, stats line) stay UNFILTERED.
   const filteredChecklist: ChecklistItem[] = (data?.checklist ?? []).filter((i) =>
-    rowMatchesFilters(i.liveness, getStateForChecklistItem(i) === 'généré', activeFilters),
+    rowMatchesFilters(
+      i.liveness,
+      getStateForChecklistItem(i) === 'généré',
+      i.availability === 'upcoming',
+      activeFilters,
+    ),
   );
   const filteredEvents: EventActStatus[] = events.filter((a) =>
     rowMatchesFilters(
@@ -349,6 +412,9 @@ export default function CompletenessPage({
         source: a.documentSource,
         is_finalized: a.documentIsFinalized,
       }) === 'généré',
+      // An act has no window — see rowMatchesFilters. `liveness` stays its axis here,
+      // and this is the ONE place the two populations diverge.
+      a.liveness === 'live',
       activeFilters,
     ),
   );
@@ -560,9 +626,9 @@ export default function CompletenessPage({
                   onClick={() => toggleFilter('asigner')}
                 />
               )}
-              {data.upcoming > 0 && (
+              {upcomingChipCount > 0 && (
                 <Chip
-                  value={data.upcoming}
+                  value={upcomingChipCount}
                   label={tMB('completeness.upcoming')}
                   className="bg-transparent border-[var(--text-body)] text-[var(--text-body)]"
                   active={activeFilters.has('live')}
