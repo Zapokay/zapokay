@@ -100,11 +100,6 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     font-size: 13px;
     color: ${COLORS.navy};
   }
-  .header-right .neq {
-    font-size: 10px;
-    color: ${COLORS.gray};
-    margin-top: 2px;
-  }
 
   /* ── Footer ── rendered as a Puppeteer footerTemplate (bottom-pinned on every
      page), built in lib/pdf/generatePDF.ts. No in-HTML footer element here. */
@@ -249,7 +244,6 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
           <div class="header-left"></div>
           <div class="header-right">
             <div class="company">${escapeHtml(data.companyName)}</div>
-            ${data.neq ? `<div class="neq">NEQ ${escapeHtml(data.neq)}</div>` : ''}
           </div>
         </div>
       </td></tr>
