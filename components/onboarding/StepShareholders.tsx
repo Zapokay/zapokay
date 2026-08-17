@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
 
@@ -11,6 +12,9 @@ import type { OnboardingDirector } from './StepDirectors';
 export interface OnboardingShareholder {
   fullName: string;
   numberOfShares: number;
+  /** String, not number: the input must hold partial/empty entry while typing,
+   *  as IssueSharesModal does. Validated before any write in OnboardingFlow. */
+  pricePerShare: string;
   issueDate: string;
 }
 
@@ -19,7 +23,9 @@ interface StepShareholdersProps {
   directors: OnboardingDirector[];
   incorporationDate?: string;
   initialShareholders?: OnboardingShareholder[];
-  onContinue: (shareholders: OnboardingShareholder[]) => void;
+  /** Resolves true when every shareholding was written, false when the write
+   *  failed. Step 5 stays put on false so the user can fix and retry. */
+  onContinue: (shareholders: OnboardingShareholder[]) => Promise<boolean>;
   onSkip: () => void;
 }
 
@@ -55,6 +61,7 @@ export default function StepShareholders({
 }: StepShareholdersProps) {
 
   const fr = locale === 'fr';
+  const t = useTranslations('shareholders');
   const defaultDate = incorporationDate || new Date().toISOString().split('T')[0];
 
   // Smart pre-fill: if only 1 director, pre-fill shareholder with same name + 100 shares
@@ -66,6 +73,7 @@ export default function StepShareholders({
             {
               fullName: directors[0].fullName,
               numberOfShares: 100,
+              pricePerShare: '1',
               issueDate: defaultDate,
             },
           ]
@@ -73,18 +81,22 @@ export default function StepShareholders({
           ? directors.map((d) => ({
               fullName: d.fullName,
               numberOfShares: 100,
+              pricePerShare: '1',
               issueDate: defaultDate,
             }))
           : [
               {
                 fullName: '',
                 numberOfShares: 100,
+                pricePerShare: '1',
                 issueDate: defaultDate,
               },
             ];
 
   const [shareholders, setShareholders] =
     useState<OnboardingShareholder[]>(defaultShareholders);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // ---- Handlers -------------------------------------------------------------
   function updateShareholder(
@@ -100,7 +112,7 @@ export default function StepShareholders({
   function addShareholder() {
     setShareholders((prev) => [
       ...prev,
-      { fullName: '', numberOfShares: 100, issueDate: defaultDate },
+      { fullName: '', numberOfShares: 100, pricePerShare: '1', issueDate: defaultDate },
     ]);
   }
 
@@ -108,9 +120,31 @@ export default function StepShareholders({
     setShareholders((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleContinue() {
+  async function handleContinue() {
+    setError(null);
     const valid = shareholders.filter((s) => s.fullName.trim());
-    onContinue(valid.length > 0 ? valid : shareholders);
+    const rows = valid.length > 0 ? valid : shareholders;
+
+    // Validate EVERY price before a single row is written. The A-SC guard in
+    // create_shareholding_with_holders rejects a direct issuance carrying no
+    // issue_price_per_share, and a mid-loop rejection would leave the earlier
+    // shareholders written with no way to retry cleanly. Same check, same keys
+    // as IssueSharesModal. The skipped-row condition mirrors the write loop's.
+    for (const s of rows) {
+      if (!s.fullName.trim() || s.numberOfShares <= 0) continue;
+      const priceNum = parseFloat(s.pricePerShare);
+      if (!s.pricePerShare.trim() || !Number.isFinite(priceNum) || priceNum < 0) {
+        setError(t('errorPrice'));
+        return;
+      }
+    }
+
+    setSaving(true);
+    const ok = await onContinue(rows);
+    if (!ok) {
+      setError(t('errorSave'));
+      setSaving(false);
+    }
   }
 
   const pieChartIcon = (
@@ -137,6 +171,7 @@ export default function StepShareholders({
       locale={locale}
       onSkip={onSkip}
       onContinue={handleContinue}
+      saving={saving}
       extraAboveCard={
         <div style={{
           width: '100%', maxWidth: '560px',
@@ -227,6 +262,37 @@ export default function StepShareholders({
               </div>
               <div>
                 <label style={fieldLabelStyle}>
+                  {t('pricePerShare')}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{
+                    position: 'absolute', left: '12px', top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '14px', color: 'var(--text-secondary)',
+                  }}>
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={shareholder.pricePerShare}
+                    onChange={(e) =>
+                      updateShareholder(index, 'pricePerShare', e.target.value)
+                    }
+                    placeholder="1.00"
+                    style={{ ...inputStyle, paddingLeft: '26px' }}
+                  />
+                </div>
+                <p style={{
+                  marginTop: '4px', fontSize: '11px',
+                  color: 'var(--text-secondary)',
+                }}>
+                  {t('pricePerShareHint')}
+                </p>
+              </div>
+              <div>
+                <label style={fieldLabelStyle}>
                   {fr ? "Date d'émission" : 'Issue date'}
                 </label>
                 <input
@@ -259,6 +325,12 @@ export default function StepShareholders({
           <span style={{ color: '#F5B91E', fontSize: '18px', lineHeight: 1 }}>+</span>
           {fr ? 'Ajouter un actionnaire' : 'Add a shareholder'}
         </button>
+
+        {error && (
+          <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>
+            {error}
+          </p>
+        )}
       </div>
     </OnboardingStepLayout>
   );

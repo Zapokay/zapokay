@@ -26,8 +26,9 @@ const today = new Date().toISOString().split('T')[0];
 // #146 Phase D: in-progress onboarding draft persisted to sessionStorage so input
 // survives a locale switch (URL nav remounts the flow) AND a page refresh. Per-user
 // key; a corrupt or old-version draft is discarded (try/catch + version gate) and
-// never crashes onboarding.
-const DRAFT_VERSION = 1;
+// never crashes onboarding. v2: OnboardingShareholder gained a REQUIRED
+// pricePerShare field, so a v1 draft would rehydrate a shareholder without it.
+const DRAFT_VERSION = 2;
 
 interface OnboardingDraft {
   v: number;
@@ -205,7 +206,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
 
   // ── Step 5: Shareholders ─────────────────────────────────────────────────
   const handleShareholdersContinue = useCallback(
-    async (shs: OnboardingShareholder[]) => {
+    async (shs: OnboardingShareholder[]): Promise<boolean> => {
       setShareholders(shs);
       if (companyId) {
         let shareClassId: string | null = null;
@@ -233,6 +234,12 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
         }
         if (shareClassId) {
           let certNum = 1;
+          // Prices are validated in StepShareholders BEFORE this runs, so the
+          // A-SC guard cannot reject a row here under normal use. An UNEXPECTED
+          // server failure at the n-th shareholder still leaves rows 1..n-1
+          // written: shareholdings carries no UNIQUE constraint, so pressing
+          // Continue again would DUPLICATE them. Known and NOT closed here —
+          // deduplication needs a DB constraint or a pre-read, and is queued.
           for (const sh of shs) {
             if (!sh.fullName.trim() || sh.numberOfShares <= 0) continue;
             const { data: existingPeople } = await supabase
@@ -254,23 +261,43 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
             }
             // Atom 2 (Q-R-G2-A): Pattern β2 RPC. Individual-only holder for atom 2;
             // entity-holder onboarding paths are atom 3+ scope.
-            await supabase.rpc('create_shareholding_with_holders', {
+            const { error: shErr } = await supabase.rpc('create_shareholding_with_holders', {
               p_shareholding: {
                 company_id: companyId,
                 share_class_id: shareClassId,
                 quantity: sh.numberOfShares,
                 issue_date: sh.issueDate,
+                issue_price_per_share: parseFloat(sh.pricePerShare),
                 certificate_number: String(certNum).padStart(3, '0'),
               },
               p_holders: [
                 { holder_type: 'individual', person_id: personId },
               ],
             });
+            // Stop at the FIRST failure: do not advance, and do not consume
+            // another certificate number — they are a real, readable series in
+            // a minute book, and a gap is a defect a human will one day chase.
+            if (shErr) return false;
             certNum++;
           }
+        } else {
+          // CANNOT write — which is NOT the same as having nothing to write.
+          // The share class is created above for EVERY company, independently
+          // of whether any shareholder was entered, so a null here means both
+          // the SELECT and the INSERT failed. A user who entered no shareholder
+          // still gets a share class, skips every row in the loop, and advances
+          // normally — that path stays open on purpose.
+          return false;
         }
+      } else {
+        // Same false-success shape: no company means nothing can be written, so
+        // advancing to step 6 would report a success that never happened. Not
+        // reachable through the normal flow (step 3 sets companyId before it
+        // advances), which is exactly why it must not be left as a silent true.
+        return false;
       }
       setStep(6);
+      return true;
     },
     [companyId, supabase]
   );
