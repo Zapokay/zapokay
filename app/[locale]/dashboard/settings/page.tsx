@@ -101,6 +101,7 @@ export default async function SettingsPage({
           incorporationType={company.incorporation_type}
           initialLegalName={company.legal_name_fr}
           initialNeq={(companyAny.neq as string | null) ?? ''}
+          initialCorporationNumber={(companyAny.corporation_number as string | null) ?? ''}
           province={company.province}
           incorporationDate={company.incorporation_date}
           initialFyMonth={fyEndMonth}

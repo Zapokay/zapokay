@@ -34,6 +34,7 @@ interface SettingsClientProps {
   incorporationType: string
   initialLegalName: string
   initialNeq: string
+  initialCorporationNumber: string
   province: string
   incorporationDate: string | null
   initialFyMonth: number
@@ -56,6 +57,7 @@ export function SettingsClient({
   incorporationType,
   initialLegalName,
   initialNeq,
+  initialCorporationNumber,
   province,
   incorporationDate,
   initialFyMonth,
@@ -80,6 +82,12 @@ export function SettingsClient({
   // ── Company state ──────────────────────────────────────────────────────────
   const [legalName, setLegalName] = useState(initialLegalName)
   const [neq, setNeq] = useState(initialNeq)
+  const [corporationNumber, setCorporationNumber] = useState(initialCorporationNumber)
+  // Its own tooltip state, mirroring showEmailTooltip / showLangTooltip in the
+  // profile card: one boolean per tooltip, hover-driven. This is the FIRST tooltip
+  // on the COMPANY card — the NEQ has none here; its explanatory bubble lives in
+  // the onboarding step, not in Paramètres.
+  const [showCorpNumTooltip, setShowCorpNumTooltip] = useState(false)
   const [fyMonth, setFyMonth] = useState(initialFyMonth)
   const [fyDay, setFyDay] = useState(initialFyDay)
   const [savingCompany, setSavingCompany] = useState(false)
@@ -91,6 +99,36 @@ export function SettingsClient({
   const [editIncorpDate, setEditIncorpDate] = useState(incorporationDate ?? '')
   const [unlockedFields, setUnlockedFields] = useState<Set<string>>(new Set())
   const [pendingUnlock, setPendingUnlock] = useState<string | null>(null)
+
+  // ── THE PADLOCK HAS TWO FUNCTIONS, AND THEY MUST NOT BE CONFLATED. ──
+  //
+  // On a value that GOVERNS CALCULATIONS (incorporation type, province,
+  // incorporation date, fiscal year end) the warning modal tells the truth:
+  // compliance IS recomputed and already-generated documents CAN become wrong.
+  //
+  // On an IDENTIFIER (NEQ, federal corporation number) it is FALSE — nothing is
+  // recomputed, no document is invalidated. Here the padlock serves only to
+  // prevent an ACCIDENTAL edit to a value we will read later.
+  //
+  // ★ A warning that is true every time keeps its weight; one that shouts about an
+  // identifier wears it out.
+  //
+  // ⚠️ AN INLINE `if` ON THE BUTTON WOULD HAVE WRITTEN THE RULE TWICE (NEQ +
+  // federal number), and a third identifier would have forgotten it. One list, one
+  // decision site. The four calculation fields do NOT pass through here: their
+  // buttons still call `setPendingUnlock` directly, and the modal remains their
+  // only unlock path.
+  const IDENTIFIER_FIELDS = new Set(['neq', 'corporationNumber'])
+  function requestUnlock(field: string) {
+    if (unlockedFields.has(field)) return
+    if (IDENTIFIER_FIELDS.has(field)) {
+      setUnlockedFields(prev => {
+        const s = new Set(prev); s.add(field); return s
+      })
+      return
+    }
+    setPendingUnlock(field)
+  }
 
   // ── Apparence state ────────────────────────────────────────────────────────
   const [themeUnlocked, setThemeUnlocked] = useState(initialPreferredTheme !== null)
@@ -115,6 +153,11 @@ export function SettingsClient({
   // app-wide `=== 'CBCA' ? 'CBCA' : 'LSAQ'` pattern (compliance/page.tsx:85,
   // StepConfirmation.tsx:32). Locale-invariant proper nouns — no i18n key needed.
   const incorpTypeLabel = (v: string) => (v === 'CBCA' ? 'CBCA' : 'LSAQ')
+  // Reads `editIncorpType`, the LOCAL state the unlocked <select> writes to — NOT the
+  // `incorporationType` prop, which is frozen at page load. That is what makes the
+  // federal-number field ungrey the instant the user picks CBCA, with no save and no
+  // reload. Switching this to the prop would silently break that.
+  const isCBCA = editIncorpType === 'CBCA'
 
   const sectionTitle: React.CSSProperties = {
     fontFamily: "'Sora', sans-serif",
@@ -214,6 +257,25 @@ export function SettingsClient({
     }
     if (unlockedFields.has('incorporationDate')) {
       updates.incorporation_date = editIncorpDate || null
+    }
+    // ── THE FEDERAL NUMBER — GATED TWICE, AND NEITHER GATE IS REDUNDANT. ──
+    //
+    // GATE 1, the padlock: the value is written only if the user deliberately opened
+    // the field, exactly like the four fields above. (The NEQ is the odd one out — it
+    // is written unconditionally at the top of `updates`, protected on screen but open
+    // at the write. Tracked separately; deliberately not this lot.)
+    //
+    // ⚠️ GATE 2, `isCBCA`, IS NOT REDUNDANT — DO NOT REMOVE IT. A user can unlock the
+    // field while CBCA, type a number, then switch the type back to LSAQ without
+    // saving. The field then RENDERS "Sociétés fédérales seulement", but the padlock
+    // is still open, so gate 1 alone would persist the number anyway. Writing a value
+    // behind a sentence that says there is none is a silent lie in the data.
+    //
+    // ACCEPTED COST, DECIDED RATHER THAN OVERLOOKED: whoever types a number and then
+    // switches to LSAQ loses that input with no warning. Acceptable — they have just
+    // declared their company is not federal.
+    if (unlockedFields.has('corporationNumber') && isCBCA) {
+      updates.corporation_number = corporationNumber || null
     }
     const { error } = await supabase
       .from('companies')
@@ -432,7 +494,7 @@ export function SettingsClient({
                 {fr ? "NEQ (Numéro d'entreprise du Québec)" : "NEQ (Québec Enterprise Number)"}
               </label>
               <button
-                onClick={() => !unlockedFields.has('neq') && setPendingUnlock('neq')}
+                onClick={() => requestUnlock('neq')}
                 style={{ background: 'none', border: 'none', cursor: unlockedFields.has('neq') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
                 title={unlockedFields.has('neq')
                   ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
@@ -468,6 +530,69 @@ export function SettingsClient({
                 }}
               >
                 {neq || '—'}
+              </div>
+            )}
+          </div>
+          {/* ── Numéro de société fédéral — FULL WIDTH, in the current child order.
+              Pairing it with the NEQ side by side is LOT 2; nothing is moved here. ── */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-muted)]">
+                {fr ? 'Numéro de société fédéral' : 'Federal corporation number'}
+              </label>
+              <button
+                onClick={() => isCBCA && requestUnlock('corporationNumber')}
+                style={{ background: 'none', border: 'none', cursor: isCBCA && !unlockedFields.has('corporationNumber') ? 'pointer' : 'default', padding: 0, display: 'flex' }}
+                title={!isCBCA
+                  ? (fr ? 'Réservé aux sociétés fédérales' : 'Federal corporations only')
+                  : unlockedFields.has('corporationNumber')
+                    ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
+                    : (fr ? 'Non-modifiable — identifiant gouvernemental permanent' : 'Not editable — permanent government identifier')}
+              >
+                <Lock size={12} style={{ color: isCBCA && unlockedFields.has('corporationNumber') ? '#2E5425' : 'var(--text-muted)' }} />
+              </button>
+              {/* ⚪ UNVERIFIED SOURCE — this copy is pending Harvey confirmation (the
+                  7-or-8-digit claim and the contrast with the CRA Business Number).
+                  Do not cite it as verified legal guidance until that lands. */}
+              <button
+                type="button"
+                onMouseEnter={() => setShowCorpNumTooltip(true)}
+                onMouseLeave={() => setShowCorpNumTooltip(false)}
+                className="relative rounded-full p-0.5 text-[var(--text-muted)] hover:text-[var(--text-body)] flex-shrink-0"
+              >
+                <Info className="h-3.5 w-3.5" />
+                {showCorpNumTooltip && (
+                  <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs font-normal text-[var(--text-body)] shadow-lg">
+                    {fr
+                      ? "Numéro attribué par Corporations Canada à la constitution de la société — un identifiant de 7 ou 8 chiffres. Il figure sur votre certificat de constitution et sert d'identité juridique à la société. ⚠️ À ne pas confondre avec le numéro d'entreprise (NE) de l'Agence du revenu du Canada, un identifiant fiscal à 9 chiffres qui sert à l'impôt et aux taxes."
+                      : "Number assigned by Corporations Canada when the corporation was incorporated — a 7- or 8-digit identifier. It appears on your certificate of incorporation and serves as the corporation's legal identity. ⚠️ Not to be confused with the Canada Revenue Agency Business Number (BN), a 9-digit tax identifier used for income tax and sales taxes."}
+                  </div>
+                )}
+              </button>
+            </div>
+            {isCBCA && unlockedFields.has('corporationNumber') ? (
+              // NO FORMAT VALIDATION, DELIBERATELY. Dom's real example is `1810444-1` —
+              // digits AND a hyphen. The NEQ's `replace(/\D/g,'')` + `maxLength={10}` pair
+              // would silently eat the hyphen and truncate. Free text is the right answer
+              // here; a guard invented from a guessed format is not.
+              <input
+                value={corporationNumber}
+                onChange={e => setCorporationNumber(e.target.value)}
+                className={inputClass}
+              />
+            ) : (
+              <div
+                className="px-3 py-2 rounded-lg text-sm border"
+                style={{
+                  borderColor: 'var(--card-border)',
+                  backgroundColor: 'var(--page-bg)',
+                  color: 'var(--text-body)',
+                  opacity: 0.7,
+                }}
+              >
+                {isCBCA
+                  ? (corporationNumber || '—')
+                  : (fr ? 'Sociétés fédérales seulement' : 'Federal corporations only')}
               </div>
             )}
           </div>
