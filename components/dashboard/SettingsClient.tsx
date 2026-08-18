@@ -488,115 +488,12 @@ export function SettingsClient({
             </label>
             <input value={legalName} onChange={e => setLegalName(e.target.value)} className={inputClass} />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5 mb-1">
-              <label className="block text-xs font-medium text-[var(--text-muted)]">
-                {fr ? "NEQ (Numéro d'entreprise du Québec)" : "NEQ (Québec Enterprise Number)"}
-              </label>
-              <button
-                onClick={() => requestUnlock('neq')}
-                style={{ background: 'none', border: 'none', cursor: unlockedFields.has('neq') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
-                title={unlockedFields.has('neq')
-                  ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
-                  : (fr ? 'Non-modifiable — identifiant gouvernemental permanent' : 'Not editable — permanent government identifier')}
-              >
-                <Lock size={12} style={{ color: unlockedFields.has('neq') ? '#2E5425' : 'var(--text-muted)' }} />
-              </button>
-            </div>
-            {unlockedFields.has('neq') ? (
-              <>
-                <input
-                  value={neq}
-                  onChange={e => setNeq(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
-                  inputMode="numeric"
-                  maxLength={10}
-                  className={inputClass}
-                />
-                {neq.length > 0 && neq.length < 10 && (
-                  <p className="mt-1 text-xs text-amber-600">
-                    {fr ? `${10 - neq.length} chiffres manquants` : `${10 - neq.length} digits missing`}
-                  </p>
-                )}
-              </>
-            ) : (
-              <div
-                className="px-3 py-2 rounded-lg text-sm border"
-                style={{
-                  borderColor: 'var(--card-border)',
-                  backgroundColor: 'var(--page-bg)',
-                  color: 'var(--text-body)',
-                  opacity: 0.7,
-                }}
-              >
-                {neq || '—'}
-              </div>
-            )}
-          </div>
-          {/* ── Numéro de société fédéral — FULL WIDTH, in the current child order.
-              Pairing it with the NEQ side by side is LOT 2; nothing is moved here. ── */}
-          <div>
-            <div className="flex items-center gap-1.5 mb-1">
-              <label className="block text-xs font-medium text-[var(--text-muted)]">
-                {fr ? 'Numéro de société fédéral' : 'Federal corporation number'}
-              </label>
-              <button
-                onClick={() => isCBCA && requestUnlock('corporationNumber')}
-                style={{ background: 'none', border: 'none', cursor: isCBCA && !unlockedFields.has('corporationNumber') ? 'pointer' : 'default', padding: 0, display: 'flex' }}
-                title={!isCBCA
-                  ? (fr ? 'Réservé aux sociétés fédérales' : 'Federal corporations only')
-                  : unlockedFields.has('corporationNumber')
-                    ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
-                    : (fr ? 'Non-modifiable — identifiant gouvernemental permanent' : 'Not editable — permanent government identifier')}
-              >
-                <Lock size={12} style={{ color: isCBCA && unlockedFields.has('corporationNumber') ? '#2E5425' : 'var(--text-muted)' }} />
-              </button>
-              {/* ⚪ UNVERIFIED SOURCE — this copy is pending Harvey confirmation (the
-                  7-or-8-digit claim and the contrast with the CRA Business Number).
-                  Do not cite it as verified legal guidance until that lands. */}
-              <button
-                type="button"
-                onMouseEnter={() => setShowCorpNumTooltip(true)}
-                onMouseLeave={() => setShowCorpNumTooltip(false)}
-                className="relative rounded-full p-0.5 text-[var(--text-muted)] hover:text-[var(--text-body)] flex-shrink-0"
-              >
-                <Info className="h-3.5 w-3.5" />
-                {showCorpNumTooltip && (
-                  <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs font-normal text-[var(--text-body)] shadow-lg">
-                    {fr
-                      ? "Numéro attribué par Corporations Canada à la constitution de la société — un identifiant de 7 ou 8 chiffres. Il figure sur votre certificat de constitution et sert d'identité juridique à la société. ⚠️ À ne pas confondre avec le numéro d'entreprise (NE) de l'Agence du revenu du Canada, un identifiant fiscal à 9 chiffres qui sert à l'impôt et aux taxes."
-                      : "Number assigned by Corporations Canada when the corporation was incorporated — a 7- or 8-digit identifier. It appears on your certificate of incorporation and serves as the corporation's legal identity. ⚠️ Not to be confused with the Canada Revenue Agency Business Number (BN), a 9-digit tax identifier used for income tax and sales taxes."}
-                  </div>
-                )}
-              </button>
-            </div>
-            {isCBCA && unlockedFields.has('corporationNumber') ? (
-              // NO FORMAT VALIDATION, DELIBERATELY. Dom's real example is `1810444-1` —
-              // digits AND a hyphen. The NEQ's `replace(/\D/g,'')` + `maxLength={10}` pair
-              // would silently eat the hyphen and truncate. Free text is the right answer
-              // here; a guard invented from a guessed format is not.
-              <input
-                value={corporationNumber}
-                onChange={e => setCorporationNumber(e.target.value)}
-                className={inputClass}
-              />
-            ) : (
-              <div
-                className="px-3 py-2 rounded-lg text-sm border"
-                style={{
-                  borderColor: 'var(--card-border)',
-                  backgroundColor: 'var(--page-bg)',
-                  color: 'var(--text-body)',
-                  opacity: 0.7,
-                }}
-              >
-                {isCBCA
-                  ? (corporationNumber || '—')
-                  : (fr ? 'Sociétés fédérales seulement' : 'Federal corporations only')}
-              </div>
-            )}
-          </div>
-          {/* Protected fields — Type, Province, Date de constitution */}
+          {/* ── Protected fields — Type, Province.
+              ★ THE REGIME IS READ BEFORE THE IDENTIFIERS, AND THE ORDER SAYS
+              SOMETHING. The user sees "CBCA" first and only then meets the federal
+              corporation number, so the field being live is already explained by the
+              time they reach it. Moved above the NEQ / federal rows for that reason,
+              not for looks. ── */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="flex items-center gap-1.5 mb-1">
@@ -671,6 +568,116 @@ export function SettingsClient({
                 </div>
               )}
             </div>
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-muted)]">
+                {fr ? "NEQ (Numéro d'entreprise du Québec)" : "NEQ (Québec Enterprise Number)"}
+              </label>
+              <button
+                onClick={() => requestUnlock('neq')}
+                style={{ background: 'none', border: 'none', cursor: unlockedFields.has('neq') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
+                title={unlockedFields.has('neq')
+                  ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
+                  : (fr ? 'Non-modifiable — identifiant gouvernemental permanent' : 'Not editable — permanent government identifier')}
+              >
+                <Lock size={12} style={{ color: unlockedFields.has('neq') ? '#2E5425' : 'var(--text-muted)' }} />
+              </button>
+            </div>
+            {unlockedFields.has('neq') ? (
+              <>
+                <input
+                  value={neq}
+                  onChange={e => setNeq(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
+                  inputMode="numeric"
+                  maxLength={10}
+                  className={inputClass}
+                />
+                {neq.length > 0 && neq.length < 10 && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    {fr ? `${10 - neq.length} chiffres manquants` : `${10 - neq.length} digits missing`}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div
+                className="px-3 py-2 rounded-lg text-sm border"
+                style={{
+                  borderColor: 'var(--card-border)',
+                  backgroundColor: 'var(--page-bg)',
+                  color: 'var(--text-body)',
+                  opacity: 0.7,
+                }}
+              >
+                {neq || '—'}
+              </div>
+            )}
+          </div>
+          {/* ── Numéro de société fédéral — FULL WIDTH, directly under the NEQ.
+              The side-by-side pairing sketched for LOT 2 was DROPPED: both identifiers
+              stay full width, one under the other. What LOT 2 moved is the
+              Type|Province grid, now above them — see its comment. ── */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-muted)]">
+                {fr ? 'Numéro de société fédéral' : 'Federal corporation number'}
+              </label>
+              <button
+                onClick={() => isCBCA && requestUnlock('corporationNumber')}
+                style={{ background: 'none', border: 'none', cursor: isCBCA && !unlockedFields.has('corporationNumber') ? 'pointer' : 'default', padding: 0, display: 'flex' }}
+                title={!isCBCA
+                  ? (fr ? 'Réservé aux sociétés fédérales' : 'Federal corporations only')
+                  : unlockedFields.has('corporationNumber')
+                    ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
+                    : (fr ? 'Non-modifiable — identifiant gouvernemental permanent' : 'Not editable — permanent government identifier')}
+              >
+                <Lock size={12} style={{ color: isCBCA && unlockedFields.has('corporationNumber') ? '#2E5425' : 'var(--text-muted)' }} />
+              </button>
+              {/* ⚪ UNVERIFIED SOURCE — this copy is pending Harvey confirmation (the
+                  7-or-8-digit claim and the contrast with the CRA Business Number).
+                  Do not cite it as verified legal guidance until that lands. */}
+              <button
+                type="button"
+                onMouseEnter={() => setShowCorpNumTooltip(true)}
+                onMouseLeave={() => setShowCorpNumTooltip(false)}
+                className="relative rounded-full p-0.5 text-[var(--text-muted)] hover:text-[var(--text-body)] flex-shrink-0"
+              >
+                <Info className="h-3.5 w-3.5" />
+                {showCorpNumTooltip && (
+                  <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs font-normal text-[var(--text-body)] shadow-lg">
+                    {fr
+                      ? "Numéro attribué par Corporations Canada à la constitution de la société — un identifiant de 7 ou 8 chiffres. Il figure sur votre certificat de constitution et sert d'identité juridique à la société. ⚠️ À ne pas confondre avec le numéro d'entreprise (NE) de l'Agence du revenu du Canada, un identifiant fiscal à 9 chiffres qui sert à l'impôt et aux taxes."
+                      : "Number assigned by Corporations Canada when the corporation was incorporated — a 7- or 8-digit identifier. It appears on your certificate of incorporation and serves as the corporation's legal identity. ⚠️ Not to be confused with the Canada Revenue Agency Business Number (BN), a 9-digit tax identifier used for income tax and sales taxes."}
+                  </div>
+                )}
+              </button>
+            </div>
+            {isCBCA && unlockedFields.has('corporationNumber') ? (
+              // NO FORMAT VALIDATION, DELIBERATELY. Dom's real example is `1810444-1` —
+              // digits AND a hyphen. The NEQ's `replace(/\D/g,'')` + `maxLength={10}` pair
+              // would silently eat the hyphen and truncate. Free text is the right answer
+              // here; a guard invented from a guessed format is not.
+              <input
+                value={corporationNumber}
+                onChange={e => setCorporationNumber(e.target.value)}
+                className={inputClass}
+              />
+            ) : (
+              <div
+                className="px-3 py-2 rounded-lg text-sm border"
+                style={{
+                  borderColor: 'var(--card-border)',
+                  backgroundColor: 'var(--page-bg)',
+                  color: 'var(--text-body)',
+                  opacity: 0.7,
+                }}
+              >
+                {isCBCA
+                  ? (corporationNumber || '—')
+                  : (fr ? 'Sociétés fédérales seulement' : 'Federal corporations only')}
+              </div>
+            )}
           </div>
           <div>
             <div className="flex items-center gap-1.5 mb-1">
