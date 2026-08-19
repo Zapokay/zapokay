@@ -364,11 +364,31 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     // act's identity — orthogonal to Binder placement, which follows document_type).
     if (eventLink) fd.append('eventLink', JSON.stringify(eventLink));
 
-    const res = await fetch('/api/documents/upload', { method: 'POST', body: fd });
-    const result = await res.json();
+    // ⚠️ fetch and res.json() are the only steps on this path that can REJECT
+    // rather than return an { ok:false } body, so they are the only ones inside
+    // the try. A dropped connection — or a non-JSON body from an edge/proxy
+    // error — used to reject into nothing: no message, and the modal stayed
+    // frozen on 'uploading' forever. The rest of the path was already sound:
+    // the route answers { ok, error } on every branch and the { ok:false }
+    // handler below reports it.
+    let res: Response | null = null;
+    let result: any = null;
+    try {
+      res = await fetch('/api/documents/upload', { method: 'POST', body: fd });
+      result = await res.json();
+    } catch {
+      // Same treatment as the { ok:false } branch, with the mapper's generic
+      // fallback: no error code and no status is exactly the case
+      // uploadErrorMessageKey() answers 'uploadFailed' to. No new key.
+      const msg = t(uploadErrorMessageKey());
+      setError(msg);
+      onError?.(msg);
+      setStep('form');
+      return;
+    }
 
-    if (!result.ok) {
-      const msg = t(uploadErrorMessageKey(result.error, res.status));
+    if (!result || !result.ok) {
+      const msg = t(uploadErrorMessageKey(result?.error, res?.status));
       setError(msg);
       onError?.(msg);
       setStep('form');
