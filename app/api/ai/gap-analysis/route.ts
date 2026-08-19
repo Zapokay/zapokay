@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           max_tokens: 1000,
           system: `Tu es l'assistant de conformité de ZapOkay. Tu analyses les lacunes dans les registres corporatifs de PME québécoises. Tu réponds en ${locale === 'fr' ? 'français' : 'anglais'}. Tu utilises un langage simple et encourageant. Tu ne donnes JAMAIS de conseils juridiques. Termine par : "${locale === 'fr' ? 'Ces informations sont fournies à titre indicatif et ne constituent pas un avis juridique.' : 'This information is provided for reference only and does not constitute legal advice.'}"`,
           messages: [{
