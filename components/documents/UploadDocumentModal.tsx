@@ -108,7 +108,18 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   const [titleDirty, setTitleDirty] = useState(false);
   const [docType, setDocType] = useState(prefill?.docType ?? 'autre');
   const [language, setLanguage] = useState<string>(preferredLanguage);
-  const [docYear, setDocYear] = useState<number | ''>(prefill?.docYear ?? '');
+  // Three states, NOT two. '' = nothing picked yet, and the gate at
+  // `yearMissing` below blocks submit on it. A number = a real fiscal year.
+  // 'none' = the user deliberately said this document belongs to NO fiscal
+  // year — the founding-documents case.
+  //
+  // Before 'none' existed there was no way to say that. With no requirement
+  // selected, `isFoundational` is false, so the field was shown AND mandatory,
+  // and it offered nothing but fiscal years. A law-firm PDF bundling several
+  // founding pieces has no single requirement to attach and belongs to no
+  // year: it could not be uploaded AT ALL. This was a closed door, not a
+  // classification problem.
+  const [docYear, setDocYear] = useState<number | '' | 'none'>(prefill?.docYear ?? '');
   const [requirementKey, setRequirementKey] = useState<string | null>(
     prefill?.requirementKey ?? null,
   );
@@ -344,7 +355,10 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     fd.append('title', title);
     fd.append('docType', docType);
     fd.append('language', language);
-    if (docYear !== '' && docYear != null) fd.append('docYear', String(docYear));
+    // '' and 'none' both mean "no fiscal year": omit the field rather than let
+    // String('none') reach the route, where numOrNull would coerce it to NaN and
+    // answer null by accident. Same result, stated instead of inferred.
+    if (typeof docYear === 'number') fd.append('docYear', String(docYear));
     if (requirementKey) fd.append('requirementKey', requirementKey);
     if (requirementYear != null) fd.append('requirementYear', String(requirementYear));
     fd.append('framework', framework);
@@ -593,12 +607,19 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
               <select
                 value={docYear}
                 onChange={(e) =>
-                  setDocYear(e.target.value === '' ? '' : parseInt(e.target.value))
+                  setDocYear(
+                    e.target.value === ''
+                      ? ''
+                      : e.target.value === 'none'
+                        ? 'none'
+                        : parseInt(e.target.value)
+                  )
                 }
                 disabled={!!requirementKey}
                 className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="" disabled>{t('upload.fiscalYearPlaceholder')}</option>
+                <option value="none">{t('filterFoundational')}</option>
                 {activeFiscalYears.map((y) => (
                   <option key={y} value={y}>
                     {getFiscalYearLabel(y, locale)}
