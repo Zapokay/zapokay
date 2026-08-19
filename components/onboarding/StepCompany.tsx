@@ -86,6 +86,18 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
   const incorpDateValid =
     !!data.company.incorporationDate && data.company.incorporationDate <= todayStr;
 
+  // ⚠️ THE REGIME VOCABULARY IS NOT THE SAME ON BOTH SURFACES — DO NOT "SYMMETRISE"
+  // THIS. Paramètres holds the DB values 'LSA' | 'CBCA'; this flow holds
+  // 'LSAQ' | 'CBCA' (see `incorporationTypes` above), and OnboardingFlow converts
+  // LSAQ → LSA at write time. Testing `=== 'CBCA'` is correct on BOTH sides;
+  // testing `!== 'LSA'` would be silently WRONG here, matching every company.
+  //
+  // Reading the shared `data` state is what makes the field ungrey on the same
+  // render: line ~194 already compares this exact expression to drive the selected
+  // card's amber border, so its result is visible on screen before this guard
+  // reads it.
+  const isCBCA = data.company.incorporationType === 'CBCA';
+
   function update(field: keyof typeof data.company, value: string) {
     setData(d => ({ ...d, company: { ...d.company, [field]: value } }));
     if (errors[field]) setErrors(e => ({ ...e, [field]: '' }));
@@ -281,6 +293,79 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           )}
           {errors.incorporationNumber && !neqDuplicate && (
             <p style={{ marginTop: '4px', fontSize: '12px', color: '#ef4444' }}>{errors.incorporationNumber}</p>
+          )}
+        </div>
+
+        {/* Numéro de société fédéral — OPTIONAL, like the NEQ above. No padlock:
+            nothing on this screen is saved yet, and a padlock protects a value that
+            already IS. Nothing is moved; the regime selector is already above. */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>
+              {ob.corporationNumber}
+            </label>
+            {/* ⚪ UNVERIFIED SOURCE — this copy is pending Harvey confirmation (the
+                7-or-8-digit claim and the contrast with the CRA Business Number).
+                Do not cite it as verified legal guidance until that lands.
+                CSS-only tooltip: the pattern of the NEQ above, not the useState one
+                used in SettingsClient. Each file follows what is already in it. */}
+            <div style={{ position: 'relative', display: 'inline-block' }} className="group">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'help' }}>
+                <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div style={{
+                position: 'absolute', left: '20px', top: 0, zIndex: 40,
+                width: '256px', borderRadius: '10px',
+                border: '1px solid var(--card-border)', background: 'var(--card-bg)',
+                padding: '12px', fontSize: '12px', color: 'var(--text-body)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              }} className="hidden group-hover:block">
+                {ob.corporationNumberTooltip}
+              </div>
+            </div>
+          </div>
+          {/* NO FORMAT VALIDATION, DELIBERATELY. Dom's real number is `1810444-1` —
+              digits AND a hyphen. The NEQ's `replace(/\D/g,'')` + `maxLength={10}`
+              pair sits ten lines above and would eat the hyphen and truncate, in
+              silence. Do not copy it down here. */}
+          {/* ── THE 12-CHARACTER CAP IS PRUDENCE, NOT PRECISION. ──
+              ⚠️ DO NOT TIGHTEN IT TO 9. Nothing in the documentation FIXES this
+              identifier's length; everything POINTS at 9 without guaranteeing it,
+              and Harvey's recommendation is explicitly "allow at least 12". A cap
+              at 9 would REFUSE a real number the day the form differs — the exact
+              failure this lot already avoided once, when an invented regex would
+              have rejected `1810444-1`. A cap at 12 blocks the absurd (the camera
+              accepted 30 digits) without refusing anything plausible.
+              ★ AND IT IS NOT FORMAT VALIDATION: `maxLength` alone, and NO
+              `replace(/\D/g,'')`. The hyphen must pass.
+              ⚠️ IT BOUNDS TYPING ONLY. A value arriving from the session draft or
+              from the database is never truncated by it — do not read it as a
+              length guarantee on the stored value. This lot makes no such
+              guarantee. ── */}
+          <input
+            id="corporationNumber"
+            type="text"
+            value={data.company.corporationNumber}
+            onChange={e => update('corporationNumber', e.target.value)}
+            disabled={!isCBCA}
+            maxLength={12}
+            style={isCBCA ? inputStyle : { ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }}
+          />
+          {/* ⚠️ THIS WAS A PLACEHOLDER, AND A PLACEHOLDER CANNOT WORK HERE — found on
+              camera, not by reasoning. A placeholder only shows while the input is
+              EMPTY. Someone who types a number and THEN clicks LSAQ keeps the value
+              visible, so the line never appeared in the one case that needed it.
+              And the value must survive: switching back to CBCA restores it.
+              "Keep what was typed" and "state the rule inside the box" are mutually
+              exclusive, so the rule moved OUT of the box. Do not put it back.
+              Style: `var(--text-muted)` at 12px is the help-text pattern of the
+              fiscal-year block below; `marginTop: '4px'` is how this screen places a
+              note UNDER an input (the NEQ's own messages above use it, in amber and
+              red — this one is neutral because it states a rule, not an error). */}
+          {!isCBCA && (
+            <p style={{ marginTop: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>
+              {ob.corporationNumberFederalOnly}
+            </p>
           )}
         </div>
 

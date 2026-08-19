@@ -28,7 +28,15 @@ const today = new Date().toISOString().split('T')[0];
 // key; a corrupt or old-version draft is discarded (try/catch + version gate) and
 // never crashes onboarding. v2: OnboardingShareholder gained a REQUIRED
 // pricePerShare field, so a v1 draft would rehydrate a shareholder without it.
-const DRAFT_VERSION = 2;
+// v3: OnboardingData.company gained a REQUIRED corporationNumber, so a v2 draft
+// would rehydrate a company without it.
+// ★ AND TYPESCRIPT CANNOT CATCH THAT — which is the whole reason this counter
+// exists. `readOnboardingDraft` below returns `parsed as OnboardingDraft`, an
+// ASSERTION: with the field declared required, tsc believes it is present while
+// the session JSON does not contain it. The value would reach the input as
+// `undefined` and flip the field from uncontrolled to controlled on the first
+// keystroke. The version gate is the only thing that can reject such a draft.
+const DRAFT_VERSION = 3;
 
 interface OnboardingDraft {
   v: number;
@@ -79,6 +87,7 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
       legalName: '',
       incorporationType: 'LSAQ',
       incorporationNumber: '',
+      corporationNumber: '',
       incorporationDate: '',
       province: 'QC',
       fiscalYearEndMonth: 12,
@@ -141,6 +150,25 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
         incorporation_type: dbType,
         incorporation_number: data.company.incorporationNumber || null,
         neq: data.company.incorporationNumber || null,
+        // ⚠️ GATED ON THE REGIME — DO NOT REMOVE IT AS REDUNDANT. The field is
+        // disabled for LSAQ on step 2, which is NOT enough: the two regime cards
+        // stay clickable for as long as step 2 is on screen, and this write only
+        // fires at the step 3 → 4 transition. Typing a number, clicking LSAQ, then
+        // pressing Continue twice reaches here with a number and a non-federal
+        // regime. ★ It is MORE reachable than the same case in Paramètres, where
+        // the equivalent slip first required opening a padlock.
+        //
+        // The typed value is deliberately NOT cleared when the user clicks LSAQ:
+        // it survives in the session draft, so switching back to CBCA restores it.
+        // It is simply never written while the regime is not federal.
+        //
+        // ⚠️ `=== 'CBCA'` AND NEVER `!== 'LSA'`: this flow's vocabulary is
+        // 'LSAQ' | 'CBCA' and `dbType` above is what converts LSAQ → LSA. A test
+        // against 'LSA' would match no company here and let every value through.
+        corporation_number:
+          data.company.incorporationType === 'CBCA'
+            ? data.company.corporationNumber || null
+            : null,
         incorporation_date: data.company.incorporationDate || null,
         province: data.company.province,
         fiscal_year_end_month: data.company.fiscalYearEndMonth,

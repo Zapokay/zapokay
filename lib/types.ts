@@ -46,6 +46,7 @@ export interface OnboardingData {
     legalName: string;
     incorporationType: IncorporationType;
     incorporationNumber: string;
+    corporationNumber: string;
     incorporationDate: string;
     province: Province;
     fiscalYearEndMonth: number;
