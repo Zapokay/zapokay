@@ -202,12 +202,26 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
 
   // ── Step 4: Directors ────────────────────────────────────────────────────
   const handleDirectorsContinue = useCallback(
-    async (dirs: OnboardingDirector[]) => {
+    async (dirs: OnboardingDirector[]): Promise<boolean> => {
       setDirectors(dirs);
       if (companyId) {
+        // Appointment dates are validated in StepDirectors BEFORE this runs, so
+        // the NOT NULL on director_mandates.appointment_date cannot reject a row
+        // here under normal use.
+        //
+        // ⚠️ KNOWN GAP, NOT CLOSED HERE — DUPLICATION ON A SECOND PASS.
+        // This loop has NO pre-read. Unlike step 6, it never looks for an
+        // existing company_people row before inserting one, and NEITHER
+        // company_people NOR director_mandates carries a UNIQUE constraint
+        // (20260405000000_sprint6_people_ownership.sql, l.9-23 and l.36-45).
+        // So a second pass — even one that succeeds COMPLETELY — duplicates
+        // every director and every mandate. Stopping at the first failure below
+        // does NOT close that: it only stops the flow from ADVANCING on a false
+        // success. Closing it needs a DB constraint or a pre-read. Queued, and
+        // deliberately out of this bundle.
         for (const dir of dirs) {
           if (!dir.fullName.trim()) continue;
-          const { data: person } = await supabase
+          const { data: person, error: personErr } = await supabase
             .from('company_people')
             .insert({
               company_id: companyId,
@@ -217,17 +231,26 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
             })
             .select('id')
             .single();
-          if (person) {
-            await supabase.from('director_mandates').insert({
-              company_id: companyId,
-              person_id: person.id,
-              appointment_date: dir.appointmentDate,
-              is_active: true,
-            });
-          }
+          // Stop at the FIRST failure: do not advance, and never write a mandate
+          // pointing at a person that was never created.
+          if (personErr || !person) return false;
+          const { error: mandateErr } = await supabase.from('director_mandates').insert({
+            company_id: companyId,
+            person_id: person.id,
+            appointment_date: dir.appointmentDate,
+            is_active: true,
+          });
+          if (mandateErr) return false;
         }
+      } else {
+        // Same false-success shape as step 5: no company means nothing can be
+        // written, so advancing to step 5 would report a success that never
+        // happened. Not reachable through the normal flow (step 3 sets companyId
+        // before it advances), which is exactly why it must not be a silent true.
+        return false;
       }
       setStep(5);
+      return true;
     },
     [companyId, supabase]
   );
@@ -332,33 +355,48 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
 
   // ── Step 6: Officers ─────────────────────────────────────────────────────
   const handleOfficersContinue = useCallback(
-    async (offs: OnboardingOfficers) => {
+    async (offs: OnboardingOfficers): Promise<boolean> => {
       setOfficers(offs);
       if (companyId) {
         const appointmentDate = incorporationDate || today;
+
+        // ⚠️ KNOWN GAP, NOT CLOSED HERE — DUPLICATION ON A SECOND PASS.
+        // The pre-read below reuses an existing company_people row, so people are
+        // NOT duplicated on a retry. officer_appointments is a different story:
+        // it is inserted unconditionally, with no pre-read and no UNIQUE
+        // constraint (20260405000000_sprint6_people_ownership.sql, l.60-71). A
+        // second pass appoints the same person to the same title twice. Stopping
+        // at the first failure below does NOT close that — it only stops the flow
+        // from ADVANCING on a false success. Queued, out of this bundle.
+        //
+        // Returns true on success, false on the first failed write.
         const appointOfficer = async (
           name: string,
           title: 'president' | 'secretary' | 'treasurer'
-        ) => {
-          if (!name.trim()) return;
-          const { data: people } = await supabase
+        ): Promise<boolean> => {
+          if (!name.trim()) return true;
+          const { data: people, error: peopleErr } = await supabase
             .from('company_people')
             .select('id')
             .eq('company_id', companyId)
             .ilike('full_name', name.trim());
+          // ⚠️ A FAILED LOOKUP IS NOT "NO SUCH PERSON". Falling through to the
+          // insert on an error would create a SECOND row for someone who already
+          // exists — the pre-read's whole purpose, inverted. Stop instead.
+          if (peopleErr) return false;
           let personId: string;
           if (people && people.length > 0) {
             personId = people[0].id;
           } else {
-            const { data: newPerson } = await supabase
+            const { data: newPerson, error: newPersonErr } = await supabase
               .from('company_people')
               .insert({ company_id: companyId, full_name: name.trim(), address_country: 'CA' })
               .select('id')
               .single();
-            if (!newPerson) return;
+            if (newPersonErr || !newPerson) return false;
             personId = newPerson.id;
           }
-          await supabase.from('officer_appointments').insert({
+          const { error: apptErr } = await supabase.from('officer_appointments').insert({
             company_id: companyId,
             person_id: personId,
             title,
@@ -366,12 +404,22 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
             appointment_date: appointmentDate,
             is_active: true,
           });
+          if (apptErr) return false;
+          return true;
         };
-        await appointOfficer(offs.presidentName, 'president');
-        await appointOfficer(offs.secretaryName, 'secretary');
-        await appointOfficer(offs.treasurerName, 'treasurer');
+        // Sequential and short-circuiting: stop at the first officer that fails,
+        // so a later title is never appointed over a broken earlier one.
+        if (!(await appointOfficer(offs.presidentName, 'president'))) return false;
+        if (!(await appointOfficer(offs.secretaryName, 'secretary'))) return false;
+        if (!(await appointOfficer(offs.treasurerName, 'treasurer'))) return false;
+      } else {
+        // Same false-success shape as steps 4 and 5: no company means nothing can
+        // be written, so advancing to step 7 would report a success that never
+        // happened. Not reachable through the normal flow.
+        return false;
       }
       setStep(7);
+      return true;
     },
     [companyId, incorporationDate, supabase]
   );

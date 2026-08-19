@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
 import type { OnboardingShareholder } from './StepShareholders';
@@ -21,7 +22,11 @@ interface StepOfficersProps {
   shareholders: OnboardingShareholder[];
   incorporationDate?: string;
   initialOfficers?: OnboardingOfficers;
-  onContinue: (officers: OnboardingOfficers) => void;
+  // ⚠️ Promise<boolean>, NOT void. A `=> void` prop on an async handler makes the
+  // promise float: the step cannot await the write, so it advances whether or not
+  // anything was saved. That was the second half of the bceb84d defect at step 5,
+  // and tsc reports NOTHING for it. Keep the return type.
+  onContinue: (officers: OnboardingOfficers) => Promise<boolean>;
   onSkip: () => void;
 }
 
@@ -59,6 +64,14 @@ export default function StepOfficers({
 }: StepOfficersProps) {
 
   const fr = locale === 'fr';
+  // i18n — DELIBERATE DIVERGENCE from this file's local convention. Every other
+  // string here is a `fr ? … : …` ternary, which CLAUDE.md §1 forbids. The rule
+  // "each file follows what it carries" arbitrates between two VALID conventions;
+  // here one of the two is prohibited, so the new strings use keys. Following the
+  // local convention would extend the debt to one more file. Precedent: bceb84d
+  // did exactly this in StepShareholders. The existing ternaries are deliberately
+  // NOT converted — that is a separate, queued cleanup, not this bundle.
+  const t = useTranslations('officers');
 
   // Build list of known people names (deduped)
   const knownPeople = useMemo(() => {
@@ -83,12 +96,30 @@ export default function StepOfficers({
   const [secretaryName, setSecretaryName] = useState(defaultSecretary);
   const [treasurerName, setTreasurerName] = useState(defaultTreasurer);
 
-  function handleContinue() {
-    onContinue({
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleContinue() {
+    setError(null);
+
+    // NO pre-write validation here, and that is DELIBERATE — not an oversight in
+    // the copy from steps 4 and 5. Those guard a real precondition the user typed
+    // and can empty (a price, an appointment date). This step has none: the
+    // appointment_date is filled by the parent from `incorporationDate || today`
+    // and is never empty, and the three names come from a fixed dropdown. A check
+    // here would protect nothing, and would falsely suggest a control exists
+    // where there is nothing to control.
+
+    setSaving(true);
+    const ok = await onContinue({
       presidentName: presidentName.trim(),
       secretaryName: secretaryName.trim(),
       treasurerName: treasurerName.trim(),
     });
+    if (!ok) {
+      setError(t('errorSave'));
+      setSaving(false);
+    }
   }
 
   // ---- Person dropdown ------------------------------------------------------
@@ -158,6 +189,7 @@ export default function StepOfficers({
       locale={locale}
       onSkip={onSkip}
       onContinue={handleContinue}
+      saving={saving}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <PersonDropdown
@@ -189,6 +221,12 @@ export default function StepOfficers({
             ? "Une même personne peut occuper plusieurs postes. C'est très courant dans les petites entreprises."
             : 'The same person can hold multiple positions. This is very common in small businesses.'}
         </p>
+
+        {error && (
+          <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>
+            {error}
+          </p>
+        )}
       </div>
     </OnboardingStepLayout>
   );

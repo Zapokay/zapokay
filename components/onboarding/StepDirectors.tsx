@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 
 // =============================================================================
@@ -18,7 +19,11 @@ interface StepDirectorsProps {
   userFullName?: string;
   incorporationDate?: string;
   initialDirectors?: OnboardingDirector[];
-  onContinue: (directors: OnboardingDirector[]) => void;
+  // ⚠️ Promise<boolean>, NOT void. A `=> void` prop on an async handler makes the
+  // promise float: the step cannot await the write, so it advances whether or not
+  // anything was saved. That was the second half of the bceb84d defect at step 5,
+  // and tsc reports NOTHING for it. Keep the return type.
+  onContinue: (directors: OnboardingDirector[]) => Promise<boolean>;
   onSkip: () => void;
 }
 
@@ -54,6 +59,14 @@ export default function StepDirectors({
 }: StepDirectorsProps) {
 
   const fr = locale === 'fr';
+  // i18n — DELIBERATE DIVERGENCE from this file's local convention. Every other
+  // string here is a `fr ? … : …` ternary, which CLAUDE.md §1 forbids. The rule
+  // "each file follows what it carries" arbitrates between two VALID conventions;
+  // here one of the two is prohibited, so the new strings use keys. Following the
+  // local convention would extend the debt to one more file. Precedent: bceb84d
+  // did exactly this in StepShareholders. The existing ternaries are deliberately
+  // NOT converted — that is a separate, queued cleanup, not this bundle.
+  const t = useTranslations('directors');
   const defaultDate = incorporationDate || new Date().toISOString().split('T')[0];
 
   const [directors, setDirectors] = useState<OnboardingDirector[]>(
@@ -67,6 +80,9 @@ export default function StepDirectors({
           },
         ]
   );
+
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // ---- Handlers -------------------------------------------------------------
   function updateDirector(index: number, field: keyof OnboardingDirector, value: any) {
@@ -86,9 +102,30 @@ export default function StepDirectors({
     setDirectors((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleContinue() {
+  async function handleContinue() {
+    setError(null);
     const valid = directors.filter((d) => d.fullName.trim());
-    onContinue(valid.length > 0 ? valid : directors);
+    const rows = valid.length > 0 ? valid : directors;
+
+    // Validate EVERY appointment date before a single row is written.
+    // director_mandates.appointment_date is NOT NULL, so an emptied date field is
+    // rejected by the database MID-LOOP, and the write loop has no pre-read that
+    // would make a retry clean. Same reasoning and same shape as the price check
+    // in StepShareholders. The skipped-row condition mirrors the write loop's.
+    for (const d of rows) {
+      if (!d.fullName.trim()) continue;
+      if (!d.appointmentDate.trim()) {
+        setError(t('errorAppointmentDate'));
+        return;
+      }
+    }
+
+    setSaving(true);
+    const ok = await onContinue(rows);
+    if (!ok) {
+      setError(t('errorSave'));
+      setSaving(false);
+    }
   }
 
   const usersIcon = (
@@ -117,6 +154,7 @@ export default function StepDirectors({
       locale={locale}
       onSkip={onSkip}
       onContinue={handleContinue}
+      saving={saving}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {directors.map((director, index) => (
@@ -235,6 +273,12 @@ export default function StepDirectors({
           <span style={{ color: '#F5B91E', fontSize: '18px', lineHeight: 1 }}>+</span>
           {fr ? 'Ajouter un administrateur' : 'Add a director'}
         </button>
+
+        {error && (
+          <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>
+            {error}
+          </p>
+        )}
       </div>
     </OnboardingStepLayout>
   );
