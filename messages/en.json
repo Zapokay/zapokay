@@ -279,7 +279,7 @@
     "tooLarge": "File exceeds 20 MB.",
     "uploadFailed": "Upload failed.",
     "forbidden": "You don't have access to this company.",
-    "sessionExpired": "Session expired. Please sign in again.",
+    "sessionExpired": "Session expired or not validated. Please sign in again.",
     "yearRequired": "Please select the fiscal year for this annual document.",
     "titleRequired": "Please enter a document title.",
     "pdfRequired": {
@@ -571,7 +571,7 @@
     "serverError": "Server configuration error. Please try again later.",
     "cannotGenerate": "This document can't be generated automatically.",
     "companyNotFound": "Company not found.",
-    "sessionExpired": "Session expired. Please sign in again.",
+    "sessionExpired": "Session expired or not validated. Please sign in again.",
     "generationFailed": "Document generation failed. Please try again.",
     "networkError": "Network error. Please try again."
   },

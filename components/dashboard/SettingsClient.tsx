@@ -209,7 +209,6 @@ export function SettingsClient({
     const updates: Record<string, unknown> = {
       legal_name_fr: legalName,
       legal_name_en: legalName,
-      neq: neq || null,
     }
     // ── FISCAL-YEAR-END GATE (A4 plan §9c) ──────────────────────────────────────
     // The FY-end now writes ONLY when its padlock has been unlocked this session,
@@ -258,12 +257,26 @@ export function SettingsClient({
     if (unlockedFields.has('incorporationDate')) {
       updates.incorporation_date = editIncorpDate || null
     }
+    // The NEQ, gated like the four fields above. It used to ship on EVERY save of
+    // this form, touched or not — the only one of the five padlocked fields that was
+    // protected on screen but open at the write.
+    //
+    // Harmless in practice TODAY: the input only renders while the padlock is open
+    // (see the `unlockedFields.has('neq')` render gate below), so a closed padlock
+    // rewrote the value it had just read. Gated anyway, for the same two reasons as
+    // the FY-end above — consistency across the five, and `changed_fields` stops
+    // naming `neq` on every save. That second effect arrives WITH this gate: until
+    // now `Object.keys(updates)` listed `neq` unconditionally, so a log entry naming
+    // it proved nothing. From here on it is real evidence of a change.
+    if (unlockedFields.has('neq')) {
+      updates.neq = neq || null
+    }
     // ── THE FEDERAL NUMBER — GATED TWICE, AND NEITHER GATE IS REDUNDANT. ──
     //
     // GATE 1, the padlock: the value is written only if the user deliberately opened
-    // the field, exactly like the four fields above. (The NEQ is the odd one out — it
-    // is written unconditionally at the top of `updates`, protected on screen but open
-    // at the write. Tracked separately; deliberately not this lot.)
+    // the field, exactly like the five fields above. (The NEQ used to be the odd one
+    // out — written unconditionally at the top of `updates`, protected on screen but
+    // open at the write. It is gated just above now.)
     //
     // ⚠️ GATE 2, `isCBCA`, IS NOT REDUNDANT — DO NOT REMOVE IT. A user can unlock the
     // field while CBCA, type a number, then switch the type back to LSAQ without
