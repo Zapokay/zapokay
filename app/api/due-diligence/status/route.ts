@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { createClient } from '@/lib/supabase/server';
 
 /* ------------------------------------------------------------------ */
 /*  Keys pouvant être générés automatiquement (vraies clés DB)         */
@@ -38,6 +39,39 @@ export async function GET(request: NextRequest) {
         { error: 'companyId est requis.' },
         { status: 400 }
       );
+    }
+
+    /* ---------- Auth + ownership (closes the trusted-param hole) ----------
+       This route reads with the SERVICE ROLE, which bypasses RLS entirely.
+       companyId ARRIVES IN THE QUERY STRING and must never be trusted: it
+       is validated here against the session user's own companies, via the
+       SESSION client (RLS-scoped) plus an explicit user_id match. Placed
+       before the service client is built, so an unauthenticated caller
+       reaches neither the completeness score nor the missing-document
+       list. 401 = no identity. 403 = identity without entitlement. */
+
+    const sessionClient = createClient();
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
+    }
+
+    const { data: ownedCompany, error: ownErr } = await sessionClient
+      .from('companies')
+      .select('id')
+      .eq('id', companyId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (ownErr) {
+      return NextResponse.json(
+        { error: "Échec de la vérification d'appartenance." },
+        { status: 500 }
+      );
+    }
+    if (!ownedCompany) {
+      return NextResponse.json({ error: 'Accès refusé.' }, { status: 403 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

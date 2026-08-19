@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { createClient } from '@/lib/supabase/server';
 import JSZip from 'jszip';
 import { filePathFromFileUrl } from '@/lib/storage-path';
 
@@ -74,6 +75,41 @@ export async function GET(request: NextRequest) {
         { error: 'companyId est requis.' },
         { status: 400 }
       );
+    }
+
+    /* ---------- Auth + ownership (closes the trusted-param hole) ----------
+       This route reads with the SERVICE ROLE, which bypasses RLS entirely,
+       and it returns EVERY stored file for the company as a ZIP — the
+       widest-blast-radius read in the app. companyId ARRIVES IN THE QUERY
+       STRING and must never be trusted: it is validated here against the
+       session user's own companies, via the SESSION client (RLS-scoped)
+       plus an explicit user_id match. Placed before the service client is
+       built, so no company row is read, no signed URL is minted and no
+       file is fetched for a caller without entitlement.
+       401 = no identity. 403 = identity without entitlement. */
+
+    const sessionClient = createClient();
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
+    }
+
+    const { data: ownedCompany, error: ownErr } = await sessionClient
+      .from('companies')
+      .select('id')
+      .eq('id', companyId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (ownErr) {
+      return NextResponse.json(
+        { error: "Échec de la vérification d'appartenance." },
+        { status: 500 }
+      );
+    }
+    if (!ownedCompany) {
+      return NextResponse.json({ error: 'Accès refusé.' }, { status: 403 });
     }
 
     const scopeParam = searchParams.get('scope') ?? 'all';

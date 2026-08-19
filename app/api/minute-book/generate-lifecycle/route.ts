@@ -73,6 +73,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    /* ---------- Ownership check (closes the trusted-param hole) ----------
+       userId is SESSION-derived (user.id), NEVER read from the body.
+       companyId ARRIVES IN THE BODY and must never be trusted: it is
+       validated here against the session user's own companies, via the
+       SESSION client (RLS-scoped) plus an explicit user_id match. This
+       runs BEFORE the service-role client is built, so no generation and
+       no event_documents link can be written for a company the caller
+       does not own. 401 = no identity. 403 = identity without entitlement. */
+
+    const { data: ownedCompany, error: ownErr } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('id', companyId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (ownErr) {
+      return NextResponse.json(
+        { success: false, error: 'Ownership check failed' },
+        { status: 500 },
+      );
+    }
+    if (!ownedCompany) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 },
+      );
+    }
+
     /* ---------- Service-role admin client ---------- */
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
