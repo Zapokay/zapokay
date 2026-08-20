@@ -12,8 +12,9 @@
  *
  * Affordance scope (Brief 1 generate + Brief 2 upload/replace):
  *   missing   → [Téléverser] + [Générer]
- *   généré    → [À signer badge] + [Voir le document] + [Téléverser] + [Régénérer]
- *   téléversé → [Voir le document] + [Remplacer]
+ *   généré    → [À signer badge] + [Voir] + [Téléverser] + [Régénérer]
+ *   téléversé non certifié → [Voir] + [Remplacer]
+ *   téléversé certifié     → [Voir] seul (A4c)
  *
  * Téléverser uploads the user's OWN signed PDF and SUPERSEDES any existing
  * doc on the act (generated draft or prior upload) via replaceDocumentId —
@@ -147,6 +148,9 @@ export default function EventActRow({
   const isSignedFinal = state === 'téléversé';
   const isUnsigned = state === 'généré';
   const isMissing = state === 'missing';
+  // A4c — no destructive gesture on a CERTIFIED act. Strictly `=== true`:
+  // an uncertified upload keeps Remplacer, its only remaining action.
+  const isCertifiedAct = act.satisfied && act.documentIsFinalized === true;
   const derivation = deriveDocKey(act);
   const reqObligations = obligationsForDocKey(derivation?.docKey);
   const reqDeadline =
@@ -297,8 +301,8 @@ export default function EventActRow({
           </button>
         )}
 
-        {/* Brief 2 — Remplacer (replace the already-uploaded signed doc). */}
-        {isSignedFinal && onEventFileSelected && (
+        {/* Brief 2 — Remplacer, retiré sur un acte CERTIFIÉ (A4c). */}
+        {isSignedFinal && !isCertifiedAct && onEventFileSelected && (
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -310,7 +314,9 @@ export default function EventActRow({
           </button>
         )}
 
-        {onEventFileSelected && (
+        {/* A4c — gated on the SAME constant as Remplacer: no trigger,
+            no mechanism left behind it. */}
+        {onEventFileSelected && !isCertifiedAct && (
           <input
             ref={fileInputRef}
             type="file"

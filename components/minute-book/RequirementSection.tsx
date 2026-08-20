@@ -160,6 +160,9 @@ export default function RequirementSection({
               satisfied={item.satisfied}
               source={item.source}
               documentIsFinalized={item.document_is_finalized}
+              // A4c — the row's own document id, so it can offer "Voir".
+              // The download route takes the id; file_url is not needed.
+              documentId={item.document_id}
               canUpload={item.can_upload}
               canGenerate={item.can_generate}
               year={item.year}

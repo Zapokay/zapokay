@@ -23,6 +23,8 @@ interface RequirementRowProps {
    * lib/minute-book/state.ts.
    */
   documentIsFinalized?: boolean | null;
+  /** A4c — the attached document's id, when the row has one. Drives "Voir". */
+  documentId?: string | null;
   canUpload: boolean;
   canGenerate: boolean;
   year: number | null;
@@ -70,6 +72,7 @@ export default function RequirementRow({
   satisfied,
   source,
   documentIsFinalized,
+  documentId,
   canUpload,
   canGenerate,
   year,
@@ -98,6 +101,9 @@ export default function RequirementRow({
   const state = getDocumentState({ satisfied, source, is_finalized: documentIsFinalized, can_generate: canGenerate });
   const isSignedFinal = state === 'téléversé';
   const isUnsigned = state === 'généré'; // generated OR uploaded-WIP
+  // A4c — no destructive gesture on a CERTIFIED row. Strictly `=== true`:
+  // an uncertified upload keeps Remplacer, its only remaining action.
+  const isCertifiedUpload = satisfied && source === 'uploaded' && documentIsFinalized === true;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -249,10 +255,11 @@ export default function RequirementRow({
         Action buttons (per option 3):
           - Empty (!satisfied)            → Téléverser, Générer, or notAvailable
           - Generated (uploaded=false)    → Téléverser + Régénérer
-          - Uploaded (any finalized)      → Remplacer  (B4 destructive flow)
+          - Uploaded, not certified       → Remplacer  (B4 destructive flow)
+          - Uploaded, certified           → Voir only  (A4c)
 
-        The Remplacer button intentionally drops the `canUpload` gate: a row
-        whose `source` is 'uploaded' is by definition replaceable, and
+        The Remplacer button intentionally drops the `canUpload` gate: an
+        uncertified upload is by definition replaceable, and
         gating would re-introduce the reachability bug this batch fixes
         on requirements where canUpload toggled false after upload.
       */}
@@ -261,6 +268,19 @@ export default function RequirementRow({
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
             {tDocs('toSignBadge')}
           </span>
+        )}
+
+        {/* A4c — every row that HAS a document can open it, not just the
+            certified ones. Same anchor and same route as the event rows. */}
+        {satisfied && documentId && (
+          <a
+            href={`/api/documents/${documentId}/download?preview=true`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClass}
+          >
+            {tDocs('view')}
+          </a>
         )}
 
         {/* Empty state */}
@@ -327,8 +347,8 @@ export default function RequirementRow({
           </>
         )}
 
-        {/* Uploaded (any finalized state) — single Remplacer button */}
-        {satisfied && source === 'uploaded' && (
+        {/* Uploaded but NOT certified — single Remplacer button */}
+        {satisfied && source === 'uploaded' && !isCertifiedUpload && (
           <>
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -344,14 +364,17 @@ export default function RequirementRow({
 
         {/* Single hidden file input shared across all surfaces — only one
             button is visible at a time per row state, so a single ref is
-            sufficient and avoids ref-index gymnastics. */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf"
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
-        />
+            sufficient and avoids ref-index gymnastics. A4c gates it on the
+            SAME predicate as Remplacer: no trigger, no mechanism. */}
+        {!isCertifiedUpload && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+        )}
       </div>
 
     </div>
