@@ -191,6 +191,9 @@ export async function POST(request: NextRequest) {
       // A2c — the user's explicit shelf. Validated against the nine in the
       // helper, so an unknown value derives instead of reaching the insert.
       minuteBookSection: str('minuteBookSection') || null,
+      // A2b — the third year state. 'none' cannot ride on docYear, so it gets
+      // its own field; same string-boolean idiom as isFinalized above.
+      noFiscalYear: str('noFiscalYear') === 'true',
       isFinalized,
       ...(replaceDocumentId ? { replaceDocumentId } : {}),
       ...(eventLink ? { eventLink } : {}),

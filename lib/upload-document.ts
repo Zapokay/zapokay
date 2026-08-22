@@ -53,6 +53,12 @@ export interface UploadDocumentParams {
    */
   minuteBookSection?: string | null;
   /**
+   * A2b — the user picked "Documents fondateurs" in the fiscal-year field. It
+   * needs its own field because 'none' cannot ride on `docYear` (see the
+   * docblock in lib/minute-book-section.ts).
+   */
+  noFiscalYear?: boolean;
+  /**
    * User-certified "final and signed" flag (Phase B). When true, the document
    * is treated as canonical for Binder views (Phase C). Defaults to false:
    * preserves the safety property that anything uncertified is provisional.
@@ -108,6 +114,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     framework,
     requirements,
     minuteBookSection: explicitSection,
+    noFiscalYear = false,
     isFinalized = false,
     replaceDocumentId,
     eventLink,
@@ -139,7 +146,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
   //    one of the nine; absent, empty or unknown derives as before.
   const minuteBookSection = isMinuteBookSection(explicitSection)
     ? explicitSection
-    : resolveMinuteBookSection(requirementKey, docType, requirements);
+    : resolveMinuteBookSection(requirementKey, docType, requirements, noFiscalYear);
 
   // 4. Insert the document row. Store the relative storage key in file_url
   //    (see lib/storage-path.ts — consumers normalize either shape, producers

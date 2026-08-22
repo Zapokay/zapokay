@@ -215,8 +215,9 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   // A2c — the shelf the server WOULD derive, shown to the user before it does.
   // Same function, same arguments, so the form can never disagree with the insert.
   const derivedSection = useMemo(
-    () => resolveMinuteBookSection(requirementKey, docType, requirements) ?? '',
-    [requirementKey, docType, requirements],
+    () =>
+      resolveMinuteBookSection(requirementKey, docType, requirements, docYear === 'none') ?? '',
+    [requirementKey, docType, requirements, docYear],
   );
   const effectiveSection = sectionDirty ? bookSection : derivedSection;
 
@@ -376,6 +377,9 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     // String('none') reach the route, where numOrNull would coerce it to NaN and
     // answer null by accident. Same result, stated instead of inferred.
     if (typeof docYear === 'number') fd.append('docYear', String(docYear));
+    // A2b — the third year state, on its own field precisely because the comment
+    // above forbids it riding on docYear. Lets the server derive as the client did.
+    if (docYear === 'none') fd.append('noFiscalYear', 'true');
     if (requirementKey) fd.append('requirementKey', requirementKey);
     if (requirementYear != null) fd.append('requirementYear', String(requirementYear));
     // A2c — always sent when the field was shown; the helper validates it and

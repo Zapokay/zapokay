@@ -20,6 +20,14 @@
  * interface batch is what makes a visual gate say nothing. Filed as "la route
  * binder redéclare l'ordre des neuf sections". A divergence that is written
  * down gets fixed; a silent one gets found by breaking it.
+ *
+ * ⚠️ READ THIS BEFORE CHANGING THE PRECEDENCE. Since A2c the import form sends
+ * the section it computed with THIS function, and the upload helper honours an
+ * explicit value over deriving one. So on the upload path the server-side call
+ * is now a GUARD — for a request that omits the field — and no longer the
+ * reference computation. The client is what the user saw; the server checks it
+ * is one of the nine. Both sides must still agree, which is why every input the
+ * rule needs is a parameter rather than something one side happens to know.
  */
 
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
@@ -74,22 +82,43 @@ const DOC_TYPE_FALLBACK: Record<string, MinuteBookSection> = {
 };
 
 /**
- * Derive the section either from the chosen requirement (preferred) or from the
- * document type. Moved verbatim from lib/upload-document.ts — same signature,
- * same precedence, same `string | null` return.
+ * Derive the section, in three steps, most specific first:
+ *   1. the chosen requirement's own section;
+ *   2. "Documents fondateurs" — no fiscal year at all — which files to `statuts`;
+ *   3. the document type's fallback shelf.
+ *
+ * Step 2 sits between the other two on purpose. A chosen requirement is a
+ * stronger statement than "this belongs to no year", so it must still win; and
+ * "no year" is a stronger statement than a type default, which knows nothing
+ * about the document beyond its shape.
+ *
+ * ⚠️ WHY `noFiscalYear` IS ITS OWN BOOLEAN AND NOT `docYear === 'none'`.
+ * The form has three year states — '' (nothing picked), a number, and 'none'
+ * (founding documents) — but only a number travels. UploadDocumentModal says so
+ * where it builds the request: "'' and 'none' both mean 'no fiscal year': omit
+ * the field rather than let String('none') reach the route, where numOrNull
+ * would coerce it to NaN and answer null by accident." That comment is right and
+ * stays. So the third state needs its own field on the wire; overloading
+ * `docYear` to carry it is exactly the accident that comment prevents.
  *
  * ⚠️ The requirement lookup matches on `requirement_key` ALONE, not on the year.
  * That is safe because `section` is a catalog property shared by every instance
  * of a key, but it is the only key lookup in the repo that omits the year.
+ *
+ * `noFiscalYear` has NO default, deliberately: a caller that forgot it would
+ * silently get `false`, which is the silent asymmetry this module exists to
+ * prevent. tsc makes both callers decide.
  */
 export function resolveMinuteBookSection(
   requirementKey: string | null,
   docType: string,
   requirements: ChecklistItem[],
+  noFiscalYear: boolean,
 ): string | null {
   if (requirementKey) {
     const req = requirements.find((r) => r.requirement_key === requirementKey);
     if (req?.section) return req.section;
   }
+  if (noFiscalYear) return 'statuts';
   return DOC_TYPE_FALLBACK[docType] ?? null;
 }
