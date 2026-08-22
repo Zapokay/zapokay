@@ -310,6 +310,7 @@
       "fiscalYearPlaceholder": "Vous devez sélectionner une catégorie",
       "correspondsTo": "Ce document correspond à :",
       "correspondsToOptional": "Sélectionner un document requis (optionnel)",
+      "bookSection": "Classement au livre",
       "certify": "Je certifie que ce document est final.",
       "certifyHelp": "Cochez cette case si le document est final et signé par toutes les parties requises, ou final sans signature requise. Sinon, le document ne sera pas ajouté au Livre.",
       "submit": "Téléverser",

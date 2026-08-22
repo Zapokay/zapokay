@@ -9,6 +9,7 @@ import { uploadErrorMessageKey } from '@/lib/upload-error-message';
 import { composeDisplayName } from '@/lib/display-name';
 import { mustBlockUpload } from '@/lib/fiscal-year-open';
 import { formatDate } from '@/lib/utils';
+import { MINUTE_BOOK_SECTIONS, resolveMinuteBookSection } from '@/lib/minute-book-section';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 
 const DOC_TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre'] as const;
@@ -102,6 +103,8 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   // The gate's sentence is single-sourced with Complétude and the board — the same
   // key, so the three surfaces cannot drift into three phrasings of one fact.
   const tReq = useTranslations('requirementRow');
+  // The Livre's own section labels, so the user reads the exact tab name.
+  const tSections = useTranslations('minuteBook.binder.sections');
 
   // -- State --
   const [title, setTitle] = useState(prefill?.title ?? '');
@@ -131,6 +134,10 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   // ride in on the SAME response as `requirements` below — the fetch was already
   // throwing them away. No second request, no new prop.
   const [fiscalYears, setFiscalYears] = useState<{ year: number; endDate: string }[]>([]);
+  // A2c — the user's shelf override. `sectionDirty` mirrors `titleDirty`: once
+  // the user picks, the derived value stops replacing their choice.
+  const [bookSection, setBookSection] = useState('');
+  const [sectionDirty, setSectionDirty] = useState(false);
   const [isCertified, setIsCertified] = useState(false);
   const [step, setStep] = useState<Step>('form');
   const [error, setError] = useState('');
@@ -151,6 +158,8 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     setDocYear(prefill?.docYear ?? '');
     setRequirementKey(prefill?.requirementKey ?? null);
     setRequirementYear(prefill?.requirementYear ?? null);
+    setBookSection('');
+    setSectionDirty(false);
     setIsCertified(false);
     setStep('form');
     setError('');
@@ -202,6 +211,14 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
       ),
     [requirements, docYear],
   );
+
+  // A2c — the shelf the server WOULD derive, shown to the user before it does.
+  // Same function, same arguments, so the form can never disagree with the insert.
+  const derivedSection = useMemo(
+    () => resolveMinuteBookSection(requirementKey, docType, requirements) ?? '',
+    [requirementKey, docType, requirements],
+  );
+  const effectiveSection = sectionDirty ? bookSection : derivedSection;
 
   // ── THE UPLOAD GATE, ON THE CORRESPONDS-TO OPTIONS. ──
   //
@@ -361,6 +378,9 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     if (typeof docYear === 'number') fd.append('docYear', String(docYear));
     if (requirementKey) fd.append('requirementKey', requirementKey);
     if (requirementYear != null) fd.append('requirementYear', String(requirementYear));
+    // A2c — always sent when the field was shown; the helper validates it and
+    // derives instead if it is not one of the nine.
+    if (effectiveSection) fd.append('minuteBookSection', effectiveSection);
     fd.append('framework', framework);
     fd.append('requirements', JSON.stringify(requirements));
     // Phase B B5: actual checkbox state — true ⇒ 'téléversé', false ⇒ WIP
@@ -424,6 +444,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     requirementYear,
     framework,
     requirements,
+    effectiveSection,
     isCertified,
     replaceDocumentId,
     eventLink,
@@ -683,6 +704,33 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                     </option>
                   );
                 })}
+              </select>
+            </div>
+          )}
+
+          {/* Book section — vault mode only, like corresponds-to.
+              ⚠️ PLACEMENT AND GROUPING AWAIT ARIA: this is a seventh field in a
+              modal that had six, and no design pass has ever been made on it.
+              The form here is deliberately the plainest copy of the existing
+              selects, not a decision. */}
+          {mode === 'vault' && (
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
+                {t('upload.bookSection')}
+              </label>
+              <select
+                value={effectiveSection}
+                onChange={(e) => {
+                  setSectionDirty(true);
+                  setBookSection(e.target.value);
+                }}
+                className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
+              >
+                {MINUTE_BOOK_SECTIONS.map((k) => (
+                  <option key={k} value={k}>
+                    {tSections(k)}
+                  </option>
+                ))}
               </select>
             </div>
           )}

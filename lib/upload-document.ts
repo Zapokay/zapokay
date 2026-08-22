@@ -28,6 +28,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import { toStorageSafeName } from '@/lib/storage-key';
+import { resolveMinuteBookSection, isMinuteBookSection } from '@/lib/minute-book-section';
 import { logActivity } from '@/lib/activity-log';
 import { isPdfBytes } from '@/lib/pdf-magic';
 
@@ -45,6 +46,12 @@ export interface UploadDocumentParams {
   framework: 'LSA' | 'CBCA';
   /** Requirements list from /api/minute-book/completeness — used to resolve minute_book_section. */
   requirements: ChecklistItem[];
+  /**
+   * A2c — the section the USER picked in the import form. Honoured over the
+   * derived one, but only if it is one of the nine: anything else falls back
+   * to resolution rather than reaching the insert and failing the CHECK.
+   */
+  minuteBookSection?: string | null;
   /**
    * User-certified "final and signed" flag (Phase B). When true, the document
    * is treated as canonical for Binder views (Phase C). Defaults to false:
@@ -86,26 +93,6 @@ export type UploadResult =
  * Derive minute_book_section either from the explicit requirement (preferred)
  * or fall back to the vault docType. Pre-existing logic from UploadZone.tsx.
  */
-function resolveMinuteBookSection(
-  requirementKey: string | null,
-  docType: string,
-  requirements: ChecklistItem[]
-): string | null {
-  if (requirementKey) {
-    const req = requirements.find(r => r.requirement_key === requirementKey);
-    if (req?.section) return req.section;
-  }
-  const fallback: Record<string, string> = {
-    statuts: 'statuts',
-    resolution: 'resolutions',
-    pv: 'resolutions',
-    registre: 'registres',
-    rapport: 'avis',
-    autre: 'autres',
-  };
-  return fallback[docType] ?? null;
-}
-
 export async function uploadDocument(params: UploadDocumentParams): Promise<UploadResult> {
   const {
     file,
@@ -120,6 +107,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     requirementYear,
     framework,
     requirements,
+    minuteBookSection: explicitSection,
     isFinalized = false,
     replaceDocumentId,
     eventLink,
@@ -147,8 +135,11 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     return { ok: false, error: storageError.message };
   }
 
-  // 3. Resolve minute_book_section.
-  const minuteBookSection = resolveMinuteBookSection(requirementKey, docType, requirements);
+  // 3. Resolve minute_book_section. The user's explicit pick wins when it is
+  //    one of the nine; absent, empty or unknown derives as before.
+  const minuteBookSection = isMinuteBookSection(explicitSection)
+    ? explicitSection
+    : resolveMinuteBookSection(requirementKey, docType, requirements);
 
   // 4. Insert the document row. Store the relative storage key in file_url
   //    (see lib/storage-path.ts — consumers normalize either shape, producers

@@ -310,6 +310,7 @@
       "fiscalYearPlaceholder": "You must select a category",
       "correspondsTo": "This document corresponds to:",
       "correspondsToOptional": "Select a required document (optional)",
+      "bookSection": "Book section",
       "certify": "I certify this document is final.",
       "certifyHelp": "Check this box if the document is final and signed by all required parties, or final with no signature required. Otherwise, the document will not be added to the Binder.",
       "submit": "Upload",

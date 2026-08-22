@@ -188,6 +188,9 @@ export async function POST(request: NextRequest) {
       requirementYear,
       framework,
       requirements,
+      // A2c — the user's explicit shelf. Validated against the nine in the
+      // helper, so an unknown value derives instead of reaching the insert.
+      minuteBookSection: str('minuteBookSection') || null,
       isFinalized,
       ...(replaceDocumentId ? { replaceDocumentId } : {}),
       ...(eventLink ? { eventLink } : {}),
