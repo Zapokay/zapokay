@@ -134,8 +134,9 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   // ride in on the SAME response as `requirements` below — the fetch was already
   // throwing them away. No second request, no new prop.
   const [fiscalYears, setFiscalYears] = useState<{ year: number; endDate: string }[]>([]);
-  // A2c — the user's shelf override. `sectionDirty` mirrors `titleDirty`: once
-  // the user picks, the derived value stops replacing their choice.
+  // A2c — the user's shelf override: once the user picks, the derived value
+  // stops replacing their choice. Like `titleDirty`, the requirement cascade
+  // lowers it again, so a NEW requirement re-proposes its own section.
   const [bookSection, setBookSection] = useState('');
   const [sectionDirty, setSectionDirty] = useState(false);
   const [isCertified, setIsCertified] = useState(false);
@@ -199,9 +200,6 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   );
   const isFoundational = selectedReq?.category === 'foundational';
 
-  // Title is readOnly in row mode (always) or in vault mode when a requirement is set.
-  const titleReadOnly = isLockedAll || !!requirementKey;
-
   // -- Vault-mode FY filter on the corresponds-to dropdown --
   const filteredRequirements = useMemo(
     () =>
@@ -254,6 +252,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     if (mode === 'row') return;
     if (requirementKey && !selectedReq) return;
     setTitleDirty(false);
+    setSectionDirty(false);
     if (!selectedReq) return;
     setDocType(selectedReq.document_type);
     if (selectedReq.category === 'foundational') {
@@ -580,9 +579,9 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                 setTitle(e.target.value);
                 setTitleDirty(true);
               }}
-              readOnly={titleReadOnly}
+              readOnly={isLockedAll}
               placeholder={t('metaTitlePlaceholder')}
-              className={`w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors ${titleReadOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
+              className={`w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors ${isLockedAll ? 'opacity-60 cursor-not-allowed' : ''}`}
             />
           </div>
 
