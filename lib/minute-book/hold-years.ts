@@ -46,10 +46,20 @@ export async function computeHoldYears(
 
   // 2. The documents stamped with a hold year. status='active' here is the
   //    DOCUMENT's own status (live, not soft-deleted), NOT the year's 'hold'.
+  //
+  // A7-1 — `requirement_key` n'est plus sélectionné ici : PERSONNE ne le lit.
+  // Mesuré le 2026-08-24, après A6 : la boîte d'archive lit `id`, `title` et
+  // `is_finalized`, rien d'autre. Cette fonction ne consulte que
+  // `document_year`. Le champ était transporté jusqu'au navigateur — la route
+  // de complétude le sérialise dans sa réponse — pour n'être déréférencé
+  // nulle part.
+  // ⚠️ Ce n'est PAS une bascule vers `requirement_documents` : la boîte
+  // d'archive n'a jamais eu besoin de savoir quelles exigences ses documents
+  // couvrent. C'est un retrait, pas un remplacement.
   const { data: docs, error: docError } = await supabase
     .from('documents')
     .select(
-      'id, company_id, title, document_type, document_year, file_url, language, uploaded_at, created_at, source, requirement_key, minute_book_section, is_finalized',
+      'id, company_id, title, document_type, document_year, file_url, language, uploaded_at, created_at, source, minute_book_section, is_finalized',
     )
     .eq('company_id', companyId)
     .eq('status', 'active')

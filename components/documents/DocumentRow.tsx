@@ -19,7 +19,11 @@ export interface VaultDocument {
   uploaded_at: string | null;
   created_at: string;
   source?: string | null;
-  requirement_key?: string | null;
+  // A7-1 — `requirement_key` a été RETIRÉ de ce type le 2026-08-24. Ses deux
+  // seuls lecteurs vivaient dans DocumentsClient et ont disparu avec A6, qui
+  // lit désormais `requirement_documents`. ⚠️ Ne le remets pas : un document
+  // peut couvrir PLUSIEURS exigences depuis A2a, donc un champ scalaire sur
+  // ce type ne pourrait dire qu'une vérité partielle.
   minute_book_section?: string | null;
   is_finalized?: boolean | null;
 }
