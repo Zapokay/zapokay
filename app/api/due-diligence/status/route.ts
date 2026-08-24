@@ -122,18 +122,36 @@ export async function GET(request: NextRequest) {
     const allRequirements = requirements ?? [];
     const totalRequired = allRequirements.length;
 
-    /* ---------- Charger les documents actifs de l'entreprise ---------- */
+    /* ---------- Les exigences couvertes, LUES SUR LA TABLE DE LIAISON ----------
+       A5 — premier lecteur basculé du scalaire `documents.requirement_key` vers
+       `requirement_documents`. Un document peut couvrir PLUSIEURS exigences
+       depuis A2a ; le scalaire n'en portait que la première, donc un PDF de
+       cabinet couvrant cinq exigences n'en satisfaisait visiblement qu'une.
 
-    const { data: activeDocuments } = await supabase
-      .from('documents')
-      .select('id, requirement_key')
+       ⚠️⚠️ LE `!inner` ET LE FILTRE `status` SONT LOAD-BEARING, PAS DÉCORATIFS.
+       `requirement_documents` NE PORTE AUCUNE COLONNE D'ÉTAT — délibérément :
+       l'état vit sur le DOCUMENT (migration 20260820120000, décision 5). Un
+       embed simple `documents(...)` produirait une jointure GAUCHE qui ne filtre
+       rien, et les liaisons des documents AU RANCART compteraient comme
+       satisfaisantes.
+
+       ★ UNE LIAISON SUR TROIS est portée par un document `superseded` — 30 sur
+       92, mesuré sur le parc entier le 2026-08-24. Elles ne changent aucune clé
+       AUJOURD'HUI, parce qu'un document actif porte la même clé dans tous les
+       cas — ce sont des régénérations successives. Le jour où une exigence sera
+       satisfaite UNIQUEMENT par un document retiré, ce filtre sera la seule chose
+       entre l'utilisateur et un faux « complété ». */
+    const { data: coveredLinks } = await supabase
+      .from('requirement_documents')
+      .select('requirement_key, document:documents!inner(status)')
       .eq('company_id', companyId)
-      .eq('status', 'active');
+      .eq('document.status', 'active');
 
+    // `requirement_key` est NOT NULL sur cette table — le `.filter(Boolean)` de
+    // l'ancienne version couvrait les documents SANS exigence, qui n'ont
+    // simplement pas de ligne ici.
     const completedKeys = new Set(
-      (activeDocuments ?? [])
-        .map((d) => d.requirement_key)
-        .filter(Boolean)
+      (coveredLinks ?? []).map((l) => l.requirement_key)
     );
 
     /* ---------- Calculer le score ---------- */
