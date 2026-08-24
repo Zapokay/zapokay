@@ -34,6 +34,27 @@ export default async function DocumentsPage({
     .eq('status', 'active')
     .order('created_at', { ascending: false });
 
+  /* ---------- Les exigences couvertes, par document ----------
+     A6 — le Coffre lit `requirement_documents`. Un document peut en couvrir
+     plusieurs depuis A2a ; le scalaire n'en portait que la première.
+     ⚠️ Le `!inner` + `status='active'` est l'invariant D6 : la table de liaison
+     ne porte AUCUNE colonne d'état, l'état vit sur le DOCUMENT. On le respecte
+     ici même si la carte n'est consultée que pour des documents déjà actifs —
+     une exception « inoffensive » devient le précédent de la suivante. */
+  const { data: requirementLinks } = await supabase
+    .from('requirement_documents')
+    .select('document_id, requirement_key, document:documents!inner(status)')
+    .eq('company_id', company?.id ?? '')
+    .eq('document.status', 'active');
+
+  // ⚠️ UN OBJET SIMPLE, PAS UNE `Map`. Cette valeur traverse la frontière
+  // serveur → client : une Map n'est pas sérialisable dans une charge RSC et
+  // arriverait vide, sans erreur.
+  const requirementKeysByDocument: Record<string, string[]> = {};
+  for (const link of requirementLinks ?? []) {
+    (requirementKeysByDocument[link.document_id] ??= []).push(link.requirement_key);
+  }
+
   const { data: fiscalYearsData } = company
     ? await supabase
         .from('company_fiscal_years')
@@ -82,6 +103,7 @@ export default async function DocumentsPage({
         locale={locale}
         company={company}
         initialDocuments={(documents ?? []) as VaultDocument[]}
+        requirementKeysByDocument={requirementKeysByDocument}
         fiscalYearsConfigured={fiscalYears.length > 0}
         activeFiscalYears={vaultYearRange}
         // activeFiscalYears now carries the FULL incorporation->current range

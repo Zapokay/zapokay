@@ -325,7 +325,8 @@
       "finalReplaceTitle": "Remplacer le document final",
       "finalReplaceBody": "{count, plural, =0 {Aucune des exigences choisies ne porte de document final.} =1 {Un document final existe déjà pour l'exigence choisie. Le téléverser le remplacera : l'ancien document final sera retiré du livre de minutes. Cette action peut être annulée pendant 10 jours.} other {# exigences choisies portent déjà un document final. Le téléversement remplacera le premier ; les autres documents finaux resteront en place. Cette action peut être annulée pendant 10 jours.}}"
     },
-    "toSignBadge": "À signer"
+    "toSignBadge": "À signer",
+    "coverageCount": "{count, plural, =0 {Aucune exigence} =1 {1 exigence} other {# exigences}}"
   },
   "requirementRow": {
     "regenerate": "Régénérer",

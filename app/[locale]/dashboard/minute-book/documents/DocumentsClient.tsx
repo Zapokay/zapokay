@@ -13,6 +13,8 @@ interface DocumentsClientProps {
   locale: string;
   company: Company | null;
   initialDocuments: VaultDocument[];
+  /** A6 — les clés d'exigence couvertes, par document_id. Lu sur requirement_documents. */
+  requirementKeysByDocument: Record<string, string[]>;
   fiscalYearsConfigured?: boolean;
   activeFiscalYears?: number[];
   /** Requirement keys (for this company's framework) whose category is 'foundational'. */
@@ -38,7 +40,7 @@ const LANG_OPTIONS = [
   { value: 'bilingual', labelFr: 'Bilingue',           labelEn: 'Bilingual' },
 ];
 
-function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsConfigured = true, activeFiscalYears = [], foundationalRequirementKeys = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
+function DocumentsClientInner({ locale, company, initialDocuments, requirementKeysByDocument, fiscalYearsConfigured = true, activeFiscalYears = [], foundationalRequirementKeys = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
   const fr = locale === 'fr';
   const supabase = createClient();
   const router = useRouter();
@@ -140,11 +142,17 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
       if (yearMode === 'all') {
         matchYear = true;
       } else if (yearMode === 'foundational') {
-        // Authoritative signal: requirement_key is in the foundational set.
-        // Tolerate stray document_year values (pre-4b.3 data).
-        matchYear = !!doc.requirement_key && foundationalKeySet.has(doc.requirement_key);
+        // A6 — lu sur les LIAISONS, plus sur le scalaire.
+        // ★ ÉQUIVALENT PAR CONSTRUCTION à l'ancien prédicat, et ce n'est pas une
+        // coïncidence de données : le moteur émet TOUTES les fondationnelles avant
+        // TOUTES les annuelles, et le scalaire est la première dans cet ordre. Une
+        // liaison fondationnelle implique donc un scalaire fondationnel. Cette
+        // bascule ne peut pas changer le contenu de cette puce — elle retire un
+        // lecteur du scalaire, elle ne corrige rien.
+        matchYear = (requirementKeysByDocument[doc.id] ?? []).some((k) => foundationalKeySet.has(k));
       } else if (yearMode === 'unclassified') {
-        matchYear = doc.document_year === null && !doc.requirement_key;
+        // A6 — « aucune exigence » se lit désormais « aucune liaison ».
+        matchYear = doc.document_year === null && (requirementKeysByDocument[doc.id] ?? []).length === 0;
       } else {
         matchYear = !activeYear || doc.document_year === activeYear;
       }
@@ -292,6 +300,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, fiscalYearsCo
               locale={locale}
               onDelete={handleDelete}
               aiSummariesEnabled={aiSummariesEnabled}
+              coverageCount={(requirementKeysByDocument[doc.id] ?? []).length}
             />
           ))}
         </div>

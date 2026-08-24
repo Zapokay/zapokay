@@ -29,11 +29,13 @@ interface DocumentRowProps {
   locale: string;
   onDelete: (id: string) => Promise<void>;
   aiSummariesEnabled?: boolean;
+  /** A6 — nombre d'exigences que ce document couvre (lu sur requirement_documents). */
+  coverageCount: number;
 }
 
 const BUCKET_MARKER = '/object/public/documents/';
 
-export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false }: DocumentRowProps) {
+export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false, coverageCount }: DocumentRowProps) {
   const tDocs = useTranslations('documents');
   const [hovered, setHovered] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -121,6 +123,30 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false 
                 }}
               >
                 {tDocs('toSignBadge')}
+              </span>
+            )}
+            {/* A6 — ce que le document COUVRE. N'apparaît qu'à DEUX exigences ou plus :
+                à une seule, l'information est déjà dans le titre et le badge serait du
+                bruit sur 42 lignes sur 45.
+                ⚠️ `--info-*` et non `--warning-*` : « À signer » est une ACTION à faire,
+                la couverture est une INFORMATION. Même famille de badge, deux registres.
+                C'est le triplet qu'emploie déjà LanguageBadge sur cette même ligne. */}
+            {coverageCount >= 2 && (
+              <span
+                className="flex-shrink-0"
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  letterSpacing: '.06em',
+                  textTransform: 'uppercase' as const,
+                  background: 'var(--info-bg)',
+                  color: 'var(--info-text)',
+                  border: '1px solid var(--info-border)',
+                  borderRadius: '20px',
+                  padding: '2px 8px',
+                }}
+              >
+                {tDocs('coverageCount', { count: coverageCount })}
               </span>
             )}
           </div>

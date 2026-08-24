@@ -325,7 +325,8 @@
       "finalReplaceTitle": "Replace the final document",
       "finalReplaceBody": "{count, plural, =0 {None of the selected requirements holds a final document.} =1 {A final document already exists for the selected requirement. Uploading this will replace it: the old final document will be retired from the minute book. This action can be undone for 10 days.} other {# selected requirements already hold a final document. Uploading this will replace the first one; the other final documents will stay in place. This action can be undone for 10 days.}}"
     },
-    "toSignBadge": "To sign"
+    "toSignBadge": "To sign",
+    "coverageCount": "{count, plural, =0 {No requirement} =1 {1 requirement} other {# requirements}}"
   },
   "requirementRow": {
     "regenerate": "Regenerate",
