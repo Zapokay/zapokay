@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ChevronRight } from 'lucide-react';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { uploadErrorMessageKey } from '@/lib/upload-error-message';
 import { composeDisplayName } from '@/lib/display-name';
@@ -17,6 +17,16 @@ const LANGUAGE_KEYS = ['fr', 'en', 'bilingual'] as const;
 
 type Mode = 'vault' | 'row';
 type Step = 'form' | 'confirm' | 'uploading' | 'done';
+
+/**
+ * A2a — ONE requirement this document declares it covers. The collection of these
+ * replaces the two scalar useStates; requirementKey / requirementYear are DERIVED
+ * from its first element (E1), so the seven existing readers keep reading scalars.
+ */
+type SelectedRequirement = { key: string; year: number | null };
+
+/** Group key for the yearless requirements. Any real year stringifies to digits. */
+const FOUNDATIONAL_GROUP = 'foundational';
 
 export interface UploadDocumentModalProps {
   isOpen: boolean;
@@ -123,12 +133,32 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   // year: it could not be uploaded AT ALL. This was a closed door, not a
   // classification problem.
   const [docYear, setDocYear] = useState<number | '' | 'none'>(prefill?.docYear ?? '');
-  const [requirementKey, setRequirementKey] = useState<string | null>(
-    prefill?.requirementKey ?? null,
+  // A2a — THE COLLECTION IS THE STATE. Two scalars can disagree with each other;
+  // one array cannot. Row mode seeds it from its locked prefill, so that path holds
+  // exactly one entry and behaves as it always has.
+  const [selected, setSelected] = useState<SelectedRequirement[]>(() =>
+    prefill?.requirementKey
+      ? [{ key: prefill.requirementKey, year: prefill.requirementYear ?? null }]
+      : [],
   );
-  const [requirementYear, setRequirementYear] = useState<number | null>(
-    prefill?.requirementYear ?? null,
-  );
+  // P1 — the sticky. Raised as soon as the collection has held TWO requirements in
+  // THIS opening, never lowered until the modal reopens. See the effect that raises
+  // it, which sits next to the two cascades it disarms.
+  const [everMulti, setEverMulti] = useState(false);
+  // D3 — the fiscal year is now FILLED by the ticks instead of filtering them, so it
+  // needs the same hand-back `titleDirty` gives the title: touched once, it is the
+  // user's. Only the derivation below reads it.
+  const [docYearDirty, setDocYearDirty] = useState(false);
+  // P2 — null means "never touched": the render falls back to the computed default
+  // (foundational + current year open) until the user's FIRST toggle, after which
+  // this array IS the truth and nothing recomputes over it. The precedent that
+  // forced this shape is a lazy initializer on Complétude that never re-ran and
+  // left a filtered row inside a collapsed panel; here the inverse — a recompute
+  // that erases the group a user just opened — would be worse.
+  const [openGroups, setOpenGroups] = useState<string[] | null>(null);
+  // Distinguishes "the fetch answered nothing" from "the fetch has not answered",
+  // so the empty line never flashes while the request is in flight.
+  const [requirementsLoaded, setRequirementsLoaded] = useState(false);
   const [requirements, setRequirements] = useState<ChecklistItem[]>([]);
   // The fiscal-year ENDS, for the upload gate on the corresponds-to options. They
   // ride in on the SAME response as `requirements` below — the fetch was already
@@ -157,10 +187,16 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     setDocType(prefill?.docType ?? 'autre');
     setLanguage(preferredLanguage);
     setDocYear(prefill?.docYear ?? '');
-    setRequirementKey(prefill?.requirementKey ?? null);
-    setRequirementYear(prefill?.requirementYear ?? null);
+    setSelected(
+      prefill?.requirementKey
+        ? [{ key: prefill.requirementKey, year: prefill.requirementYear ?? null }]
+        : [],
+    );
     setBookSection('');
     setSectionDirty(false);
+    setEverMulti(false);
+    setDocYearDirty(false);
+    setOpenGroups(null);
     setIsCertified(false);
     setStep('form');
     setError('');
@@ -177,14 +213,49 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
         if (cancelled) return;
         if (data?.checklist) setRequirements(data.checklist);
         if (data?.fiscalYears) setFiscalYears(data.fiscalYears);
+        setRequirementsLoaded(true);
       })
       .catch(() => {
-        /* non-fatal */
+        /* non-fatal — but the list must stop saying "loading" either way */
+        if (!cancelled) setRequirementsLoaded(true);
       });
     return () => {
       cancelled = true;
     };
   }, [isOpen]);
+
+  // ── E1 — "THE FIRST" IS THE LIST'S ORDER, NEVER THE TICKING ORDER. ──
+  //
+  // Two users ticking the same boxes in a different sequence must obtain the same
+  // document: same scalar, same section, same title. Ticking order is a property of
+  // the user's hand; `requirements` order is a property of the data (the server's
+  // own sort_order fan-out). Only the second one is reproducible, so the collection
+  // is sorted by position in `requirements` before anything reads "the first".
+  //
+  // Unknown keys sort LAST and keep their relative order — that is the row-mode
+  // prefill arriving before the completeness fetch resolves, not an error.
+  // With a single selection every branch below is a no-op; it is written now so the
+  // invariant is already true when A2a's checkbox list can produce several.
+  const orderedSelected = useMemo(() => {
+    const positionOf = (s: SelectedRequirement) =>
+      requirements.findIndex(
+        (r) => r.requirement_key === s.key && (r.year ?? null) === s.year,
+      );
+    return [...selected].sort((a, b) => {
+      const ia = positionOf(a);
+      const ib = positionOf(b);
+      if (ia === ib) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+  }, [selected, requirements]);
+
+  // The two scalars the SEVEN existing readers consume — now DERIVED from the
+  // collection instead of stored beside it. Same names, same types, same nulls, so
+  // not one of those readers is touched by this slice.
+  const requirementKey = orderedSelected[0]?.key ?? null;
+  const requirementYear = orderedSelected[0]?.year ?? null;
 
   // -- Derived: currently linked requirement --
   const selectedReq = useMemo(
@@ -198,17 +269,98 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
         : null,
     [requirementKey, requirementYear, requirements],
   );
-  const isFoundational = selectedReq?.category === 'foundational';
-
-  // -- Vault-mode FY filter on the corresponds-to dropdown --
-  const filteredRequirements = useMemo(
+  // A2a — the WHOLE collection, resolved against the checklist, in E1 order. The
+  // multi-aware derivations read this; `selectedReq` above stays "the first, if it
+  // resolves" and keeps feeding the readers that still want a single requirement.
+  const selectedReqs = useMemo(
     () =>
-      requirements.filter(
-        (req) =>
-          req.category === 'foundational' || docYear === '' || req.year === docYear,
-      ),
-    [requirements, docYear],
+      orderedSelected
+        .map(
+          (s) =>
+            requirements.find(
+              (r) => r.requirement_key === s.key && (r.year ?? null) === s.year,
+            ) ?? null,
+        )
+        .filter((r): r is ChecklistItem => r !== null),
+    [orderedSelected, requirements],
   );
+  const selectedCount = orderedSelected.length;
+
+  // E5 — foundational means EVERY selection is foundational, and the emptiness
+  // guard is explicit: `every` on an empty array answers true, which would hide the
+  // Fiscal Year field from a user who has ticked nothing at all.
+  const isFoundational =
+    selectedReqs.length > 0 && selectedReqs.every((r) => r.category === 'foundational');
+
+  // D3 KILLED THE FILTER. The Fiscal Year field no longer decides WHICH requirements
+  // exist — it is filled BY them. A user who picked 2025 can now tick 2022, which is
+  // the whole point of a multi-year cabinet bundle.
+
+  /** Membership test for the checkboxes, at the same grain as the collection. */
+  const selectedIds = useMemo(
+    () => new Set(selected.map((s) => `${s.key}|${s.year ?? ''}`)),
+    [selected],
+  );
+
+  // ── D1 / E9 — GROUPING WITHOUT RE-SORTING ANYTHING. ──
+  // `requirements` already arrives in the only order that matters: foundational
+  // first, then one block per fiscal year newest-first, then the anniversary row.
+  // Bucketing by `req.year` in order of FIRST APPEARANCE reproduces that exactly.
+  // ★ E9 falls out for free: the federal annual return carries its attach year, so
+  // it drops into that year's bucket instead of dangling at the end of the list.
+  const requirementGroups = useMemo(() => {
+    const groups: { key: string; label: string; items: ChecklistItem[] }[] = [];
+    const byKey = new Map<string, { key: string; label: string; items: ChecklistItem[] }>();
+    for (const req of requirements) {
+      const key = req.year === null ? FOUNDATIONAL_GROUP : String(req.year);
+      let group = byKey.get(key);
+      if (!group) {
+        // ⚠️ `documents.filterFoundational` IS NOW READ IN TWO PLACES: the Vault's
+        // own year filter and this header. One vocabulary, not two — do not rename
+        // it believing you are touching a single surface.
+        group = {
+          key,
+          label:
+            req.year === null
+              ? t('filterFoundational')
+              : getFiscalYearLabel(req.year, locale),
+          items: [],
+        };
+        byKey.set(key, group);
+        groups.push(group);
+      }
+      group.items.push(req);
+    }
+    return groups;
+  }, [requirements, t, locale]);
+
+  // Founding pieces and the CURRENT fiscal year open; everything else collapsed.
+  // The data is already newest-first, so the current year is the first year bucket —
+  // read, never re-sorted (D1).
+  const defaultOpenGroups = useMemo(() => {
+    const firstYear = requirementGroups.find((g) => g.key !== FOUNDATIONAL_GROUP);
+    return firstYear ? [FOUNDATIONAL_GROUP, firstYear.key] : [FOUNDATIONAL_GROUP];
+  }, [requirementGroups]);
+  const effectiveOpenGroups = openGroups ?? defaultOpenGroups;
+
+  const toggleGroup = useCallback(
+    (key: string) => {
+      setOpenGroups((prev) => {
+        const base = prev ?? defaultOpenGroups;
+        return base.includes(key) ? base.filter((k) => k !== key) : [...base, key];
+      });
+    },
+    [defaultOpenGroups],
+  );
+
+  const toggleRequirement = useCallback((req: ChecklistItem) => {
+    const year = req.year ?? null;
+    setSelected((prev) =>
+      prev.some((s) => s.key === req.requirement_key && s.year === year)
+        ? prev.filter((s) => !(s.key === req.requirement_key && s.year === year))
+        : [...prev, { key: req.requirement_key, year }],
+    );
+  }, []);
 
   // A2c — the shelf the server WOULD derive, shown to the user before it does.
   // Same function, same arguments, so the form can never disagree with the insert.
@@ -247,22 +399,63 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     [fiscalYears],
   );
 
+  // ── P1 — THE STICKY IS RAISED HERE, AND NEVER LOWERED UNTIL THE MODAL REOPENS. ──
+  //
+  // Dom's ruling, 2026-08-23: renaming answers a DESIGNATION; unticking is a
+  // SUBTRACTION, not a designation. Once the collection has held two, the surviving
+  // requirement does not get to rename the document.
+  //
+  // A sticky boolean rather than a signature comparison, deliberately: a signature
+  // would protect 2 → 1 and destroy 2 → 0 → 1, and nobody could explain why those
+  // two differ. The bias always leans the same way — protect what the user typed.
+  //
+  // ACCEPTED COST (Max, 2026-08-23): after a multi, the annual auto-title stays off
+  // until the modal reopens. The box is never empty — it keeps the filename-derived
+  // prefill (UploadZone) or whatever a previous cascade wrote.
+  useEffect(() => {
+    if (selectedCount >= 2) setEverMulti(true);
+  }, [selectedCount]);
+
   // -- Cascade: requirement change → set type/title/docYear (vault mode only) --
+  // D4 — at two or more, NO cascade at all, not even a flag reset. P1 — after a
+  // multi the title is left alone, while type and shelf still follow the first.
+  // `everMulti` and `selectedCount` are read but deliberately NOT in the deps: this
+  // must re-run when the requirement changes, never when the sticky flips.
   useEffect(() => {
     if (mode === 'row') return;
+    if (selectedCount >= 2) return;
     if (requirementKey && !selectedReq) return;
-    setTitleDirty(false);
+    if (!everMulti) setTitleDirty(false);
     setSectionDirty(false);
     if (!selectedReq) return;
     setDocType(selectedReq.document_type);
-    if (selectedReq.category === 'foundational') {
-      setDocYear('');
+    // ⚠️ NO setDocYear HERE ANY MORE (A2a É5). The year has ONE writer now, the D3
+    // effect below — this cascade is frozen at two or more, and the year must still
+    // follow there. Same values at one selection, so nothing changed under N ≤ 1.
+    if (selectedReq.category === 'foundational' && !everMulti) {
       setTitle(fr ? selectedReq.title_fr : selectedReq.title_en);
-    } else if (typeof selectedReq.year === 'number') {
-      setDocYear(selectedReq.year);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requirementKey, requirementYear, requirements]);
+
+  // ── D3 — THE FISCAL YEAR FOLLOWS THE TICKS, AND STAYS EDITABLE. ──
+  //
+  // The MOST RECENT ticked year, deliberately: a cabinet bundle dated by its OLDEST
+  // year would fall into the archive box and drop out of the percentage. Most-recent
+  // avoids that by default without forbidding anything — `docYearDirty` hands the
+  // field back the instant the user touches it.
+  //
+  // All-foundational resolves to '' — the same value the cascade used to write, and
+  // the field is hidden in that state anyway (E5).
+  useEffect(() => {
+    if (mode === 'row') return;
+    if (docYearDirty) return;
+    if (selectedReqs.length === 0) return;
+    const years = selectedReqs
+      .map((r) => r.year)
+      .filter((y): y is number => typeof y === 'number');
+    setDocYear(years.length > 0 ? Math.max(...years) : '');
+  }, [selectedReqs, docYearDirty, mode]);
 
   // -- Annual title set (vault mode) --
   // The sole setter of an ANNUAL requirement's title box (the foundational
@@ -271,8 +464,18 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   // in document_year and is rendered once, middot-separated, at each surface
   // (composeDisplayName). Previously this baked "— {docYear}", the vault-mode
   // twin of the row-path bake in useRowUpload.
+  //
+  // ⚠️ THIS IS A SECOND, INDEPENDENT PATH TO setTitle, AND THE STICKY MUST COVER IT
+  // OR IT COVERS NOTHING. Its own guard is `titleDirty`, which is FALSE whenever the
+  // user never typed — so without the two guards below, unticking the FIRST of two
+  // requirements renames the document to the survivor's title, the exact rewrite P1
+  // forbids. Read side by side with the cascade above, not assumed. The count guard
+  // also removes a render-ordering race: at 1 → 2 the sticky's state has not
+  // committed yet, but the count already reads two.
   useEffect(() => {
     if (mode === 'row') return;
+    if (selectedCount >= 2) return;
+    if (everMulti) return;
     if (!selectedReq || selectedReq.category !== 'annual') return;
     if (titleDirty) return;
     setTitle(fr ? selectedReq.title_fr : selectedReq.title_en);
@@ -336,12 +539,20 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   //    must be confirmed before it supersedes that final. Draft replaces and
   //    non-vault paths are unaffected. selectedReq is derived from the already
   //    -fetched completeness checklist, so detection needs no extra fetch. --
-  const isFinalConflict =
-    mode === 'vault' &&
-    isCertified &&
-    !!selectedReq?.satisfied &&
-    selectedReq?.document_is_finalized === true;
-  const detectedFinalId = isFinalConflict ? (selectedReq?.document_id ?? undefined) : undefined;
+  //    E7 — ANY of the N, not only the first: a conflict the user cannot see is a
+  //    conflict the warning owes them. The confirm copy receives the COUNT, because
+  //    a warning that names the wrong peril warns of nothing.
+  //    ⚠️ LIMIT, STATED RATHER THAN HIDDEN: `replaceDocumentId` retires ONE document,
+  //    so at two or more conflicts only the FIRST is superseded — and the copy says
+  //    so. Retiring all N belongs to the #135 predicate work (A7), not here.
+  const conflictingReqs = useMemo(
+    () => selectedReqs.filter((r) => r.satisfied && r.document_is_finalized === true),
+    [selectedReqs],
+  );
+  const isFinalConflict = mode === 'vault' && isCertified && conflictingReqs.length > 0;
+  const detectedFinalId = isFinalConflict
+    ? (conflictingReqs[0]?.document_id ?? undefined)
+    : undefined;
 
   // -- Submit gate --
   // Phase B B5: certification is no longer mandatory. The checkbox is still
@@ -381,6 +592,20 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     if (docYear === 'none') fd.append('noFiscalYear', 'true');
     if (requirementKey) fd.append('requirementKey', requirementKey);
     if (requirementYear != null) fd.append('requirementYear', String(requirementYear));
+    // ★ A2a — THE DOUBLE WRITE. The whole collection goes to requirement_documents;
+    // the FIRST (E1) also stays on the two scalars above, so the seven scalar readers
+    // see no difference at all. That is what will let them be switched one at a time.
+    // VAULT ONLY, and the test is explicit because row mode shares this very function
+    // and this very route: its link would be an exact copy of the scalar, so it
+    // carries zero information, and A4's backfill covers that path anyway.
+    if (mode === 'vault' && orderedSelected.length > 0) {
+      fd.append(
+        'requirementLinks',
+        JSON.stringify(
+          orderedSelected.map((s) => ({ requirement_key: s.key, requirement_year: s.year })),
+        ),
+      );
+    }
     // A2c — always sent when the field was shown; the helper validates it and
     // derives instead if it is not one of the nine.
     if (effectiveSection) fd.append('minuteBookSection', effectiveSection);
@@ -443,8 +668,10 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     docType,
     language,
     docYear,
+    mode,
     requirementKey,
     requirementYear,
+    orderedSelected,
     framework,
     requirements,
     effectiveSection,
@@ -541,7 +768,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                 {t('upload.finalReplaceTitle')}
               </h4>
               <p className="mt-1 text-sm text-[var(--warning-text)]">
-                {t('upload.finalReplaceBody')}
+                {t('upload.finalReplaceBody', { count: conflictingReqs.length })}
               </p>
             </div>
           </div>
@@ -591,10 +818,23 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
                 {t('metaType')}
               </label>
+              {/* A2a É6 — le type suit UNE exigence, il ne peut pas suivre deux.
+                  À une sélection : dérivé et verrouillé, exactement comme avant A2a,
+                  aucun changement de comportement.
+                  À deux ou plus : la cascade est gelée (D4), donc le champ garderait
+                  indéfiniment le type de la PREMIÈRE case cochée — « statuts » sur un
+                  lot qui contient aussi des résolutions annuelles — sans que personne
+                  puisse le corriger. Un champ gelé sur une vérité partielle ET grisé,
+                  c'est la faute de A2a-0 recommise ailleurs. On le libère.
+                  Retour à une seule sélection : la cascade repart et le redérive, et
+                  le champ se reverrouille. C'est voulu : décocher est une SOUSTRACTION,
+                  et le type suit, contrairement au titre que le collant protège.
+                  `isLockedAll` d'abord, pour que le mode ligne reste verrouillé par sa
+                  propre raison et non par accident de comptage. */}
               <select
                 value={docType}
                 onChange={(e) => setDocType(e.target.value)}
-                disabled={isLockedAll || !!requirementKey}
+                disabled={isLockedAll || (!!requirementKey && selectedCount <= 1)}
                 className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {DOC_TYPE_KEYS.map((k) => (
@@ -630,16 +870,18 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
               </label>
               <select
                 value={docYear}
-                onChange={(e) =>
+                onChange={(e) => {
+                  // D3 — the field is pre-filled from the ticks and stays the user's
+                  // the moment they touch it. No longer disabled by a selection.
+                  setDocYearDirty(true);
                   setDocYear(
                     e.target.value === ''
                       ? ''
                       : e.target.value === 'none'
                         ? 'none'
                         : parseInt(e.target.value)
-                  )
-                }
-                disabled={!!requirementKey}
+                  );
+                }}
                 className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="" disabled>{t('upload.fiscalYearPlaceholder')}</option>
@@ -653,61 +895,127 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
             </div>
           )}
 
-          {/* Corresponds-to — vault mode only */}
-          {mode === 'vault' && requirements.length > 0 && (
+          {/* Corresponds-to — vault mode only. A2a: MULTI-SELECT, grouped by year,
+              with collapsible headers. One document may cover several requirements:
+              the cabinet PDF holding the whole founding file, or one PDF grouping
+              five years of annual resolutions. */}
+          {mode === 'vault' && (
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
-                {t('upload.correspondsTo')}
-              </label>
-              <select
-                value={requirementKey ? `${requirementKey}|${requirementYear ?? ''}` : ''}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val) {
-                    const [key, yearStr] = val.split('|');
-                    setRequirementKey(key);
-                    setRequirementYear(yearStr ? parseInt(yearStr) : null);
-                  } else {
-                    setRequirementKey(null);
-                    setRequirementYear(null);
-                  }
-                }}
-                className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
-              >
-                {/* ★ "Aucune" STAYS, AND THE FIELD STAYS OPTIONAL — Dom's product
-                    decision, 2026-08-15, not an oversight: "un utilisateur qui veut
-                    téléverser un document propre à son entreprise, non prévu par la
-                    plateforme, peut quand même le faire s'il considère qu'il doit
-                    aller dans son livre des minutes." A conformity form with an
-                    optional classification field looks like a gap; it is a choice.
-                    ★ It is also what makes the disabled options SAFE. The gate never
-                    traps a user with a real document and nowhere to put it — it
-                    closes one wrong shelf, never the door. */}
-                <option value="">{t('upload.correspondsToOptional')}</option>
-                {filteredRequirements.map((req) => {
-                  // The reason has to live INSIDE the label: an <option> renders text
-                  // and nothing else — no sibling <span>, and `title=` is not shown
-                  // consistently across browsers. Measured before choosing this.
-                  const blocked = uploadBlockedFor(req);
-                  const endDate =
-                    req.year === null
-                      ? null
-                      : fiscalYears.find((f) => f.year === req.year)?.endDate ?? null;
-                  return (
-                    <option
-                      key={`${req.requirement_key}-${req.year ?? 'f'}`}
-                      value={`${req.requirement_key}|${req.year ?? ''}`}
-                      disabled={blocked}
-                    >
-                      {fr ? req.title_fr : req.title_en}
-                      {req.year ? ` (${req.year})` : ''}
-                      {blocked && endDate
-                        ? ` — ${tReq('generateUnavailableUntil', { date: formatDate(endDate, locale) })}`
-                        : ''}
-                    </option>
-                  );
-                })}
-              </select>
+              <div className="flex items-baseline justify-between gap-2 mb-1">
+                <label className="block text-xs font-semibold text-[var(--text-muted)]">
+                  {t('upload.correspondsTo')}
+                </label>
+                {/* D2 — absence is the signal: no counter at zero, never "0 selected". */}
+                {selectedCount > 0 && (
+                  <span className="text-xs font-medium text-[var(--text-body)]">
+                    {t('upload.selectedCount', { count: selectedCount })}
+                  </span>
+                )}
+              </div>
+              {/* ★ THE WORD "OPTIONAL" SURVIVES THE SELECT. It used to live in the
+                  placeholder, and a checkbox list has none — so without this line the
+                  field would look MANDATORY while staying optional, which D5 forbids
+                  outright (Dom, 2026-08-15: a user must be able to file a document the
+                  platform never anticipated). Zero ticks IS "none": there is no
+                  "None" checkbox to fabricate. */}
+              <p className="text-xs text-[var(--text-muted)] mb-1.5">
+                {t('upload.correspondsToOptional')}
+              </p>
+              {requirementGroups.length === 0 ? (
+                requirementsLoaded && (
+                  <p className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-muted)]">
+                    {t('upload.correspondsToEmpty')}
+                  </p>
+                )
+              ) : (
+                /* The list scrolls in ITS OWN box: this is a seventh field in a modal
+                   that already scrolls, and forty rows would push "Téléverser" out of
+                   sight. The button stays reachable without moving the page. */
+                <div className="max-h-64 overflow-y-auto rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)]">
+                  {requirementGroups.map((group) => {
+                    const groupSelected = group.items.filter((r) =>
+                      selectedIds.has(`${r.requirement_key}|${r.year ?? ''}`),
+                    ).length;
+                    const isGroupOpen = effectiveOpenGroups.includes(group.key);
+                    return (
+                      <div
+                        key={group.key}
+                        className="border-b border-[var(--input-border)] last:border-b-0"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.key)}
+                          aria-expanded={isGroupOpen}
+                          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--card-bg)]"
+                        >
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <ChevronRight
+                              aria-hidden="true"
+                              className={`h-3.5 w-3.5 flex-shrink-0 text-[var(--text-muted)] transition-transform ${isGroupOpen ? 'rotate-90' : ''}`}
+                            />
+                            <span className="truncate text-xs font-semibold text-[var(--text-body)]">
+                              {group.label}
+                            </span>
+                          </span>
+                          {/* D2 — a collapsed group holding a tick SAYS SO. This is
+                              what makes collapsing safe: no tick is ever invisible.
+                              It counts what is TICKED, never what is tickable. */}
+                          {groupSelected > 0 && (
+                            <span className="flex-shrink-0 text-xs font-medium text-[var(--text-muted)]">
+                              {t('upload.selectedCount', { count: groupSelected })}
+                            </span>
+                          )}
+                        </button>
+                        {isGroupOpen && (
+                          <div className="pb-1">
+                            {group.items.map((req) => {
+                              // The gate is unchanged: a blocked requirement stays
+                              // VISIBLE and disabled with its reason. An unclosed
+                              // fiscal year must be seen refused, not vanish.
+                              const blocked = uploadBlockedFor(req);
+                              const endDate =
+                                req.year === null
+                                  ? null
+                                  : fiscalYears.find((f) => f.year === req.year)?.endDate ??
+                                    null;
+                              const id = `${req.requirement_key}|${req.year ?? ''}`;
+                              return (
+                                <label
+                                  key={id}
+                                  className={`flex items-start gap-2 px-3 py-1.5 text-sm ${blocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-[var(--card-bg)]'}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.has(id)}
+                                    disabled={blocked}
+                                    onChange={() => toggleRequirement(req)}
+                                    className="mt-0.5 h-4 w-4 flex-shrink-0 disabled:cursor-not-allowed"
+                                  />
+                                  <span className="min-w-0">
+                                    <span className="text-[var(--text-body)]">
+                                      {fr ? req.title_fr : req.title_en}
+                                      {/* E8 — ONE name for a fiscal year, the same
+                                          helper the field above uses. */}
+                                      {req.year ? ` · ${getFiscalYearLabel(req.year, locale)}` : ''}
+                                    </span>
+                                    {blocked && endDate && (
+                                      <span className="block text-xs text-[var(--text-muted)]">
+                                        {tReq('generateUnavailableUntil', {
+                                          date: formatDate(endDate, locale),
+                                        })}
+                                      </span>
+                                    )}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

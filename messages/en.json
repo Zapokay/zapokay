@@ -309,7 +309,9 @@
       "fiscalYearNone": "— No fiscal year —",
       "fiscalYearPlaceholder": "You must select a category",
       "correspondsTo": "This document corresponds to:",
-      "correspondsToOptional": "Select a required document (optional)",
+      "correspondsToOptional": "Optional — tick every requirement this document covers.",
+      "correspondsToEmpty": "No requirements to show for this company.",
+      "selectedCount": "{count, plural, =0 {None selected} =1 {1 selected} other {# selected}}",
       "bookSection": "Book section",
       "certify": "I certify this document is final.",
       "certifyHelp": "Check this box if the document is final and signed by all required parties, or final with no signature required. Otherwise, the document will not be added to the Binder.",
@@ -321,7 +323,7 @@
       "archiveReplaceWarningBody": "A copy of this document is already imported. Uploading a new file will make the previous copy unavailable.",
       "replaceSubmit": "Replace",
       "finalReplaceTitle": "Replace the final document",
-      "finalReplaceBody": "A final document already exists for this requirement. Uploading this will replace it: the old final document will be retired from the minute book. This action can be undone for 10 days."
+      "finalReplaceBody": "{count, plural, =0 {None of the selected requirements holds a final document.} =1 {A final document already exists for the selected requirement. Uploading this will replace it: the old final document will be retired from the minute book. This action can be undone for 10 days.} other {# selected requirements already hold a final document. Uploading this will replace the first one; the other final documents will stay in place. This action can be undone for 10 days.}}"
     },
     "toSignBadge": "To sign"
   },

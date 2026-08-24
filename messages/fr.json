@@ -309,7 +309,9 @@
       "fiscalYearNone": "— Aucun exercice —",
       "fiscalYearPlaceholder": "Vous devez sélectionner une catégorie",
       "correspondsTo": "Ce document correspond à :",
-      "correspondsToOptional": "Sélectionner un document requis (optionnel)",
+      "correspondsToOptional": "Facultatif — cochez toutes les exigences que ce document couvre.",
+      "correspondsToEmpty": "Aucune exigence à afficher pour cette société.",
+      "selectedCount": "{count, plural, =0 {Aucune sélectionnée} =1 {1 sélectionnée} other {# sélectionnées}}",
       "bookSection": "Classement au livre",
       "certify": "Je certifie que ce document est final.",
       "certifyHelp": "Cochez cette case si le document est final et signé par toutes les parties requises, ou final sans signature requise. Sinon, le document ne sera pas ajouté au Livre.",
@@ -321,7 +323,7 @@
       "archiveReplaceWarningBody": "Une copie de ce document est déjà importée. Téléverser un nouveau fichier rendra la copie précédente indisponible.",
       "replaceSubmit": "Remplacer",
       "finalReplaceTitle": "Remplacer le document final",
-      "finalReplaceBody": "Un document final existe déjà pour cette exigence. Le téléverser le remplacera : l'ancien document final sera retiré du livre de minutes. Cette action peut être annulée pendant 10 jours."
+      "finalReplaceBody": "{count, plural, =0 {Aucune des exigences choisies ne porte de document final.} =1 {Un document final existe déjà pour l'exigence choisie. Le téléverser le remplacera : l'ancien document final sera retiré du livre de minutes. Cette action peut être annulée pendant 10 jours.} other {# exigences choisies portent déjà un document final. Le téléversement remplacera le premier ; les autres documents finaux resteront en place. Cette action peut être annulée pendant 10 jours.}}"
     },
     "toSignBadge": "À signer"
   },

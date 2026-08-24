@@ -1,7 +1,7 @@
 /**
- * Shared document upload pipeline — used by:
- *   - components/documents/UploadDocumentModal.tsx  (vault / requirement upload form)
- *   - components/minute-book/CompletenessPage.tsx   (lifecycle event-row direct upload)
+ * Shared document upload pipeline — ONE caller, measured 2026-08-23:
+ *   - app/api/documents/upload/route.ts  (BOTH UI paths POST to it; neither
+ *     UploadDocumentModal nor CompletenessPage calls this helper directly)
  *
  * Responsibilities:
  *   1. ASCII-safe storage key (via toStorageSafeName)
@@ -89,6 +89,17 @@ export interface UploadDocumentParams {
    * and leaves the replace target intact.
    */
   eventLink?: { event_type: string; event_id: string; event_phase: string };
+  /**
+   * A2a — the requirements this document DECLARES it covers. One requirement_documents
+   * row per entry, in a SINGLE multi-row insert (atomic in Postgres, so no partial
+   * state). The caller ALSO copies the first entry into the scalar requirement_key /
+   * requirement_year: the double write is the point — the seven scalar readers must
+   * see no difference, which is what allows switching them over one at a time.
+   * VAULT PATH ONLY (Max's ruling, 2026-08-23). Row mode deliberately omits it: its
+   * link would be an exact copy of the scalar, so it carries zero information, and
+   * A4's backfill of the 83 historical rows covers that path anyway.
+   */
+  requirementLinks?: { requirement_key: string; requirement_year: number | null }[];
 }
 
 export type UploadResult =
@@ -118,6 +129,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     isFinalized = false,
     replaceDocumentId,
     eventLink,
+    requirementLinks,
   } = params;
 
   // Layer C: PDF magic-number gate (defense-in-depth — see docstring).
@@ -202,6 +214,56 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
       await supabase.from('documents').delete().eq('id', insertedDoc.id);
       await supabase.storage.from('documents').remove([storagePath]);
       return { ok: false, error: linkError.message };
+    }
+  }
+
+  // 4c. Requirement links (A2a) — the coverage the user DECLARED. Same placement
+  //     rule and same compensation shape as 4b above, for the same reason: a link
+  //     failure must roll back the NEW doc and leave the replace target intact.
+  //     ONE insert of N rows — Postgres makes it atomic, so there is no half-linked
+  //     document to reconcile. The two nude awaits in 4b are left as they are; THIS
+  //     block reads its own cleanup errors, because an orphan is worth a log line.
+  if (requirementLinks && requirementLinks.length > 0) {
+    const { error: reqLinkError } = await supabase
+      .from('requirement_documents')
+      .insert(
+        requirementLinks.map((link) => ({
+          document_id: insertedDoc.id,
+          company_id: companyId,
+          requirement_key: link.requirement_key,
+          requirement_year: link.requirement_year,
+          // NEVER the column DEFAULT: an omission passes tsc AND the insert,
+          // producing a plausible value nobody would look at twice.
+          origin: 'declared',
+        })),
+      );
+    if (reqLinkError) {
+      console.error(
+        '[uploadDocument] requirement_documents insert failed; rolling back doc:',
+        reqLinkError,
+      );
+      const { error: rollbackDocErr } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', insertedDoc.id);
+      if (rollbackDocErr) {
+        console.error(
+          '[uploadDocument] rollback FAILED — orphan documents row left behind:',
+          insertedDoc.id,
+          rollbackDocErr,
+        );
+      }
+      const { error: rollbackStorageErr } = await supabase.storage
+        .from('documents')
+        .remove([storagePath]);
+      if (rollbackStorageErr) {
+        console.error(
+          '[uploadDocument] rollback FAILED — orphan storage object left behind:',
+          storagePath,
+          rollbackStorageErr,
+        );
+      }
+      return { ok: false, error: reqLinkError.message };
     }
   }
 

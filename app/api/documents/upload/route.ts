@@ -140,6 +140,48 @@ export async function POST(request: NextRequest) {
       } catch { /* malformed eventLink ignored — treated as a plain upload */ }
     }
 
+    // A2a — the requirements the vault form declared. Same wire idiom as
+    // `requirements` and `eventLink` above: one key, one JSON array. Absent is the
+    // NORM, not an edge: row mode never sends it, and the scalar still governs.
+    //
+    // ★ THE VALIDATION RULE, and it covers BOTH columns: a malformed body may
+    // produce FEWER links, or none — never a link that says the wrong thing.
+    // An empty key drops its entry; so does an unintelligible year, because NULL on
+    // requirement_year is an ASSERTION ("the catalog row is foundational"), not
+    // "unknown". Degrading a garbage year to NULL would silently reclassify an
+    // annual link as a foundational one — the same plausible-and-false shape we
+    // just guarded against on `origin`. Nothing downstream re-validates either field.
+    let requirementLinks: UploadDocumentParams['requirementLinks'];
+    const rlRaw = str('requirementLinks');
+    if (rlRaw) {
+      try {
+        const parsed = JSON.parse(rlRaw);
+        const cleaned: { requirement_key: string; requirement_year: number | null }[] = [];
+        if (Array.isArray(parsed)) {
+          for (const entry of parsed) {
+            const key =
+              entry && typeof entry === 'object'
+                ? (entry as { requirement_key?: unknown }).requirement_key
+                : null;
+            if (typeof key !== 'string' || key === '') continue;
+            const rawYear = (entry as { requirement_year?: unknown }).requirement_year;
+            // Absent or explicitly null IS the legitimate foundational link — the
+            // distinction is "absent" versus "present but unreadable".
+            let year: number | null;
+            if (rawYear === undefined || rawYear === null) {
+              year = null;
+            } else if (typeof rawYear === 'number' && Number.isFinite(rawYear)) {
+              year = rawYear;
+            } else {
+              continue;
+            }
+            cleaned.push({ requirement_key: key, requirement_year: year });
+          }
+        }
+        if (cleaned.length > 0) requirementLinks = cleaned;
+      } catch { /* malformed requirementLinks ignored — same treatment as eventLink */ }
+    }
+
     const framework = str('framework') === 'CBCA' ? 'CBCA' : 'LSA';
     const isFinalized = str('isFinalized') === 'true';
     const replaceDocumentId = str('replaceDocumentId') || undefined;
@@ -197,6 +239,7 @@ export async function POST(request: NextRequest) {
       isFinalized,
       ...(replaceDocumentId ? { replaceDocumentId } : {}),
       ...(eventLink ? { eventLink } : {}),
+      ...(requirementLinks ? { requirementLinks } : {}),
     });
 
     if (!result.ok) {
