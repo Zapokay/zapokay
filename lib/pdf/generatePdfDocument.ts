@@ -410,6 +410,14 @@ export async function generatePdfDocument(
     }
   }
 
+  // A4-bis — UNE SEULE SOURCE POUR L'ANNÉE DE L'EXIGENCE.
+  // Le scalaire et la liaison DOIVENT porter la même valeur : l'invariant
+  // « année NULLE = la ligne du catalogue est fondationnelle » (A4, D2) se
+  // vérifie sur les deux. `effectiveYear` retombe sur l'année courante quand
+  // `year` est absent — l'écrire nu sur un fondationnel poserait 2026 sur une
+  // ligne qui doit porter NULL.
+  const requirementLinkYear = hasYear && !isFoundational ? effectiveYear : null;
+
   // 10. Insert documents row.
   const { data: document, error: docInsertError } = await supabaseAdmin
     .from('documents')
@@ -427,7 +435,7 @@ export async function generatePdfDocument(
       framework:            company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
       document_year:        isFoundational ? null : effectiveYear,
       requirement_key:      requirementKey,
-      ...(hasYear && !isFoundational ? { requirement_year: effectiveYear } : {}),
+      ...(requirementLinkYear !== null ? { requirement_year: requirementLinkYear } : {}),
       minute_book_section:  requirement?.section ?? null,
       ...(signatories && signatories.length > 0
         ? { signatories_confirmed: signatories, signature_status: 'pending_signature' }
@@ -441,6 +449,48 @@ export async function generatePdfDocument(
     // Rollback orphaned storage object.
     await supabaseAdmin.storage.from('documents').remove([storagePath]);
     return { ok: false, error: "Erreur lors de l'enregistrement du document." };
+  }
+
+  // ── A4-bis — LA LIAISON. ──────────────────────────────────────────────
+  // Sans ce bloc, chaque document généré naît avec un scalaire et SANS
+  // liaison, et la reprise historique (A4, `83153c1`) se périme un document
+  // à la fois. C'est le chemin qui avait produit 57 des 81 documents repris.
+  //
+  // ★ UNE SEULE LIAISON, et c'est structurel : une génération répond à UNE
+  // exigence. `requirementKey` est `string` non optionnel, et REQUIREMENT_MAP
+  // ferme la porte avant tout effet de bord — aucun document inséré ici ne
+  // peut porter une clé nulle.
+  //
+  // ⚠️ `origin: 'generated'` EXPLICITEMENT. Le DEFAULT de la colonne est
+  // 'declared' : l'omettre n'écrirait pas une valeur « non vérifiée », elle
+  // écrirait une valeur FAUSSE — « l'utilisateur a coché cette exigence à
+  // l'import » sur un document que personne n'a téléversé.
+  const { error: reqLinkError } = await supabaseAdmin
+    .from('requirement_documents')
+    .insert({
+      document_id:      document.id,
+      company_id:       companyId,
+      requirement_key:  requirementKey,
+      requirement_year: requirementLinkYear,
+      origin:           'generated',
+    });
+
+  if (reqLinkError) {
+    // ★ ON NE DÉFAIT PAS LE DOCUMENT, ET C'EST UNE DÉCISION, PAS UN OUBLI.
+    // Le chemin d'import (upload-document.ts, bloc 4c) supprime le document
+    // quand sa liaison échoue — là-bas, la liaison EST la demande de
+    // l'utilisateur, qui a coché des cases. Ici sa demande est le PDF.
+    // ⚠️ ET SURTOUT : l'éviction #135 s'exécute AVANT cet insert. Détruire le
+    // document laisserait l'utilisateur avec son ancien document AU RANCART
+    // et aucun nouveau — le pire des trois états, atteignable uniquement par
+    // la politique destructive.
+    // Le trou est réparable : un rejeu de la migration A4 le comble
+    // (ON CONFLICT DO NOTHING), et son bloc `still_unlinked` le DÉTECTE.
+    console.error(
+      '[generatePdfDocument] requirement_documents insert failed — document kept, link missing. ' +
+      'Repair: replay migration 20260824120000, or insert manually.',
+      { documentId: document.id, requirementKey, requirementYear: requirementLinkYear, error: reqLinkError },
+    );
   }
 
   // 10. Activity log — same event shape as the wizard emits today.
