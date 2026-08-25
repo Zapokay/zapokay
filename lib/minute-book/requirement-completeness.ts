@@ -216,21 +216,40 @@ export async function computeRequirementCompleteness(
     .order('year', { ascending: false });
   if (fyError) throw fyError;
 
-  // 3. Get all company documents with requirement_key
-  //    B5: id, file_url, is_finalized surfaced on ChecklistItem so the client
-  //    can resolve the destructive-replace target without an extra round-trip
-  //    and split the row badge between signed final vs WIP upload.
-  const { data: documents, error: docError } = await supabase
-    .from('documents')
-    .select('id, requirement_key, requirement_year, source, file_url, is_finalized, language')
+  /* ---------- Les exigences couvertes, LUES SUR LA TABLE DE LIAISON ----------
+     A7-2 — dernier lecteur d'affichage basculé du scalaire vers
+     `requirement_documents`. Un document couvre PLUSIEURS exigences depuis
+     A2a ; le scalaire n'en portait que la première, donc les autres ne
+     comptaient nulle part.
+     ⚠️ `!inner` + `status='active'` : invariant D6. La table de liaison ne
+     porte AUCUNE colonne d'état — l'état vit sur le DOCUMENT.
+     B5 conservé : id, file_url, is_finalized sont embarqués pour que le client
+     résolve la cible de remplacement destructif sans aller-retour supplémentaire
+     et sépare le badge « final signé » du « téléversement en cours ». */
+  const { data: rawLinks, error: linkError } = await supabase
+    .from('requirement_documents')
+    // ⚠️ UNE SEULE CHAÎNE LITTÉRALE, PAS UNE CONCATÉNATION. supabase-js analyse
+    // ce texte AU NIVEAU DU TYPE ; un `+` le rend non littéral, l'analyseur
+    // abandonne et rend `GenericStringError`, ce qui fait tomber les trois
+    // prédicats plus bas avec des TS2339 illisibles. Même forme que les deux
+    // autres embeds du dépôt (resolve-signatory-blocks.ts:84, event-completeness.ts:297).
+    .select('requirement_key, requirement_year, document:documents!inner(id, source, file_url, is_finalized, language, created_at, status)')
     .eq('company_id', companyId)
-    .eq('status', 'active')
-    .not('requirement_key', 'is', null)
-    // #75/§8.55 — newest-first so the .find() binds (req[+year]) to the LATEST
-    // active doc when regenerations leave duplicates (#135 not yet evicting).
-    // Mirrors the event-completeness.ts event_documents ordering fix (#134).
-    .order('created_at', { ascending: false });
-  if (docError) throw docError;
+    .eq('document.status', 'active');
+  if (linkError) throw linkError;
+
+  /* ⚠️ LE TRI SE FAIT ICI, EN JAVASCRIPT, ET C'EST DÉLIBÉRÉ.
+     L'ancienne requête ordonnait `created_at` décroissant pour que le `.find()`
+     se lie au document le PLUS RÉCENT — décision de #75/§8.55, conservée telle
+     quelle. Trier une table EMBARQUÉE en PostgREST passe par une option dont le
+     nom a changé selon les versions du client (`foreignTable` / `referencedTable`).
+     Un tri JavaScript ne dépend d'aucune version et donne le même résultat. */
+  // ⚠️ UNE SEULE assertion, ICI, à la frontière où la donnée entre. Pas une par
+  // prédicat, pas de `any`. Tout ce qui est en aval est vérifié par le
+  // compilateur contre `RawLink`. Idiome du dépôt : event-completeness.ts:316-321.
+  const links = ([...(rawLinks ?? [])] as unknown as RawLink[]).sort((a, b) =>
+    (b.document?.created_at ?? '').localeCompare(a.document?.created_at ?? ''),
+  );
 
   // 4. Compute endDate per fiscal year (resolution date stamped on PDFs
   // generated via Bulk Catch-Up). Year labels are now derived from `year`
@@ -269,15 +288,24 @@ export async function computeRequirementCompleteness(
     // seeded today: a future INSERT could omit it, and null must read as NOT exempt.
     exempt_from_lateness: boolean | null;
   };
-  type RawDoc = {
-    id: string;
+  // A7-2 — `RawDoc` a été REMPLACÉ par `RawLink` : le moteur n'apparie plus des
+  // documents mais des LIAISONS, dont le document est un enfant embarqué.
+  interface RawLink {
     requirement_key: string;
     requirement_year: number | null;
-    source: string | null;
-    file_url: string | null;
-    is_finalized: boolean | null;
-    language: string | null;
-  };
+    // Embed shape — single-FK relation returns an object, not an array.
+    // supabase-js type toute table embarquée comme un TABLEAU faute de
+    // connaître la cardinalité sans types générés. Le type ment, le runtime
+    // a raison. Même situation, même remède qu'event-completeness.ts:230.
+    document: {
+      id: string;
+      source: string | null;
+      file_url: string | null;
+      is_finalized: boolean | null;
+      language: string | null;
+      created_at: string;
+    } | null;
+  }
 
   // 5. Build checklist
   // ── FAN-OUT: CADENCE WINS WHERE A RULE EXISTS, CATEGORY CONTINUES WHERE IT DOES
@@ -365,7 +393,10 @@ export async function computeRequirementCompleteness(
     // Same shape, same reason, as mustBlockGeneration's branch 2.
     const availability = availabilityFor(req.requirement_key, null, null, fedWindow, today);
     if (availability === 'not_owed') continue;
-    const matchingDoc = (documents || []).find((d: RawDoc) => d.requirement_key === req.requirement_key);
+    // A7-2 — la clé SEULE, comme avant. ⚠️ Voir le commentaire de la requête :
+    // ne pas ajouter de comparaison d'année ici, ce site n'en a jamais fait.
+    const matchingLink = links.find((l) => l.requirement_key === req.requirement_key);
+    const matchingDoc = matchingLink?.document ?? undefined;
     const satisfied = !!matchingDoc;
     const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
     const isFinalized = matchingDoc?.is_finalized ?? null;
@@ -494,9 +525,10 @@ export async function computeRequirementCompleteness(
       // the comparison to mustBlockGeneration rather than repeating it.
       const availability = availabilityFor(req.requirement_key, fy.year, fy.endDate, fedWindow, today);
       if (availability === 'not_owed') continue;
-      const matchingDoc = (documents || []).find(
-        (d: RawDoc) => d.requirement_key === req.requirement_key && d.requirement_year === fy.year,
+      const matchingLink = links.find(
+        (l) => l.requirement_key === req.requirement_key && l.requirement_year === fy.year,
       );
+      const matchingDoc = matchingLink?.document ?? undefined;
       const satisfied = !!matchingDoc;
       const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
       const isFinalized = matchingDoc?.is_finalized ?? null;
@@ -577,10 +609,11 @@ export async function computeRequirementCompleteness(
       today,
     );
     if (availability === 'not_owed') continue;
-    const matchingDoc = (documents || []).find(
-      (d: RawDoc) =>
-        d.requirement_key === req.requirement_key && d.requirement_year === anniversaryYear,
+    const matchingLink = links.find(
+      (l) =>
+        l.requirement_key === req.requirement_key && l.requirement_year === anniversaryYear,
     );
+    const matchingDoc = matchingLink?.document ?? undefined;
     const satisfied = !!matchingDoc;
     const source = (matchingDoc?.source as 'uploaded' | 'generated' | null) || null;
     const isFinalized = matchingDoc?.is_finalized ?? null;
