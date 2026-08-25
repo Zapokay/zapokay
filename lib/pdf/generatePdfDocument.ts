@@ -209,6 +209,20 @@ export type GeneratePdfDocumentResult =
   | { ok: true; documentId: string; fileName: string; fileUrl: string; title: string }
   | { ok: false; error: string; canGenerate?: false; notFound?: true };
 
+// A7-3 — forme embarquée du candidat au rancart. Les tables embarquées de
+// PostgREST se typent en TABLEAU faute de cardinalité connue sans types générés :
+// le type dit un tableau, le runtime rend un objet. Idiome maison, même
+// commentaire qu'event-completeness.ts:230 et requirement-completeness.ts:291.
+interface RawSupersedeCandidate {
+  document_id: string;
+  document: {
+    id: string;
+    status: string;
+    is_finalized: boolean;
+    signature_status: string | null;
+  } | null;
+}
+
 export async function generatePdfDocument(
   params: GeneratePdfDocumentParams,
 ): Promise<GeneratePdfDocumentResult> {
@@ -383,30 +397,103 @@ export async function generatePdfDocument(
     return { ok: false, error: 'Erreur lors du téléversement du document.' };
   }
 
-  // #135 draft supersede: evict prior unsigned drafts for this exact
-  // requirement+year so (re)generate replaces instead of accumulating. Year-scoped:
-  // annual docs across different fiscal years are distinct and must NOT evict each
-  // other. Finalized/signed rows are NEVER touched (deliberate replace is a separate,
-  // confirmed Part-4 flow). The year branch mirrors the insert's OWN spread condition
-  // (hasYear && !isFoundational, line below) EXACTLY so it targets the same
-  // requirement_year the new row will carry (NULL for foundational / no-year).
+  // A7-3 — LE DERNIER LECTEUR DU SCALAIRE, ET LE SEUL QUI DÉTRUIT.
+  // #135 mise au rancart des brouillons, lue désormais sur requirement_documents.
+  //
+  // ⚠ RÈGLE PRODUIT : UN DOCUMENT QUI COUVRE PLUSIEURS EXIGENCES N'EST LE
+  // BROUILLON D'AUCUNE. A2a a rendu possible qu'un document porte N exigences ;
+  // le mettre au rancart pour une seule ferait disparaître la couverture des
+  // N-1 autres, que personne n'a demandé à perdre. Depuis A7-2 cette perte est
+  // VISIBLE dans Complétude. La garde « exactement une liaison » rend donc ce
+  // prédicat STRICTEMENT PLUS ÉTROIT que le scalaire qu'il remplace : il ne
+  // peut que gracier, jamais élargir. Mesuré sur le parc le 2026-08-25 : un
+  // seul document change de sort, « blalboo » (Acme Test inc., 2 liaisons).
+  //
+  // ⚠ D6 : toute lecture de requirement_documents JOINT `documents` et filtre
+  // status='active'. La table n'a pas de colonne d'état, délibérément.
+  //
+  // Portée inchangée par ailleurs : société, exigence, année (branche identique
+  // à celle de l'insert), actif, non finalisé, non signé. Les rangées signées
+  // ou finalisées ne sont JAMAIS touchées ; le remplacement délibéré est un
+  // autre chemin, confirmé par l'utilisateur.
   {
-    let supersedeQuery = supabaseAdmin
-      .from('documents')
-      .update({ status: 'superseded', superseded_at: new Date().toISOString() })
+    // 1. Les candidats : les documents LIÉS à cette exigence + cette année.
+    //    ⚠ UNE SEULE CHAÎNE LITTÉRALE, PAS UNE CONCATÉNATION (§221) : un `+`
+    //    rend la chaîne non littérale, l'analyseur de types de supabase-js
+    //    abandonne et rend GenericStringError sur chaque colonne demandée.
+    let candidateQuery = supabaseAdmin
+      .from('requirement_documents')
+      .select('document_id, document:documents!inner(id, status, is_finalized, signature_status)')
       .eq('company_id', companyId)
       .eq('requirement_key', requirementKey)
-      .eq('status', 'active')
-      .eq('is_finalized', false)
-      .in('signature_status', ['draft', 'pending_signature']);
-    supersedeQuery = (hasYear && !isFoundational)
-      ? supersedeQuery.eq('requirement_year', effectiveYear)
-      : supersedeQuery.is('requirement_year', null);
-    const { error: supersedeError } = await supersedeQuery;
-    if (supersedeError) {
-      // Non-fatal: never block generation on a supersede failure. The new row still
-      // inserts; worst case a stale draft lingers (cleanable).
-      console.error('[#135] draft supersede failed (non-fatal):', supersedeError);
+      .eq('document.status', 'active');
+    candidateQuery = (hasYear && !isFoundational)
+      ? candidateQuery.eq('requirement_year', effectiveYear)
+      : candidateQuery.is('requirement_year', null);
+
+    const { data: rawCandidates, error: candidateError } = await candidateQuery;
+
+    if (candidateError) {
+      // Non fatal : ne jamais bloquer la génération sur un échec de rancart.
+      console.error('[#135/A7-3] lecture des candidats échouée (non fatal):', candidateError);
+    } else {
+      const candidates = (rawCandidates ?? []) as unknown as RawSupersedeCandidate[];
+
+      // 2. Les gardes restantes, appliquées ici plutôt qu'en requête : sur un
+      //    chemin destructif, une condition qu'on peut lire dans le fichier
+      //    vaut mieux qu'une condition enfouie dans une chaîne PostgREST.
+      // ⚠️ `Array.from(new Set(…))` et NON `[...new Set(…)]` : tsconfig.json ne
+      // déclare aucun `target`, donc ES5, où le spread d'un Set lève TS2802.
+      // Idiome du dépôt — active-years.ts:145, resolve-signatory-blocks.ts:89.
+      const eligibleIds = Array.from(new Set(
+        candidates
+          .filter((c) =>
+            c.document !== null &&
+            c.document.is_finalized === false &&
+            ['draft', 'pending_signature'].includes(c.document.signature_status ?? ''),
+          )
+          .map((c) => c.document_id),
+      ));
+
+      if (eligibleIds.length > 0) {
+        // 3. LA GARDE DU LOT : compter TOUTES les liaisons de ces documents,
+        //    pas seulement celles de l'exigence courante. Un document à deux
+        //    liaisons ou plus est un recueil, pas un brouillon.
+        const { data: allLinks, error: linkCountError } = await supabaseAdmin
+          .from('requirement_documents')
+          .select('document_id')
+          .in('document_id', eligibleIds);
+
+        if (linkCountError) {
+          console.error('[#135/A7-3] comptage des liaisons échoué (non fatal) — aucun rancart appliqué:', linkCountError);
+        } else {
+          const linkCount = new Map<string, number>();
+          for (const l of allLinks ?? []) {
+            linkCount.set(l.document_id, (linkCount.get(l.document_id) ?? 0) + 1);
+          }
+          // Exactement une. Zéro liaison (dérive) épargne aussi : la direction
+          // de l'erreur reste conservatrice.
+          const evictableIds = eligibleIds.filter((id) => linkCount.get(id) === 1);
+
+          if (evictableIds.length > 0) {
+            const { error: supersedeError } = await supabaseAdmin
+              .from('documents')
+              .update({ status: 'superseded', superseded_at: new Date().toISOString() })
+              .in('id', evictableIds)
+              // Gardes RÉAFFIRMÉES sur l'écriture : entre la lecture et
+              // l'update, une rangée a pu être signée ou finalisée. Sur un
+              // chemin destructif, on ne fait pas confiance à une lecture.
+              .eq('company_id', companyId)
+              .eq('status', 'active')
+              .eq('is_finalized', false)
+              .in('signature_status', ['draft', 'pending_signature']);
+
+            if (supersedeError) {
+              console.error('[#135/A7-3] mise au rancart échouée (non fatal):', supersedeError);
+            }
+          }
+        }
+      }
     }
   }
 
