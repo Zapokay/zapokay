@@ -521,8 +521,13 @@ export async function generatePdfDocument(
       source:               'generated',
       framework:            company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA',
       document_year:        isFoundational ? null : effectiveYear,
-      requirement_key:      requirementKey,
-      ...(requirementLinkYear !== null ? { requirement_year: requirementLinkYear } : {}),
+      // A8-1 — le scalaire n'est plus écrit. La couverture vit
+      // exclusivement dans `requirement_documents`, insérée plus bas.
+      // `documents.requirement_key` n'a plus aucun lecteur depuis
+      // `e3e7617` et n'a plus aucun écrivain depuis ce lot.
+      // ⚠️ Ne pas la ressusciter : « la première exigence » n'a jamais
+      // été une désignation de l'utilisateur, seulement l'ordre dans
+      // lequel le catalogue est émis (E1).
       minute_book_section:  requirement?.section ?? null,
       ...(signatories && signatories.length > 0
         ? { signatories_confirmed: signatories, signature_status: 'pending_signature' }

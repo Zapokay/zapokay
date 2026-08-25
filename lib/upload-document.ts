@@ -179,8 +179,14 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
       uploaded_at: new Date().toISOString(),
       source: 'uploaded',
       is_finalized: isFinalized,
-      ...(requirementKey ? { requirement_key: requirementKey } : {}),
-      ...(requirementYear !== null ? { requirement_year: requirementYear } : {}),
+      // A8-1 — le scalaire n'est plus écrit. La couverture vit exclusivement
+      // dans `requirement_documents`, insérée au bloc 4c plus bas, qui lit
+      // `requirementLinks` et non ces deux variables.
+      // `documents.requirement_key` n'a plus aucun lecteur depuis `e3e7617`
+      // et n'a plus aucun écrivain depuis ce lot.
+      // ⚠️ Ne pas la ressusciter : « la première exigence » n'a jamais été
+      // une désignation de l'utilisateur, seulement l'ordre dans lequel le
+      // catalogue est émis (E1).
       ...(minuteBookSection ? { minute_book_section: minuteBookSection } : {}),
     })
     .select('id')

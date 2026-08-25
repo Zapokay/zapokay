@@ -241,7 +241,7 @@ async function runOneCycle(language: 'fr' | 'en'): Promise<void> {
     const { data: doc, error: docErr } = await supabaseAdmin
       .from('documents')
       .select(
-        'id, company_id, document_type, source, requirement_key, signature_status, language, minute_book_section, status, file_url, document_year',
+        'id, company_id, document_type, source, signature_status, language, minute_book_section, status, file_url, document_year',
       )
       .eq('id', result.documentId)
       .single();
@@ -249,7 +249,19 @@ async function runOneCycle(language: 'fr' | 'en'): Promise<void> {
     const d = doc as Record<string, unknown>;
     assert.equal(d.document_type, 'resolution', 'document_type mismatch');
     assert.equal(d.source, 'generated', 'source mismatch');
-    assert.equal(d.requirement_key, null, 'requirement_key should be NULL');
+    // A8-1 — ASSERTION DÉMÉNAGÉE DU SCALAIRE VERS LA TABLE DE LIAISON.
+    // `assert.equal(d.requirement_key, null)` ne pouvait plus échouer : plus
+    // rien n'écrit cette colonne, elle est NULL partout. Un contrôle qui ne
+    // peut plus échouer n'est pas un contrôle qui passe. Ce qui reste vrai et
+    // vérifiable : une résolution de cycle de vie ne porte AUCUNE ligne dans
+    // `requirement_documents` — son lien vit dans `event_documents`, vérifié
+    // plus bas. Forme calquée sur la sonde event_documents de ce fichier.
+    const { count: reqLinkCount, error: reqLinkErr } = await supabaseAdmin
+      .from('requirement_documents')
+      .select('id', { count: 'exact', head: true })
+      .eq('document_id', result.documentId);
+    assert.ok(!reqLinkErr, `requirement_documents probe failed: ${reqLinkErr?.message}`);
+    assert.equal(reqLinkCount, 0, 'lifecycle document must carry NO requirement_documents row');
     assert.equal(d.signature_status, 'draft', 'signature_status should default to draft');
     assert.equal(d.language, language, 'language mismatch');
     assert.equal(d.minute_book_section, 'resolutions', 'minute_book_section mismatch');
@@ -426,7 +438,7 @@ async function runRemovalCycle(): Promise<void> {
     const { data: doc, error: docErr } = await supabaseAdmin
       .from('documents')
       .select(
-        'id, company_id, document_type, source, requirement_key, signature_status, language, minute_book_section, status, document_year',
+        'id, company_id, document_type, source, signature_status, language, minute_book_section, status, document_year',
       )
       .eq('id', result.documentId)
       .single();
@@ -434,7 +446,15 @@ async function runRemovalCycle(): Promise<void> {
     const d = doc as Record<string, unknown>;
     assert.equal(d.document_type, 'resolution', 'document_type mismatch');
     assert.equal(d.source, 'generated', 'source mismatch');
-    assert.equal(d.requirement_key, null, 'requirement_key should be NULL');
+    // A8-1 — assertion déménagée du scalaire vers la table de liaison. Voir le
+    // commentaire long au premier scénario : le contrôle sur `requirement_key`
+    // ne pouvait plus échouer une fois la colonne cessée d'être écrite.
+    const { count: reqLinkCount, error: reqLinkErr } = await supabaseAdmin
+      .from('requirement_documents')
+      .select('id', { count: 'exact', head: true })
+      .eq('document_id', result.documentId);
+    assert.ok(!reqLinkErr, `requirement_documents probe failed: ${reqLinkErr?.message}`);
+    assert.equal(reqLinkCount, 0, 'lifecycle document must carry NO requirement_documents row');
     assert.equal(d.signature_status, 'draft', 'signature_status should default to draft');
     assert.equal(d.minute_book_section, 'resolutions', 'minute_book_section mismatch');
     assert.equal(d.status, 'active', 'status mismatch');
@@ -619,7 +639,7 @@ async function runOfficerDepartureCycle(): Promise<void> {
     const { data: doc, error: docErr } = await supabaseAdmin
       .from('documents')
       .select(
-        'id, company_id, document_type, source, requirement_key, signature_status, language, minute_book_section, status, document_year',
+        'id, company_id, document_type, source, signature_status, language, minute_book_section, status, document_year',
       )
       .eq('id', result.documentId)
       .single();
@@ -627,7 +647,15 @@ async function runOfficerDepartureCycle(): Promise<void> {
     const d = doc as Record<string, unknown>;
     assert.equal(d.document_type, 'resolution', 'document_type mismatch');
     assert.equal(d.source, 'generated', 'source mismatch');
-    assert.equal(d.requirement_key, null, 'requirement_key should be NULL');
+    // A8-1 — assertion déménagée du scalaire vers la table de liaison. Voir le
+    // commentaire long au premier scénario : le contrôle sur `requirement_key`
+    // ne pouvait plus échouer une fois la colonne cessée d'être écrite.
+    const { count: reqLinkCount, error: reqLinkErr } = await supabaseAdmin
+      .from('requirement_documents')
+      .select('id', { count: 'exact', head: true })
+      .eq('document_id', result.documentId);
+    assert.ok(!reqLinkErr, `requirement_documents probe failed: ${reqLinkErr?.message}`);
+    assert.equal(reqLinkCount, 0, 'lifecycle document must carry NO requirement_documents row');
     assert.equal(d.signature_status, 'draft', 'signature_status should default to draft');
     assert.equal(d.minute_book_section, 'resolutions', 'minute_book_section mismatch');
     assert.equal(d.status, 'active', 'status mismatch');

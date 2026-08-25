@@ -712,8 +712,13 @@ export async function generateLifecycleDocument(
   /* -------- Insert documents row ----------------------------------------- */
   // signature_status omitted: lets the column DEFAULT 'draft' fire (lifecycle
   // resolutions are draft-state until a signatories pack is later wired).
-  // requirement_key NULL: lifecycle resolutions do NOT satisfy a row in
-  // minute_book_requirements — the satisfaction link lives in event_documents.
+  // Les résolutions de cycle de vie ne satisfont AUCUNE ligne de
+  // `minute_book_requirements` — leur lien vit dans `event_documents`.
+  // A8-1 : plus rien n'écrit `documents.requirement_key`, ici comme
+  // ailleurs. La colonne est nullable sans DEFAULT : l'omission
+  // produit exactement la même valeur que le `null` explicite
+  // qu'elle remplace. Mesuré : 12 documents d'acte, 62 d'exigence,
+  // 0 aux deux, 0 à ni l'un ni l'autre.
 
   const { data: docInsert, error: docInsertError } = await supabaseAdmin
     .from('documents')
@@ -730,7 +735,6 @@ export async function generateLifecycleDocument(
       source: 'generated',
       framework,
       document_year: documentYear,
-      requirement_key: null,
       minute_book_section: 'resolutions',
     })
     .select('id')
