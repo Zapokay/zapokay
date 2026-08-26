@@ -108,9 +108,8 @@ async function getCompanyFiscalCalendar(): Promise<{ month: number; day: number 
 }
 
 async function pickEndedOfficerAppointmentWithReason(): Promise<{
-  id: string;
-  end_reason: string;
-  end_date: string;
+  appointment: { id: string; end_reason: string; end_date: string };
+  baseline: Awaited<ReturnType<typeof snapshotCompleteness>>;
 }> {
   // Picks an officer appointment that is ended (end_date present), has
   // end_reason (officer_departure requires it), and is not soft-deleted.
@@ -118,6 +117,8 @@ async function pickEndedOfficerAppointmentWithReason(): Promise<{
   // within an ACTIVE company_fiscal_years year on Acme — Ben Harpez's
   // former Secretary appointment (ended 2024-02-02 with term_expired) is
   // the seeded fixture matching this.
+  // ⚠️ Même défaut, même remède que pickEndedDirectorMandateWithReason ci-dessous :
+  // sélection du premier candidat NON satisfait, pas tirage dans un ordre de tas.
   const { data, error } = await supabaseAdmin
     .from('officer_appointments')
     .select('id, end_date, end_reason, deleted_at')
@@ -125,7 +126,7 @@ async function pickEndedOfficerAppointmentWithReason(): Promise<{
     .is('deleted_at', null)
     .not('end_date', 'is', null)
     .not('end_reason', 'is', null)
-    .limit(1);
+    .order('end_date', { ascending: false });
   if (error) throw new Error(`pick officer appointment failed: ${error.message}`);
   if (!data || data.length === 0) {
     throw new Error(
@@ -133,8 +134,30 @@ async function pickEndedOfficerAppointmentWithReason(): Promise<{
         'Seed or end one before running this test.',
     );
   }
-  const row = data[0] as { id: string; end_date: string; end_reason: string };
-  return { id: row.id, end_date: row.end_date, end_reason: row.end_reason };
+
+  const baseline = await snapshotCompleteness();
+  const candidates = data as { id: string; end_date: string; end_reason: string }[];
+  for (const row of candidates) {
+    const act = baseline.acts.find(
+      (a) =>
+        a.event_type === 'officer_appointment' &&
+        a.event_id === row.id &&
+        a.event_phase === 'departure',
+    );
+    if (act && !act.satisfied) {
+      return {
+        appointment: { id: row.id, end_date: row.end_date, end_reason: row.end_reason },
+        baseline,
+      };
+    }
+  }
+
+  throw new Error(
+    `aucune nomination de dirigeant terminée et NON satisfaite sur Acme Test inc. — ` +
+      `les ${candidates.length} candidates ont déjà un document. ` +
+      `Créer un dirigeant et enregistrer sa fin de fonctions (motif quelconque, ` +
+      `date de fin dans un exercice actif, 2019 à 2026).`,
+  );
 }
 
 async function getActiveFiscalYearsSet(): Promise<Set<number>> {
@@ -147,10 +170,25 @@ async function getActiveFiscalYearsSet(): Promise<Set<number>> {
   return new Set((data ?? []).map((r) => (r as { year: number }).year));
 }
 
+/**
+ * ⚠️ SÉLECTION, PAS TIRAGE — et c'est la correction qui compte ici.
+ *
+ * Avant : `.limit(1)` sans `.order()`, puis `data[0]`. L'ordre était celui du
+ * tas, donc arbitraire, et le mandat tiré pouvait être DÉJÀ satisfait — auquel
+ * cas l'assertion « baseline act should be MISSING » levait avant que le
+ * harnais ne démarre. C'est exactement ce qui s'est produit : une fixture
+ * consommée par un geste manuel a rendu ce harnais INEXÉCUTABLE pendant plus
+ * d'un mois, sans que rien ne le signale. Un tri seul n'y aurait rien changé :
+ * le plus récent peut être satisfait lui aussi.
+ *
+ * Maintenant : on rapporte TOUS les candidats, dans un ordre reproductible, et
+ * on retient le PREMIER dont l'acte de départ est non satisfait. La ligne de
+ * base est calculée UNE fois et rendue avec le mandat — `runOneCycle` la
+ * réutilise pour son assertion plutôt que d'en refaire une seconde.
+ */
 async function pickEndedDirectorMandateWithReason(): Promise<{
-  id: string;
-  end_reason: string;
-  end_date: string;
+  mandate: { id: string; end_reason: string; end_date: string };
+  baseline: Awaited<ReturnType<typeof snapshotCompleteness>>;
 }> {
   const { data, error } = await supabaseAdmin
     .from('director_mandates')
@@ -159,7 +197,9 @@ async function pickEndedDirectorMandateWithReason(): Promise<{
     .is('deleted_at', null)
     .not('end_date', 'is', null)
     .not('end_reason', 'is', null)
-    .limit(1);
+    // Reproductible d'une exécution à l'autre : sans tri, PostgreSQL rend les
+    // lignes dans l'ordre du tas, qui bouge au gré des UPDATE et des VACUUM.
+    .order('end_date', { ascending: false });
   if (error) throw new Error(`pick director mandate failed: ${error.message}`);
   if (!data || data.length === 0) {
     throw new Error(
@@ -167,8 +207,30 @@ async function pickEndedDirectorMandateWithReason(): Promise<{
         'Seed or end one before running this test.',
     );
   }
-  const row = data[0] as { id: string; end_date: string; end_reason: string };
-  return { id: row.id, end_date: row.end_date, end_reason: row.end_reason };
+
+  const baseline = await snapshotCompleteness();
+  const candidates = data as { id: string; end_date: string; end_reason: string }[];
+  for (const row of candidates) {
+    const act = baseline.acts.find(
+      (a) =>
+        a.event_type === 'director_mandate' &&
+        a.event_id === row.id &&
+        a.event_phase === 'departure',
+    );
+    if (act && !act.satisfied) {
+      return {
+        mandate: { id: row.id, end_date: row.end_date, end_reason: row.end_reason },
+        baseline,
+      };
+    }
+  }
+
+  throw new Error(
+    `aucun mandat d'administrateur terminé et NON satisfait sur Acme Test inc. — ` +
+      `les ${candidates.length} candidats ont déjà un document. ` +
+      `Créer un administrateur et enregistrer son départ (motif autre que ` +
+      `révocation, date de fin dans un exercice actif, 2019 à 2026).`,
+  );
 }
 
 async function snapshotCompleteness() {
@@ -187,13 +249,12 @@ interface RunOutcome {
 async function runOneCycle(language: 'fr' | 'en'): Promise<void> {
   console.log(`\n=== Cycle: language=${language} ===`);
 
-  const mandate = await pickEndedDirectorMandateWithReason();
+  // La sélection rend le mandat ET la ligne de base qui a servi à le choisir :
+  // un seul `snapshotCompleteness()` pour les deux usages.
+  const { mandate, baseline } = await pickEndedDirectorMandateWithReason();
   console.log(
     `  Target mandate: id=${mandate.id} end_date=${mandate.end_date} end_reason=${mandate.end_reason}`,
   );
-
-  // Snapshot baseline.
-  const baseline = await snapshotCompleteness();
   console.log(
     `  Baseline: totalActs=${baseline.totalActs} satisfied=${baseline.totalSatisfied} missing=${baseline.totalMissing}`,
   );
@@ -380,11 +441,16 @@ async function runRemovalCycle(): Promise<void> {
     'director_removal registry entry should route via shareholder instrument',
   );
 
-  const mandate = await pickEndedDirectorMandateWithReason();
+  // On ne retient ici que le mandat : ce scénario MUTE `end_reason` avant de
+  // calculer sa propre ligne de base, donc celle qui a servi à choisir est
+  // périmée pour son assertion. Ce double calcul lui préexiste.
+  const { mandate } = await pickEndedDirectorMandateWithReason();
   const originalEndReason = mandate.end_reason;
   console.log(
     `  Target mandate: id=${mandate.id} end_date=${mandate.end_date} original end_reason=${originalEndReason}`,
   );
+
+  console.log(`[#19d] mutation temporaire — mandat ${mandate.id}, end_reason d'origine « ${mandate.end_reason} ». Restauré dans le finally ; en cas de plantage dur, restaurer à la main.`);
 
   // Temporarily mutate to 'revocation' so director_removal preconditions hold.
   const { error: setErr } = await supabaseAdmin
@@ -592,12 +658,11 @@ async function runOfficerDepartureCycle(): Promise<void> {
     'officer_departure registry entry should route via board instrument',
   );
 
-  const appt = await pickEndedOfficerAppointmentWithReason();
+  // Même forme que le scénario administrateur : un seul snapshotCompleteness().
+  const { appointment: appt, baseline } = await pickEndedOfficerAppointmentWithReason();
   console.log(
     `  Target appointment: id=${appt.id} end_date=${appt.end_date} end_reason=${appt.end_reason}`,
   );
-
-  const baseline = await snapshotCompleteness();
   console.log(
     `  Baseline: totalActs=${baseline.totalActs} satisfied=${baseline.totalSatisfied} missing=${baseline.totalMissing}`,
   );
