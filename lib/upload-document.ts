@@ -282,16 +282,46 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
   //    active (a lingering duplicate), never blocks the user's new doc. This
   //    is a user-confirmed replace, so it intentionally supersedes finals too
   //    (no is_finalized guard — that guard belongs to auto-supersede only).
+  //    ⚠️ CE BLOC DOIT RESTER APRÈS L'INSERT. Il l'est (insert :168, ici :~290),
+  //    et trois sorties anticipées l'en séparent (:199, :222, :272). Le déplacer
+  //    avant l'insert, en croyant ranger, transformerait un remplacement raté en
+  //    PERTE SÈCHE : l'ancien au rancart et aucun nouveau. C'est l'ordre inverse
+  //    de generatePdfDocument, qui évince AVANT d'insérer — et c'est pour ça que
+  //    lui doit garder (status/is_finalized/signature_status) là où nous pouvons
+  //    écraser un final signé : ici le neuf existe déjà quand l'ancien part.
   if (replaceDocumentId) {
-    const { error: supersedeErr } = await supabase
+    // ⚠️ `.eq('company_id')` — LA GARDE DE LOCATAIRE, ET ELLE EST INDISPENSABLE ICI.
+    // Ce client est SERVICE-ROLE (route:224), donc la politique `documents_update_own`
+    // ne s'applique PAS. Et `replaceDocumentId` vient du CLIENT : sans cette clause,
+    // un identifiant forgé mettait au rancart le document d'une autre société.
+    // Les deux autres sites de mise au rancart ont déjà cette garde — celui-ci
+    // était le seul dont l'id n'est pas calculé côté serveur, et le seul sans garde.
+    // ⚠️ On n'ajoute PAS status/is_finalized/signature_status : ce remplacement est
+    // CONFIRMÉ par l'utilisateur et doit pouvoir écraser un final signé.
+    const { data: flipped, error: supersedeErr } = await supabase
       .from('documents')
       .update({ status: 'superseded', superseded_at: new Date().toISOString() })
-      .eq('id', replaceDocumentId);
+      .eq('id', replaceDocumentId)
+      .eq('company_id', companyId)
+      // `.select()` fait passer PostgREST en `Prefer: return=representation` : on
+      // apprend QUELLES lignes ont bougé, pas seulement s'il y a eu une erreur.
+      // ⚠️ Valide parce que ce client est service-role. Sur un client de SESSION,
+      // la politique SELECT re-filtrerait ce retour et pourrait masquer une ligne
+      // pourtant modifiée — le compte ci-dessous mentirait alors dans ce sens.
+      .select('id');
     if (supersedeErr) {
       console.error(
         '[uploadDocument] Replace supersede failed (old doc left active):',
         replaceDocumentId,
         supersedeErr,
+      );
+    } else if ((flipped ?? []).length !== 1) {
+      // Pas une erreur SQL : un REFUS SILENCIEUX. La garde a filtré l'identifiant,
+      // donc il ne désigne aucun document de cette société. Sans cette branche, on
+      // aurait troqué un trou silencieux contre un refus silencieux.
+      console.error(
+        '[uploadDocument] Replace supersede matched no row — id étranger à la société ?',
+        { replaceDocumentId, companyId, lignesModifiees: (flipped ?? []).length },
       );
     }
   }
