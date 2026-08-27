@@ -184,7 +184,25 @@ export async function POST(request: NextRequest) {
 
     const framework = str('framework') === 'CBCA' ? 'CBCA' : 'LSA';
     const isFinalized = str('isFinalized') === 'true';
-    const replaceDocumentId = str('replaceDocumentId') || undefined;
+    // A7 — LE CHAMP EST PLURIEL, ET UN SEUL NOM SERT LES DEUX MODES. Le mode LIGNE
+    // envoie un tableau d'UN élément, le mode COFFRE en envoie N déjà dédoublonnés
+    // par document. Même idiome JSON gardé que `requirementLinks` ci-dessus : un
+    // corps illisible est ignoré plutôt que de faire échouer un téléversement valide.
+    // ⚠️ Le dédoublonnage est REFAIT ici : le client l'a déjà fait, mais ce champ
+    // arrive du réseau et rien n'oblige un appelant futur à être propre.
+    let replaceDocumentIds: string[] | undefined;
+    const rawReplaceIds = str('replaceDocumentIds');
+    if (rawReplaceIds) {
+      try {
+        const parsed = JSON.parse(rawReplaceIds);
+        if (Array.isArray(parsed)) {
+          const cleaned = Array.from(
+            new Set(parsed.filter((v): v is string => typeof v === 'string' && v !== '')),
+          );
+          if (cleaned.length > 0) replaceDocumentIds = cleaned;
+        }
+      } catch { /* malformed replaceDocumentIds ignored — same treatment as requirementLinks */ }
+    }
 
     /* ---------- Body-content validation (Brief #4 — server safety-nets) ----------
        Both guards close the raw-API / future-caller hole; the two UI callers
@@ -237,7 +255,7 @@ export async function POST(request: NextRequest) {
       // its own field; same string-boolean idiom as isFinalized above.
       noFiscalYear: str('noFiscalYear') === 'true',
       isFinalized,
-      ...(replaceDocumentId ? { replaceDocumentId } : {}),
+      ...(replaceDocumentIds ? { replaceDocumentIds } : {}),
       ...(eventLink ? { eventLink } : {}),
       ...(requirementLinks ? { requirementLinks } : {}),
     });

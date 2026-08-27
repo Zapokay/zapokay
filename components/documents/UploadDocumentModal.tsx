@@ -547,17 +547,41 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   //    E7 — ANY of the N, not only the first: a conflict the user cannot see is a
   //    conflict the warning owes them. The confirm copy receives the COUNT, because
   //    a warning that names the wrong peril warns of nothing.
-  //    ⚠️ LIMIT, STATED RATHER THAN HIDDEN: `replaceDocumentId` retires ONE document,
-  //    so at two or more conflicts only the FIRST is superseded — and the copy says
-  //    so. Retiring all N belongs to the #135 predicate work (A7), not here.
+  //    ★ A7 — LA LIMITE ANNONCÉE ICI EST LEVÉE. Ce commentaire disait : « retires ONE
+  //    document, so at two or more conflicts only the FIRST is superseded ». Ce n'est
+  //    plus vrai : le champ du fil est pluriel, TOUS les finaux concernés partent, et
+  //    la copie ne promet plus le contraire. Gardé plutôt que supprimé — la dette
+  //    était nommée à l'avance, et voir qu'elle a été payée vaut mieux qu'un silence.
   const conflictingReqs = useMemo(
     () => selectedReqs.filter((r) => r.satisfied && r.document_is_finalized === true),
     [selectedReqs],
   );
   const isFinalConflict = mode === 'vault' && isCertified && conflictingReqs.length > 0;
-  const detectedFinalId = isFinalConflict
-    ? (conflictingReqs[0]?.document_id ?? undefined)
-    : undefined;
+
+  // ⚠️⚠️ LE CONFLIT SE COMPTE EN DOCUMENTS, PAS EN EXIGENCES.
+  // `conflictingReqs` est une liste d'EXIGENCES, et plusieurs peuvent pointer le
+  // MÊME document final. Sans ce dédoublonnage, on le retirerait trois fois et on
+  // écrirait trois lignes d'Historique pour un seul départ. Le compte affiché, le
+  // bouton et la liste nommée lisent tous CECI, jamais `conflictingReqs.length`.
+  const conflictingDocs = useMemo(() => {
+    const byId = new Map<string, { id: string; reqs: ChecklistItem[] }>();
+    for (const r of conflictingReqs) {
+      if (!r.document_id) continue;
+      const entry = byId.get(r.document_id);
+      if (entry) entry.reqs.push(r);
+      else byId.set(r.document_id, { id: r.document_id, reqs: [r] });
+    }
+    return Array.from(byId.values());
+  }, [conflictingReqs]);
+
+  const detectedFinalIds = isFinalConflict ? conflictingDocs.map((d) => d.id) : [];
+
+  /** Le libellé d'UNE exigence en conflit : titre du catalogue, exercice si annuelle. */
+  const conflictLabel = useCallback(
+    (r: ChecklistItem) =>
+      `${fr ? r.title_fr : r.title_en}${r.year !== null ? ` · ${getFiscalYearLabel(r.year, locale)}` : ''}`,
+    [fr, locale],
+  );
 
   // -- Submit gate --
   // Phase B B5: certification is no longer mandatory. The checkbox is still
@@ -623,8 +647,15 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     // Single source for the replace target: the explicit prop (Completeness
     // row path) OR the Vault-detected existing final id (Part 4). Either way
     // it flows into the Pass-B supersede in uploadDocument.
-    const effectiveReplaceId = replaceDocumentId ?? detectedFinalId;
-    if (effectiveReplaceId) fd.append('replaceDocumentId', effectiveReplaceId);
+    // A7 — UN SEUL NOM DE CHAMP, RÉPÉTABLE, POUR LES DEUX MODES. Le mode LIGNE
+    // fournit son unique identifiant par la prop et voyage donc en tableau d'UN
+    // élément ; le mode COFFRE en envoie N, déjà dédoublonnés par document. Aucune
+    // branche côté route, et le mode ligne ne change de comportement d'aucune façon.
+    // Même idiome JSON que `requirementLinks` ci-dessus.
+    const effectiveReplaceIds = replaceDocumentId ? [replaceDocumentId] : detectedFinalIds;
+    if (effectiveReplaceIds.length > 0) {
+      fd.append('replaceDocumentIds', JSON.stringify(effectiveReplaceIds));
+    }
     // No userId field — the route derives it from the session (closes the
     // trusted-param hole). eventLink (Brief 2b): forwarded when the event-row
     // caller sets it, so uploadDocument writes the event_documents link (the
@@ -684,7 +715,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     replaceDocumentId,
     eventLink,
     isFinalConflict,
-    detectedFinalId,
+    detectedFinalIds,
     t,
     onError,
     onUploadComplete,
@@ -780,11 +811,29 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
             />
             <div>
               <h4 className="text-sm font-semibold text-[var(--warning-text)]">
-                {t('upload.finalReplaceTitle')}
+                {t('upload.finalReplaceTitle', { count: conflictingDocs.length })}
               </h4>
               <p className="mt-1 text-sm text-[var(--warning-text)]">
-                {t('upload.finalReplaceBody', { count: conflictingReqs.length })}
+                {t('upload.finalReplaceBody', { count: conflictingDocs.length })}
               </p>
+              {/* ★ CE QUI ARRÊTE, C'EST LA LISTE NOMMÉE. Une seule confirmation, pas
+                  de seconde étape « êtes-vous certain » : ce qui fait réfléchir, c'est
+                  de LIRE ce qu'on détruit, plus le mot « ne pourra pas être récupéré ».
+                  ⚠️ Ces libellés viennent du CLIENT (`conflictingReqs`), et c'est
+                  admis : ils s'affichent puis disparaissent. Le titre des entrées
+                  d'Historique, lui, est relu côté SERVEUR — un registre permanent ne
+                  prend pas un libellé fourni par le navigateur. Deux sources, deux
+                  niveaux de confiance, délibérément. */}
+              <ul className="mt-2 space-y-0.5 text-sm text-[var(--warning-text)]">
+                {conflictingDocs.map((d) => (
+                  <li key={d.id} className="flex gap-2">
+                    <span aria-hidden="true">•</span>
+                    <span className="min-w-0">
+                      {d.reqs.map(conflictLabel).join(' + ')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         )}
@@ -1134,11 +1183,17 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
             disabled={!canSubmit}
             className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--navy-600)] text-white hover:bg-[var(--navy-800)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
+            {/* ⚠️ `step === 'confirm'` est testé AVANT `isReplace`, et les deux
+                branches sont séparées à dessein. `upload.replaceSubmit` est PARTAGÉE
+                avec le mode LIGNE, qui ne fournit aucun `count` : la passer au pluriel
+                l'aurait cassé. Le mode ligne reste sur `replaceSubmit`, intacte. */}
             {step === 'uploading'
               ? t('upload.submitting')
-              : step === 'confirm' || isReplace
-                ? t('upload.replaceSubmit')
-                : t('upload.submit')}
+              : step === 'confirm'
+                ? t('upload.finalReplaceSubmit', { count: conflictingDocs.length })
+                : isReplace
+                  ? t('upload.replaceSubmit')
+                  : t('upload.submit')}
           </button>
         </div>
       </div>

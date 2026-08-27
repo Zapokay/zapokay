@@ -31,6 +31,7 @@ import { toStorageSafeName } from '@/lib/storage-key';
 import { resolveMinuteBookSection, isMinuteBookSection } from '@/lib/minute-book-section';
 import { logActivity } from '@/lib/activity-log';
 import { isPdfBytes } from '@/lib/pdf-magic';
+import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 
 export interface UploadDocumentParams {
   file: File;
@@ -76,7 +77,7 @@ export interface UploadDocumentParams {
    * unique_violation on insert and the helper would return ok:false with
    * the old doc untouched.
    */
-  replaceDocumentId?: string;
+  replaceDocumentIds?: string[];
   /**
    * Brief 2 — lifecycle event-row upload. When provided, after the documents
    * row inserts, an event_documents link row is written at the 4-col grain
@@ -85,8 +86,8 @@ export interface UploadDocumentParams {
    * every requirement-path caller omits this and behaves identically. Mirrors
    * the generate orchestrator's link write incl. compensating delete (if the
    * link insert fails the just-inserted doc is removed). Written BEFORE the
-   * replaceDocumentId cleanup below, so a link failure rolls back the NEW doc
-   * and leaves the replace target intact.
+   * replaceDocumentIds cleanup below, so a link failure rolls back the NEW doc
+   * and leaves the replace targets intact.
    */
   eventLink?: { event_type: string; event_id: string; event_phase: string };
   /**
@@ -127,7 +128,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
     minuteBookSection: explicitSection,
     noFiscalYear = false,
     isFinalized = false,
-    replaceDocumentId,
+    replaceDocumentIds,
     eventLink,
     requirementLinks,
   } = params;
@@ -203,7 +204,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
   //     generate orchestrator's pattern (lib/pdf/generate-lifecycle-document.ts)
   //     including the compensating delete. Runs BEFORE the replace cleanup
   //     below: if the link insert fails we remove the just-inserted doc +
-  //     storage and return, so the replaceDocumentId target (if any) is left
+  //     storage and return, so the replaceDocumentIds targets (if any) are left
   //     intact rather than deleted-then-orphaned.
   if (eventLink) {
     const { error: linkError } = await supabase
@@ -289,40 +290,62 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
   //    de generatePdfDocument, qui évince AVANT d'insérer — et c'est pour ça que
   //    lui doit garder (status/is_finalized/signature_status) là où nous pouvons
   //    écraser un final signé : ici le neuf existe déjà quand l'ancien part.
-  if (replaceDocumentId) {
+  if (replaceDocumentIds && replaceDocumentIds.length > 0) {
     // ⚠️ `.eq('company_id')` — LA GARDE DE LOCATAIRE, ET ELLE EST INDISPENSABLE ICI.
     // Ce client est SERVICE-ROLE (route:224), donc la politique `documents_update_own`
-    // ne s'applique PAS. Et `replaceDocumentId` vient du CLIENT : sans cette clause,
-    // un identifiant forgé mettait au rancart le document d'une autre société.
-    // Les deux autres sites de mise au rancart ont déjà cette garde — celui-ci
-    // était le seul dont l'id n'est pas calculé côté serveur, et le seul sans garde.
+    // ne s'applique PAS. Et ces identifiants viennent du CLIENT : sans cette clause,
+    // une liste forgée mettait au rancart les documents d'une autre société — et au
+    // pluriel, la portée du trou serait multipliée par N.
     // ⚠️ On n'ajoute PAS status/is_finalized/signature_status : ce remplacement est
     // CONFIRMÉ par l'utilisateur et doit pouvoir écraser un final signé.
-    const { data: flipped, error: supersedeErr } = await supabase
+    const { data: flippedRows, error: supersedeErr } = await supabase
       .from('documents')
       .update({ status: 'superseded', superseded_at: new Date().toISOString() })
-      .eq('id', replaceDocumentId)
+      .in('id', replaceDocumentIds)
       .eq('company_id', companyId)
       // `.select()` fait passer PostgREST en `Prefer: return=representation` : on
-      // apprend QUELLES lignes ont bougé, pas seulement s'il y a eu une erreur.
+      // apprend QUELS documents ont bougé, pas seulement s'il y a eu une erreur.
       // ⚠️ Valide parce que ce client est service-role. Sur un client de SESSION,
       // la politique SELECT re-filtrerait ce retour et pourrait masquer une ligne
-      // pourtant modifiée — le compte ci-dessous mentirait alors dans ce sens.
+      // pourtant modifiée — la liste ci-dessous mentirait alors par défaut.
       .select('id');
+
+    const flippedIds = (flippedRows ?? []).map((r: { id: string }) => r.id);
+
     if (supersedeErr) {
       console.error(
-        '[uploadDocument] Replace supersede failed (old doc left active):',
-        replaceDocumentId,
+        '[uploadDocument] Replace supersede failed (old docs left active):',
+        replaceDocumentIds,
         supersedeErr,
       );
-    } else if ((flipped ?? []).length !== 1) {
-      // Pas une erreur SQL : un REFUS SILENCIEUX. La garde a filtré l'identifiant,
-      // donc il ne désigne aucun document de cette société. Sans cette branche, on
-      // aurait troqué un trou silencieux contre un refus silencieux.
+    } else if (flippedIds.length !== replaceDocumentIds.length) {
+      // Pas une erreur SQL : un REFUS SILENCIEUX. La garde a filtré des identifiants,
+      // qui ne désignent aucun document de cette société. On nomme les SURVIVANTS —
+      // un écart de comptes ne dirait pas LESQUELS, et c'est ce qu'il faut pour
+      // réparer à la main.
+      // ⚠️ On ne bloque PAS : le document neuf existe déjà et ses liaisons aussi.
+      // Un final resté actif sur une exigence que le neuf déclare est exactement
+      // l'état qu'on répare — mais l'annoncer vaut mieux que de le taire.
+      const survivants = replaceDocumentIds.filter((id) => !flippedIds.includes(id));
       console.error(
-        '[uploadDocument] Replace supersede matched no row — id étranger à la société ?',
-        { replaceDocumentId, companyId, lignesModifiees: (flipped ?? []).length },
+        '[uploadDocument] Replace supersede partiel — ids étrangers à la société ou déjà partis :',
+        { companyId, demandes: replaceDocumentIds, basculés: flippedIds, survivants },
       );
+    }
+
+    // ── L'HISTORIQUE : UNE LIGNE PAR DOCUMENT RÉELLEMENT RETIRÉ ──
+    // ★ PILOTÉ PAR `flippedIds`, JAMAIS PAR `replaceDocumentIds`. On consigne ce qui
+    // a EU LIEU, pas ce qui a été demandé. Une entrée annonçant la mise au rancart
+    // d'un document resté actif serait un registre qui ment, et un registre qui ment
+    // est pire que pas de registre.
+    if (flippedIds.length > 0) {
+      await logSupersededDocuments({
+        supabase,
+        companyId,
+        userId,
+        framework,
+        documentIds: flippedIds,
+      });
     }
   }
 
@@ -345,4 +368,102 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Uplo
   }
 
   return { ok: true, documentId: insertedDoc.id };
+}
+
+/**
+ * A7 — UNE ENTRÉE D'HISTORIQUE PAR DOCUMENT MIS AU RANCART.
+ *
+ * ⚠️ LE LIBELLÉ EST RELU CÔTÉ SERVEUR, DÉLIBÉRÉMENT. La modale a déjà calculé des
+ * titres pour sa confirmation, mais ceux-là s'affichent et disparaissent. Ceux-ci
+ * entrent dans un REGISTRE PERMANENT : ils ne prennent pas un libellé fourni par le
+ * navigateur. Ce n'est pas une duplication, c'est une différence de niveau de
+ * confiance — l'affichage vient du client, le registre vient de la base.
+ *
+ * ⚠️ ON NOMME L'EXIGENCE ET L'ANNÉE, JAMAIS LE TITRE DU DOCUMENT. Deux documents
+ * actifs d'Acme portent le même titre au caractère près ; un registre qui les
+ * désignerait ainsi désignerait les deux à la fois.
+ *
+ * ⚠️ LE TITRE EST CUIT ICI, ET C'EST CE QUI LE FAIT SURVIVRE. `activity_log` n'a
+ * AUCUNE clé étrangère vers `documents` (vérifié : seules company_id et user_id en
+ * portent). La purge peut donc détruire la ligne du document — l'entrée reste
+ * lisible, avec le nom de ce qui est parti.
+ *
+ * Non fatal de bout en bout : le document neuf est déjà committé, rien ne le défait.
+ */
+async function logSupersededDocuments(params: {
+  supabase: SupabaseClient;
+  companyId: string;
+  userId: string;
+  framework: 'LSA' | 'CBCA';
+  documentIds: string[];
+}): Promise<void> {
+  const { supabase, companyId, userId, framework, documentIds } = params;
+  try {
+    // 1. Les liaisons des documents qui partent. Bornées à la société : un
+    //    identifiant étranger n'aurait de toute façon pas basculé plus haut.
+    const { data: links, error: linkErr } = await supabase
+      .from('requirement_documents')
+      .select('document_id, requirement_key, requirement_year')
+      .in('document_id', documentIds)
+      .eq('company_id', companyId);
+    if (linkErr) {
+      console.error('[uploadDocument] Historique — relecture des liaisons échouée:', linkErr);
+    }
+
+    // 2. Le catalogue, FILTRÉ PAR RÉGIME. Sans ce filtre, un client LSA lirait des
+    //    libellés `cbca_*` — même règle qu'au Coffre depuis 8d771c8.
+    const { data: catalogRows, error: catErr } = await supabase
+      .from('minute_book_requirements')
+      .select('requirement_key, title_fr, title_en')
+      .or(`framework.eq.${framework},framework.eq.ALL`);
+    if (catErr) {
+      console.error('[uploadDocument] Historique — relecture du catalogue échouée:', catErr);
+    }
+    const titles = new Map<string, { fr: string; en: string }>();
+    for (const r of (catalogRows ?? []) as { requirement_key: string; title_fr: string; title_en: string }[]) {
+      if (!titles.has(r.requirement_key)) titles.set(r.requirement_key, { fr: r.title_fr, en: r.title_en });
+    }
+
+    // 3. Regrouper par document : un document peut couvrir plusieurs exigences.
+    const byDoc = new Map<string, { key: string; year: number | null }[]>();
+    for (const l of (links ?? []) as { document_id: string; requirement_key: string; requirement_year: number | null }[]) {
+      const list = byDoc.get(l.document_id) ?? [];
+      list.push({ key: l.requirement_key, year: l.requirement_year ?? null });
+      byDoc.set(l.document_id, list);
+    }
+
+    for (const documentId of documentIds) {
+      const reqs = byDoc.get(documentId) ?? [];
+      // ⚠️ REPLI SUR LA CLÉ BRUTE quand le catalogue du régime ne porte pas la clé
+      //    — mesuré : deux liaisons d'Acme pointent des clés CBCA sur une société
+      //    LSA. Un repli laid vaut mieux qu'un registre muet. Un document SANS
+      //    aucune liaison garde une entrée : il est bien parti, et le dire compte.
+      const label = (lang: 'fr' | 'en') =>
+        reqs.length === 0
+          ? (lang === 'fr' ? 'exigence inconnue' : 'unknown requirement')
+          : reqs
+              .map((r) => {
+                const t = titles.get(r.key);
+                const name = t ? (lang === 'fr' ? t.fr : t.en) : r.key;
+                return r.year !== null ? `${name} · ${getFiscalYearLabel(r.year, lang)}` : name;
+              })
+              .join(' + ');
+
+      await logActivity(
+        supabase,
+        companyId,
+        userId,
+        'document_superseded',
+        `Document final remplacé : ${label('fr')}`,
+        `Final document replaced: ${label('en')}`,
+        {
+          document_id: documentId,
+          requirement_keys: reqs.map((r) => r.key),
+          requirement_years: reqs.map((r) => r.year),
+        },
+      );
+    }
+  } catch (err) {
+    console.error('[uploadDocument] Historique des mises au rancart échoué (non fatal):', err);
+  }
 }

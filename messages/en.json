@@ -322,8 +322,9 @@
       "archiveReplaceWarningTitle": "Replace this archive document?",
       "archiveReplaceWarningBody": "A copy of this document is already imported. Uploading a new file will make the previous copy unavailable.",
       "replaceSubmit": "Replace",
-      "finalReplaceTitle": "Replace the final document",
-      "finalReplaceBody": "{count, plural, =0 {None of the selected requirements holds a final document.} =1 {A final document already exists for the selected requirement. Uploading this will replace it: the old final document will be retired from the minute book. This action can be undone for 10 days.} other {# selected requirements already hold a final document. Uploading this will replace the first one; the other final documents will stay in place. This action can be undone for 10 days.}}"
+      "finalReplaceTitle": "{count, plural, =0 {Replace the final document} =1 {Replace the final document} other {Replace # final documents}}",
+      "finalReplaceBody": "{count, plural, =0 {None of the selected requirements holds a final document.} =1 {A final document already exists for the selected requirement. Uploading this will replace it: the old document will be removed from your vault and your minute book, and cannot be recovered.} other {The following final documents will be replaced. They will be removed from your vault and your minute book, and cannot be recovered.}}",
+      "finalReplaceSubmit": "{count, plural, =0 {Replace} =1 {Replace} other {Replace # documents}}"
     },
     "toSignBadge": "To sign",
     "coverageCount": "{count, plural, =0 {No requirement} =1 {1 requirement} other {# requirements}}",
