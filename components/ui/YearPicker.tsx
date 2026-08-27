@@ -8,16 +8,19 @@ import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
 interface YearPickerProps {
   locale: string
   years: number[]
-  /** When true, prepend "Documents fondateurs" / "Foundational documents" (value = 'foundational'). */
-  includeFoundationalOption?: boolean
-  /** When true, append "Non classé" / "Unclassified" (value = 'unclassified'). */
+  /**
+   * When true, append "Hors exercice" / "No fiscal year".
+   * ⚠️ LA VALEUR D'URL RESTE `'unclassified'`, ET C'EST DÉLIBÉRÉ : seul le
+   * LIBELLÉ change, pour qu'un lien mis en signet continue de fonctionner.
+   * L'option jumelle `'foundational'` a été retirée — elle disait la même chose
+   * dans d'autres mots et se chevauchait avec celle-ci.
+   */
   includeUnclassifiedOption?: boolean
 }
 
 function YearPickerInner({
   locale,
   years,
-  includeFoundationalOption = false,
   includeUnclassifiedOption = false,
 }: YearPickerProps) {
   const router = useRouter()
@@ -45,11 +48,6 @@ function YearPickerInner({
       }}
     >
       <option value="all">{t('filterAllYears')}</option>
-      {includeFoundationalOption && (
-        <option value="foundational">
-          {t('filterFoundational')}
-        </option>
-      )}
       {years.map(y => (
         <option key={y} value={String(y)}>
           {getFiscalYearLabel(y, locale)}
@@ -57,7 +55,7 @@ function YearPickerInner({
       ))}
       {includeUnclassifiedOption && (
         <option value="unclassified">
-          {t('filterUnclassified')}
+          {t('filterNoFiscalYear')}
         </option>
       )}
     </select>

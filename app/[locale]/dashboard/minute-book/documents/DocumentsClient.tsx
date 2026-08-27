@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { DocumentRow, type VaultDocument } from '@/components/documents/DocumentRow';
 import { UploadZone } from '@/components/documents/UploadZone';
@@ -21,8 +22,6 @@ interface DocumentsClientProps {
   requirementTitles?: Record<string, { fr: string; en: string }>;
   fiscalYearsConfigured?: boolean;
   activeFiscalYears?: number[];
-  /** Requirement keys (for this company's framework) whose category is 'foundational'. */
-  foundationalRequirementKeys?: string[];
   /** User's preferred language from users.preferred_language — seeds the upload form's Language field. */
   preferredLanguage?: 'fr' | 'en';
 }
@@ -44,22 +43,26 @@ const LANG_OPTIONS = [
   { value: 'bilingual', labelFr: 'Bilingue',           labelEn: 'Bilingual' },
 ];
 
-function DocumentsClientInner({ locale, company, initialDocuments, requirementKeysByDocument, requirementTitles = {}, fiscalYearsConfigured = true, activeFiscalYears = [], foundationalRequirementKeys = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
+function DocumentsClientInner({ locale, company, initialDocuments, requirementKeysByDocument, requirementTitles = {}, fiscalYearsConfigured = true, activeFiscalYears = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
   const fr = locale === 'fr';
+  const tDocs = useTranslations('documents');
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const yearParam = searchParams.get('year');
-  // Four-way filter mode: 'all' (no filter, default), 'foundational' sentinel,
-  // 'unclassified' sentinel, or a numeric year.
-  const yearMode: 'all' | 'foundational' | 'unclassified' | 'numeric' =
+  // TROIS modes de filtre : 'all' (aucun filtre, défaut), 'nofiscalyear', ou une
+  // année numérique. Ils étaient QUATRE : « Documents fondateurs » et « Non classé »
+  // se chevauchaient sans jamais coïncider, et fusionnent en « Hors exercice ».
+  // ⚠️ LES DEUX ANCIENNES VALEURS D'URL RESTENT ACCEPTÉES, ET DOIVENT LE RESTER.
+  // Un lien mis en signet sur `?year=foundational` ou `?year=unclassified` doit
+  // atterrir sur ce mode — jamais retomber en silence sur « Tous les exercices »,
+  // ce qui montrerait plus de documents que demandé sans rien dire.
+  const yearMode: 'all' | 'nofiscalyear' | 'numeric' =
     yearParam === null || yearParam === 'all'
       ? 'all'
-      : yearParam === 'foundational'
-        ? 'foundational'
-        : yearParam === 'unclassified'
-          ? 'unclassified'
-          : 'numeric';
+      : yearParam === 'unclassified' || yearParam === 'foundational'
+        ? 'nofiscalyear'
+        : 'numeric';
   const activeYear = yearMode === 'numeric' && yearParam ? parseInt(yearParam, 10) : null;
   const [documents, setDocuments] = useState<VaultDocument[]>(initialDocuments);
 
@@ -135,7 +138,6 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
     }
   }
 
-  const foundationalKeySet = new Set(foundationalRequirementKeys);
   const filtered = documents
     .filter(doc => {
       const matchSearch = !search || doc.title.toLowerCase().includes(search.toLowerCase());
@@ -145,18 +147,15 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
       let matchYear: boolean;
       if (yearMode === 'all') {
         matchYear = true;
-      } else if (yearMode === 'foundational') {
-        // A6 — lu sur les LIAISONS, plus sur le scalaire.
-        // ★ ÉQUIVALENT PAR CONSTRUCTION à l'ancien prédicat, et ce n'est pas une
-        // coïncidence de données : le moteur émet TOUTES les fondationnelles avant
-        // TOUTES les annuelles, et le scalaire est la première dans cet ordre. Une
-        // liaison fondationnelle implique donc un scalaire fondationnel. Cette
-        // bascule ne peut pas changer le contenu de cette puce — elle retire un
-        // lecteur du scalaire, elle ne corrige rien.
-        matchYear = (requirementKeysByDocument[doc.id] ?? []).some((l) => foundationalKeySet.has(l.key));
-      } else if (yearMode === 'unclassified') {
-        // A6 — « aucune exigence » se lit désormais « aucune liaison ».
-        matchYear = doc.document_year === null && (requirementKeysByDocument[doc.id] ?? []).length === 0;
+      } else if (yearMode === 'nofiscalyear') {
+        // ★ UN SEUL PRÉDICAT, ET IL DIT EXACTEMENT CE QUE LA PUCE ANNONCE.
+        // Deux puces se partageaient ce territoire : « Documents fondateurs »
+        // lisait les LIAISONS, « Non classé » lisait l'année ET l'absence de
+        // liaison. La première ratait tout document sans exigence cochée ; la
+        // seconde le montrait. Elles se chevauchaient sans jamais coïncider.
+        // ⚠️ MESURÉ AVANT LA FUSION : zéro document du parc ne porte à la fois une
+        // liaison fondationnelle et une année. Personne n'est déplacé.
+        matchYear = doc.document_year === null;
       } else {
         matchYear = !activeYear || doc.document_year === activeYear;
       }
@@ -220,12 +219,10 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
             ? (fr ? 'Aucun document' : 'No documents')
             : `${filtered.length} document${filtered.length !== 1 ? 's' : ''}${
                 yearMode === 'all'
-                  ? ` · ${fr ? 'Tous les exercices' : 'All fiscal years'}`
-                  : yearMode === 'foundational'
-                    ? ` · ${fr ? 'Documents fondateurs' : 'Foundational documents'}`
-                    : yearMode === 'unclassified'
-                      ? ` · ${fr ? 'Non classé' : 'Unclassified'}`
-                      : activeYear ? ` · ${activeYear}` : ''
+                  ? ` · ${tDocs('filterAllYears')}`
+                  : yearMode === 'nofiscalyear'
+                    ? ` · ${tDocs('filterNoFiscalYear')}`
+                    : activeYear ? ` · ${activeYear}` : ''
               }`}
         </p>
       </div>

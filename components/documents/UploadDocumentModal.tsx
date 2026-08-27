@@ -316,9 +316,13 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
       const key = req.year === null ? FOUNDATIONAL_GROUP : String(req.year);
       let group = byKey.get(key);
       if (!group) {
-        // ⚠️ `documents.filterFoundational` IS NOW READ IN TWO PLACES: the Vault's
-        // own year filter and this header. One vocabulary, not two — do not rename
-        // it believing you are touching a single surface.
+        // ★ CET EN-TÊTE EST LE SEUL LECTEUR DE `documents.filterFoundational`.
+        // Il l'a été à trois, brièvement : la puce d'année du Coffre et l'option
+        // « aucun exercice » de ce formulaire l'empruntaient. Les deux parlaient
+        // d'ANNÉE et disent désormais « Hors exercice » (`filterNoFiscalYear`).
+        // ⚠️ Ne la reprête à aucune surface qui parle d'exercice. Ici elle coiffe
+        // des exigences de catégorie `foundational` — la catégorie JURIDIQUE du
+        // catalogue, le seul sens que ce mot garde encore dans le produit.
         group = {
           key,
           label:
@@ -896,7 +900,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                 className="w-full px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="" disabled>{t('upload.fiscalYearPlaceholder')}</option>
-                <option value="none">{t('filterFoundational')}</option>
+                <option value="none">{t('filterNoFiscalYear')}</option>
                 {activeFiscalYears.map((y) => (
                   <option key={y} value={y}>
                     {getFiscalYearLabel(y, locale)}

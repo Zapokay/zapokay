@@ -94,12 +94,6 @@ export default async function DocumentsPage({
     requirement_key: string; category: string; title_fr: string; title_en: string;
   }[];
 
-  // ⚠️ `category` n'est plus un filtre SQL, il est reconstruit ICI. Sans ce filtre,
-  // la puce « Documents fondateurs » cesserait de filtrer SANS PLANTER.
-  const foundationalRequirementKeys = catalog
-    .filter((r) => r.category === 'foundational')
-    .map((r) => r.requirement_key);
-
   // ⚠️ UNIQUE (requirement_key, framework), PAS UNIQUE (requirement_key) : le jour
   // où une clé existe sous ('foo','ALL') ET ('foo','LSA'), on le dit, on n'écrase pas.
   const requirementTitles: Record<string, { fr: string; en: string }> = {};
@@ -120,7 +114,6 @@ export default async function DocumentsPage({
       profile={profile}
       company={company}
       fiscalYears={fiscalYears}
-      yearPickerIncludeFoundational={true}
       yearPickerIncludeUnclassified={true}
     >
       <DocumentsClient
@@ -133,7 +126,6 @@ export default async function DocumentsPage({
         activeFiscalYears={vaultYearRange}
         // activeFiscalYears now carries the FULL incorporation->current range
         // (vault offers archive years); the prop rename is a Tier-4 follow-up.
-        foundationalRequirementKeys={foundationalRequirementKeys}
         preferredLanguage={(profile?.preferred_language as 'fr' | 'en') ?? 'fr'}
       />
     </DashboardShell>
