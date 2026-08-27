@@ -5,7 +5,8 @@
     "save": "Save",
     "loading": "Loading...",
     "error": "An error occurred",
-    "required": "Required field"
+    "required": "Required field",
+    "close": "Close"
   },
   "auth": {
     "login": {

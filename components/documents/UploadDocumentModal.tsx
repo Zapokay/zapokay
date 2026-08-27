@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
-import { AlertTriangle, CheckCircle2, ChevronRight, Clock, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, Clock, X, XCircle } from 'lucide-react';
 import { getStateForChecklistItem } from '@/lib/minute-book/state';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { uploadErrorMessageKey } from '@/lib/upload-error-message';
@@ -116,6 +116,9 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   const tReq = useTranslations('requirementRow');
   // The Livre's own section labels, so the user reads the exact tab name.
   const tSections = useTranslations('minuteBook.binder.sections');
+  // `common` plutôt que `documents` : la passe des treize autres modales voudra la
+  // MÊME étiquette depuis directors/, officers/, shareholders/ et lifecycle/.
+  const tCommon = useTranslations('common');
 
   // -- State --
   const [title, setTitle] = useState(prefill?.title ?? '');
@@ -737,12 +740,22 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
 
   if (!isOpen || typeof document === 'undefined') return null;
 
+  // ⚠️ CE VOILE NE FERME PLUS. Il portait `onClick` → `onClose`, et un clic à côté
+  // effaçait sept champs remplis et une liste de quarante lignes cochée. La commodité
+  // de refermer une fenêtre ouverte par erreur ne vaut pas le risque de perdre un
+  // travail qu'on ne peut pas récupérer : une modale de SAISIE ne se ferme pas sur un
+  // geste qu'on n'a pas voulu faire. Une modale qui ne fait que MONTRER garde ce
+  // comportement — ce n'est pas la même chose.
+  // LES TROIS SORTIES RESTANTES : le X de l'en-tête, « Annuler » au pied, et Échap.
+  // ★ ET L'ORDRE A COMPTÉ : le X a été ajouté AVANT que ceci soit retiré. Le pied
+  // défile avec le contenu (`overflow-y-auto` sur la carte) et Échap est invisible —
+  // sans le X, retirer ce clic aurait enfermé l'utilisateur en bas de la liste. On
+  // n'enlève pas une sortie sans en offrir une visible.
+  // ⚠️ Le `stopPropagation` de la carte plus bas RESTE : il sert à autre chose, et le
+  // retirer réveillerait ce qu'on ferme ici.
   return createPortal(
     <div
       ref={overlayRef}
-      onClick={(e) => {
-        if (e.target === overlayRef.current && step !== 'uploading') onClose();
-      }}
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
     >
       {/* ⚠️ LA LARGEUR SUIT LE CONTENU, PAS LE COMPOSANT. Une seule coquille sert
@@ -760,19 +773,59 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        className={`bg-[var(--card-bg)] rounded-xl ${mode === 'vault' ? 'max-w-2xl' : 'max-w-lg'} w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto`}
+        className={`bg-[var(--card-bg)] rounded-xl ${mode === 'vault' ? 'max-w-2xl' : 'max-w-lg'} w-full shadow-2xl max-h-[90vh] flex flex-col overflow-hidden`}
       >
-        {/* Header */}
-        <div className="mb-4">
-          <h3 className="text-base font-semibold text-[var(--text-heading)]">
-            {t('upload.modalTitle')}
-          </h3>
-          <p className="text-xs text-[var(--text-muted)] mt-1">
-            {mode === 'vault'
-              ? t('upload.modalSubtitleVault')
-              : t('upload.modalSubtitleRow', { requirement: subtitleRow })}
-          </p>
+        {/* En-tête FIXE PAR STRUCTURE, pas par `sticky`.
+            La carte est une COLONNE FLEX à débordement caché : cet en-tête est un
+            frère `flex-shrink-0` qui ne défile jamais, et le corps plus bas est le
+            seul `overflow-y-auto`. C'est la forme de DocumentModal.tsx:166-176, et
+            `overflow-hidden` + `rounded-xl` clippe enfin proprement les coins.
+            ⚠️ UN EN-TÊTE `sticky` A ÉTÉ ESSAYÉ ICI, ET IL ÉTAIT FAUX — n'y reviens
+            pas. Sur une carte qui défilait ENTIÈREMENT (`p-6` et `overflow-y-auto`
+            sur le même élément), il fallait le faire saigner par `-mx-6 -mt-6` pour
+            couvrir les gouttières. Or `-mt-6` retire 24 px du FLUX pendant que
+            `pt-6` rend la hauteur VISUELLE : le contenu suivant démarrait 24 px trop
+            haut et passait SOUS un en-tête opaque en `z-10`. Vu à la caméra, à
+            l'ouverture, sans avoir défilé — l'en-tête recouvrait la ligne du fichier.
+            La rustine ne se répare pas : c'est la structure qui la rendait
+            nécessaire qu'on a retirée. */}
+        <div className="flex-shrink-0 flex items-start justify-between gap-3 border-b border-[var(--card-border)] px-6 pb-3 pt-6">
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-[var(--text-heading)]">
+              {t('upload.modalTitle')}
+            </h3>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              {mode === 'vault'
+                ? t('upload.modalSubtitleVault')
+                : t('upload.modalSubtitleRow', { requirement: subtitleRow })}
+            </p>
+          </div>
+          {/* ★ LA SORTIE VISIBLE, AJOUTÉE AVANT QUE LE CLIC AU VOILE SOIT RETIRÉ.
+              Glyphe et classes copiés des treize autres modales du dépôt
+              (AddDirectorModal.tsx:214-220) — même DIALECTE, pas le `×` en styles
+              inline de DocumentModal, qui serait un troisième idiome dans ce fichier.
+              ⚠️ `disabled` pendant l'envoi, comme les deux boutons du pied. */}
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={step === 'uploading'}
+            aria-label={tCommon('close')}
+            className="flex-shrink-0 rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-body)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
+
+        {/* LE CORPS — le SEUL conteneur qui défile, et il porte le rembourrage que
+            la carte a perdu. Il enveloppe tout : la bannière de conflit, la ligne du
+            fichier, les sept champs, la liste des exigences, la certification ET le
+            pied. Le pied défile avec le reste — décision de Dom, l'en-tête suffit.
+            ⚠️ La carte n'a plus de `p-6` : tout enfant direct qui en dépendait doit
+            vivre ICI ou porter son propre rembourrage.
+            ⚠️ L'INDENTATION DE SON CONTENU N'A PAS ÉTÉ REPRISE, DÉLIBÉRÉMENT :
+            ré-indenter 400 lignes aurait noyé un changement de six lignes dans un
+            diff illisible. JSX n'en a cure ; le lecteur du diff, si. */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
 
         {/* Replace warning (Phase B B4) — amber treatment per Dom's call:
             consequential but recoverable (regenerate-from-template recourse). */}
@@ -1196,6 +1249,8 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                   : t('upload.submit')}
           </button>
         </div>
+
+        </div>{/* fin du corps défilant */}
       </div>
     </div>,
     document.body,

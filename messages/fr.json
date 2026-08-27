@@ -5,7 +5,8 @@
     "save": "Enregistrer",
     "loading": "Chargement...",
     "error": "Une erreur est survenue",
-    "required": "Champ requis"
+    "required": "Champ requis",
+    "close": "Fermer"
   },
   "auth": {
     "login": {
