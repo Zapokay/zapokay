@@ -35,11 +35,16 @@ interface DocumentRowProps {
   aiSummariesEnabled?: boolean;
   /** A6 — nombre d'exigences que ce document couvre (lu sur requirement_documents). */
   coverageCount: number;
+  /** VISUEL-1 — les liaisons elles-mêmes, pour la modale. Le badge ci-dessous
+   *  continue de ne lire que `coverageCount` : on ajoute un lecteur, on n'en change aucun. */
+  coverageLinks?: { key: string; year: number | null }[];
+  /** VISUEL-1 — libellés du catalogue pour le régime de la société. */
+  requirementTitles?: Record<string, { fr: string; en: string }>;
 }
 
 const BUCKET_MARKER = '/object/public/documents/';
 
-export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false, coverageCount }: DocumentRowProps) {
+export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false, coverageCount, coverageLinks = [], requirementTitles = {} }: DocumentRowProps) {
   const tDocs = useTranslations('documents');
   const [hovered, setHovered] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -211,6 +216,8 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
           doc={doc}
           locale={locale}
           aiSummariesEnabled={aiSummariesEnabled}
+          coverageLinks={coverageLinks}
+          requirementTitles={requirementTitles}
           onClose={() => setShowDocModal(false)}
         />
       )}

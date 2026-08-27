@@ -13,8 +13,12 @@ interface DocumentsClientProps {
   locale: string;
   company: Company | null;
   initialDocuments: VaultDocument[];
-  /** A6 — les clés d'exigence couvertes, par document_id. Lu sur requirement_documents. */
-  requirementKeysByDocument: Record<string, string[]>;
+  /** A6 — les liaisons couvertes, par document_id. Lu sur requirement_documents.
+   *  VISUEL-1 — chaque liaison porte son année ; `year: null` = fondationnelle. */
+  requirementKeysByDocument: Record<string, { key: string; year: number | null }[]>;
+  /** VISUEL-1 — libellés du catalogue, filtrés par régime. Clé absente = pas de
+   *  libellé dans CE régime ; l'affichage retombe alors sur la clé brute. */
+  requirementTitles?: Record<string, { fr: string; en: string }>;
   fiscalYearsConfigured?: boolean;
   activeFiscalYears?: number[];
   /** Requirement keys (for this company's framework) whose category is 'foundational'. */
@@ -40,7 +44,7 @@ const LANG_OPTIONS = [
   { value: 'bilingual', labelFr: 'Bilingue',           labelEn: 'Bilingual' },
 ];
 
-function DocumentsClientInner({ locale, company, initialDocuments, requirementKeysByDocument, fiscalYearsConfigured = true, activeFiscalYears = [], foundationalRequirementKeys = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
+function DocumentsClientInner({ locale, company, initialDocuments, requirementKeysByDocument, requirementTitles = {}, fiscalYearsConfigured = true, activeFiscalYears = [], foundationalRequirementKeys = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
   const fr = locale === 'fr';
   const supabase = createClient();
   const router = useRouter();
@@ -149,7 +153,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
         // liaison fondationnelle implique donc un scalaire fondationnel. Cette
         // bascule ne peut pas changer le contenu de cette puce — elle retire un
         // lecteur du scalaire, elle ne corrige rien.
-        matchYear = (requirementKeysByDocument[doc.id] ?? []).some((k) => foundationalKeySet.has(k));
+        matchYear = (requirementKeysByDocument[doc.id] ?? []).some((l) => foundationalKeySet.has(l.key));
       } else if (yearMode === 'unclassified') {
         // A6 — « aucune exigence » se lit désormais « aucune liaison ».
         matchYear = doc.document_year === null && (requirementKeysByDocument[doc.id] ?? []).length === 0;
@@ -301,6 +305,8 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
               onDelete={handleDelete}
               aiSummariesEnabled={aiSummariesEnabled}
               coverageCount={(requirementKeysByDocument[doc.id] ?? []).length}
+              coverageLinks={requirementKeysByDocument[doc.id] ?? []}
+              requirementTitles={requirementTitles}
             />
           ))}
         </div>

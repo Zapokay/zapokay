@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import type { VaultDocument } from './DocumentRow';
 
@@ -20,8 +21,17 @@ interface DocumentModalProps {
   doc: VaultDocument;
   locale: string;
   aiSummariesEnabled: boolean;
+  /** VISUEL-1 — les liaisons du document ; `year: null` = exigence fondationnelle. */
+  coverageLinks?: { key: string; year: number | null }[];
+  /** VISUEL-1 — libellés du catalogue. Clé absente → la clé BRUTE s'affiche en muet :
+   *  le compte reste vrai et l'anomalie de données devient visible au lieu d'être masquée. */
+  requirementTitles?: Record<string, { fr: string; en: string }>;
   onClose: () => void;
 }
+
+// VISUEL-1 — au-delà de ce seuil, l'en-tête porte le compte et la liste se replie.
+const COVERAGE_MAX_INLINE = 4;
+const COVERAGE_VISIBLE_COLLAPSED = 3;
 
 function SkeletonLine({ width = '100%' }: { width?: string }) {
   return (
@@ -37,8 +47,9 @@ function SkeletonLine({ width = '100%' }: { width?: string }) {
 
 type SummaryState = 'idle' | 'loading' | 'loaded' | 'error' | 'unavailable';
 
-export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: DocumentModalProps) {
+export function DocumentModal({ doc, locale, aiSummariesEnabled, coverageLinks = [], requirementTitles = {}, onClose }: DocumentModalProps) {
   const fr = locale === 'fr';
+  const tDocs = useTranslations('documents');
   const supabase = createClient();
 
   const [activeTab, setActiveTab] = useState<'summary' | 'document'>(
@@ -49,6 +60,7 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
   const [expandedPoints, setExpandedPoints] = useState<Set<number>>(new Set());
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [coverageExpanded, setCoverageExpanded] = useState(false);
 
   const previewUrl = `/api/documents/${doc.id}/download?preview=true`;
 
@@ -109,6 +121,19 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
       return next;
     });
   }
+
+  // VISUEL-1 — ORDRE VERROUILLÉ : les fondationnelles (sans année) d'abord, puis les
+  // autres par année DÉCROISSANTE. Même ordre que le moteur (E1) et que Complétude.
+  const sortedCoverage = [...coverageLinks].sort((a, b) => {
+    if (a.year === null && b.year === null) return 0;
+    if (a.year === null) return -1;
+    if (b.year === null) return 1;
+    return b.year - a.year;
+  });
+  const coverageOverflows = sortedCoverage.length > COVERAGE_MAX_INLINE;
+  const visibleCoverage = coverageOverflows && !coverageExpanded
+    ? sortedCoverage.slice(0, COVERAGE_VISIBLE_COLLAPSED)
+    : sortedCoverage;
 
   const tabStyle = (active: boolean) => ({
     padding: '8px 16px',
@@ -178,6 +203,75 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, onClose }: Docu
             ×
           </button>
         </div>
+
+        {/* VISUEL-1 — ce que le document satisfait. Jetons `--info-*` comme le badge
+            du Coffre : ils suivent le sombre, ce que les `--navy-*` ne font pas. */}
+        {sortedCoverage.length > 0 && (
+          <div style={{
+            padding: '10px 20px 12px',
+            background: 'var(--info-bg)',
+            borderBottom: '1px solid var(--info-border)',
+          }}>
+            <div style={{
+              fontSize: '10px', fontWeight: 700,
+              letterSpacing: '.06em', textTransform: 'uppercase',
+              color: 'var(--info-text)', marginBottom: '6px',
+            }}>
+              {coverageOverflows
+                ? tDocs('coverageSatisfiesCounted', { count: sortedCoverage.length })
+                : tDocs('coverageSatisfies')}
+            </div>
+
+            <div style={{
+              maxHeight: coverageExpanded ? '148px' : undefined,
+              overflowY: coverageExpanded ? 'auto' : undefined,
+            }}>
+              {visibleCoverage.map((link) => {
+                const entry = requirementTitles[link.key];
+                return (
+                  <div
+                    key={`${link.key}-${link.year ?? 'founding'}`}
+                    style={{
+                      display: 'flex', gap: '10px', alignItems: 'baseline',
+                      fontSize: '12.5px', lineHeight: 1.65,
+                    }}
+                  >
+                    <span style={{
+                      flexShrink: 0, minWidth: '54px',
+                      fontVariantNumeric: 'tabular-nums',
+                      fontWeight: link.year === null ? 500 : 600,
+                      fontStyle: link.year === null ? 'italic' : 'normal',
+                      color: link.year === null ? 'var(--text-muted)' : 'var(--info-text)',
+                    }}>
+                      {link.year === null ? tDocs('coverageFounding') : link.year}
+                    </span>
+                    <span style={{
+                      minWidth: 0,
+                      color: entry ? 'var(--text-body)' : 'var(--text-muted)',
+                    }}>
+                      {entry ? (fr ? entry.fr : entry.en) : link.key}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {coverageOverflows && (
+              <button
+                onClick={() => setCoverageExpanded(v => !v)}
+                style={{
+                  marginTop: '6px', padding: 0,
+                  border: 'none', background: 'transparent', cursor: 'pointer',
+                  fontSize: '11.5px', fontWeight: 600, color: 'var(--info-text)',
+                }}
+              >
+                {coverageExpanded
+                  ? tDocs('coverageCollapse')
+                  : tDocs('coverageExpand', { count: sortedCoverage.length - COVERAGE_VISIBLE_COLLAPSED })}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Tabs — only if AI summaries enabled */}
         {aiSummariesEnabled && (

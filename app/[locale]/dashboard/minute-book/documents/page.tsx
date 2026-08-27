@@ -43,16 +43,19 @@ export default async function DocumentsPage({
      une exception « inoffensive » devient le précédent de la suivante. */
   const { data: requirementLinks } = await supabase
     .from('requirement_documents')
-    .select('document_id, requirement_key, document:documents!inner(status)')
+    .select('document_id, requirement_key, requirement_year, document:documents!inner(status)')
     .eq('company_id', company?.id ?? '')
     .eq('document.status', 'active');
 
   // ⚠️ UN OBJET SIMPLE, PAS UNE `Map`. Cette valeur traverse la frontière
   // serveur → client : une Map n'est pas sérialisable dans une charge RSC et
-  // arriverait vide, sans erreur.
-  const requirementKeysByDocument: Record<string, string[]> = {};
+  // arriverait vide, sans erreur. Un objet `{ key, year }` reste du JSON pur.
+  const requirementKeysByDocument: Record<string, { key: string; year: number | null }[]> = {};
   for (const link of requirementLinks ?? []) {
-    (requirementKeysByDocument[link.document_id] ??= []).push(link.requirement_key);
+    (requirementKeysByDocument[link.document_id] ??= []).push({
+      key: link.requirement_key,
+      year: link.requirement_year ?? null,
+    });
   }
 
   const { data: fiscalYearsData } = company
@@ -76,19 +79,40 @@ export default async function DocumentsPage({
       ).reverse()
     : [];
 
-  // Foundational requirement keys for this company's framework.
+  // The requirement catalog for this company's framework — titles included.
   // Mirrors the framework filter used in /api/minute-book/completeness.
   const framework = company?.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
-  const { data: foundationalReqs } = company
+  // ⚠️ Le filtre `framework` ne sert pas la puce, il sert la justesse : sans lui,
+  // un client LSA verrait les libellés `cbca_*`.
+  const { data: catalogRows } = company
     ? await supabase
         .from('minute_book_requirements')
-        .select('requirement_key')
-        .eq('category', 'foundational')
+        .select('requirement_key, category, title_fr, title_en')
         .or(`framework.eq.${framework},framework.eq.ALL`)
     : { data: [] };
-  const foundationalRequirementKeys = (foundationalReqs ?? []).map(
-    (r: { requirement_key: string }) => r.requirement_key
-  );
+  const catalog = (catalogRows ?? []) as {
+    requirement_key: string; category: string; title_fr: string; title_en: string;
+  }[];
+
+  // ⚠️ `category` n'est plus un filtre SQL, il est reconstruit ICI. Sans ce filtre,
+  // la puce « Documents fondateurs » cesserait de filtrer SANS PLANTER.
+  const foundationalRequirementKeys = catalog
+    .filter((r) => r.category === 'foundational')
+    .map((r) => r.requirement_key);
+
+  // ⚠️ UNIQUE (requirement_key, framework), PAS UNIQUE (requirement_key) : le jour
+  // où une clé existe sous ('foo','ALL') ET ('foo','LSA'), on le dit, on n'écrase pas.
+  const requirementTitles: Record<string, { fr: string; en: string }> = {};
+  for (const r of catalog) {
+    if (r.requirement_key in requirementTitles) {
+      console.warn(
+        `[coffre] Catalogue ambigu pour le régime ${framework} : la clé "${r.requirement_key}" ` +
+        `apparaît plus d'une fois. Le premier libellé lu est conservé. À corriger au catalogue.`
+      );
+      continue;
+    }
+    requirementTitles[r.requirement_key] = { fr: r.title_fr, en: r.title_en };
+  }
 
   return (
     <DashboardShell
@@ -104,6 +128,7 @@ export default async function DocumentsPage({
         company={company}
         initialDocuments={(documents ?? []) as VaultDocument[]}
         requirementKeysByDocument={requirementKeysByDocument}
+        requirementTitles={requirementTitles}
         fiscalYearsConfigured={fiscalYears.length > 0}
         activeFiscalYears={vaultYearRange}
         // activeFiscalYears now carries the FULL incorporation->current range
