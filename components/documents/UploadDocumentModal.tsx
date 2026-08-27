@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
-import { AlertTriangle, ChevronRight } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, Clock, XCircle } from 'lucide-react';
+import { getStateForChecklistItem } from '@/lib/minute-book/state';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { uploadErrorMessageKey } from '@/lib/upload-error-message';
 import { composeDisplayName } from '@/lib/display-name';
@@ -709,12 +710,22 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
       }}
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
     >
+      {/* ⚠️ LA LARGEUR SUIT LE CONTENU, PAS LE COMPOSANT. Une seule coquille sert
+          cinq surfaces, mais elles ne portent pas la même chose : `vault` porte une
+          LISTE de ~40 lignes dont les libellés français repliaient — pire cas
+          « Résolution annuelle du conseil d'administration · Exercice 2026 », 63
+          caractères, qui repliait à `lg` et frôlerait encore à `xl`. Les trois
+          surfaces `row` ne portent qu'un FORMULAIRE et n'ont jamais eu besoin de plus.
+          MESURÉ : élargir la coquille entière donnait aux surfaces `row` cinq champs
+          étirés de 160 px et deux boutons de 306 px, pour zéro bénéfice.
+          `vault` diverge donc des douze autres modales du dépôt, `row` s'y range.
+          Précédent de modale large dans ce domaine : BulkCatchUpModal.tsx:329. */}
       <div
         ref={modalRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        className="bg-[var(--card-bg)] rounded-xl max-w-lg w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+        className={`bg-[var(--card-bg)] rounded-xl ${mode === 'vault' ? 'max-w-2xl' : 'max-w-lg'} w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto`}
       >
         {/* Header */}
         <div className="mb-4">
@@ -936,6 +947,9 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                     const groupSelected = group.items.filter((r) =>
                       selectedIds.has(`${r.requirement_key}|${r.year ?? ''}`),
                     ).length;
+                    // VISUEL-2 — ce qu'il RESTE à couvrir dans ce groupe. « Couverte »
+                    // inclut couverte par un brouillon : c'est `satisfied`, pas l'état.
+                    const groupRemaining = group.items.filter((r) => !r.satisfied).length;
                     const isGroupOpen = effectiveOpenGroups.includes(group.key);
                     return (
                       <div
@@ -965,6 +979,15 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                               {t('upload.selectedCount', { count: groupSelected })}
                             </span>
                           )}
+                          {/* VISUEL-2 — L'INVARIANT D2 CI-DESSUS TIENT TEL QUEL : une coche
+                              reste annoncée sur un groupe replié, même condition, même rendu.
+                              Ce second régime occupe le SILENCE que D2 laissait — la branche
+                              vide — et cède la place dès la première coche. */}
+                          {groupSelected === 0 && (
+                            <span className="flex-shrink-0 text-xs font-medium text-[var(--text-muted)]">
+                              {t('upload.remainingCount', { count: groupRemaining })}
+                            </span>
+                          )}
                         </button>
                         {isGroupOpen && (
                           <div className="pb-1">
@@ -991,8 +1014,34 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                                     onChange={() => toggleRequirement(req)}
                                     className="mt-0.5 h-4 w-4 flex-shrink-0 disabled:cursor-not-allowed"
                                   />
+                                  {/* VISUEL-2 — MÊME glyphe, MÊME couleur, MÊME taille de LIGNE
+                                      (h-5 w-5) que RequirementRow.tsx:219-234. Copié, pas redessiné.
+                                      ⚠️ L'ORDRE DES BRANCHES EST LOAD-BEARING : `upcoming` passe
+                                      AVANT `!satisfied`, sinon une société neuve affiche treize
+                                      croix rouges — défaut déjà corrigé le 2026-08-16.
+                                      ⚠️ L'état vient de `getStateForChecklistItem`, JAMAIS d'une
+                                      lecture à la main de satisfied + document_is_finalized : deux
+                                      composants ont fait cette lecture et ont peint le mauvais signe. */}
+                                  {!req.satisfied && req.availability === 'upcoming' ? (
+                                    <Clock className="h-5 w-5 flex-shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                                  ) : !req.satisfied ? (
+                                    <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} aria-hidden="true" />
+                                  ) : getStateForChecklistItem(req) === 'téléversé' ? (
+                                    <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" aria-hidden="true" />
+                                  ) : (
+                                    <svg
+                                      viewBox="0 0 24 24"
+                                      className="h-5 w-5 flex-shrink-0 text-amber-500"
+                                      aria-hidden="true"
+                                    >
+                                      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
+                                      <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
+                                    </svg>
+                                  )}
                                   <span className="min-w-0">
-                                    <span className="text-[var(--text-body)]">
+                                    {/* Couverte → texte muet. ⚠️ PAS d'opacité : `opacity-60` est
+                                        déjà l'axe de `blocked`, sur le <label> ci-dessus. */}
+                                    <span className={req.satisfied ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)]'}>
                                       {fr ? req.title_fr : req.title_en}
                                       {/* E8 — ONE name for a fiscal year, the same
                                           helper the field above uses. */}

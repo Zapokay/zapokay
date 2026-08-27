@@ -312,6 +312,7 @@
       "correspondsToOptional": "Facultatif — cochez toutes les exigences que ce document couvre.",
       "correspondsToEmpty": "Aucune exigence à afficher pour cette société.",
       "selectedCount": "{count, plural, =0 {Aucune sélectionnée} =1 {1 sélectionnée} other {# sélectionnées}}",
+      "remainingCount": "{count, plural, =0 {Rien à ajouter} =1 {1 restante} other {# restantes}}",
       "bookSection": "Classement au livre",
       "certify": "Je certifie que ce document est final.",
       "certifyHelp": "Cochez cette case si le document est final et signé par toutes les parties requises, ou final sans signature requise. Sinon, le document ne sera pas ajouté au Livre.",
