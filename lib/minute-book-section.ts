@@ -82,32 +82,29 @@ const DOC_TYPE_FALLBACK: Record<string, MinuteBookSection> = {
 };
 
 /**
- * Derive the section, in three steps, most specific first:
+ * Derive the section, in two steps, most specific first:
  *   1. the chosen requirement's own section;
- *   2. "Documents fondateurs" — no fiscal year at all — which files to `statuts`;
- *   3. the document type's fallback shelf.
+ *   2. the document type's fallback shelf.
  *
- * Step 2 sits between the other two on purpose. A chosen requirement is a
- * stronger statement than "this belongs to no year", so it must still win; and
- * "no year" is a stronger statement than a type default, which knows nothing
- * about the document beyond its shape.
+ * ⚠️ IL Y AVAIT UNE TROISIÈME ÉTAPE, ENTRE LES DEUX, ET ELLE ÉTAIT FAUSSE.
+ * « Documents fondateurs » — aucun exercice — classait le document à `statuts`.
+ * Retirée : l'absence d'exercice est une propriété de l'ANNÉE, jamais une
+ * affirmation sur la nature juridique de la pièce. Le raisonnement complet est
+ * dans le corps de la fonction, à l'endroit exact où la branche vivait.
  *
- * ⚠️ WHY `noFiscalYear` IS ITS OWN BOOLEAN AND NOT `docYear === 'none'`.
- * The form has three year states — '' (nothing picked), a number, and 'none'
- * (founding documents) — but only a number travels. UploadDocumentModal says so
- * where it builds the request: "'' and 'none' both mean 'no fiscal year': omit
- * the field rather than let String('none') reach the route, where numOrNull
- * would coerce it to NaN and answer null by accident." That comment is right and
- * stays. So the third state needs its own field on the wire; overloading
- * `docYear` to carry it is exactly the accident that comment prevents.
+ * ⚠️ `noFiscalYear` RESTE DANS LA SIGNATURE ET N'EST PLUS LU ICI.
+ * Le champ voyage toujours sur le fil, et c'est correct : UploadDocumentModal
+ * l'émet parce que ses trois états d'année — '' (rien de choisi), un nombre, et
+ * 'none' — ne peuvent pas tenir sur `docYear` seul, où String('none') deviendrait
+ * NaN puis null par accident. Ce mécanisme reste juste ; c'est son EFFET sur le
+ * classement qui était faux. Le paramètre est gardé pour que son retrait chez
+ * les trois appelants soit un lot à lui seul, décidé et mesuré.
+ * ⚠️ Ne le rebranche pas sur le classement : c'est exactement le défaut qu'on
+ * vient de retirer. Une année absente ne désigne aucune étagère.
  *
  * ⚠️ The requirement lookup matches on `requirement_key` ALONE, not on the year.
  * That is safe because `section` is a catalog property shared by every instance
  * of a key, but it is the only key lookup in the repo that omits the year.
- *
- * `noFiscalYear` has NO default, deliberately: a caller that forgot it would
- * silently get `false`, which is the silent asymmetry this module exists to
- * prevent. tsc makes both callers decide.
  */
 export function resolveMinuteBookSection(
   requirementKey: string | null,
@@ -119,6 +116,15 @@ export function resolveMinuteBookSection(
     const req = requirements.find((r) => r.requirement_key === requirementKey);
     if (req?.section) return req.section;
   }
-  if (noFiscalYear) return 'statuts';
+  // ⚠️ ICI VIVAIT `if (noFiscalYear) return 'statuts';`. RETIRÉ, ET VOICI POURQUOI.
+  // Le champ d'exercice décide de l'ANNÉE du document, pas de son classement au
+  // Livre. « Ce document n'appartient à aucun exercice » ne dit rien sur le fait
+  // qu'il soit un acte constitutif : un bail, une police d'assurance ou une fiche
+  // technique n'ont pas davantage d'exercice, et n'ont rien à faire dans « Statuts
+  // et actes constitutifs », qui est une étagère du livre officiel d'une société.
+  // Le classement vient de l'EXIGENCE cochée, sinon du TYPE de document.
+  // ★ Un document sans exercice ET portant une exigence fondationnelle continue
+  // d'aller dans 'statuts' — parce que c'est l'exigence qui le dit, à la première
+  // branche ci-dessus, jamais l'absence d'année.
   return DOC_TYPE_FALLBACK[docType] ?? null;
 }
