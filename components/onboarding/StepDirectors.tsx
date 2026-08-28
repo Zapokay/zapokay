@@ -67,6 +67,7 @@ export default function StepDirectors({
   // did exactly this in StepShareholders. The existing ternaries are deliberately
   // NOT converted — that is a separate, queued cleanup, not this bundle.
   const t = useTranslations('directors');
+  const tCommon = useTranslations('common');
   const defaultDate = incorporationDate || new Date().toISOString().split('T')[0];
 
   const [directors, setDirectors] = useState<OnboardingDirector[]>(
@@ -103,6 +104,13 @@ export default function StepDirectors({
   }
 
   async function handleContinue() {
+    // Reentrancy belt. MEASURED 2026-08-28: it cannot fire today —
+    // the only invoker is the layout's continue button, which is
+    // disabled={saving || continueDisabled} and reads the SAME render's `saving`.
+    // Kept for the day a <form onSubmit> or an Enter handler is added:
+    // Enter bypasses a disabled button, and company_people/director_mandates carry no UNIQUE,
+    // so a re-entry duplicates a director.
+    if (saving) return;
     setError(null);
     const valid = directors.filter((d) => d.fullName.trim());
     const rows = valid.length > 0 ? valid : directors;
@@ -121,10 +129,25 @@ export default function StepDirectors({
     }
 
     setSaving(true);
-    const ok = await onContinue(rows);
-    if (!ok) {
-      setError(t('errorSave'));
-      setSaving(false);
+    let ok = false;
+    // supabase-js RETURNS { error } on Postgres and THROWS on a network failure.
+    // Without the catch, saving stays true and the button freezes with no message.
+    try {
+      ok = await onContinue(rows);
+      if (!ok) {
+        setError(tCommon('saveFailed'));
+      }
+    } catch (err) {
+      console.error('[onboarding] step 4 onContinue threw:', err);
+      setError(tCommon('saveFailed'));
+    } finally {
+      // Release ONLY on failure. On success the step unmounts this component,
+      // and releasing would open a one-render window where the button is
+      // clickable at the OLD step — insert-only, no UNIQUE, so a click there
+      // duplicates. Today setStep(5) and this line batch into one render
+      // (MEASURED 2026-08-28: no await between setStep and return true in
+      // OnboardingFlow) — this guard does not DEPEND on that staying true.
+      if (!ok) setSaving(false);
     }
   }
 

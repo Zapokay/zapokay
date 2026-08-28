@@ -71,7 +71,7 @@ export default function StepOfficers({
   // local convention would extend the debt to one more file. Precedent: bceb84d
   // did exactly this in StepShareholders. The existing ternaries are deliberately
   // NOT converted — that is a separate, queued cleanup, not this bundle.
-  const t = useTranslations('officers');
+  const tCommon = useTranslations('common');
 
   // Build list of known people names (deduped)
   const knownPeople = useMemo(() => {
@@ -100,6 +100,13 @@ export default function StepOfficers({
   const [saving, setSaving] = useState(false);
 
   async function handleContinue() {
+    // Reentrancy belt. MEASURED 2026-08-28: it cannot fire today —
+    // the only invoker is the layout's continue button, which is
+    // disabled={saving || continueDisabled} and reads the SAME render's `saving`.
+    // Kept for the day a <form onSubmit> or an Enter handler is added:
+    // Enter bypasses a disabled button, and officer_appointments carries no UNIQUE,
+    // so a re-entry appoints the same title twice.
+    if (saving) return;
     setError(null);
 
     // NO pre-write validation here, and that is DELIBERATE — not an oversight in
@@ -111,14 +118,29 @@ export default function StepOfficers({
     // where there is nothing to control.
 
     setSaving(true);
-    const ok = await onContinue({
-      presidentName: presidentName.trim(),
-      secretaryName: secretaryName.trim(),
-      treasurerName: treasurerName.trim(),
-    });
-    if (!ok) {
-      setError(t('errorSave'));
-      setSaving(false);
+    let ok = false;
+    // supabase-js RETURNS { error } on Postgres and THROWS on a network failure.
+    // Without the catch, saving stays true and the button freezes with no message.
+    try {
+      ok = await onContinue({
+        presidentName: presidentName.trim(),
+        secretaryName: secretaryName.trim(),
+        treasurerName: treasurerName.trim(),
+      });
+      if (!ok) {
+        setError(tCommon('saveFailed'));
+      }
+    } catch (err) {
+      console.error('[onboarding] step 6 onContinue threw:', err);
+      setError(tCommon('saveFailed'));
+    } finally {
+      // Release ONLY on failure. On success the step unmounts this component,
+      // and releasing would open a one-render window where the button is
+      // clickable at the OLD step — insert-only, no UNIQUE, so a click there
+      // duplicates. Today setStep(7) and this line batch into one render
+      // (MEASURED 2026-08-28: no await between setStep and return true in
+      // OnboardingFlow) — this guard does not DEPEND on that staying true.
+      if (!ok) setSaving(false);
     }
   }
 

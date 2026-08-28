@@ -62,6 +62,7 @@ export default function StepShareholders({
 
   const fr = locale === 'fr';
   const t = useTranslations('shareholders');
+  const tCommon = useTranslations('common');
   const defaultDate = incorporationDate || new Date().toISOString().split('T')[0];
 
   // Smart pre-fill: if only 1 director, pre-fill shareholder with same name + 100 shares
@@ -121,6 +122,13 @@ export default function StepShareholders({
   }
 
   async function handleContinue() {
+    // Reentrancy belt. MEASURED 2026-08-28: it cannot fire today —
+    // the only invoker is the layout's continue button, which is
+    // disabled={saving || continueDisabled} and reads the SAME render's `saving`.
+    // Kept for the day a <form onSubmit> or an Enter handler is added:
+    // Enter bypasses a disabled button, and shareholdings carries no UNIQUE,
+    // so a re-entry duplicates a shareholder.
+    if (saving) return;
     setError(null);
     const valid = shareholders.filter((s) => s.fullName.trim());
     const rows = valid.length > 0 ? valid : shareholders;
@@ -140,10 +148,25 @@ export default function StepShareholders({
     }
 
     setSaving(true);
-    const ok = await onContinue(rows);
-    if (!ok) {
-      setError(t('errorSave'));
-      setSaving(false);
+    let ok = false;
+    // supabase-js RETURNS { error } on Postgres and THROWS on a network failure.
+    // Without the catch, saving stays true and the button freezes with no message.
+    try {
+      ok = await onContinue(rows);
+      if (!ok) {
+        setError(tCommon('saveFailed'));
+      }
+    } catch (err) {
+      console.error('[onboarding] step 5 onContinue threw:', err);
+      setError(tCommon('saveFailed'));
+    } finally {
+      // Release ONLY on failure. On success the step unmounts this component,
+      // and releasing would open a one-render window where the button is
+      // clickable at the OLD step — insert-only, no UNIQUE, so a click there
+      // duplicates. Today setStep(6) and this line batch into one render
+      // (MEASURED 2026-08-28: no await between setStep and return true in
+      // OnboardingFlow) — this guard does not DEPEND on that staying true.
+      if (!ok) setSaving(false);
     }
   }
 
