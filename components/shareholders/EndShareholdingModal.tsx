@@ -128,9 +128,9 @@ export default function EndShareholdingModal({
       />
 
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-md rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface">
+      <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface">
         {/* Header */}
-        <div className="flex items-center justify-between modal-header px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between modal-header modal-surface px-6 py-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             <AlertTriangle className="h-5 w-5 text-red-500" />
             {t('endShareholding')}
@@ -202,7 +202,7 @@ export default function EndShareholdingModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 modal-footer px-6 py-4">
+        <div className="sticky bottom-0 flex items-center justify-end gap-3 modal-footer modal-surface px-6 py-4">
           <button
             type="button"
             onClick={onClose}

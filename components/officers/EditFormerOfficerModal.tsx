@@ -203,9 +203,9 @@ export default function EditFormerOfficerModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-lg rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface">
+      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface">
         {/* Header */}
-        <div className="flex items-center justify-between modal-header px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between modal-header modal-surface px-6 py-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text-heading)]">
             <Pencil className="h-5 w-5 text-[var(--text-muted)]" />
             {t('editEntry')}
@@ -339,7 +339,7 @@ export default function EditFormerOfficerModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 modal-footer px-6 py-4">
+        <div className="sticky bottom-0 flex items-center justify-end gap-3 modal-footer modal-surface px-6 py-4">
           <button
             type="button"
             onClick={onClose}
