@@ -56,6 +56,7 @@ export default function AddOfficerModal({
   onSuccess,
 }: AddOfficerModalProps) {
   const t = useTranslations('officers');
+  const tCommon = useTranslations('common');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -129,13 +130,20 @@ export default function AddOfficerModal({
       // (toggle OFF) so back-dating a former CEO does not collide with the
       // sitting CEO. Also skipped for 'custom' titles (free-form, no uniqueness).
       if (stillInOffice && title !== 'custom' && !replaceConflict) {
-        const { data: existing } = await supabase
+        const { data: existing, error: existingErr } = await supabase
           .from('officer_appointments')
           .select('id, person_id, company_people(full_name)')
           .eq('company_id', companyId)
           .eq('title', title)
           .eq('is_active', true)
           .limit(1);
+
+        // ⚠️ A FAILED LOOKUP IS NOT "NO CONFLICT" — falling through appoints a
+        // second active holder of the same title, inverting this guard's purpose.
+        if (existingErr) {
+          console.error('[AddOfficerModal] active-title lookup failed:', existingErr);
+          throw new Error(tCommon('saveFailed'));
+        }
 
         if (existing && existing.length > 0) {
           const existingPerson = existing[0].company_people;
@@ -151,10 +159,16 @@ export default function AddOfficerModal({
 
       // If replacing, deactivate the existing officer first
       if (replaceConflict && conflictOfficer) {
-        await supabase
+        const { error: deactivateErr } = await supabase
           .from('officer_appointments')
           .update({ is_active: false })
           .eq('id', conflictOfficer.id);
+        // ⚠️ STOP BEFORE THE INSERT. A silent failure here leaves the old officer
+        // active and appoints a second one to the same title (art. 31(3°)).
+        if (deactivateErr) {
+          console.error('[AddOfficerModal] deactivating the replaced officer failed:', deactivateErr);
+          throw new Error(tCommon('saveFailed'));
+        }
         setConflictOfficer(null);
       }
 
@@ -247,12 +261,15 @@ export default function AddOfficerModal({
       }
 
       onSuccess();
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err) {
+      // ⚠️ NEVER a raw err.message on screen — a network throw surfaced
+      // "TypeError: Load failed", in English, inside a French UI.
+      console.error('[AddOfficerModal] save failed:', err);
+      setError(tCommon('saveFailed'));
     } finally {
       setSaving(false);
     }
-  }, [personValue, title, customTitle, isSigningAuthority, stillInOffice, appointmentDate, endDate, endReason, companyId, conflictOfficer, supabase, onSuccess, t, locale]);
+  }, [personValue, title, customTitle, isSigningAuthority, stillInOffice, appointmentDate, endDate, endReason, companyId, conflictOfficer, supabase, onSuccess, t, tCommon, locale]);
 
   // ---- Render ---------------------------------------------------------------
   return (

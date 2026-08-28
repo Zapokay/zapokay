@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import type { Company } from '@/lib/types';
 
@@ -14,6 +15,7 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
   const fr = locale === 'fr';
   const router = useRouter();
   const supabase = createClient();
+  const t = useTranslations('common');
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -21,6 +23,7 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const companyName = company?.legal_name_fr ?? (fr ? 'Mon entreprise' : 'My company');
@@ -43,6 +46,7 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
     setModalOpen(true);
     setModalState('loading');
     setSubmitted(false);
+    setNotifyError(null);
     setEmail('');
 
     const { data } = await supabase
@@ -61,10 +65,28 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
   async function handleNotify() {
     if (!email) return;
     setSubmitting(true);
-    // Store waitlist email — fire and forget
-    await supabase.from('waitlist_emails').insert({ email, feature: 'multi_company' }).maybeSingle();
-    setSubmitting(false);
-    setSubmitted(true);
+    setNotifyError(null);
+    try {
+      const { error } = await supabase
+        .from('waitlist_emails')
+        .insert({ email, feature: 'multi_company' })
+        .maybeSingle();
+      // ⚠️ Confirm only what happened. This used to say "you're on the list"
+      // whether or not the row was ever written.
+      if (error) {
+        console.error('[CompanySwitcher] waitlist insert failed:', error);
+        setNotifyError(t('saveFailed'));
+        return;
+      }
+      setSubmitted(true);
+    } catch (err) {
+      // supabase-js RETURNS { error } on Postgres and THROWS on a network
+      // failure. Same message, ours — never a raw err.message.
+      console.error('[CompanySwitcher] waitlist insert threw:', err);
+      setNotifyError(t('saveFailed'));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleEnabledAction() {
@@ -270,6 +292,11 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
                         marginBottom: '12px',
                       }}
                     />
+                    {notifyError && (
+                      <p style={{ fontSize: '12px', color: '#ef4444', marginBottom: '12px' }}>
+                        {notifyError}
+                      </p>
+                    )}
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         onClick={() => setModalOpen(false)}

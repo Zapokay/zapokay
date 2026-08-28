@@ -5,6 +5,7 @@
     "save": "Enregistrer",
     "loading": "Chargement...",
     "error": "Une erreur est survenue",
+    "saveFailed": "L'enregistrement a échoué. Vérifiez votre connexion et réessayez.",
     "required": "Champ requis",
     "close": "Fermer"
   },

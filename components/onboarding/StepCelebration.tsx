@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
 import type { OnboardingShareholder } from './StepShareholders';
@@ -20,7 +21,8 @@ interface StepCelebrationProps {
   directors: OnboardingDirector[];
   shareholders: OnboardingShareholder[];
   officers: OnboardingOfficers;
-  onContinue: () => void;
+  /** Steps 4 and 6 shape: awaited; false = the write failed, do not advance. */
+  onContinue: () => Promise<boolean>;
 }
 
 // =============================================================================
@@ -72,6 +74,20 @@ export default function StepCelebration({
 }: StepCelebrationProps) {
 
   const fr = locale === 'fr';
+
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Steps 4 and 6 shape. Single product-wide message: `common.saveFailed`.
+  async function handleContinue() {
+    setError(null);
+    setSaving(true);
+    const ok = await onContinue();
+    if (!ok) {
+      setError(formatMsg(locale, 'common.saveFailed'));
+      setSaving(false);
+    }
+  }
 
   const validDirectors = directors.filter((d) => d.fullName.trim());
   const validShareholders = shareholders.filter((s) => s.fullName.trim());
@@ -152,7 +168,8 @@ export default function StepCelebration({
       icon={clipboardIcon}
       title={fr ? 'Votre entreprise est prête !' : 'Your company is ready!'}
       locale={locale}
-      onContinue={onContinue}
+      onContinue={handleContinue}
+      saving={saving}
       // Fix 2: continueLabel omitted → layout default "Continuer/Continue".
       // Step 7 is mid-flow (Step 8 / Fiscal Years follows), so "Terminer" was misleading.
     >
@@ -197,6 +214,12 @@ export default function StepCelebration({
             ? 'Prochaine étape : choisissez vos exercices financiers.'
             : 'Next step: choose your fiscal years.'}
         </p>
+
+        {error && (
+          <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>
+            {error}
+          </p>
+        )}
       </div>
     </OnboardingStepLayout>
   );

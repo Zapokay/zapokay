@@ -132,11 +132,14 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
     setSaving(true);
     setSaveError(null);
     try {
-      await supabase.from('users').upsert({
+      const { error: langErr } = await supabase.from('users').upsert({
         id: userId,
         preferred_language: data.language,
         onboarding_completed: false,
       });
+      // ⚠️ THIS FIELD GOVERNS THE LANGUAGE OF EVERY GENERATED LEGAL DOCUMENT.
+      // Blocking costs a retry; silence costs a minute book in the wrong language.
+      if (langErr) throw langErr;
 
       const dbType =
         data.company.incorporationType === 'LSAQ'
@@ -428,15 +431,32 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
   // BUG 4 fix: set onboarding_completed here, navigate WITHOUT router.refresh()
   // (router.refresh() was causing the onboarding page to re-render, see
   //  onboarding_completed=true, and redirect to dashboard before fiscal-years loaded)
-  const handleCelebrationContinue = useCallback(async () => {
-    await supabase.from('users').upsert({
-      id: userId,
-      preferred_language: data.language,
-      onboarding_completed: true,
-    });
+  const handleCelebrationContinue = useCallback(async (): Promise<boolean> => {
+    try {
+      const { error } = await supabase.from('users').upsert({
+        id: userId,
+        preferred_language: data.language,
+        onboarding_completed: true,
+      });
+      // ⚠️ BLOCKING IS THE EXIT, NOT A PRECAUTION. Ten pages read this flag and
+      // redirect to /onboarding when it is false (dashboard, settings, activity,
+      // officers, shareholders, directors, minute-book ×3, [locale]/page.tsx).
+      // Navigating past a failed write traps the user in a loop with the company
+      // already created. Staying here is the only way out.
+      if (error) {
+        console.error('[onboarding] step 7 users.upsert failed:', error);
+        return false;
+      }
+    } catch (err) {
+      // supabase-js RETURNS { error } on Postgres and THROWS on a network
+      // failure. Both must return false, or the button freezes with no message.
+      console.error('[onboarding] step 7 users.upsert threw:', err);
+      return false;
+    }
     // #146 Phase D: onboarding done — clear the draft so a fresh start can't resurrect it.
     try { window.sessionStorage.removeItem(onboardingDraftKey(userId)); } catch {}
     router.push(`/${locale}/onboarding/fiscal-years`);
+    return true;
   }, [userId, data.language, locale, supabase, router]);
 
   return (

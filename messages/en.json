@@ -5,6 +5,7 @@
     "save": "Save",
     "loading": "Loading...",
     "error": "An error occurred",
+    "saveFailed": "Saving failed. Check your connection and try again.",
     "required": "Required field",
     "close": "Close"
   },
