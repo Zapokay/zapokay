@@ -212,34 +212,63 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
         // the NOT NULL on director_mandates.appointment_date cannot reject a row
         // here under normal use.
         //
-        // ⚠️ KNOWN GAP, NOT CLOSED HERE — DUPLICATION ON A SECOND PASS.
-        // This loop has NO pre-read. Unlike step 6, it never looks for an
-        // existing company_people row before inserting one, and NEITHER
-        // company_people NOR director_mandates carries a UNIQUE constraint
-        // (20260405000000_sprint6_people_ownership.sql, l.9-23 and l.36-45).
-        // So a second pass — even one that succeeds COMPLETELY — duplicates
-        // every director and every mandate. Stopping at the first failure below
-        // does NOT close that: it only stops the flow from ADVANCING on a false
-        // success. Closing it needs a DB constraint or a pre-read. Queued, and
-        // deliberately out of this bundle.
+        // DUPLICATION ON A SECOND PASS — CLOSED BY PRE-READ, NOT BY A CONSTRAINT.
+        // MEASURED 2026-08-28: no UNIQUE exists on either table, and none can be
+        // added — the obvious key would reject rows that are live and correct.
+        // ⚠️ Both pre-reads below READ THEIR { error } and treat a failed lookup
+        // as a FAILURE, never as "nothing found": a lookup that mistakes an error
+        // for an absence CREATES the duplicate it claims to prevent.
+        // ⚠️ This also changes the FIRST pass: the same name typed twice now
+        // yields ONE director, not two. Deliberate — nobody is an ACTIVE director
+        // of the same company twice, and no other surface of the product allows it.
         for (const dir of dirs) {
           if (!dir.fullName.trim()) continue;
-          const { data: person, error: personErr } = await supabase
+          // Reuse an existing person before creating one. Form copied from step 6,
+          // which reads its error — NOT from step 5, which does not.
+          const { data: existingPeople, error: peopleErr } = await supabase
             .from('company_people')
-            .insert({
-              company_id: companyId,
-              full_name: dir.fullName.trim(),
-              is_canadian_resident: dir.isCanadianResident,
-              address_country: 'CA',
-            })
             .select('id')
-            .single();
-          // Stop at the FIRST failure: do not advance, and never write a mandate
-          // pointing at a person that was never created.
-          if (personErr || !person) return false;
+            .eq('company_id', companyId)
+            .ilike('full_name', dir.fullName.trim());
+          if (peopleErr) return false;
+          let personId: string;
+          if (existingPeople && existingPeople.length > 0) {
+            personId = existingPeople[0].id;
+          } else {
+            const { data: person, error: personErr } = await supabase
+              .from('company_people')
+              .insert({
+                company_id: companyId,
+                full_name: dir.fullName.trim(),
+                is_canadian_resident: dir.isCanadianResident,
+                address_country: 'CA',
+              })
+              .select('id')
+              .single();
+            // Stop at the FIRST failure: do not advance, and never write a mandate
+            // pointing at a person that was never created.
+            if (personErr || !person) return false;
+            personId = person.id;
+          }
+          // Skip the mandate if this person is ALREADY an active director here.
+          // is_active=true: an ENDED mandate is a legitimate past state and must not
+          // block a fresh appointment. deleted_at IS NULL: a row erased as a mistake
+          // must never block its own re-creation. appointment_date is deliberately
+          // NOT in the key — an edited date would slip a second ACTIVE mandate past
+          // the guard, and two simultaneous active mandates is not a legitimate state.
+          const { data: activeMandate, error: activeMandateErr } = await supabase
+            .from('director_mandates')
+            .select('id')
+            .eq('company_id', companyId)
+            .eq('person_id', personId)
+            .eq('is_active', true)
+            .is('deleted_at', null)
+            .limit(1);
+          if (activeMandateErr) return false;
+          if (activeMandate && activeMandate.length > 0) continue;
           const { error: mandateErr } = await supabase.from('director_mandates').insert({
             company_id: companyId,
-            person_id: person.id,
+            person_id: personId,
             appointment_date: dir.appointmentDate,
             is_active: true,
           });
@@ -287,20 +316,45 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
           shareClassId = newClass?.id || null;
         }
         if (shareClassId) {
-          let certNum = 1;
+          // Certificate numbers RESUME from this company's existing series instead
+          // of restarting at 1. Company-scoped, not share-class-scoped: a default
+          // position this bundle encodes in code — "unique per company or per
+          // class?" is still an open question with counsel.
+          // ⚠️ A FAILED READ FAILS THE STEP. Treating it as "no certificates yet"
+          // would reissue 001 on a company that already carries it, fabricating
+          // the very defect this closes.
+          // Parsed NUMERICALLY, not lexicographically: the park holds both '001'
+          // (padded) and '1' (unpadded, written by another surface), and a text
+          // max() would rank '9' above '1000'.
+          const { data: certRows, error: certErr } = await supabase
+            .from('shareholdings')
+            .select('certificate_number')
+            .eq('company_id', companyId)
+            .not('certificate_number', 'is', null);
+          if (certErr) return false;
+          let certNum = 1 + (certRows ?? []).reduce((max, r) => {
+            const raw = (r.certificate_number ?? '').trim();
+            return /^\d+$/.test(raw) ? Math.max(max, Number(raw)) : max;
+          }, 0);
           // Prices are validated in StepShareholders BEFORE this runs, so the
           // A-SC guard cannot reject a row here under normal use. An UNEXPECTED
           // server failure at the n-th shareholder still leaves rows 1..n-1
-          // written: shareholdings carries no UNIQUE constraint, so pressing
-          // Continue again would DUPLICATE them. Known and NOT closed here —
-          // deduplication needs a DB constraint or a pre-read, and is queued.
+          // written; pressing Continue again no longer duplicates them — the
+          // pre-read below skips what this flow has already issued.
           for (const sh of shs) {
             if (!sh.fullName.trim() || sh.numberOfShares <= 0) continue;
-            const { data: existingPeople } = await supabase
+            // ⚠️ PRECONDITION OF THE SHAREHOLDING GUARD BELOW, not a tidy-up.
+            // A failed lookup read as "no such person" yields a FRESH personId, so
+            // the guard below finds nothing to compare and inserts. It would be at
+            // its weakest exactly when something has just gone wrong — which is
+            // when a retry is most likely. Same shape as AddOfficerModal at C1a:
+            // closing only one of the two would have closed nothing.
+            const { data: existingPeople, error: existingPeopleErr } = await supabase
               .from('company_people')
               .select('id')
               .eq('company_id', companyId)
               .ilike('full_name', sh.fullName.trim());
+            if (existingPeopleErr) return false;
             let personId: string;
             if (existingPeople && existingPeople.length > 0) {
               personId = existingPeople[0].id;
@@ -313,6 +367,34 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
               if (!newPerson) continue;
               personId = newPerson.id;
             }
+            // Skip a shareholding this flow has ALREADY written. The key must run
+            // through shareholding_holders — shareholdings carries no person column.
+            // ⚠️ quantity AND source are LOAD-BEARING, not decorative. MEASURED
+            // 2026-08-28: Élise Bouchard and Marc Lefebvre each hold TWO Catégorie A
+            // shareholdings on the SAME issue_date, separated only by quantity and
+            // source. A key stopping at the date would reject live, correct rows.
+            // The key is tight on purpose, and the reason is asymmetric: in a
+            // securities register OVER-recording is repairable from the dashboard,
+            // UNDER-recording is not — a skipped issuance removes shares silently
+            // and nobody goes looking for what is absent.
+            // end_date is deliberately NOT filtered: an ended holding still happened.
+            // ⚠️ Bounded by the person lookup above, which does NOT read its error
+            // (lot C1b, untouched): if that read fails, personId is a fresh person
+            // and this guard cannot match. Named, not closed here.
+            const { data: existingSh, error: existingShErr } = await supabase
+              .from('shareholding_holders')
+              .select('shareholding_id, shareholding:shareholdings!inner(share_class_id, issue_date, quantity, source)')
+              .eq('company_id', companyId)
+              .eq('person_id', personId)
+              .eq('shareholding.share_class_id', shareClassId)
+              .eq('shareholding.issue_date', sh.issueDate)
+              .eq('shareholding.quantity', sh.numberOfShares)
+              .eq('shareholding.source', 'direct_issuance')
+              .limit(1);
+            if (existingShErr) return false;
+            // Skip WITHOUT consuming a certificate number: the existing row already
+            // holds one, and it is already counted in the series resumed above.
+            if (existingSh && existingSh.length > 0) continue;
             // Atom 2 (Q-R-G2-A): Pattern β2 RPC. Individual-only holder for atom 2;
             // entity-holder onboarding paths are atom 3+ scope.
             const { error: shErr } = await supabase.rpc('create_shareholding_with_holders', {
@@ -363,14 +445,11 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
       if (companyId) {
         const appointmentDate = incorporationDate || today;
 
-        // ⚠️ KNOWN GAP, NOT CLOSED HERE — DUPLICATION ON A SECOND PASS.
-        // The pre-read below reuses an existing company_people row, so people are
-        // NOT duplicated on a retry. officer_appointments is a different story:
-        // it is inserted unconditionally, with no pre-read and no UNIQUE
-        // constraint (20260405000000_sprint6_people_ownership.sql, l.60-71). A
-        // second pass appoints the same person to the same title twice. Stopping
-        // at the first failure below does NOT close that — it only stops the flow
-        // from ADVANCING on a false success. Queued, out of this bundle.
+        // DUPLICATION ON A SECOND PASS — CLOSED BY PRE-READ, NOT BY A CONSTRAINT.
+        // The person pre-read below already reused an existing company_people row.
+        // officer_appointments was the hole: inserted unconditionally, with no
+        // UNIQUE (MEASURED 2026-08-28 — and none can be added). The title check
+        // at the top of the helper closes it.
         //
         // Returns true on success, false on the first failed write.
         const appointOfficer = async (
@@ -378,6 +457,27 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
           title: 'president' | 'secretary' | 'treasurer'
         ): Promise<boolean> => {
           if (!name.trim()) return true;
+          // Skip if this TITLE is already actively held. Form copied from
+          // SAFEGUARD 1 (AddOfficerModal): same table, same company_id + title +
+          // is_active filter, and it READS ITS ERROR before concluding.
+          // Keyed on the TITLE, not the person: the invariant is one active holder
+          // per title (art. 31(3°)), so a title already filled — even by someone
+          // else — is left alone. Onboarding has no authority to replace.
+          // ⚠️ deleted_at IS NULL is an ADDITION over SAFEGUARD 1, which lacks it:
+          // a row erased as a mistake must not block a fresh appointment.
+          // SAFEGUARD 1 itself is deliberately NOT corrected here — out of bundle.
+          // Checked BEFORE the person is resolved, so a skipped title never leaves
+          // a freshly created company_people row behind with no appointment.
+          const { data: heldTitle, error: heldTitleErr } = await supabase
+            .from('officer_appointments')
+            .select('id')
+            .eq('company_id', companyId)
+            .eq('title', title)
+            .eq('is_active', true)
+            .is('deleted_at', null)
+            .limit(1);
+          if (heldTitleErr) return false;
+          if (heldTitle && heldTitle.length > 0) return true;
           const { data: people, error: peopleErr } = await supabase
             .from('company_people')
             .select('id')
