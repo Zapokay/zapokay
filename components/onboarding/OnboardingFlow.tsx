@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Language, OnboardingData } from '@/lib/types';
+import type { Language, OnboardingData, Province } from '@/lib/types';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
 import { StepProvince } from './StepProvince';
@@ -14,9 +14,25 @@ import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
 import LanguageToggle from '@/components/ui/LanguageToggle';
 
+// Exactly the columns steps 1-3 pre-fill from. NOT lib/types' Company: that
+// interface predates corporation_number and the fiscal-year columns, which is why
+// fiscal-years/page.tsx casts to Record<string, unknown> to reach them.
+export interface OnboardingExistingCompany {
+  id: string;
+  legal_name_fr: string | null;
+  incorporation_type: string | null;
+  neq: string | null;
+  corporation_number: string | null;
+  incorporation_date: string | null;
+  province: string | null;
+  fiscal_year_end_month: number | null;
+  fiscal_year_end_day: number | null;
+}
+
 interface OnboardingFlowProps {
   locale: string;
   userId: string;
+  existingCompany: OnboardingExistingCompany | null;
 }
 
 // Step 8 (Fiscal Years) is a separate page — dots show 8 total
@@ -65,7 +81,7 @@ function readOnboardingDraft(userId: string): OnboardingDraft | null {
   }
 }
 
-export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
+export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFlowProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -81,7 +97,26 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
 
   // No draft → default the document-language preference to the URL locale (#146 B3),
   // not a hardcoded 'fr'. The step-1 radio is the only user control that changes it.
-  const [data, setData] = useState<OnboardingData>(() => draft?.data ?? {
+  // Precedence: LIVE DRAFT > COMPANY IN THE DATABASE > empty. The draft wins because
+  // it carries edits that were never saved; the database row is the resume path.
+  // ⚠️ 'LSA' -> 'LSAQ' is written by hand and tested as `=== 'CBCA'`, never as
+  // `!== 'LSA'`. The write path maps 'LSAQ' -> 'LSA' (dbType, below), so the value
+  // coming back is 'LSA', which no regime card on step 2 matches. The same warning
+  // already guards corporation_number on the way out.
+  const [data, setData] = useState<OnboardingData>(() => draft?.data ?? (existingCompany ? {
+    language: locale as Language,
+    company: {
+      legalName: existingCompany.legal_name_fr ?? '',
+      incorporationType: existingCompany.incorporation_type === 'CBCA' ? 'CBCA' : 'LSAQ',
+      incorporationNumber: existingCompany.neq ?? '',
+      corporationNumber: existingCompany.corporation_number ?? '',
+      incorporationDate: existingCompany.incorporation_date ?? '',
+      province: (existingCompany.province ?? 'QC') as Province,
+      fiscalYearEndMonth: existingCompany.fiscal_year_end_month ?? 12,
+      fiscalYearEndDay: existingCompany.fiscal_year_end_day ?? 31,
+    },
+    officer: { fullName: '', role: 'director', startDate: today },
+  } : {
     language: locale as Language,
     company: {
       legalName: '',
@@ -94,10 +129,11 @@ export function OnboardingFlow({ locale, userId }: OnboardingFlowProps) {
       fiscalYearEndDay: 31,
     },
     officer: { fullName: '', role: 'director', startDate: today },
-  });
+  }));
 
-  const [companyId, setCompanyId] = useState<string | null>(() => draft?.companyId ?? null);
-  const [incorporationDate, setIncorporationDate] = useState(() => draft?.incorporationDate ?? today);
+  // ★ THIS is what flips step 3 from INSERT to UPDATE on a resume.
+  const [companyId, setCompanyId] = useState<string | null>(() => draft?.companyId ?? existingCompany?.id ?? null);
+  const [incorporationDate, setIncorporationDate] = useState(() => draft?.incorporationDate ?? existingCompany?.incorporation_date ?? today);
 
   const [directors, setDirectors] = useState<OnboardingDirector[]>(() => draft?.directors ?? []);
   const [shareholders, setShareholders] = useState<OnboardingShareholder[]>(() => draft?.shareholders ?? []);

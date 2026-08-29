@@ -76,11 +76,17 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Aligned with the ten server pages: status='active' + single(), and NO
+    // .limit(1). It was limit(1) — not the missing sort — that made this silent:
+    // it truncated to one row BEFORE single() could object, so two active companies
+    // resolved to an arbitrary one while the page header resolved none. No ORDER BY
+    // on purpose: two active companies should be impossible, and a case that should
+    // be impossible must fail, not be made deterministic.
     const { data: companies } = await supabase
       .from('companies')
       .select('id, incorporation_date, incorporation_type')
       .eq('user_id', user.id)
-      .limit(1)
+      .eq('status', 'active')
       .single();
 
     if (!companies) { setLoading(false); return; }

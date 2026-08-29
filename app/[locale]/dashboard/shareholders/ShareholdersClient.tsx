@@ -80,8 +80,14 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Aligned with the ten server pages: status='active' + single(), and NO
+    // .limit(1). It was limit(1) — not the missing sort — that made this silent:
+    // it truncated to one row BEFORE single() could object, so two active companies
+    // resolved to an arbitrary one while the page header resolved none. No ORDER BY
+    // on purpose: two active companies should be impossible, and a case that should
+    // be impossible must fail, not be made deterministic.
     const { data: company } = await supabase
-      .from('companies').select('id, incorporation_date').eq('user_id', user.id).limit(1).single();
+      .from('companies').select('id, incorporation_date').eq('user_id', user.id).eq('status', 'active').single();
     if (!company) { setLoading(false); return; }
 
     setCompanyId(company.id);

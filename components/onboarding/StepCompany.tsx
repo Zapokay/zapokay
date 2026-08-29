@@ -133,9 +133,10 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     } else if (data.company.incorporationDate > todayStr) {
       e.incorporationDate = ob.incorporationDateFuture;
     }
-    if (neqDuplicate) e.incorporationNumber = fr
-      ? 'Une entreprise avec ce NEQ existe déjà sur ZapOkay. Si vous êtes autorisé(e) à y accéder, demandez à l\'administrateur de vous inviter.'
-      : 'A company with this NEQ already exists on ZapOkay. If you are authorized to access it, ask the administrator to invite you.';
+    // One key, read in BOTH places. The old copy was a hardcoded FR/EN ternary
+    // duplicated here and in the JSX below, and it promised an invitation flow that
+    // does not exist — same defect as a right offered without a path built for it.
+    if (neqDuplicate) e.incorporationNumber = ob.neqTakenByAnotherAccount;
     if (!declared) e.declared = fr
       ? 'Vous devez cocher cette case pour continuer.'
       : 'You must check this box to continue.';
@@ -286,9 +287,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           )}
           {neqDuplicate && (
             <p style={{ marginTop: '4px', fontSize: '12px', color: '#ef4444' }}>
-              {fr
-                ? "Une entreprise avec ce NEQ existe déjà sur ZapOkay. Si vous êtes autorisé(e) à y accéder, demandez à l'administrateur de vous inviter."
-                : 'A company with this NEQ already exists on ZapOkay. If you are authorized to access it, ask the administrator to invite you.'}
+              {ob.neqTakenByAnotherAccount}
             </p>
           )}
           {errors.incorporationNumber && !neqDuplicate && (
