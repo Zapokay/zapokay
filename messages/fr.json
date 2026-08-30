@@ -11,8 +11,18 @@
     "required": "Champ requis",
     "close": "Fermer",
     "regimes": {
-      "LSA": { "acronym": "LSAQ", "short": "Provincial Québec (LSAQ)" },
-      "CBCA": { "acronym": "LCSA", "short": "Fédéral (LCSA)" }
+      "LSA": {
+        "acronym": "LSAQ",
+        "short": "Provincial Québec (LSAQ)",
+        "jurisdiction": "Provincial — Québec",
+        "law": "Loi sur les sociétés par actions du Québec"
+      },
+      "CBCA": {
+        "acronym": "LCSA",
+        "short": "Fédéral (LCSA)",
+        "jurisdiction": "Fédéral",
+        "law": "Loi canadienne sur les sociétés par actions"
+      }
     }
   },
   "auth": {

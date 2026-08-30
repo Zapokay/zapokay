@@ -34,23 +34,17 @@ const provinces: { value: Province; labelFr: string; labelEn: string }[] = [
 // WelcomeCard came to ship "LSAC" with the letters transposed. It now comes from
 // common.regimes, keyed by `dbValue` because that is what the database stores and
 // what the two dashboard surfaces already index by.
-// ★ The SUBTITLES stay hardcoded on purpose. They are not acronyms and they are not
-// wrong: under LSAQ sits a CATEGORY, under CBCA the NAME OF THE STATUTE. That
-// asymmetry is a design question, not a defect, and harmonising it here would strip
-// the French card of the only phrase a non-lawyer understands.
+// ★ THE SUBTITLES HAVE LEFT THIS ARRAY TOO. They used to be literals, and they were
+// ASYMMETRIC: a CATEGORY under LSAQ, the NAME OF THE STATUTE under CBCA. The catalogue
+// now carries both levels for both regimes — `jurisdiction` and `law` — so the two
+// cards finally say the same KINDS of thing. The four law names are the exact heads of
+// lib/legal-definitions.ts, minus their explanatory tails: one spelling of a statute
+// title in the codebase, not two.
+// What remains here is what the catalogue cannot hold: the flow's own vocabulary
+// ('LSAQ') and the database's ('LSA').
 const incorporationTypes = [
-  {
-    value: 'LSAQ' as IncorporationType,
-    dbValue: 'LSA' as const,
-    subFr: 'Provincial Québec',
-    subEn: 'Québec Provincial',
-  },
-  {
-    value: 'CBCA' as IncorporationType,
-    dbValue: 'CBCA' as const,
-    subFr: 'Loi canadienne sur les sociétés par actions',
-    subEn: 'Canada Business Corporations Act',
-  },
+  { value: 'LSAQ' as IncorporationType, dbValue: 'LSA' as const },
+  { value: 'CBCA' as IncorporationType, dbValue: 'CBCA' as const },
 ];
 
 const MONTHS_FR = [
@@ -244,7 +238,12 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           <label style={labelStyle}>
             {fr ? 'Type de constitution' : 'Incorporation type'}
           </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          {/* ④ LA HAUTEUR ÉGALE DES DEUX CARTES TIENT PAR LE `stretch` IMPLICITE DE LA
+              GRILLE — aucune règle ne l'écrit. Un alignItems ajouté ici la casserait en
+              silence, et le nom de loi le plus long décide seul de la hauteur commune.
+              ③ auto-fit + minmax remplace '1fr 1fr' : un style en ligne ne peut pas porter
+              de media query, et sans ça les cartes se compressaient sans jamais s'empiler. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
             {incorporationTypes.map(type => {
               const isSelected = data.company.incorporationType === type.value;
               return (
@@ -257,7 +256,6 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
                     border: `2px solid ${isSelected ? '#F5B91E' : 'var(--card-border)'}`,
                     background: isSelected ? 'rgba(245,185,30,0.08)' : 'var(--card-bg)',
                     cursor: 'pointer', transition: 'all 150ms',
-                    opacity: isSelected ? 1 : 0.7,
                   }}
                 >
                   {isSelected && (
@@ -272,11 +270,40 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
                       </svg>
                     </span>
                   )}
-                  <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '13px', color: 'var(--text-heading)' }}>
+                  {/* NIVEAU 1 — la pastille. Fond TRANSPARENT et bordure sémantique, et ce
+                      n'est pas un repli esthétique : le bouton non sélectionné porte
+                      opacity: 0.7 (ci-dessus), qui compose AUSSI son contenu. Un écart de
+                      fond n'y survit pas — mesuré à 1.062 en thème clair contre --card-bg.
+                      Un contour, lui, reste lisible sous la transparence — et il ne dépend
+                      d'aucun écart de fond, ce qui reste vrai maintenant que l'opacité est
+                      partie. DM Mono est chargée par l'@import de globals.css:1. */}
+                  <div style={{
+                    display: 'inline-block',
+                    fontFamily: "'DM Mono', ui-monospace, monospace",
+                    fontSize: '12px', fontWeight: 500, letterSpacing: '.03em',
+                    padding: '3px 9px', borderRadius: '6px',
+                    background: isSelected ? 'rgba(245,185,30,0.14)' : 'transparent',
+                    border: `1px solid ${isSelected ? 'transparent' : 'var(--card-border)'}`,
+                    color: isSelected ? 'var(--amber-800)' : 'var(--text-body)',
+                  }}>
                     {cm.regimes[type.dbValue].acronym}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                    {fr ? type.subFr : type.subEn}
+                  {/* NIVEAU 2 — la juridiction. Le marginTop de 8px est la seule valeur que la
+                      spec ne fixait pas : sans elle le titre colle à la pastille. */}
+                  <div style={{
+                    fontFamily: 'Sora, sans-serif', fontSize: '16px', fontWeight: 600,
+                    color: 'var(--text-heading)', lineHeight: 1.2, marginTop: '8px',
+                  }}>
+                    {cm.regimes[type.dbValue].jurisdiction}
+                  </div>
+                  {/* NIVEAU 3 — le nom de loi. IL S'ENROULE. Aucun overflow, aucun
+                      textOverflow, aucun whiteSpace nowrap, aucune infobulle : un titre de loi
+                      tronqué est FAUX, pas abrégé. */}
+                  <div style={{
+                    fontFamily: 'DM Sans, sans-serif', fontSize: '12px', fontWeight: 400,
+                    color: 'var(--text-body)', lineHeight: 1.4, marginTop: '3px',
+                  }}>
+                    {cm.regimes[type.dbValue].law}
                   </div>
                 </button>
               );
