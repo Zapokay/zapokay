@@ -77,8 +77,12 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
   // useTranslations() reads URL locale and would diverge from `fr` boolean above
   // when user toggles language via the OnboardingFlow header pill.
   const ob = (fr ? frMessages : enMessages).onboarding;
+  // Shared with Settings, so it lives in common.* — a message TWO surfaces render
+  // belongs to neither of them. Same precedent as common.saveFailed.
+  const cm = (fr ? frMessages : enMessages).common;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [neqDuplicate, setNeqDuplicate] = useState(false);
+  const [corpNumberDuplicate, setCorpNumberDuplicate] = useState(false);
   const [declared, setDeclared] = useState(false);
 
   // Today as YYYY-MM-DD (local time) — used to reject future incorporation dates.
@@ -107,17 +111,25 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     setData(d => ({ ...d, company: { ...d.company, [field]: value } }));
   }
 
-  async function checkNeqDuplicate(neq: string): Promise<boolean> {
-    if (!neq.trim()) { setNeqDuplicate(false); return false; }
+  // ONE endpoint for BOTH identifiers. The field name is a key the server maps through
+  // a literal whitelist — it is never a column name travelling from here.
+  // `exists` still means "held by SOMEONE ELSE": the server excludes the caller's own
+  // companies, which is what lets a returning user retype their own number.
+  async function checkIdentifierDuplicate(
+    field: 'neq' | 'corporationNumber',
+    value: string,
+  ): Promise<boolean> {
+    const setFlag = field === 'neq' ? setNeqDuplicate : setCorpNumberDuplicate;
+    if (!value.trim()) { setFlag(false); return false; }
     try {
-      const res = await fetch('/api/onboarding/check-neq', {
+      const res = await fetch('/api/onboarding/check-identifier', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ neq }),
+        body: JSON.stringify({ field, value }),
       });
       const json = await res.json();
       const isDuplicate = json.exists === true;
-      setNeqDuplicate(isDuplicate);
+      setFlag(isDuplicate);
       return isDuplicate;
     } catch {
       // non-fatal — don't block the form on network error
@@ -136,7 +148,26 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     // One key, read in BOTH places. The old copy was a hardcoded FR/EN ternary
     // duplicated here and in the JSX below, and it promised an invitation flow that
     // does not exist — same defect as a right offered without a path built for it.
-    if (neqDuplicate) e.incorporationNumber = ob.neqTakenByAnotherAccount;
+    //
+    // ⚠️ MANDATORY BY REGIME, AND THE RULE HAS AN EXPIRY DATE.
+    // LSAQ requires the NEQ. CBCA requires the NEQ *and* the federal number — true
+    // only because ZapOkay serves Québec ONLY today: a federal corporation operating
+    // here registers with the REQ and therefore holds a NEQ. The roadmap is
+    // Canada-wide, and an Ontario federal corporation will NOT have one.
+    // Multi-province is on the roadmap: whoever adds a province must revisit EVERY entry
+    // in this rule, because requiring the NEQ here means opting IN, not out.
+    //
+    // Ordered on purpose: EMPTY beats DUPLICATE on the shared key. The two states are
+    // mutually exclusive by construction — neqDuplicate can only be true for a
+    // NON-empty value — so this else-if never hides the duplicate message.
+    if (!data.company.incorporationNumber.trim()) {
+      e.incorporationNumber = cm.neqRequired;
+    } else if (neqDuplicate) {
+      e.incorporationNumber = ob.neqTakenByAnotherAccount;
+    }
+    if (isCBCA && !data.company.corporationNumber.trim()) {
+      e.corporationNumber = cm.corporationNumberRequired;
+    }
     if (!declared) e.declared = fr
       ? 'Vous devez cocher cette case pour continuer.'
       : 'You must check this box to continue.';
@@ -149,7 +180,11 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     // Use the returned boolean directly — don't rely on neqDuplicate state,
     // which won't reflect setNeqDuplicate's update until the next render.
     if (data.company.incorporationNumber.trim()) {
-      const isDuplicate = await checkNeqDuplicate(data.company.incorporationNumber);
+      const isDuplicate = await checkIdentifierDuplicate('neq', data.company.incorporationNumber);
+      if (isDuplicate) return;
+    }
+    if (isCBCA && data.company.corporationNumber.trim()) {
+      const isDuplicate = await checkIdentifierDuplicate('corporationNumber', data.company.corporationNumber);
       if (isDuplicate) return;
     }
     if (validate()) onNext();
@@ -275,7 +310,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
               update('incorporationNumber', val);
               setNeqDuplicate(false);
             }}
-            onBlur={e => checkNeqDuplicate(e.target.value)}
+            onBlur={e => checkIdentifierDuplicate('neq', e.target.value)}
             placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
             maxLength={10}
             style={inputStyle}
@@ -345,7 +380,11 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             id="corporationNumber"
             type="text"
             value={data.company.corporationNumber}
-            onChange={e => update('corporationNumber', e.target.value)}
+            onChange={e => {
+              update('corporationNumber', e.target.value);
+              setCorpNumberDuplicate(false);
+            }}
+            onBlur={e => checkIdentifierDuplicate('corporationNumber', e.target.value)}
             disabled={!isCBCA}
             maxLength={12}
             style={isCBCA ? inputStyle : { ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }}
@@ -365,6 +404,19 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             <p style={{ marginTop: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>
               {ob.corporationNumberFederalOnly}
             </p>
+          )}
+          {/* Error slot, copied from the NEQ's at the top of this file — same tag, same
+              12px/#ef4444/marginTop, so the two identifiers report the same way. It did
+              NOT exist before: the field had no way to say it was missing. No
+              !isCBCA guard is needed here — validate() only ever sets this key while
+              isCBCA, so a stale error cannot survive a switch back to LSAQ. */}
+          {corpNumberDuplicate && (
+            <p style={{ marginTop: '4px', fontSize: '12px', color: '#ef4444' }}>
+              {ob.corporationNumberTakenByAnotherAccount}
+            </p>
+          )}
+          {errors.corporationNumber && !corpNumberDuplicate && (
+            <p style={{ marginTop: '4px', fontSize: '12px', color: '#ef4444' }}>{errors.corporationNumber}</p>
           )}
         </div>
 

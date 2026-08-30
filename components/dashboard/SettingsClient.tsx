@@ -7,6 +7,8 @@ import { Info, Lock } from 'lucide-react'
 import { logActivity } from '@/lib/activity-log'
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
 import { formatDate } from '@/lib/utils'
+import frMessages from '@/messages/fr.json'
+import enMessages from '@/messages/en.json'
 
 const MONTHS_FR = [
   'Janvier','Février','Mars','Avril','Mai','Juin',
@@ -70,6 +72,10 @@ export function SettingsClient({
   const supabase = createClient()
   const router = useRouter()
   const fr = locale === 'fr'
+  // Static import, the form of StepCompany:79 — NOT useTranslations, which reads the
+  // URL locale and would diverge from the `fr` boolean this file already uses
+  // everywhere. Reuses the two keys the onboarding rule added: zero new strings.
+  const cm = (fr ? frMessages : enMessages).common
 
   // ── Profile state ──────────────────────────────────────────────────────────
   const [fullName, setFullName] = useState(initialFullName)
@@ -268,8 +274,18 @@ export function SettingsClient({
     // naming `neq` on every save. That second effect arrives WITH this gate: until
     // now `Object.keys(updates)` listed `neq` unconditionally, so a log entry naming
     // it proved nothing. From here on it is real evidence of a change.
+    // ⚠️ CORRECT IT, NEVER EMPTY IT. `neq || null` used to turn a cleared field into
+    // NULL — and a NULL escapes BOTH check-identifier AND the partial unique index,
+    // so the requirement onboarding now enforces could be undone here in two clicks.
+    // Refused OUT LOUD: a silent no-op would be the same swallowed write this codebase
+    // has been closing since 133d034.
     if (unlockedFields.has('neq')) {
-      updates.neq = neq || null
+      if (!neq.trim()) {
+        setSavingCompany(false)
+        flash(setCompanyMsg, false, cm.neqRequired)
+        return
+      }
+      updates.neq = neq.trim()
     }
     // ── THE FEDERAL NUMBER — GATED TWICE, AND NEITHER GATE IS REDUNDANT. ──
     //
@@ -287,24 +303,45 @@ export function SettingsClient({
     // ACCEPTED COST, DECIDED RATHER THAN OVERLOOKED: whoever types a number and then
     // switches to LSAQ loses that input with no warning. Acceptable — they have just
     // declared their company is not federal.
+    // Same rule, same reason. Gated on isCBCA exactly as before — for an LSAQ company
+    // the field is not applicable and this branch never runs.
     if (unlockedFields.has('corporationNumber') && isCBCA) {
-      updates.corporation_number = corporationNumber || null
+      if (!corporationNumber.trim()) {
+        setSavingCompany(false)
+        flash(setCompanyMsg, false, cm.corporationNumberRequired)
+        return
+      }
+      updates.corporation_number = corporationNumber.trim()
     }
-    const { error } = await supabase
-      .from('companies')
-      .update(updates)
-      .eq('id', companyId)
-    setSavingCompany(false)
-    if (error) {
+    // supabase-js RETURNS { error } on a Postgres failure and THROWS on a network one.
+    // Only the first was guarded here: a network failure skipped the release below and
+    // left the button frozen with no message at all. Same class as 133d034, mirrored —
+    // AddOfficerModal had the catch without the read; this had the read without the catch.
+    try {
+      const { error } = await supabase
+        .from('companies')
+        .update(updates)
+        .eq('id', companyId)
+      if (error) {
+        flash(setCompanyMsg, false, fr ? 'Erreur lors de la sauvegarde.' : 'Error saving.')
+      } else {
+        flash(setCompanyMsg, true, fr ? 'Entreprise enregistrée ✓' : 'Company saved ✓')
+        await logActivity(supabase, companyId, userId, 'settings_updated',
+          'Paramètres modifiés : informations de la société',
+          'Settings updated: company information',
+          { changed_fields: Object.keys(updates) }
+        )
+        router.refresh()
+      }
+    } catch (err) {
+      // REUSES the existing message instead of inventing one for a second failure path
+      // the user cannot tell apart anyway.
+      console.error('[settings] saveCompany threw:', err)
       flash(setCompanyMsg, false, fr ? 'Erreur lors de la sauvegarde.' : 'Error saving.')
-    } else {
-      flash(setCompanyMsg, true, fr ? 'Entreprise enregistrée ✓' : 'Company saved ✓')
-      await logActivity(supabase, companyId, userId, 'settings_updated',
-        'Paramètres modifiés : informations de la société',
-        'Settings updated: company information',
-        { changed_fields: Object.keys(updates) }
-      )
-      router.refresh()
+    } finally {
+      // MOVED here from before the branch — the move IS the fix. Released on every path,
+      // including the throw that used to skip it entirely.
+      setSavingCompany(false)
     }
   }
 

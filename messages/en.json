@@ -6,6 +6,8 @@
     "loading": "Loading...",
     "error": "An error occurred",
     "saveFailed": "Saving failed. Check your connection and try again.",
+    "neqRequired": "The NEQ is required",
+    "corporationNumberRequired": "The federal corporation number is required",
     "required": "Required field",
     "close": "Close"
   },
@@ -122,6 +124,7 @@
     "corporationNumber": "Federal corporation number",
     "corporationNumberFederalOnly": "Federal corporations only",
     "neqTakenByAnotherAccount": "This NEQ is already linked to another ZapOkay account. Please check the number you entered — a company can only be registered once.",
+    "corporationNumberTakenByAnotherAccount": "This federal corporation number is already linked to another ZapOkay account. Please check the number you entered — a company can only be registered once.",
     "corporationNumberTooltip": "Number assigned by Corporations Canada when the corporation was incorporated — a 7- or 8-digit identifier. It appears on your certificate of incorporation and serves as the corporation's legal identity. ⚠️ Not to be confused with the Canada Revenue Agency Business Number (BN), a 9-digit tax identifier used for income tax and sales taxes.",
     "incorporationDate": "Incorporation date",
     "province": "Province",
