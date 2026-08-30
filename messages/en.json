@@ -137,7 +137,7 @@
     "corporationNumberFederalOnly": "Federal corporations only",
     "neqTakenByAnotherAccount": "This NEQ is already linked to another ZapOkay account. Please check the number you entered — a company can only be registered once.",
     "corporationNumberTakenByAnotherAccount": "This federal corporation number is already linked to another ZapOkay account. Please check the number you entered — a company can only be registered once.",
-    "corporationNumberTooltip": "Number assigned by Corporations Canada when the corporation was incorporated — a 7- or 8-digit identifier. It appears on your certificate of incorporation and serves as the corporation's legal identity. ⚠️ Not to be confused with the Canada Revenue Agency Business Number (BN), a 9-digit tax identifier used for income tax and sales taxes.",
+    "corporationNumberTooltip": "Number assigned by Corporations Canada when the corporation was incorporated — seven digits followed by a check digit. It appears with a hyphen on your certificate of incorporation (e.g. 1234567-8) and without one in online registries (e.g. 12345678): it is the same number, and both forms are accepted. ⚠️ Not to be confused with the Canada Revenue Agency Business Number (BN), a nine-digit tax identifier used for income tax and sales taxes.",
     "incorporationDate": "Incorporation date",
     "province": "Province",
     "officerName": "Full name",

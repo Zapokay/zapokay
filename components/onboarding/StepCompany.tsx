@@ -372,9 +372,31 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             <label style={{ ...labelStyle, marginBottom: 0 }}>
               {ob.corporationNumber}
             </label>
-            {/* ⚪ UNVERIFIED SOURCE — this copy is pending Harvey confirmation (the
-                7-or-8-digit claim and the contrast with the CRA Business Number).
-                Do not cite it as verified legal guidance until that lands.
+            {/* SOURCED — Corporations Canada (ISED), two primary documents for the
+                SAME corporation, one already in our own park:
+                  · Certificate of Incorporation, official bilingual label
+                    "Corporation number / Numéro de société" → 1709431-1
+                  · Canada's Business Registries, label "Registry ID" → 17094311
+                  · Corporations Canada "Search tips": "seven-digit corporation number"
+                Seven digits plus a check digit. The hyphen is PRESENTATION, not
+                information — the certificate carries it, the online registry does not.
+                That is why this copy names both forms instead of picking one: the user
+                may legitimately have either in front of them.
+                ⚠️ The CRA Business Number is a different identifier: 752378166RC0001 —
+                nine digits plus a program account. The copy's warning is accurate.
+                ⚠️ STILL OPEN (Harvey), and it is the ONLY reason there is no format
+                guard here: are older corporation numbers ever shorter than seven
+                digits, or zero-padded? Until that lands, Harvey's standing
+                recommendation "allow at least 12" holds, and the cost asymmetry
+                decides — accepting a malformed number is repairable in Settings;
+                REJECTING A LEGITIMATE ONE LOSES A CUSTOMER AT SIGNUP.
+                ⚠️⚠️ "BOTH FORMS ARE ACCEPTED" IS A PROMISE THIS CODE DOES NOT FULLY
+                KEEP. The field does accept both — that part is true for the user. But
+                check-identifier compares value.trim() through .eq(), and the partial
+                unique index compares the same way, so 1709431-1 and 17094311 are two
+                distinct values to BOTH mechanisms: two accounts can register the SAME
+                corporation under the two spellings and nothing catches it.
+                Normalisation is the next lot; this sentence is what makes it due.
                 CSS-only tooltip: the pattern of the NEQ above, not the useState one
                 used in SettingsClient. Each file follows what is already in it. */}
             <div style={{ position: 'relative', display: 'inline-block' }} className="group">
