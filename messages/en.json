@@ -7,6 +7,7 @@
     "error": "An error occurred",
     "saveFailed": "Saving failed. Check your connection and try again.",
     "neqRequired": "The NEQ is required",
+    "neqInvalid": "The NEQ is exactly 10 digits",
     "corporationNumberRequired": "The federal corporation number is required",
     "required": "Required field",
     "close": "Close",

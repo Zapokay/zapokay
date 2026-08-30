@@ -7,6 +7,7 @@ import { Info, Lock } from 'lucide-react'
 import { logActivity } from '@/lib/activity-log'
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
 import { formatDate } from '@/lib/utils'
+import { normalizeNeq, isValidNeq, normalizeCorporationNumber } from '@/lib/identifiers'
 import frMessages from '@/messages/fr.json'
 import enMessages from '@/messages/en.json'
 
@@ -282,13 +283,23 @@ export function SettingsClient({
     // so the requirement onboarding now enforces could be undone here in two clicks.
     // Refused OUT LOUD: a silent no-op would be the same swallowed write this codebase
     // has been closing since 133d034.
+    //
+    // ⚠️ AND REFUSE A MALFORMED ONE TOO, NOT ONLY AN EMPTY ONE. Onboarding now blocks a
+    // NEQ that is not exactly ten digits; without the same test here, Paramètres would
+    // be the way around the rule it exists to repair. Same key on both surfaces.
     if (unlockedFields.has('neq')) {
-      if (!neq.trim()) {
+      const canonical = normalizeNeq(neq)
+      if (!canonical) {
         setSavingCompany(false)
         flash(setCompanyMsg, false, cm.neqRequired)
         return
       }
-      updates.neq = neq.trim()
+      if (!isValidNeq(canonical)) {
+        setSavingCompany(false)
+        flash(setCompanyMsg, false, cm.neqInvalid)
+        return
+      }
+      updates.neq = canonical
     }
     // ── THE FEDERAL NUMBER — GATED TWICE, AND NEITHER GATE IS REDUNDANT. ──
     //
@@ -309,12 +320,13 @@ export function SettingsClient({
     // Same rule, same reason. Gated on isCBCA exactly as before — for an LSAQ company
     // the field is not applicable and this branch never runs.
     if (unlockedFields.has('corporationNumber') && isCBCA) {
-      if (!corporationNumber.trim()) {
+      const canonical = normalizeCorporationNumber(corporationNumber)
+      if (!canonical) {
         setSavingCompany(false)
         flash(setCompanyMsg, false, cm.corporationNumberRequired)
         return
       }
-      updates.corporation_number = corporationNumber.trim()
+      updates.corporation_number = canonical
     }
     // supabase-js RETURNS { error } on a Postgres failure and THROWS on a network one.
     // Only the first was guarded here: a network failure skipped the release below and
@@ -644,7 +656,7 @@ export function SettingsClient({
               <>
                 <input
                   value={neq}
-                  onChange={e => setNeq(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  onChange={e => setNeq(normalizeNeq(e.target.value))}
                   placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
                   inputMode="numeric"
                   maxLength={10}
@@ -716,7 +728,7 @@ export function SettingsClient({
               // here; a guard invented from a guessed format is not.
               <input
                 value={corporationNumber}
-                onChange={e => setCorporationNumber(e.target.value)}
+                onChange={e => setCorporationNumber(normalizeCorporationNumber(e.target.value))}
                 className={inputClass}
               />
             ) : (

@@ -7,6 +7,7 @@
     "error": "Une erreur est survenue",
     "saveFailed": "L'enregistrement a échoué. Vérifiez votre connexion et réessayez.",
     "neqRequired": "Le NEQ est requis",
+    "neqInvalid": "Le NEQ compte exactement 10 chiffres",
     "corporationNumberRequired": "Le numéro de société fédéral est requis",
     "required": "Champ requis",
     "close": "Fermer",

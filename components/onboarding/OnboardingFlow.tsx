@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Language, OnboardingData, Province } from '@/lib/types';
+import { normalizeNeq, normalizeCorporationNumber } from '@/lib/identifiers';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
 import { StepProvince } from './StepProvince';
@@ -182,13 +183,22 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
           ? 'LSA'
           : data.company.incorporationType;
 
+      // ⚠️ THE VALUE WRITTEN IS THE VALUE THAT WAS VALIDATED AND COMPARED. Until this
+      // lot the write took `incorporationNumber` RAW while step 2 validated the trimmed
+      // form and check-identifier compared the trimmed form — so the string asked about
+      // was not always the string stored, and the partial unique index indexed a third
+      // one. Measured 2026-08-30: no park row carries surrounding whitespace, so this
+      // closes the gap before it was ever used, it does not repair existing rows.
+      const neqCanonical = normalizeNeq(data.company.incorporationNumber);
+      const corporationNumberCanonical = normalizeCorporationNumber(data.company.corporationNumber);
+
       const companyPayload = {
         user_id: userId,
         legal_name_fr: data.company.legalName,
         legal_name_en: data.company.legalName,
         incorporation_type: dbType,
-        incorporation_number: data.company.incorporationNumber || null,
-        neq: data.company.incorporationNumber || null,
+        incorporation_number: neqCanonical || null,
+        neq: neqCanonical || null,
         // ⚠️ GATED ON THE REGIME — DO NOT REMOVE IT AS REDUNDANT. The field is
         // disabled for LSAQ on step 2, which is NOT enough: the two regime cards
         // stay clickable for as long as step 2 is on screen, and this write only
@@ -206,7 +216,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
         // against 'LSA' would match no company here and let every value through.
         corporation_number:
           data.company.incorporationType === 'CBCA'
-            ? data.company.corporationNumber || null
+            ? corporationNumberCanonical || null
             : null,
         incorporation_date: data.company.incorporationDate || null,
         province: data.company.province,

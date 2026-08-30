@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { OnboardingData, IncorporationType, Province } from '@/lib/types';
+import { normalizeNeq, isValidNeq, normalizeCorporationNumber } from '@/lib/identifiers';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
@@ -158,11 +159,18 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     // Multi-province is on the roadmap: whoever adds a province must revisit EVERY entry
     // in this rule, because requiring the NEQ here means opting IN, not out.
     //
-    // Ordered on purpose: EMPTY beats DUPLICATE on the shared key. The two states are
-    // mutually exclusive by construction — neqDuplicate can only be true for a
-    // NON-empty value — so this else-if never hides the duplicate message.
+    // Ordered on purpose: EMPTY beats MALFORMED beats DUPLICATE on the shared key. The
+    // three states are mutually exclusive by construction — neqDuplicate can only be
+    // true for a value well-formed enough to have been sent to check-identifier — so
+    // neither else-if ever hides the message below it.
+    //
+    // ⚠️ THE FORMAT GUARD IS ON THE NEQ ONLY, and it was posed AFTER measuring: all 12
+    // park rows are exactly ten digits, so it rejects zero existing rows. The federal
+    // number gets no such guard — see the sourced comment above its field.
     if (!data.company.incorporationNumber.trim()) {
       e.incorporationNumber = cm.neqRequired;
+    } else if (!isValidNeq(data.company.incorporationNumber)) {
+      e.incorporationNumber = cm.neqInvalid;
     } else if (neqDuplicate) {
       e.incorporationNumber = ob.neqTakenByAnotherAccount;
     }
@@ -180,12 +188,16 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     // Re-run duplicate check on submit in case onBlur was skipped.
     // Use the returned boolean directly — don't rely on neqDuplicate state,
     // which won't reflect setNeqDuplicate's update until the next render.
-    if (data.company.incorporationNumber.trim()) {
+    // ⚠️ ONLY WELL-FORMED VALUES ARE ASKED ABOUT. A malformed NEQ cannot collide with a
+    // stored one, and validate() below is what names the shape problem. Asking anyway
+    // would spend a round-trip to learn nothing.
+    if (isValidNeq(data.company.incorporationNumber)) {
       const isDuplicate = await checkIdentifierDuplicate('neq', data.company.incorporationNumber);
       if (isDuplicate) return;
     }
-    if (isCBCA && data.company.corporationNumber.trim()) {
-      const isDuplicate = await checkIdentifierDuplicate('corporationNumber', data.company.corporationNumber);
+    const corpNumber = normalizeCorporationNumber(data.company.corporationNumber);
+    if (isCBCA && corpNumber) {
+      const isDuplicate = await checkIdentifierDuplicate('corporationNumber', corpNumber);
       if (isDuplicate) return;
     }
     if (validate()) onNext();
@@ -340,11 +352,10 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             inputMode="numeric"
             value={data.company.incorporationNumber}
             onChange={e => {
-              const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-              update('incorporationNumber', val);
+              update('incorporationNumber', normalizeNeq(e.target.value));
               setNeqDuplicate(false);
             }}
-            onBlur={e => checkIdentifierDuplicate('neq', e.target.value)}
+            onBlur={e => checkIdentifierDuplicate('neq', normalizeNeq(e.target.value))}
             placeholder={fr ? 'ex. 1234567890' : 'e.g. 1234567890'}
             maxLength={10}
             style={inputStyle}
@@ -437,10 +448,10 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             type="text"
             value={data.company.corporationNumber}
             onChange={e => {
-              update('corporationNumber', e.target.value);
+              update('corporationNumber', normalizeCorporationNumber(e.target.value));
               setCorpNumberDuplicate(false);
             }}
-            onBlur={e => checkIdentifierDuplicate('corporationNumber', e.target.value)}
+            onBlur={e => checkIdentifierDuplicate('corporationNumber', normalizeCorporationNumber(e.target.value))}
             disabled={!isCBCA}
             maxLength={12}
             style={isCBCA ? inputStyle : { ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }}
