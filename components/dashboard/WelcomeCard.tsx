@@ -1,5 +1,7 @@
 'use client';
 import type { Company } from '@/lib/types';
+import frMessages from '@/messages/fr.json';
+import enMessages from '@/messages/en.json';
 
 interface WelcomeCardProps {
   company: Company | null;
@@ -22,11 +24,6 @@ const provinceNames: Record<string, { fr: string; en: string }> = {
   NU: { fr: 'Nunavut', en: 'Nunavut' },
 };
 
-const typeLabels: Record<string, { fr: string; en: string }> = {
-  LSA: { fr: 'Provincial Québec (LSAQ)', en: 'Québec Provincial (LSAQ)' },
-  CBCA: { fr: 'Fédéral (LSAC)', en: 'Federal (CBCA)' },
-};
-
 export function WelcomeCard({ company, locale }: WelcomeCardProps) {
   const fr = locale === 'fr';
   const l = fr ? 'fr' : 'en';
@@ -35,7 +32,14 @@ export function WelcomeCard({ company, locale }: WelcomeCardProps) {
   const incType = company?.incorporation_type ?? '';
   const provinceCode = company?.province ?? '';
   const province = provinceNames[provinceCode]?.[l] ?? provinceCode;
-  const typeLabel = typeLabels[incType]?.[l] ?? incType;
+  // ⚠️ THIS TABLE USED TO LIVE HERE, AND IT SHIPPED THE FRENCH FEDERAL ACRONYM WITH
+  // ITS LETTERS TRANSPOSED — S and C swapped in LCSA — in production, for as long as
+  // the card has existed. Three
+  // surfaces each kept their own copy of the same acronyms; nothing compared them.
+  // One table now, in common.regimes, keyed by the value the database stores.
+  const cm = (fr ? frMessages : enMessages).common;
+  const regime = (cm.regimes as Record<string, { acronym: string; short: string } | undefined>)[incType];
+  const typeLabel = regime?.short ?? incType;
 
   return (
     <div className="animate-fade-up space-y-6">

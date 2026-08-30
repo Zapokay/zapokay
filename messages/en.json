@@ -9,7 +9,11 @@
     "neqRequired": "The NEQ is required",
     "corporationNumberRequired": "The federal corporation number is required",
     "required": "Required field",
-    "close": "Close"
+    "close": "Close",
+    "regimes": {
+      "LSA": { "acronym": "QBCA", "short": "Québec Provincial (QBCA)" },
+      "CBCA": { "acronym": "CBCA", "short": "Federal (CBCA)" }
+    }
   },
   "auth": {
     "login": {
@@ -118,8 +122,6 @@
     "legalName": "Legal name",
     "legalNamePlaceholder": "9999999 Quebec Inc.",
     "incorporationType": "Incorporation type",
-    "lsa": "Quebec Provincial (LSAQ)",
-    "cbca": "Federal (CBCA)",
     "incorporationNumber": "Incorporation number",
     "corporationNumber": "Federal corporation number",
     "corporationNumberFederalOnly": "Federal corporations only",

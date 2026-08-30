@@ -155,10 +155,13 @@ export function SettingsClient({
     'w-full px-3 py-2 rounded-lg text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors'
   const selectClass =
     'w-full px-3 py-2 rounded-lg text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors'
-  // Regime label: internal enum 'LSA'/'CBCA' → user-facing proper noun. Matches the
-  // app-wide `=== 'CBCA' ? 'CBCA' : 'LSAQ'` pattern (compliance/page.tsx:85,
-  // StepConfirmation.tsx:32). Locale-invariant proper nouns — no i18n key needed.
-  const incorpTypeLabel = (v: string) => (v === 'CBCA' ? 'CBCA' : 'LSAQ')
+  // ⚠️ THE COMMENT THAT STOOD HERE CLAIMED "locale-invariant proper nouns — no i18n
+  // key needed". MEASURED FALSE: the acronym DOES differ by locale — French says
+  // LSAQ / LCSA, English says QBCA / CBCA — so the old ternary handed the French
+  // acronym to English readers and the English one to French readers, each in turn.
+  // One table now, in common.regimes, keyed by the value the database stores.
+  const incorpTypeLabel = (v: string) =>
+    (cm.regimes as Record<string, { acronym: string; short: string } | undefined>)[v]?.acronym ?? v
   // Reads `editIncorpType`, the LOCAL state the unlocked <select> writes to — NOT the
   // `incorporationType` prop, which is frozen at page load. That is what makes the
   // federal-number field ungrey the instant the user picks CBCA, with no save and no
@@ -566,8 +569,11 @@ export function SettingsClient({
                   onChange={e => setEditIncorpType(e.target.value)}
                   className={selectClass}
                 >
-                  <option value="LSA">LSAQ</option>
-                  <option value="CBCA">CBCA</option>
+                  {/* value = the DB enum, NEVER localised. Only the LABEL is, and it has to
+                      be: this select sat two lines from a display line that now says LCSA
+                      in French, and it would have contradicted it on the same screen. */}
+                  <option value="LSA">{cm.regimes.LSA.acronym}</option>
+                  <option value="CBCA">{cm.regimes.CBCA.acronym}</option>
                 </select>
               ) : (
                 <div

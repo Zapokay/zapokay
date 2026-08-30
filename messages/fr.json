@@ -9,7 +9,11 @@
     "neqRequired": "Le NEQ est requis",
     "corporationNumberRequired": "Le numéro de société fédéral est requis",
     "required": "Champ requis",
-    "close": "Fermer"
+    "close": "Fermer",
+    "regimes": {
+      "LSA": { "acronym": "LSAQ", "short": "Provincial Québec (LSAQ)" },
+      "CBCA": { "acronym": "LCSA", "short": "Fédéral (LCSA)" }
+    }
   },
   "auth": {
     "login": {
@@ -118,8 +122,6 @@
     "legalName": "Raison sociale",
     "legalNamePlaceholder": "9999999 Québec Inc.",
     "incorporationType": "Type d'incorporation",
-    "lsa": "Québec provincial (LSAQ)",
-    "cbca": "Fédéral (LCSA)",
     "incorporationNumber": "Numéro de constitution",
     "corporationNumber": "Numéro de société fédéral",
     "corporationNumberFederalOnly": "Sociétés fédérales seulement",

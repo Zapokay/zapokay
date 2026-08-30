@@ -29,18 +29,25 @@ const provinces: { value: Province; labelFr: string; labelEn: string }[] = [
   { value: 'NU', labelFr: 'Nunavut', labelEn: 'Nunavut' },
 ];
 
+// ⚠️ THE ACRONYM IS NO LONGER HERE. It differs by LOCALE — FR says LSAQ/LCSA, EN says
+// QBCA/CBCA — and three surfaces were each carrying their own copy, which is how
+// WelcomeCard came to ship "LSAC" with the letters transposed. It now comes from
+// common.regimes, keyed by `dbValue` because that is what the database stores and
+// what the two dashboard surfaces already index by.
+// ★ The SUBTITLES stay hardcoded on purpose. They are not acronyms and they are not
+// wrong: under LSAQ sits a CATEGORY, under CBCA the NAME OF THE STATUTE. That
+// asymmetry is a design question, not a defect, and harmonising it here would strip
+// the French card of the only phrase a non-lawyer understands.
 const incorporationTypes = [
   {
     value: 'LSAQ' as IncorporationType,
-    labelFr: 'LSAQ',
-    labelEn: 'LSAQ',
+    dbValue: 'LSA' as const,
     subFr: 'Provincial Québec',
     subEn: 'Québec Provincial',
   },
   {
     value: 'CBCA' as IncorporationType,
-    labelFr: 'CBCA',
-    labelEn: 'CBCA',
+    dbValue: 'CBCA' as const,
     subFr: 'Loi canadienne sur les sociétés par actions',
     subEn: 'Canada Business Corporations Act',
   },
@@ -266,7 +273,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
                     </span>
                   )}
                   <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '13px', color: 'var(--text-heading)' }}>
-                    {fr ? type.labelFr : type.labelEn}
+                    {cm.regimes[type.dbValue].acronym}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
                     {fr ? type.subFr : type.subEn}
