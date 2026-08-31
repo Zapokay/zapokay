@@ -70,3 +70,32 @@ export function isValidNeq(input: string | null | undefined): boolean {
 export function normalizeCorporationNumber(input: string | null | undefined): string {
   return (input ?? '').trim();
 }
+
+/**
+ * COMPARISON KEY for a federal corporation number — digits only.
+ *
+ * ⚠️⚠️ THIS IS NEVER A VALUE TO STORE, AND NEVER A VALUE TO DISPLAY. The stored
+ * column keeps exactly what the user typed, hyphen included, and no screen ever
+ * shows this key. It exists for ONE purpose: so that the two spellings
+ * Corporations Canada itself uses for the SAME number compare equal —
+ * `1709431-1` on the certificate of incorporation, `17094311` in the online
+ * registry. Same corporation, same issuer, one identifier.
+ *
+ * ⚠️ IT IS THE TWIN OF A DATABASE EXPRESSION, AND THE PAIR IS LOAD-BEARING. The
+ * generated column `companies.corporation_number_digits` is defined as
+ *   regexp_replace(corporation_number, '[^0-9]', '', 'g')
+ * and carries the unique index the application relies on. The character class
+ * below is written `[^0-9]` rather than `\D` to mirror it literally. If either
+ * side ever changes, the other must change with it — otherwise the application
+ * asks a question the index cannot answer, and answers "free" to everything.
+ * Register: supabase/migrations/20260830203843_companies_corporation_number_digits.sql
+ *
+ * Examples:
+ *   "1709431-1" → "17094311"
+ *   "17094311"  → "17094311"
+ *   " 1709431-1 " → "17094311"
+ *   "-"         → ""   ⚠️ no digit at all — callers must read "" as "nothing to ask"
+ */
+export function corporationNumberComparisonKey(input: string | null | undefined): string {
+  return (input ?? '').replace(/[^0-9]/g, '');
+}
