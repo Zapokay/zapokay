@@ -12,8 +12,8 @@ import frMessages from '@/messages/fr.json'
 import enMessages from '@/messages/en.json'
 
 const MONTHS_FR = [
-  'Janvier','Février','Mars','Avril','Mai','Juin',
-  'Juillet','Août','Septembre','Octobre','Novembre','Décembre',
+  'janvier','février','mars','avril','mai','juin',
+  'juillet','août','septembre','octobre','novembre','décembre',
 ]
 const MONTHS_EN = [
   'January','February','March','April','May','June',
@@ -77,6 +77,7 @@ export function SettingsClient({
   // URL locale and would diverge from the `fr` boolean this file already uses
   // everywhere. Reuses the two keys the onboarding rule added: zero new strings.
   const cm = (fr ? frMessages : enMessages).common
+  const pv = (fr ? frMessages : enMessages).provinces
 
   // ── Profile state ──────────────────────────────────────────────────────────
   const [fullName, setFullName] = useState(initialFullName)
@@ -161,8 +162,24 @@ export function SettingsClient({
   // LSAQ / LCSA, English says QBCA / CBCA — so the old ternary handed the French
   // acronym to English readers and the English one to French readers, each in turn.
   // One table now, in common.regimes, keyed by the value the database stores.
-  const incorpTypeLabel = (v: string) =>
-    (cm.regimes as Record<string, { acronym: string; short: string } | undefined>)[v]?.acronym ?? v
+  // ⚠️ LA FORME COURTE SE COMPOSE, ELLE NE SE LIT PLUS. L'acronyme nu — « LCSA » —
+  // mettait le jargon en tête, exactement ce que 30c5c15 a retiré des cartes de
+  // l'inscription : le même utilisateur lisait « Fédéral » à l'étape 2 puis du sigle
+  // ici. On compose depuis les deux clés qui existent déjà plutôt que d'en lire une
+  // troisième qui porterait la même information sous une seconde forme — deux écritures
+  // d'une même chaîne finissent par diverger.
+  const incorpTypeLabel = (v: string) => {
+    const r = (cm.regimes as Record<string, { jurisdiction: string; acronym: string } | undefined>)[v]
+    return r ? `${r.jurisdiction} (${r.acronym})` : v
+  }
+
+  // ⚠️ PREMIER LECTEUR DE `messages.provinces`, treize noms traduits restés sans usage.
+  // Le code d'énumération brut — « QC » — est une fuite du modèle de données sur une
+  // carte rédigée en prose, même famille que « LSA » fermée en da1b4f6. Repli sur le
+  // code si la valeur stockée sortait un jour de la contrainte : mieux vaut afficher un
+  // code qu'un vide.
+  const provinceLabel = (v: string) =>
+    (pv as Record<string, string | undefined>)[v] ?? v
   // Reads `editIncorpType`, the LOCAL state the unlocked <select> writes to — NOT the
   // `incorporationType` prop, which is frozen at page load. That is what makes the
   // federal-number field ungrey the instant the user picks CBCA, with no save and no
@@ -632,7 +649,7 @@ export function SettingsClient({
                     opacity: 0.7,
                   }}
                 >
-                  {editProvince}
+                  {provinceLabel(editProvince)}
                 </div>
               )}
             </div>

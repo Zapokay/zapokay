@@ -49,8 +49,8 @@ const incorporationTypes = [
 ];
 
 const MONTHS_FR = [
-  'Janvier','Février','Mars','Avril','Mai','Juin',
-  'Juillet','Août','Septembre','Octobre','Novembre','Décembre',
+  'janvier','février','mars','avril','mai','juin',
+  'juillet','août','septembre','octobre','novembre','décembre',
 ];
 const MONTHS_EN = [
   'January','February','March','April','May','June',
