@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import type { OnboardingData, IncorporationType, Province } from '@/lib/types';
+import type { OnboardingData, IncorporationType } from '@/lib/types';
 import { normalizeNeq, isValidNeq, normalizeCorporationNumber } from '@/lib/identifiers';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import frMessages from '@/messages/fr.json';
@@ -13,22 +13,6 @@ interface StepProps {
   onBack: () => void;
   locale: string;
 }
-
-const provinces: { value: Province; labelFr: string; labelEn: string }[] = [
-  { value: 'QC', labelFr: 'Québec', labelEn: 'Québec' },
-  { value: 'ON', labelFr: 'Ontario', labelEn: 'Ontario' },
-  { value: 'BC', labelFr: 'Colombie-Britannique', labelEn: 'British Columbia' },
-  { value: 'AB', labelFr: 'Alberta', labelEn: 'Alberta' },
-  { value: 'MB', labelFr: 'Manitoba', labelEn: 'Manitoba' },
-  { value: 'SK', labelFr: 'Saskatchewan', labelEn: 'Saskatchewan' },
-  { value: 'NS', labelFr: 'Nouvelle-Écosse', labelEn: 'Nova Scotia' },
-  { value: 'NB', labelFr: 'Nouveau-Brunswick', labelEn: 'New Brunswick' },
-  { value: 'NL', labelFr: 'Terre-Neuve-et-Labrador', labelEn: 'Newfoundland and Labrador' },
-  { value: 'PE', labelFr: "Île-du-Prince-Édouard", labelEn: 'Prince Edward Island' },
-  { value: 'YT', labelFr: 'Yukon', labelEn: 'Yukon' },
-  { value: 'NT', labelFr: 'Territoires du Nord-Ouest', labelEn: 'Northwest Territories' },
-  { value: 'NU', labelFr: 'Nunavut', labelEn: 'Nunavut' },
-];
 
 // ⚠️ THE ACRONYM IS NO LONGER HERE. It differs by LOCALE — FR says LSAQ/LCSA, EN says
 // QBCA/CBCA — and three surfaces were each carrying their own copy, which is how one of
