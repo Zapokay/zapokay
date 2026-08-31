@@ -16,13 +16,11 @@
     "regimes": {
       "LSA": {
         "acronym": "QBCA",
-        "short": "Québec Provincial (QBCA)",
         "jurisdiction": "Provincial — Québec",
         "law": "Quebec Business Corporations Act"
       },
       "CBCA": {
         "acronym": "CBCA",
-        "short": "Federal (CBCA)",
         "jurisdiction": "Federal",
         "law": "Canada Business Corporations Act"
       }

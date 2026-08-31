@@ -31,8 +31,9 @@ const provinces: { value: Province; labelFr: string; labelEn: string }[] = [
 ];
 
 // ⚠️ THE ACRONYM IS NO LONGER HERE. It differs by LOCALE — FR says LSAQ/LCSA, EN says
-// QBCA/CBCA — and three surfaces were each carrying their own copy, which is how
-// WelcomeCard came to ship "LSAC" with the letters transposed. It now comes from
+// QBCA/CBCA — and three surfaces were each carrying their own copy, which is how one of
+// them came to ship "LSAC", the letters transposed, for as long as it existed. That
+// surface was dead code and has since been deleted; the lesson stands. It now comes from
 // common.regimes, keyed by `dbValue` because that is what the database stores and
 // what the two dashboard surfaces already index by.
 // ★ THE SUBTITLES HAVE LEFT THIS ARRAY TOO. They used to be literals, and they were
