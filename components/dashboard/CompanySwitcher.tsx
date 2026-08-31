@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
+import type { CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -27,9 +28,58 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const companyName = company?.legal_name_fr ?? (fr ? 'Mon entreprise' : 'My company');
-  const truncatedName = companyName.length > 22 ? companyName.slice(0, 22) + '…' : companyName;
+  // ⚠️ PLUS DE COUPE EN JAVASCRIPT. Le nom passe ENTIER au rendu ; l'ellipse CSS,
+  // présente aux deux endroits qui l'affichent, coupe seule et coupe là où la place
+  // manque vraiment. La coupe retirée tranchait à 22 caractères — un nombre deviné,
+  // indépendant de la largeur réelle (117 px), qui rognait donc parfois sur de la place
+  // disponible. Deux troncatures en série, dont la première ignorait la seconde.
   const initials = companyName.trim().slice(0, 2).toUpperCase() || 'ZO';
-  const neqDisplay = company?.neq ? `NEQ : ${company.neq}` : 'NEQ : —';
+
+  // ⚠️ `=== 'CBCA'` ET JAMAIS `!== 'LSA'`, et un régime INCONNU n'en est pas un. Sans le
+  // troisième cas, une société sans type déclaré afficherait « Provincial — Québec »,
+  // c'est-à-dire une juridiction inventée sous le nom d'une vraie société.
+  const regime: 'CBCA' | 'LSA' | null =
+    company?.incorporation_type === 'CBCA' ? 'CBCA'
+    : company?.incorporation_type === 'LSA' ? 'LSA'
+    : null;
+
+  // ⚠️ LE NOMBRE DE LIGNES DÉPEND DU RÉGIME, ce n'est pas un gabarit à deux lignes qu'on
+  // viderait à moitié : une société provinciale n'a PAS de numéro de société fédéral, et
+  // lui montrer une ligne vide affirmerait qu'il lui en manque un.
+  //
+  // ★ L'ORDRE SUIT LE RANG JURIDIQUE, PAS L'HABITUDE. Le numéro de société est
+  // CONSTITUTIF — il fait exister la personne morale ; le NEQ n'est que
+  // l'immatriculation qui permet d'opérer au Québec. La société existe d'abord, puis
+  // s'enregistre. D'où : numéro de société PUIS NEQ.
+  //
+  // « NEQ » n'est pas une clé i18n : l'acronyme est identique en français et en anglais,
+  // et le lot n'ouvre qu'une seule clé neuve. Exception assumée à la convention §1.
+  const identifiants: { label: string; valeur: string | null }[] = [
+    ...(regime === 'CBCA'
+      ? [{ label: t('corporationNumberShort'), valeur: company?.corporation_number ?? null }]
+      : []),
+    { label: 'NEQ', valeur: company?.neq ?? null },
+  ];
+
+  const identLabelStyle: CSSProperties = {
+    fontFamily: 'DM Sans, sans-serif', fontSize: '10px', fontWeight: 400,
+    color: 'var(--sb-co-label)', letterSpacing: '0.03em', lineHeight: 1.3,
+  };
+
+  // ⚠️⚠️ AUCUNE TRONCATURE SUR UNE VALEUR D'IDENTIFIANT. JAMAIS.
+  // La version filmée portait ici `overflow:hidden` + `textOverflow:ellipsis` +
+  // `whiteSpace:nowrap`, et l'écran affichait « 99999… » à la place de 9999999-9. La
+  // règle venait de l'ANCIENNE ligne NEQ que ce lot remplace : elle y était légitime
+  // parce qu'elle bornait une chaîne déjà composée, et elle a été transportée sans être
+  // rejugée. Un NOM tronqué reste identifiable ; un NUMÉRO tronqué ne l'est plus — c'est
+  // précisément l'information que ce bloc existe pour donner.
+  // Donc : pas d'ellipsis, pas de nowrap, pas de minWidth. Une valeur plus longue
+  // ENROULE, et `overflowWrap: 'anywhere'` garantit qu'elle enroule même sans espace.
+  const identValueStyle: CSSProperties = {
+    fontFamily: 'DM Mono, ui-monospace, SFMono-Regular, Menlo, monospace',
+    fontSize: '11.5px', fontWeight: 400, lineHeight: 1.35,
+    overflowWrap: 'anywhere',
+  };
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -128,20 +178,75 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
             {initials}
           </div>
 
-          {/* Name + NEQ */}
+          {/* Nom · juridiction · identifiants */}
           <div style={{ flex: 1, minWidth: 0 }}>
+            {/* a) le nom — inchangé, il garde son ellipsis */}
             <div style={{
               fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500,
               color: 'var(--sb-co-name)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
-              {truncatedName}
+              {companyName}
             </div>
+
+            {/* b) la juridiction
+                ⚠️ whoever adds a province must revisit EVERY entry
+                « Provincial — Québec » n'est vrai que parce que ZapOkay ne sert que le
+                Québec AUJOURD'HUI. La feuille de route est pancanadienne : le jour où une
+                autre province entre, CHAQUE endroit qui nomme une juridiction est à
+                revisiter, et un seul grep sur cette phrase doit tous les réunir.
+
+                ⚠️ ELLE S'ENROULE, ELLE NE SE TRONQUE JAMAIS. Aucun ellipsis ici, à la
+                différence du nom juste au-dessus : un nom coupé reste reconnaissable,
+                une juridiction coupée devient une autre juridiction. */}
+            {regime && (
+              <div style={{
+                marginTop: '3px',
+                display: 'flex', flexDirection: 'column', gap: '1px',
+              }}>
+                {/* ⚠️ L'ACRONYME EST SUR SA PROPRE LIGNE, POUR LES DEUX RÉGIMES, TOUJOURS.
+                    Le point médian a disparu avec la mise en ligne : « Fédéral · LCSA »
+                    tenait, « Provincial — Québec · LSAQ » fait 26 caractères contre 14,
+                    et rien ne garantissait qu'il tienne. Une composition qui dépend de la
+                    longueur du texte se casse sur la donnée qu'on n'a pas encore vue.
+                    Deux lignes fixes ne se cassent pas.
+                    ⚠️ L'écart entre elles est de 1px, contre 8px avant le filet : les deux
+                    lignes forment UN bloc, le filet sépare deux blocs. */}
+                <span style={{
+                  fontFamily: 'DM Sans, sans-serif', fontSize: '11px', fontWeight: 400,
+                  color: 'var(--text-body)', lineHeight: 1.35, overflowWrap: 'anywhere',
+                }}>
+                  {t(`regimes.${regime}.jurisdiction`)}
+                </span>
+                <span style={{
+                  fontFamily: 'DM Mono, ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: '10.5px', fontWeight: 400, letterSpacing: '0.02em',
+                  color: 'var(--sb-co-label)', lineHeight: 1.3,
+                }}>
+                  {t(`regimes.${regime}.acronym`)}
+                </span>
+              </div>
+            )}
+
+            {/* c) les identifiants, sous un filet */}
             <div style={{
-              fontFamily: 'DM Sans, sans-serif', fontSize: '11px', fontWeight: 400,
-              color: 'var(--sb-co-label)', marginTop: '2px',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              marginTop: '8px', paddingTop: '7px',
+              borderTop: '1px solid var(--sb-co-border)',
+              display: 'flex', flexDirection: 'column', gap: '8px',
             }}>
-              {neqDisplay}
+              {/* ⚠️ L'ÉCART ENTRE LES PAIRES EST PORTEUR : 8px entre deux identifiants,
+                  1px entre un libellé et sa valeur. Sans cette différence, quatre lignes
+                  d'égale distance se lisent comme quatre choses, pas comme deux. */}
+              {identifiants.map(({ label, valeur }) => (
+                <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                  <span style={identLabelStyle}>{label}</span>
+                  <span style={{
+                    ...identValueStyle,
+                    color: valeur ? 'var(--text-body)' : 'var(--sb-co-label)',
+                  }}>
+                    {valeur || '—'}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -188,7 +293,7 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
                   color: 'var(--text-heading)',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
-                  {truncatedName}
+                  {companyName}
                 </div>
               </div>
               {/* Active badge */}

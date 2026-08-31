@@ -26,6 +26,11 @@ export interface Company {
   province: Province;
   status: CompanyStatus;
   neq: string | null;
+  // Le second identifiant, déclaré ici pour que CompanySwitcher le lise TYPÉ. Il
+  // arrivait déjà par `.select('*')` mais n'existait pour personne : settings/page.tsx
+  // le lisait par un cast d'échappement. Ce cast devient superflu — il n'est PAS retiré
+  // ici, c'est un autre lot.
+  corporation_number: string | null;
   created_at: string;
   updated_at: string;
 }

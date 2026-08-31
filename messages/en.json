@@ -9,6 +9,7 @@
     "neqRequired": "The NEQ is required",
     "neqInvalid": "The NEQ is exactly 10 digits",
     "corporationNumberRequired": "The federal corporation number is required",
+    "corporationNumberShort": "Corporation nº",
     "corporationNumberTooltip": "Number assigned by Corporations Canada when the corporation was incorporated — seven digits followed by a check digit. It appears with a hyphen on your certificate of incorporation (e.g. 1234567-8) and without one in online registries (e.g. 12345678): it is the same number, and both forms are accepted. ⚠️ Not to be confused with the Canada Revenue Agency Business Number (BN), a nine-digit tax identifier used for income tax and sales taxes.",
     "required": "Required field",
     "close": "Close",
