@@ -180,6 +180,15 @@ export function SettingsClient({
   // code qu'un vide.
   const provinceLabel = (v: string) =>
     (pv as Record<string, string | undefined>)[v] ?? v
+
+  // ⚠️ TRI CONSCIENT DE LA LOCALE, PAS UN sort() NU. En ordre de points de code le « Î »
+  // d'« Île-du-Prince-Édouard » passe APRÈS le Z : la province tombe en DERNIER de la
+  // liste française. `localeCompare` la remet entre Colombie-Britannique et Manitoba.
+  // Mesuré : l'anglais rend le même ordre dans les deux cas — c'est le français seul que
+  // le tri naïf trahit, et c'est exactement le genre d'écart qu'on ne voit pas sans
+  // regarder la fin de la liste.
+  const provincesTriees = Object.keys(pv)
+    .sort((a, b) => provinceLabel(a).localeCompare(provinceLabel(b), locale))
   // Reads `editIncorpType`, the LOCAL state the unlocked <select> writes to — NOT the
   // `incorporationType` prop, which is frozen at page load. That is what makes the
   // federal-number field ungrey the instant the user picks CBCA, with no save and no
@@ -634,11 +643,23 @@ export function SettingsClient({
                 </button>
               </div>
               {unlockedFields.has('province') ? (
-                <input
+                /* ⚠️ UNE LISTE, PLUS UNE SAISIE LIBRE. Le champ acceptait n'importe quoi ;
+                   rien ne validait à l'écran et c'était `companies_province_check` qui
+                   refusait, avec le message générique de sauvegarde — qui ne dit pas ce
+                   qui ne va pas. Les treize valeurs sont connues, elles sont au catalogue
+                   dans les deux langues : une liste rend la faute impossible au lieu de
+                   la rattraper.
+                   ⚠️ La valeur reste le CODE (`QC`), jamais le nom — seul l'affichage est
+                   traduit. Même règle que la liste du type de constitution au-dessus. */
+                <select
                   value={editProvince}
                   onChange={e => setEditProvince(e.target.value)}
-                  className={inputClass}
-                />
+                  className={selectClass}
+                >
+                  {provincesTriees.map(code => (
+                    <option key={code} value={code}>{provinceLabel(code)}</option>
+                  ))}
+                </select>
               ) : (
                 <div
                   className="px-3 py-2 rounded-lg text-sm border"
