@@ -421,7 +421,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
                 padding: '12px', fontSize: '12px', color: 'var(--text-body)',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
               }} className="hidden group-hover:block">
-                {ob.corporationNumberTooltip}
+                {cm.corporationNumberTooltip}
               </div>
             </div>
           </div>

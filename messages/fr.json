@@ -9,6 +9,7 @@
     "neqRequired": "Le NEQ est requis",
     "neqInvalid": "Le NEQ compte exactement 10 chiffres",
     "corporationNumberRequired": "Le numéro de société fédéral est requis",
+    "corporationNumberTooltip": "Numéro attribué par Corporations Canada à la constitution de la société — sept chiffres suivis d'un chiffre vérificateur. Il s'écrit avec un trait d'union sur votre certificat de constitution (ex. 1234567-8) et sans trait d'union dans les registres en ligne (ex. 12345678) : c'est le même numéro, les deux formes sont acceptées. ⚠️ À ne pas confondre avec le numéro d'entreprise (NE) de l'Agence du revenu du Canada, un identifiant fiscal à neuf chiffres qui sert à l'impôt et aux taxes.",
     "required": "Champ requis",
     "close": "Fermer",
     "regimes": {
@@ -138,7 +139,6 @@
     "corporationNumberFederalOnly": "Sociétés fédérales seulement",
     "neqTakenByAnotherAccount": "Ce NEQ est déjà rattaché à un autre compte ZapOkay. Vérifiez le numéro saisi — une société ne peut être inscrite qu'une seule fois.",
     "corporationNumberTakenByAnotherAccount": "Ce numéro de société fédéral est déjà rattaché à un autre compte ZapOkay. Vérifiez le numéro saisi — une société ne peut être inscrite qu'une seule fois.",
-    "corporationNumberTooltip": "Numéro attribué par Corporations Canada à la constitution de la société — sept chiffres suivis d'un chiffre vérificateur. Il s'écrit avec un trait d'union sur votre certificat de constitution (ex. 1234567-8) et sans trait d'union dans les registres en ligne (ex. 12345678) : c'est le même numéro, les deux formes sont acceptées. ⚠️ À ne pas confondre avec le numéro d'entreprise (NE) de l'Agence du revenu du Canada, un identifiant fiscal à neuf chiffres qui sert à l'impôt et aux taxes.",
     "incorporationDate": "Date de constitution",
     "province": "Province",
     "officerName": "Nom complet",

@@ -714,9 +714,15 @@ export function SettingsClient({
                 <Info className="h-3.5 w-3.5" />
                 {showCorpNumTooltip && (
                   <div className="absolute left-6 top-0 z-40 w-72 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-left text-xs font-normal text-[var(--text-body)] shadow-lg">
-                    {fr
-                      ? "Numéro attribué par Corporations Canada à la constitution de la société — un identifiant de 7 ou 8 chiffres. Il figure sur votre certificat de constitution et sert d'identité juridique à la société. ⚠️ À ne pas confondre avec le numéro d'entreprise (NE) de l'Agence du revenu du Canada, un identifiant fiscal à 9 chiffres qui sert à l'impôt et aux taxes."
-                      : "Number assigned by Corporations Canada when the corporation was incorporated — a 7- or 8-digit identifier. It appears on your certificate of incorporation and serves as the corporation's legal identity. ⚠️ Not to be confused with the Canada Revenue Agency Business Number (BN), a 9-digit tax identifier used for income tax and sales taxes."}
+                    {/* ⚠️ UNE SEULE SOURCE, AU CATALOGUE. Ces deux phrases étaient écrites
+                        ICI, en dur, et 6496ca1 les a corrigées AILLEURS — dans la clé que
+                        lit l'étape 2. Pendant ce temps cet écran affirmait encore « 7 ou 8
+                        chiffres », donc deux écrans du produit disaient deux choses du même
+                        identifiant, en production.
+                        ⚠️ ET LE DÉFAUT EST INTROUVABLE PAR SON NOM : chercher une clé i18n
+                        ne trouve jamais un doublon codé en dur. Ne recopie pas un texte de
+                        catalogue dans du JSX, même « juste pour cet écran ». */}
+                    {cm.corporationNumberTooltip}
                   </div>
                 )}
               </button>
