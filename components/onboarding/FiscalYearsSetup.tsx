@@ -31,6 +31,10 @@ export function FiscalYearsSetup({
   const supabase = createClient()
   const fr = locale === 'fr'
   const t = useTranslations('onboarding')
+  // Même forme qu'à l'étape 5 (StepShareholders) : un second lecteur pour le
+  // namespace `common`, où vit la phrase d'échec déjà employée par le produit.
+  // Aucune chaîne neuve : `common.saveFailed` est réutilisée telle quelle.
+  const tCommon = useTranslations('common')
 
   // Current fiscal year = the year in which the current fiscal year ENDS
   const now = new Date()
@@ -50,6 +54,10 @@ export function FiscalYearsSetup({
     initialActive.size > 0 ? initialActive : defaultSelected
   )
   const [saving, setSaving] = useState(false)
+  // ⚠️ CE FICHIER N'AVAIT AUCUN CANAL DE MESSAGE. Deux états seulement —
+  // `activeYears` et `saving` — donc rien qui puisse porter un échec, et donc
+  // quatre écritures dont l'échec ne pouvait atteindre aucun écran.
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const docYearSet = new Set(documentYears)
   const allSelected = years.every(y => activeYears.has(y))
@@ -63,19 +71,42 @@ export function FiscalYearsSetup({
     } else {
       next.add(year)
     }
+    // La valeur d'AVANT, capturée pour pouvoir revenir en arrière. `next` est un
+    // Set neuf, donc `previous` garde bien l'ancien contenu.
+    const previous = activeYears
+    setSaveError(null)
     setActiveYears(next)
 
-    const alreadySaved = savedFiscalYears.find(fy => fy.year === year)
-    if (alreadySaved) {
-      await supabase
-        .from('company_fiscal_years')
-        .update({ status: isActive ? 'archived' : 'active' })
-        .eq('company_id', companyId)
-        .eq('year', year)
-    } else if (!isActive) {
-      await supabase
-        .from('company_fiscal_years')
-        .upsert({ company_id: companyId, year, status: 'active' })
+    // ⚠️ DEUX CHEMINS D'ÉCHEC, ET COUVRIR L'UN NE COUVRE PAS L'AUTRE.
+    // supabase-js RETOURNE { error } sur un échec Postgres et LÈVE sur un échec
+    // réseau. Ces deux écritures ne lisaient ni l'un ni l'autre.
+    let dbError: unknown = null
+    try {
+      const alreadySaved = savedFiscalYears.find(fy => fy.year === year)
+      if (alreadySaved) {
+        const { error } = await supabase
+          .from('company_fiscal_years')
+          .update({ status: isActive ? 'archived' : 'active' })
+          .eq('company_id', companyId)
+          .eq('year', year)
+        dbError = error
+      } else if (!isActive) {
+        const { error } = await supabase
+          .from('company_fiscal_years')
+          .upsert({ company_id: companyId, year, status: 'active' })
+        dbError = error
+      }
+    } catch (err) {
+      console.error('[onboarding] fiscal year toggle threw:', err)
+      dbError = err
+    }
+
+    // ⚠️ LA BASCULE EST ANNULÉE, PAS SEULEMENT SIGNALÉE. Une case laissée dans un
+    // état que la base ne porte pas est un mensonge que l'utilisateur emporte
+    // jusqu'au tableau de bord — il croit suivre un exercice qui n'existe pas.
+    if (dbError) {
+      setActiveYears(previous)
+      setSaveError(tCommon('saveFailed'))
     }
   }
 
@@ -89,18 +120,49 @@ export function FiscalYearsSetup({
 
   async function handleStart() {
     setSaving(true)
-    await supabase
-      .from('company_fiscal_years')
-      .delete()
-      .eq('company_id', companyId)
-    const inserts = Array.from(activeYears).map(year => ({
-      company_id: companyId,
-      year,
-      status: 'active',
-    }))
-    if (inserts.length > 0) {
-      await supabase.from('company_fiscal_years').insert(inserts)
+    setSaveError(null)
+
+    let dbError: unknown = null
+    try {
+      const { error: delErr } = await supabase
+        .from('company_fiscal_years')
+        .delete()
+        .eq('company_id', companyId)
+      dbError = delErr
+      // ⚠️ L'INSERT NE PART QUE SI LE DELETE A RÉUSSI. Enchaîner sans vérifier
+      // ferait reposer les lignes par-dessus celles qu'on croyait effacées.
+      if (!dbError) {
+        const inserts = Array.from(activeYears).map(year => ({
+          company_id: companyId,
+          year,
+          status: 'active',
+        }))
+        if (inserts.length > 0) {
+          const { error: insErr } = await supabase
+            .from('company_fiscal_years')
+            .insert(inserts)
+          dbError = insErr
+        }
+      }
+    } catch (err) {
+      console.error('[onboarding] fiscal years finish threw:', err)
+      dbError = err
     }
+
+    // ⚠️ ON NE NAVIGUE QUE SI LES DEUX ONT RÉUSSI. Le DELETE efface TOUS les
+    // exercices de la société avant que l'INSERT ne les repose : partir au
+    // tableau de bord après un INSERT échoué, c'est annoncer un succès en
+    // ouvrant sur une conformité vidée — et douze fichiers lisent cette table.
+    // ⚠️ ET `saving` EST RELÂCHÉ ICI, sur le chemin d'échec seulement. Il ne
+    // l'était nulle part : c'est ce qui figeait le bouton sur « Chargement… »
+    // sans un mot. Sur le succès la navigation démonte, et relâcher ouvrirait
+    // une fenêtre d'un rendu où le bouton est cliquable une seconde fois.
+    if (dbError) {
+      setSaveError(tCommon('saveFailed'))
+      setSaving(false)
+      return
+    }
+
     router.push(`/${locale}/dashboard`)
     router.refresh()
   }
@@ -345,6 +407,25 @@ export function FiscalYearsSetup({
               </p>
             </div>
           </div>
+
+          {/* Message d'échec — même forme que la boîte info ci-dessus, jetons
+              --error-* au lieu de --info-*. Les deux triplets sont adaptatifs. */}
+          {saveError && (
+            <div style={{
+              width: '100%', marginBottom: '16px',
+              borderRadius: '10px', padding: '12px 14px',
+              display: 'flex', gap: '10px',
+              background: 'var(--error-bg)', border: '1px solid var(--error-border)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--error-text)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }}>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v5M12 16h.01" />
+              </svg>
+              <p style={{ fontSize: '12px', color: 'var(--error-text)', lineHeight: 1.6 }}>
+                {saveError}
+              </p>
+            </div>
+          )}
 
           {/* Actions */}
           <div style={{
