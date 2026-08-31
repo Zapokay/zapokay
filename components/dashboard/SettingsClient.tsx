@@ -421,13 +421,38 @@ export function SettingsClient({
     if (isActive) {
       // Async doc check BEFORE any UI change
       setTogglingYear(year)
-      const { count } = await supabase
-        .from('documents')
-        .select('id', { count: 'exact', head: true })
-        .eq('company_id', companyId)
-        .eq('document_year', year)
-        .eq('status', 'active')
+      // ⚠️ CETTE LECTURE EST LA GARDE ELLE-MÊME, ET ELLE ÉTAIT MUETTE.
+      // `const { count } = await …` ne lisait pas son `error` : sur un échec
+      // retourné, `count` vaut null, `if (count && count > 0)` est FAUX, et la
+      // protection ne se déclenche pas — la bascule passe sur une année qui
+      // porte des documents. Une garde qui se tait quand quelque chose va mal
+      // est au plus faible exactement quand on en a le plus besoin.
+      let count: number | null = null
+      let checkError: unknown = null
+      try {
+        const res = await supabase
+          .from('documents')
+          .select('id', { count: 'exact', head: true })
+          .eq('company_id', companyId)
+          .eq('document_year', year)
+          .eq('status', 'active')
+        count = res.count
+        checkError = res.error
+      } catch (err) {
+        console.error('[settings] fiscal year document check threw:', err)
+        checkError = err
+      }
       setTogglingYear(null)
+
+      // ⚠️ ON ÉCHOUE FERMÉ. Si on ne PEUT PAS savoir si des documents existent,
+      // on REFUSE la bascule. Laisser passer sur une incertitude reviendrait à
+      // désactiver un exercice qui en porte peut-être — la chose même que cette
+      // garde existe pour empêcher. Le message ne dit pas POURQUOI ; il dit vrai :
+      // la bascule n'a pas été enregistrée.
+      if (checkError) {
+        setToggleError(cm.saveFailed)
+        return
+      }
 
       if (count && count > 0) {
         setToggleError(
@@ -445,19 +470,29 @@ export function SettingsClient({
     setActiveYears(next)
     setTogglingYear(year)
 
+    // ⚠️ LE CHEMIN RETOURNÉ ÉTAIT DÉJÀ LU ; C'EST LE CHEMIN LANCÉ QUI MANQUAIT.
+    // supabase-js RETOURNE { error } sur un échec Postgres — couvert ci-dessous
+    // depuis toujours — et LÈVE sur un échec réseau. Sans ce try, une coupure
+    // laissait la case basculée à l'écran, `togglingYear` jamais relâché, et pas
+    // un mot : l'utilisateur croyait suivre un exercice que la base ne porte pas.
     let dbError: unknown = null
-    if (isActive) {
-      const { error } = await supabase
-        .from('company_fiscal_years')
-        .update({ status: 'archived' })
-        .eq('company_id', companyId)
-        .eq('year', year)
-      dbError = error
-    } else {
-      const { error } = await supabase
-        .from('company_fiscal_years')
-        .upsert({ company_id: companyId, year, status: 'active' }, { onConflict: 'company_id,year' })
-      dbError = error
+    try {
+      if (isActive) {
+        const { error } = await supabase
+          .from('company_fiscal_years')
+          .update({ status: 'archived' })
+          .eq('company_id', companyId)
+          .eq('year', year)
+        dbError = error
+      } else {
+        const { error } = await supabase
+          .from('company_fiscal_years')
+          .upsert({ company_id: companyId, year, status: 'active' }, { onConflict: 'company_id,year' })
+        dbError = error
+      }
+    } catch (err) {
+      console.error('[settings] fiscal year toggle threw:', err)
+      dbError = err
     }
 
     setTogglingYear(null)
@@ -465,7 +500,14 @@ export function SettingsClient({
     if (dbError) {
       // Rollback
       setActiveYears(new Set(activeYears))
-      alert(fr ? 'Erreur lors de la mise à jour.' : 'Error updating fiscal year.')
+      // ⚠️ LE CANAL DE L'ÉCRAN, PLUS UNE BOÎTE DU NAVIGATEUR. `toggleError` rend
+      // déjà du texte sous la carte ; il n'attendait qu'un second appelant. Un
+      // `alert()` sort du produit, bloque le fil, et ne se traduit pas.
+      // Les deux messages ne peuvent pas se chevaucher : toggleYear commence par
+      // `setToggleError(null)`, donc chaque bascule efface le précédent.
+      // `cm.saveFailed` plutôt qu'une chaîne à soi — c'est celle que l'étape 5 et
+      // l'écran d'inscription emploient déjà pour le même événement.
+      setToggleError(cm.saveFailed)
       return
     }
 
