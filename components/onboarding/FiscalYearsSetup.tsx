@@ -112,9 +112,20 @@ export function FiscalYearsSetup({
 
   function toggleAll() {
     if (allSelected) {
-      setActiveYears(new Set())
+      // ⚠️ LA SECONDE PORTE, ET ELLE ÉTAIT GRANDE OUVERTE. `toggleYear` refuse de
+      // toucher une année qui porte des documents ; ce geste-ci vidait l'ensemble
+      // sans jamais la consulter, et l'enregistrement archivait ensuite ce que la
+      // bascule avait refusé de décocher. Les années protégées survivent donc au
+      // « tout désélectionner » : elles restent cochées et marquées, comme le
+      // rendu les montre déjà.
+      // ⛔ Aucun message ici : désélectionner tout n'est pas une erreur.
+      setActiveYears(new Set(Array.from(activeYears).filter(y => docYearSet.has(y))))
     } else {
-      setActiveYears(new Set(years))
+      // ⚠️ UNION, PAS REMPLACEMENT. `new Set(years)` aurait écarté toute année
+      // déjà active hors de la fenêtre rendue — un « tout sélectionner » qui
+      // désélectionne. La règle vaut donc dans les deux sens : ce geste n'enlève
+      // rien.
+      setActiveYears(new Set([...Array.from(activeYears), ...years]))
     }
   }
 
@@ -122,27 +133,58 @@ export function FiscalYearsSetup({
     setSaving(true)
     setSaveError(null)
 
+    // ⚠️⚠️ CET ÉCRAN N'A PLUS DE `delete`. Il effaçait TOUTES les lignes de la
+    // société avant de réécrire les cochées — donc aussi celles qu'il n'affiche
+    // pas : les `archived`, et les `hold` dont il ignore jusqu'à l'existence.
+    // Mesuré sur le parc le 2026-08-31 : deux sociétés en portaient, dont une
+    // réelle. Il gouverne UNE chose, quelles années sont `active` ; il n'a
+    // aucune autorité sur le reste.
+    //
+    // ★ LES LIGNES NON `active` N'ENTRENT DANS AUCUN DES DEUX ENSEMBLES, par
+    // construction : les deux se calculent à partir de `storedActive`. Elles
+    // sont hors de portée sans qu'un filtre ait à les nommer — ce qui vaut aussi
+    // pour un quatrième statut qu'on ajouterait demain.
+    const storedActive = new Set(
+      savedFiscalYears.filter(fy => fy.status === 'active').map(fy => fy.year)
+    )
+    const aActiver = Array.from(activeYears).filter(y => !storedActive.has(y))
+    // ⛔ `docYearSet` exclu par ceinture : ② rend le cas théoriquement
+    // inatteignable, mais une intersection coûte moins qu'une régression.
+    const aArchiver = Array.from(storedActive).filter(
+      y => !activeYears.has(y) && !docYearSet.has(y)
+    )
+
+    // ★ RIEN À DIRE, RIEN À ÉCRIRE. Un « Terminer » sans changement n'émet
+    // aucune requête.
+    if (aActiver.length === 0 && aArchiver.length === 0) {
+      router.push(`/${locale}/dashboard`)
+      router.refresh()
+      return
+    }
+
     let dbError: unknown = null
     try {
-      const { error: delErr } = await supabase
-        .from('company_fiscal_years')
-        .delete()
-        .eq('company_id', companyId)
-      dbError = delErr
-      // ⚠️ L'INSERT NE PART QUE SI LE DELETE A RÉUSSI. Enchaîner sans vérifier
-      // ferait reposer les lignes par-dessus celles qu'on croyait effacées.
-      if (!dbError) {
-        const inserts = Array.from(activeYears).map(year => ({
-          company_id: companyId,
-          year,
-          status: 'active',
-        }))
-        if (inserts.length > 0) {
-          const { error: insErr } = await supabase
-            .from('company_fiscal_years')
-            .insert(inserts)
-          dbError = insErr
-        }
+      if (aActiver.length > 0) {
+        // Forme de SettingsClient : l'upsert sur (company_id, year) couvre d'un
+        // geste l'année neuve et l'année qui remonte d'`archived`. La contrainte
+        // unique existe et est valide — vérifié au schéma.
+        const { error } = await supabase
+          .from('company_fiscal_years')
+          .upsert(
+            aActiver.map(year => ({ company_id: companyId, year, status: 'active' })),
+            { onConflict: 'company_id,year' },
+          )
+        dbError = error
+      }
+      if (!dbError && aArchiver.length > 0) {
+        // Forme de SettingsClient, généralisée d'une année à un ensemble :
+        // `.eq('year', y)` devient `.in('year', ys)`. Rien d'autre ne change.
+        const { error } = await supabase
+          .from('company_fiscal_years')
+          .update({ status: 'archived' })
+          .eq('company_id', companyId)
+          .in('year', aArchiver)
+        dbError = error
       }
     } catch (err) {
       console.error('[onboarding] fiscal years finish threw:', err)
