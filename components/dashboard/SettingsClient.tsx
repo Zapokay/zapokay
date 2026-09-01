@@ -36,6 +36,7 @@ interface SettingsClientProps {
   // Company
   incorporationType: string
   initialLegalName: string
+  initialLegalNameEn: string
   initialNeq: string
   initialCorporationNumber: string
   province: string
@@ -59,6 +60,7 @@ export function SettingsClient({
   initialLang,
   incorporationType,
   initialLegalName,
+  initialLegalNameEn,
   initialNeq,
   initialCorporationNumber,
   province,
@@ -89,6 +91,7 @@ export function SettingsClient({
 
   // ── Company state ──────────────────────────────────────────────────────────
   const [legalName, setLegalName] = useState(initialLegalName)
+  const [legalNameEn, setLegalNameEn] = useState(initialLegalNameEn)
   const [neq, setNeq] = useState(initialNeq)
   const [corporationNumber, setCorporationNumber] = useState(initialCorporationNumber)
   // Its own tooltip state, mirroring showEmailTooltip / showLangTooltip in the
@@ -242,9 +245,16 @@ export function SettingsClient({
   // ── Save company ────────────────────────────────────────────────────────────
   async function saveCompany() {
     setSavingCompany(true)
+    // Au moins un des deux, comme la contrainte companies_legal_name_present.
+    if (!legalName.trim() && !legalNameEn.trim()) {
+      setSavingCompany(false)
+      flash(setCompanyMsg, false, fr ? 'Au moins une des deux versions est requise.' : 'At least one version is required.')
+      return
+    }
     const updates: Record<string, unknown> = {
-      legal_name_fr: legalName,
-      legal_name_en: legalName,
+      // Chaque colonne prend SA valeur. Vide -> null, comme a l'inscription.
+      legal_name_fr: legalName.trim() || null,
+      legal_name_en: legalNameEn.trim() || null,
     }
     // ── FISCAL-YEAR-END GATE (A4 plan §9c) ──────────────────────────────────────
     // The FY-end now writes ONLY when its padlock has been unlocked this session,
@@ -617,10 +627,19 @@ export function SettingsClient({
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-              {fr ? 'Dénomination sociale' : 'Legal name'}
+              {fr ? 'Dénomination sociale — version française' : 'Corporate name — French version'}
             </label>
             <input value={legalName} onChange={e => setLegalName(e.target.value)} className={inputClass} />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+              {fr ? 'Version anglaise (si votre certificat en porte une)' : 'English version (if your certificate has one)'}
+            </label>
+            <input value={legalNameEn} onChange={e => setLegalNameEn(e.target.value)} className={inputClass} />
+          </div>
+          <p className="text-xs text-[var(--text-muted)] -mt-2">
+            {fr ? 'Au moins une des deux versions est requise.' : 'At least one version is required.'}
+          </p>
           {/* ── Protected fields — Type, Province.
               ★ THE REGIME IS READ BEFORE THE IDENTIFIERS, AND THE ORDER SAYS
               SOMETHING. The user sees "CBCA" first and only then meets the federal

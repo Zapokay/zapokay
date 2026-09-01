@@ -126,7 +126,10 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
 
   function validate() {
     const e: Record<string, string> = {};
-    if (!data.company.legalName.trim()) e.legalName = fr ? 'Champ requis' : 'Required field';
+    // Au moins un des deux, comme la contrainte companies_legal_name_present.
+    if (!data.company.legalName.trim() && !data.company.legalNameEn.trim()) {
+      e.legalName = ob.legalNameAtLeastOne;
+    }
     if (!data.company.incorporationDate) {
       e.incorporationDate = ob.incorporationDateRequired;
     } else if (data.company.incorporationDate > todayStr) {
@@ -214,21 +217,36 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
         {/* Legal name */}
         <div>
           <label style={labelStyle}>
-            {fr ? "Nom légal de l'entreprise" : 'Legal name of the company'}
-            <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
+            {ob.legalName}
           </label>
           <input
             id="legalName"
             type="text"
             value={data.company.legalName}
             onChange={e => update('legalName', e.target.value)}
-            placeholder={fr ? 'ex. 9453-2281 Québec Inc.' : 'e.g. 9453-2281 Québec Inc.'}
+            placeholder={ob.legalNamePlaceholder}
             style={inputStyle}
           />
-          {errors.legalName && (
-            <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>{errors.legalName}</p>
-          )}
         </div>
+
+        {/* Legal name — English version. Pas d'invite : la parenthese du
+            libelle dit deja qu'il est facultatif. */}
+        <div>
+          <label style={labelStyle}>
+            {ob.legalNameEn}
+          </label>
+          <input
+            id="legalNameEn"
+            type="text"
+            value={data.company.legalNameEn}
+            onChange={e => update('legalNameEn', e.target.value)}
+            style={inputStyle}
+          />
+        </div>
+
+        <p style={{ marginTop: '-10px', fontSize: '12px', color: errors.legalName ? '#ef4444' : 'var(--text-muted)' }}>
+          {ob.legalNameAtLeastOne}
+        </p>
 
         {/* Incorporation type */}
         <div>

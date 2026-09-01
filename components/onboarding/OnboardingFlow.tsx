@@ -21,6 +21,7 @@ import LanguageToggle from '@/components/ui/LanguageToggle';
 export interface OnboardingExistingCompany {
   id: string;
   legal_name_fr: string | null;
+  legal_name_en: string | null;
   incorporation_type: string | null;
   neq: string | null;
   corporation_number: string | null;
@@ -47,13 +48,14 @@ const today = new Date().toISOString().split('T')[0];
 // pricePerShare field, so a v1 draft would rehydrate a shareholder without it.
 // v3: OnboardingData.company gained a REQUIRED corporationNumber, so a v2 draft
 // would rehydrate a company without it.
+// v4: OnboardingData.company gained a REQUIRED legalNameEn — same failure mode.
 // ★ AND TYPESCRIPT CANNOT CATCH THAT — which is the whole reason this counter
 // exists. `readOnboardingDraft` below returns `parsed as OnboardingDraft`, an
 // ASSERTION: with the field declared required, tsc believes it is present while
 // the session JSON does not contain it. The value would reach the input as
 // `undefined` and flip the field from uncontrolled to controlled on the first
 // keystroke. The version gate is the only thing that can reject such a draft.
-const DRAFT_VERSION = 3;
+const DRAFT_VERSION = 4;
 
 interface OnboardingDraft {
   v: number;
@@ -108,6 +110,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
     language: locale as Language,
     company: {
       legalName: existingCompany.legal_name_fr ?? '',
+      legalNameEn: existingCompany.legal_name_en ?? '',
       incorporationType: existingCompany.incorporation_type === 'CBCA' ? 'CBCA' : 'LSAQ',
       incorporationNumber: existingCompany.neq ?? '',
       corporationNumber: existingCompany.corporation_number ?? '',
@@ -121,6 +124,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
     language: locale as Language,
     company: {
       legalName: '',
+      legalNameEn: '',
       incorporationType: 'LSAQ',
       incorporationNumber: '',
       corporationNumber: '',
@@ -194,8 +198,10 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
 
       const companyPayload = {
         user_id: userId,
-        legal_name_fr: data.company.legalName,
-        legal_name_en: data.company.legalName,
+        // Chaque colonne prend SA valeur. Vide -> null : la contrainte
+        // companies_legal_name_present accepte l'un vide, jamais les deux.
+        legal_name_fr: data.company.legalName.trim() || null,
+        legal_name_en: data.company.legalNameEn.trim() || null,
         incorporation_type: dbType,
         incorporation_number: neqCanonical || null,
         neq: neqCanonical || null,

@@ -99,7 +99,8 @@ export default async function SettingsPage({
           initialEmail={email}
           initialLang={profile.preferred_language ?? locale}
           incorporationType={company.incorporation_type}
-          initialLegalName={company.legal_name_fr}
+          initialLegalName={company.legal_name_fr ?? ''}
+          initialLegalNameEn={company.legal_name_en ?? ''}
           initialNeq={(companyAny.neq as string | null) ?? ''}
           initialCorporationNumber={(companyAny.corporation_number as string | null) ?? ''}
           province={company.province}

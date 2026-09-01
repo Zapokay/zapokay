@@ -24,7 +24,7 @@ export default async function OnboardingPage({ params: { locale } }: { params: {
   const supabase = createClient();
   const { data: existingCompany, error: existingCompanyError } = await supabase
     .from('companies')
-    .select('id, legal_name_fr, incorporation_type, neq, corporation_number, incorporation_date, province, fiscal_year_end_month, fiscal_year_end_day')
+    .select('id, legal_name_fr, legal_name_en, incorporation_type, neq, corporation_number, incorporation_date, province, fiscal_year_end_month, fiscal_year_end_day')
     .eq('user_id', user.id)
     .eq('status', 'active')
     .maybeSingle();

@@ -50,6 +50,7 @@ export interface OnboardingData {
   language: Language;
   company: {
     legalName: string;
+    legalNameEn: string;
     incorporationType: IncorporationType;
     incorporationNumber: string;
     corporationNumber: string;
