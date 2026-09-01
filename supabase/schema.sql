@@ -54,7 +54,7 @@ CREATE POLICY "users_insert_own" ON public.users
 CREATE TABLE IF NOT EXISTS public.companies (
   id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id               UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  legal_name_fr         TEXT NOT NULL,
+  legal_name_fr         TEXT,
   legal_name_en         TEXT,
   incorporation_type    TEXT NOT NULL CHECK (incorporation_type IN ('LSA', 'CBCA')),
   incorporation_number  TEXT,
@@ -62,7 +62,11 @@ CREATE TABLE IF NOT EXISTS public.companies (
   province              TEXT NOT NULL DEFAULT 'QC' CHECK (province IN ('QC','ON','BC','AB','MB','SK','NS','NB','NL','PE','YT','NT','NU')),
   status                TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- 50b9d62 : au moins une des deux dénominations, non vide après BTRIM.
+  CONSTRAINT companies_legal_name_present CHECK (
+    COALESCE(NULLIF(BTRIM(legal_name_fr), ''), NULLIF(BTRIM(legal_name_en), '')) IS NOT NULL
+  )
 );
 
 -- Auto-update updated_at

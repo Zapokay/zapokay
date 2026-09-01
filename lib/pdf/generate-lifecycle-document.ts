@@ -44,6 +44,7 @@ import { fiscalYearForDate } from '@/lib/active-years';
 import { generatePDF } from '@/lib/pdf/generatePDF';
 import { fillLifecycleResolution } from '@/lib/pdf/lifecycle-template-engine';
 import { pickShareClassName } from '@/lib/pdf/share-class-name';
+import { pickCompanyLegalName } from '@/lib/company-name';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
 import { formatDate } from '@/lib/utils';
 import {
@@ -158,6 +159,13 @@ export async function generateLifecycleDocument(
     .single();
   if (companyError || !company) {
     throw new Error(`generateLifecycleDocument: company not found (${companyId})`);
+  }
+
+  // ⚠️ REPLI DANS LES DEUX SENS. Les deux sites plus bas faisaient `: fr` nu,
+  // sûr tant que legal_name_fr était NOT NULL — plus le cas depuis 50b9d62.
+  const companyName = pickCompanyLegalName(company, language);
+  if (!companyName) {
+    throw new Error(`generateLifecycleDocument: company has no legal name (${companyId})`);
   }
   const framework = company.incorporation_type === 'CBCA' ? 'CBCA' : 'LSA';
 
@@ -450,7 +458,7 @@ export async function generateLifecycleDocument(
   /* -------- Build the fill context ---------------------------------------- */
 
   const ctx: Record<string, string> = {
-    companyName: language === 'en' ? (company.legal_name_en ?? company.legal_name_fr) : company.legal_name_fr,
+    companyName,
     neq: company.neq ?? '',
     effectiveDate: formatDate(effectiveDateIso, language),
     resolutionDate: formatDate(resolutionDate, language),
@@ -645,7 +653,7 @@ export async function generateLifecycleDocument(
     data: {
       // #172 — durable documents.id stamped into the footer (== stored row id).
       documentId,
-      companyName: language === 'en' ? (company.legal_name_en ?? company.legal_name_fr) : company.legal_name_fr,
+      companyName,
       neq: company.neq ?? undefined,
       documentTitle: filled.resolution.title,
       resolutionDate: formatDate(resolutionDate, language),

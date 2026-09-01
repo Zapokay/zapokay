@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import type { Company } from '@/lib/types';
+import { pickCompanyLegalName } from '@/lib/company-name';
 
 interface CompanySwitcherProps {
   company: Company | null;
@@ -27,7 +28,9 @@ export function CompanySwitcher({ company, locale }: CompanySwitcherProps) {
   const [notifyError, setNotifyError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const companyName = company?.legal_name_fr ?? (fr ? 'Mon entreprise' : 'My company');
+  const companyName =
+    (company && pickCompanyLegalName(company, fr ? 'fr' : 'en')) ??
+    (fr ? 'Mon entreprise' : 'My company');
   // ⚠️ PLUS DE COUPE EN JAVASCRIPT. Le nom passe ENTIER au rendu ; l'ellipse CSS,
   // présente aux deux endroits qui l'affichent, coupe seule et coupe là où la place
   // manque vraiment. La coupe retirée tranchait à 22 caractères — un nombre deviné,

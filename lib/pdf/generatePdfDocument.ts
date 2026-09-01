@@ -28,6 +28,7 @@ import { generatePDF } from '@/lib/pdf/generatePDF';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 import { fiscalYearForDate } from '@/lib/active-years';
 import { pickShareClassName } from '@/lib/pdf/share-class-name';
+import { pickCompanyLegalName } from '@/lib/company-name';
 
 /* ------------------------------------------------------------------ */
 /*  Requirement → document type mapping                                */
@@ -270,6 +271,13 @@ export async function generatePdfDocument(
     return { ok: false, notFound: true, error: 'Entreprise introuvable.' };
   }
 
+  // ⚠️ REPLI DANS LES DEUX SENS. Ce site faisait `: fr` nu, sûr tant que
+  // legal_name_fr était NOT NULL — il ne l'est plus depuis 50b9d62.
+  const companyName = pickCompanyLegalName(company, language);
+  if (!companyName) {
+    return { ok: false, error: 'Entreprise sans dénomination.' };
+  }
+
   // 4. Current-state directors (active mandates).
   const { data: directorMandates } = await supabaseAdmin
     .from('director_mandates')
@@ -358,7 +366,7 @@ export async function generatePdfDocument(
   const fiscalYearValue: string | undefined = isFoundational ? undefined : String(effectiveYear);
 
   const templateData = {
-    companyName: language === 'en' ? (company.legal_name_en ?? company.legal_name_fr) : company.legal_name_fr,
+    companyName,
     neq: company.neq,
     documentTitle,
     resolutionDate: effectiveResolutionDate,

@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import JSZip from 'jszip';
 import { filePathFromFileUrl } from '@/lib/storage-path';
+import { pickCompanyLegalName } from '@/lib/company-name';
 
 /* ------------------------------------------------------------------ */
 /*  Section mapping                                                    */
@@ -136,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('id, legal_name_fr, neq')
+      .select('id, legal_name_fr, legal_name_en, neq')
       .eq('id', companyId)
       .single();
 
@@ -144,6 +145,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Entreprise introuvable.' },
         { status: 404 }
+      );
+    }
+
+    /* ---------- Langue du document ----------
+     * Cet export prenait le francais en dur et n'avait aucune notion de langue.
+     * users.preferred_language, jamais la locale d'URL (CLAUDE.md 3).
+     * Forme reprise de bulk-generate/route.ts:178-183. */
+    const { data: profile } = await supabase
+      .from('users')
+      .select('preferred_language')
+      .eq('id', user.id)
+      .single();
+    const docLanguage: 'fr' | 'en' = profile?.preferred_language === 'en' ? 'en' : 'fr';
+
+    const companyName = pickCompanyLegalName(company, docLanguage);
+    if (!companyName) {
+      return NextResponse.json(
+        { error: 'Entreprise sans denomination.' },
+        { status: 422 }
       );
     }
 
@@ -242,7 +262,7 @@ export async function GET(request: NextRequest) {
     });
 
     const coverPageBuffer = await generateCoverPage({
-      companyName: company.legal_name_fr,
+      companyName,
       neq: company.neq,
       exportDate,
       completionScore,
@@ -263,7 +283,7 @@ export async function GET(request: NextRequest) {
 
     /* ---------- Réponse ---------- */
 
-    const sanitizedCompanyName = company.legal_name_fr
+    const sanitizedCompanyName = companyName
       .replace(/[^a-zA-Z0-9À-ÿ\s-]/g, '')
       .replace(/\s+/g, '-')
       .substring(0, 40);

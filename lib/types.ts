@@ -18,7 +18,8 @@ export interface UserProfile {
 export interface Company {
   id: string;
   user_id: string;
-  legal_name_fr: string;
+  // Nullable depuis 50b9d62 : une société peut n'avoir qu'un nom anglais.
+  legal_name_fr: string | null;
   legal_name_en: string | null;
   incorporation_type: IncorporationType;
   incorporation_number: string | null;
