@@ -405,12 +405,27 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             if (existingPeople && existingPeople.length > 0) {
               personId = existingPeople[0].id;
             } else {
-              const { data: newPerson } = await supabase
+              // ⚠️ `continue` ÉTAIT LA FAUTE, PAS L'ABSENCE DE LECTURE D'ERREUR.
+              // Cet insert ne lisait pas son `error`, mais surtout : sur un échec
+              // RETOURNÉ, `data` vaut null, `!newPerson` était donc vrai — et
+              // `continue` passait à l'actionnaire suivant. La boucle finissait,
+              // `setStep(6)` s'exécutait, `return true` remontait, et l'étape 5
+              // annonçait un succès en ayant perdu un actionnaire entier : son nom,
+              // sa quantité, son prix et son numéro de certificat.
+              // ★ Forme copiée de la pré-lecture de personne dix lignes plus haut
+              // (l. 398-403) : destructurer `error`, sortir par `return false`. Les
+              // trois autres `await` de cette boucle font déjà exactement ça ; une
+              // quatrième sortie ne crée aucune exposition nouvelle.
+              // ⚠️ ET LE REJEU RESTE SÛR, mesuré 2026-09-01 : `shareholdings` et
+              // `company_people` ne portent QUE leur clé primaire — aucune unicité.
+              // Ce sont les deux pré-lectures qui rendent un second « Continuer »
+              // inoffensif, en retrouvant ce que le premier passage a écrit.
+              const { data: newPerson, error: newPersonErr } = await supabase
                 .from('company_people')
                 .insert({ company_id: companyId, full_name: sh.fullName.trim(), address_country: 'CA' })
                 .select('id')
                 .single();
-              if (!newPerson) continue;
+              if (newPersonErr || !newPerson) return false;
               personId = newPerson.id;
             }
             // Skip a shareholding this flow has ALREADY written. The key must run
@@ -424,9 +439,13 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             // UNDER-recording is not — a skipped issuance removes shares silently
             // and nobody goes looking for what is absent.
             // end_date is deliberately NOT filtered: an ended holding still happened.
-            // ⚠️ Bounded by the person lookup above, which does NOT read its error
-            // (lot C1b, untouched): if that read fails, personId is a fresh person
-            // and this guard cannot match. Named, not closed here.
+            // ⚠️ THIS GUARD IS ONLY AS GOOD AS THE personId ABOVE, and that is now
+            // solid: ALL FOUR awaits in this loop read their returned error and
+            // leave by `return false` — the two pre-reads, the person insert, and
+            // the RPC. A failed read can no longer yield a fresh personId that this
+            // guard cannot match. The THROWN path is covered upstream, in
+            // StepShareholders, whose try/catch turns the exit into a visible
+            // message. Lot C1b, closed.
             const { data: existingSh, error: existingShErr } = await supabase
               .from('shareholding_holders')
               .select('shareholding_id, shareholding:shareholdings!inner(share_class_id, issue_date, quantity, source)')
