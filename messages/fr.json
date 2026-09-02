@@ -635,13 +635,13 @@
     "binder": {
       "sections": {
         "statuts": "Statuts et actes constitutifs",
-        "avis": "Rapport, avis et déclarations",
         "reglements": "Règlements",
+        "resolutions_administratives": "Résolutions administratives",
+        "depots_federaux": "Dépôts et avis fédéraux",
+        "declarations_quebec": "Déclarations du Québec",
         "resolutions": "Procès-verbaux et résolutions",
-        "administrateurs": "Administrateurs",
-        "dirigeants": "Dirigeants",
-        "actionnaires": "Actionnaires et certificats",
         "registres": "Registres corporatifs",
+        "actionnaires": "Actionnaires et certificats",
         "autres": "Autres documents"
       },
       "emptySection": "Aucun document signé dans cette section",

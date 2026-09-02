@@ -635,13 +635,13 @@
     "binder": {
       "sections": {
         "statuts": "Articles of Incorporation",
-        "avis": "Reports, Notices and Declarations",
         "reglements": "By-Laws",
+        "resolutions_administratives": "Administrative Resolutions",
+        "depots_federaux": "Federal Filings and Notices",
+        "declarations_quebec": "Québec Declarations",
         "resolutions": "Minutes and Resolutions",
-        "administrateurs": "Directors",
-        "dirigeants": "Officers",
-        "actionnaires": "Shareholders and Certificates",
         "registres": "Corporate Registers",
+        "actionnaires": "Shareholders and Certificates",
         "autres": "Other documents"
       },
       "emptySection": "No signed documents in this section",

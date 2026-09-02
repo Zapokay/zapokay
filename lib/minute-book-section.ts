@@ -44,13 +44,13 @@ import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
  */
 export const MINUTE_BOOK_SECTIONS = [
   'statuts',
-  'avis',
   'reglements',
+  'resolutions_administratives',
+  'depots_federaux',
+  'declarations_quebec',
   'resolutions',
-  'administrateurs',
-  'dirigeants',
-  'actionnaires',
   'registres',
+  'actionnaires',
   'autres',
 ] as const;
 
@@ -69,16 +69,20 @@ export function isMinuteBookSection(value: unknown): value is MinuteBookSection 
 }
 
 /**
- * Last-resort shelf, by document type. Six of the nine sections are reachable
- * this way; `administrateurs`, `dirigeants` and `actionnaires` are not — only a
- * catalog requirement (or, now, an explicit choice) can reach those.
+ * Last-resort shelf, by document type. QUATRE des neuf étagères sont
+ * atteignables ainsi — statuts, resolutions, registres, autres. Les cinq autres
+ * ne le sont que par une exigence du catalogue ou un choix explicite.
  */
 export const DOC_TYPE_FALLBACK: Record<string, MinuteBookSection> = {
   statuts: 'statuts',
   resolution: 'resolutions',
   pv: 'resolutions',
   registre: 'registres',
-  rapport: 'avis',
+  // ⚠️ 'autres' ET NON UN DÉPÔT. Sous cette taxonomie un rapport se range selon
+  // son DESTINATAIRE — Ottawa ou Québec — et un rapport sans exigence rattachée
+  // ne dit pas lequel. 'autres' est le seul repli honnête, et c'est une étagère
+  // VISIBLE : la pièce est trouvable, pas devinée.
+  rapport: 'autres',
   autre: 'autres',
 };
 
