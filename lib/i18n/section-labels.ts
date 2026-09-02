@@ -8,33 +8,20 @@
  *
  * ⚠️ POURQUOI CE MODULE EXISTE À PART, ET PAS DANS lib/minute-book-section.ts.
  * Ce fichier-là est importé comme VALEUR par des composants client
- * (UploadDocumentModal lit MINUTE_BOOK_SECTIONS). Y placer
- * `import frMessages from '@/messages/fr.json'` embarquerait les deux
- * catalogues dans le paquet du navigateur. Mesuré 2026-09-02 : un chunk client
- * porte déjà une copie complète du catalogue — 85 % des chaînes purement ASCII
- * s'y retrouvent, le reste n'y échappant qu'à l'échappement `\xea` — et
- * package.json ne déclare AUCUN `sideEffects`, donc webpack ne peut pas
- * l'élaguer. Ce module n'est importé que par du code serveur.
+ * (UploadDocumentModal lit MINUTE_BOOK_SECTIONS). Y placer un accès aux
+ * catalogues embarquerait les deux dans le paquet du navigateur. Le raisonnement
+ * complet et sa mesure vivent dans lib/i18n/server-messages.ts, seul importeur
+ * des JSON. Ce module n'est importé que par du code serveur.
  *
  * ★ LA LISTE ORDONNÉE N'EST PAS REDÉCLARÉE ICI : elle est importée. La source
  * unique du 0257ce6 ne se dédouble pas — c'est elle qui donne aussi le RANG,
  * donc le numéro du dossier, qui n'est jamais écrit à la main.
  */
 
-import frMessages from '@/messages/fr.json';
-import enMessages from '@/messages/en.json';
+import { getServerMessage, type ServerLocale } from '@/lib/i18n/server-messages';
 import { MINUTE_BOOK_SECTIONS, type MinuteBookSection } from '@/lib/minute-book-section';
 
-export type SectionLabelLocale = 'fr' | 'en';
-
-interface MessagesShape {
-  minuteBook?: { binder?: { sections?: Partial<Record<string, string>> } };
-}
-
-const MESSAGES: Record<SectionLabelLocale, MessagesShape> = {
-  fr: frMessages as unknown as MessagesShape,
-  en: enMessages as unknown as MessagesShape,
-};
+export type SectionLabelLocale = ServerLocale;
 
 /**
  * Le libellé d'une section, dans la langue demandée.
@@ -46,16 +33,9 @@ export function getSectionLabel(
   section: MinuteBookSection,
   locale: SectionLabelLocale,
 ): string {
-  if (locale !== 'fr' && locale !== 'en') {
-    throw new Error(`getSectionLabel: invalid locale "${locale}"`);
-  }
-  const label = MESSAGES[locale].minuteBook?.binder?.sections?.[section];
-  if (!label || label.trim() === '') {
-    throw new Error(
-      `getSectionLabel: no label for section="${section}" locale="${locale}"`,
-    );
-  }
-  return label;
+  // La levée sur clé absente vit désormais dans getServerMessage — même règle,
+  // un seul endroit qui la porte.
+  return getServerMessage(`minuteBook.binder.sections.${section}`, locale);
 }
 
 /**

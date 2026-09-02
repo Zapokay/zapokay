@@ -686,6 +686,10 @@
         "export": "Exporter",
         "exporting": "Exportation…"
       },
+      "cover": {
+        "title": "Livre de minutes",
+        "fileName": "00_Page_de_garde.pdf"
+      },
       "errors": {
         "loadFailed": "Impossible de charger les données du livre. Veuillez réessayer.",
         "exportFailed": "L'export a échoué. Veuillez réessayer.",

@@ -686,6 +686,10 @@
         "export": "Export",
         "exporting": "Exporting…"
       },
+      "cover": {
+        "title": "Minute Book",
+        "fileName": "00_Cover_page.pdf"
+      },
       "errors": {
         "loadFailed": "Unable to load minute book data. Please try again.",
         "exportFailed": "Export failed. Please try again.",

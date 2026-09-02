@@ -92,19 +92,38 @@ interface ShareholderResolutionInput {
   documentId: string;
 }
 
-interface CoverPageInput {
+export interface CoverPageInput {
   companyName: string;
   neq?: string;
-  exportDate?: string;
-  completionScore?: number;
-  totalRequired?: number;
-  totalComplete?: number;
+  /**
+   * ⚠️ TITRE ET SOUS-TITRE ARRIVENT DÉJÀ LOCALISÉS. Ce module est le rendu
+   * générique — il sert aussi les résolutions — et n'a pas à connaître les
+   * catalogues. L'appelant, qui sait dans quelle langue il produit, les résout.
+   * Les champs completionScore / totalRequired / totalComplete sont partis avec
+   * la mesure qu'ils portaient : un livre n'a pas de dénominateur.
+   */
+  title: string;
+  subtitle?: string;
+  preparedDate: string;
   language?: 'fr' | 'en' | 'bilingual';
 }
 
 interface GeneratePDFInput {
   type: string;
   data: BoardResolutionInput | ShareholderResolutionInput | CoverPageInput | Record<string, unknown>;
+}
+
+/**
+ * ⚠️ LA PORTE TYPÉE DE LA PAGE DE GARDE, ET ELLE EXISTE POUR UNE RAISON PRÉCISE.
+ * `GeneratePDFInput.data` est une union dont le dernier membre est
+ * `Record<string, unknown>` : il avale n'importe quel objet, donc omettre un
+ * champ requis de CoverPageInput ne faisait échouer AUCUNE compilation — mesuré
+ * 2026-09-02, le canari n'a pas mordu. Cette fonction rétablit le contrat pour
+ * l'unique appelant de 'cover-page' sans toucher aux branches des résolutions,
+ * dont l'union large est un autre lot.
+ */
+export function generateCoverPagePDF(input: CoverPageInput): Promise<Buffer> {
+  return generatePDF({ type: 'cover-page', data: input });
 }
 
 export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buffer> {
@@ -160,9 +179,9 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
       const tmplData: CoverPageData = {
         companyName: d.companyName,
         neq: d.neq,
-        title: 'Livre de minutes',
-        subtitle: `Complétude : ${d.completionScore ?? 0}% (${d.totalComplete ?? 0}/${d.totalRequired ?? 0} documents)`,
-        preparedDate: d.exportDate ?? new Date().toLocaleDateString('fr-CA'),
+        title: d.title,
+        subtitle: d.subtitle,
+        preparedDate: d.preparedDate,
         language: d.language ?? 'fr',
       };
       html = coverPageHTML(tmplData);

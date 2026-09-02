@@ -8,6 +8,7 @@ import { filePathFromFileUrl } from '@/lib/storage-path';
 import { pickCompanyLegalName } from '@/lib/company-name';
 import { sectionOfDocument } from '@/lib/minute-book-section';
 import { getSectionFolderName } from '@/lib/i18n/section-labels';
+import { getCoverTitle, getCoverSubtitle, getCoverFileName, getCoverDate } from '@/lib/i18n/export-labels';
 
 /* ------------------------------------------------------------------ */
 /*  Section mapping                                                    */
@@ -24,31 +25,31 @@ import { getSectionFolderName } from '@/lib/i18n/section-labels';
 /*  Cover page (HTML → PDF via generatePDF)                            */
 /* ------------------------------------------------------------------ */
 
+// ⚠️ LA PAGE DE GARDE PORTE L'IDENTITÉ DU LIVRE ET SON COMPTE, RIEN DE PLUS.
+// Elle affichait « Complétude : N% », un pourcentage qui ne pouvait valoir que
+// zéro — son dénominateur venait d'une requête filtrant `company_id` sur un
+// catalogue GLOBAL, qui n'a pas cette colonne, et dont personne ne lisait
+// l'erreur. La mesure n'est pas réparée : elle est retirée. Un livre n'a pas de
+// dénominateur, il a un compte.
+// `sectionCounts` était calculé, transmis, et JETÉ par cette branche. Il
+// reviendra au commit D, sur la page index, là où il sera lu.
 interface CoverPageData {
   companyName: string;
   neq: string;
-  exportDate: string;
-  completionScore: number;
-  totalRequired: number;
-  totalComplete: number;
-  sectionCounts: Record<string, number>;
+  documentCount: number;
+  locale: 'fr' | 'en';
 }
 
 async function generateCoverPage(data: CoverPageData): Promise<Buffer> {
-  const { generatePDF } = await import('@/lib/pdf/generatePDF');
+  const { generateCoverPagePDF } = await import('@/lib/pdf/generatePDF');
 
-  return generatePDF({
-    type: 'cover-page',
-    data: {
-      companyName: data.companyName,
-      neq: data.neq,
-      exportDate: data.exportDate,
-      completionScore: data.completionScore,
-      totalRequired: data.totalRequired,
-      totalComplete: data.totalComplete,
-      sectionCounts: data.sectionCounts,
-      language: 'fr',
-    },
+  return generateCoverPagePDF({
+    companyName: data.companyName,
+    neq: data.neq,
+    title: getCoverTitle(data.locale),
+    subtitle: getCoverSubtitle(data.documentCount, data.locale),
+    preparedDate: getCoverDate(new Date(), data.locale),
+    language: data.locale,
   });
 }
 
@@ -193,24 +194,7 @@ export async function GET(request: NextRequest) {
     }
     const allDocuments: ExportDocument[] = documents ?? [];
 
-    /* ---------- Charger les exigences pour le score ---------- */
-
-    const { data: requirements } = await supabase
-      .from('minute_book_requirements')
-      .select('id')
-      .eq('company_id', companyId);
-
-    const totalRequired = (requirements ?? []).length;
-    const totalComplete = allDocuments.length;
-    const completionScore =
-      totalRequired > 0 ? Math.round((totalComplete / totalRequired) * 100) : 0;
-
     /* ---------- Organiser par section ---------- */
-
-    // Compté par CLÉ de section, plus par une étiquette française : la clé est
-    // stable, l'étiquette dépend de la locale. (La page de garde le jette
-    // aujourd'hui — commit C.)
-    const sectionCounts: Record<string, number> = {};
 
     // ⚠️ LES PIÈCES INTROUVABLES SONT COMPTÉES, PLUS SAUTÉES. Trois `continue`
     // vivaient dans cette boucle : chemin irrésolu, URL signée ratée,
@@ -226,9 +210,6 @@ export async function GET(request: NextRequest) {
 
     for (const doc of allDocuments) {
       const section = sectionOfDocument(doc);
-
-      // Compteur par section
-      sectionCounts[section] = (sectionCounts[section] ?? 0) + 1;
 
       // Normaliser file_url (legacy: full public URL ou clé relative) → clé relative.
       const storagePath = filePathFromFileUrl(doc.file_url);
@@ -287,23 +268,15 @@ export async function GET(request: NextRequest) {
     /* ---------- Page de garde ---------- */
 
     const now = new Date();
-    const exportDate = now.toLocaleDateString('fr-CA', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
 
     const coverPageBuffer = await generateCoverPage({
       companyName,
       neq: company.neq,
-      exportDate,
-      completionScore,
-      totalRequired,
-      totalComplete,
-      sectionCounts,
+      documentCount: allDocuments.length,
+      locale: docLanguage,
     });
 
-    zip.file('00_Page_de_garde.pdf', coverPageBuffer);
+    zip.file(getCoverFileName(docLanguage), coverPageBuffer);
 
     /* ---------- Générer le ZIP ---------- */
 
