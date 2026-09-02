@@ -631,6 +631,8 @@
       "livre": "Livre"
     },
     "binder": {
+      "binderUnavailable": "Le livre n'a pas pu être chargé. Rechargez la page pour réessayer.",
+      "registersUnavailable": "{count, plural, =1 {1 registre n'a pas pu être chargé. Rechargez la page pour réessayer.} other {# registres n'ont pas pu être chargés. Rechargez la page pour réessayer.}}",
       "documentCount": "{count, plural, =0 {Aucun document} =1 {1 document} other {# documents}}",
       "exportBook": "Exporter le livre",
       "sections": {

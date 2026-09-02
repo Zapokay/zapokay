@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import BinderSection from './BinderSection'
 import RegisterCard from './RegisterCard'
 import type { MinuteBookSection } from '@/lib/minute-book-section'
+import { readSettledRegister, partitionRegisterLoads } from '@/lib/minute-book/register-loads'
 
 /**
  * `key` is narrowed to the nine section keys so `tBinder(\`sections.${section.key}\`)`
@@ -49,29 +50,54 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
   const [shareholders, setShareholders] = useState<any>(null)
   const [statedCapital, setStatedCapital] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  // ⚠️ L'ÉCHEC EST UN ÉTAT, PAS UNE ABSENCE. On ne déduit rien de
+  // `sections.length === 0` : la route rend TOUJOURS neuf sections, donc un
+  // tableau vide ne distingue pas « livre vide » de « livre non lu ».
+  const [binderFailed, setBinderFailed] = useState(false)
+  const [registersFailed, setRegistersFailed] = useState(0)
 
   useEffect(() => {
     async function fetchAll() {
-      try {
-        const [binderRes, dirRes, offRes, shRes, scRes] = await Promise.all([
-          fetch('/api/minute-book/binder?scope=finalized'),
-          fetch('/api/registers/directors'),
-          fetch('/api/registers/officers'),
-          fetch('/api/registers/shareholders'),
-          fetch('/api/registers/stated-capital'),
-        ])
-        const binderData = await binderRes.json()
-        setSections(binderData.sections || [])
-        onTotalDocuments(binderData.totalDocuments ?? 0)
-        setDirectors(await dirRes.json())
-        setOfficers(await offRes.json())
-        setShareholders(await shRes.json())
-        setStatedCapital(await scRes.json())
-      } catch (err) {
-        console.error('Failed to load binder data', err)
-      } finally {
-        setLoading(false)
+      // ⚠️ allSettled ET NON all : avec `Promise.all`, le rejet d'UN SEUL appel
+      // faisait sauter le bloc entier — aucune section posée, aucun registre, et
+      // la page rendait un livre blanc sans un mot. Un registre en panne ne peut
+      // plus emporter le Livre.
+      const [binderRes, dirRes, offRes, shRes, scRes] = await Promise.allSettled([
+        fetch('/api/minute-book/binder?scope=finalized'),
+        fetch('/api/registers/directors'),
+        fetch('/api/registers/officers'),
+        fetch('/api/registers/shareholders'),
+        fetch('/api/registers/stated-capital'),
+      ])
+
+      // ── Le Livre lui-même. La garde porte sur l'ÉCHEC : rejet LANCÉ
+      //    (status rejected, ou json() qui lance) ou réponse non-ok RETOURNÉE.
+      const binderOutcome = await readSettledRegister<{
+        sections?: Section[]
+        totalDocuments?: number
+      }>(binderRes)
+      if (binderOutcome.ok && binderOutcome.body) {
+        setSections(binderOutcome.body.sections || [])
+        onTotalDocuments(binderOutcome.body.totalDocuments ?? 0)
+      } else {
+        setBinderFailed(true)
       }
+
+      // ── Les quatre registres, chacun retenu seulement s'il est TENU et `ok`.
+      const outcomes = {
+        directors: await readSettledRegister<unknown>(dirRes),
+        officers: await readSettledRegister<unknown>(offRes),
+        shareholders: await readSettledRegister<unknown>(shRes),
+        statedCapital: await readSettledRegister<unknown>(scRes),
+      }
+      const { loaded, failed } = partitionRegisterLoads(outcomes)
+      setDirectors(loaded.directors ?? null)
+      setOfficers(loaded.officers ?? null)
+      setShareholders(loaded.shareholders ?? null)
+      setStatedCapital(loaded.statedCapital ?? null)
+      setRegistersFailed(failed)
+
+      setLoading(false)
     }
     fetchAll()
   }, [onTotalDocuments])
@@ -188,8 +214,18 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
     ),
   ].filter(Boolean)
 
+  const avis = 'rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-5 py-4 text-sm text-[var(--text-muted)]'
+
   return (
     <div className="space-y-4">
+      {binderFailed && (
+        <div role="alert" className={avis}>{tBinder('binderUnavailable')}</div>
+      )}
+      {registersFailed > 0 && (
+        <div role="alert" className={avis}>
+          {tBinder('registersUnavailable', { count: registersFailed })}
+        </div>
+      )}
       {sections.map((section, i) =>
         section.key === 'registres' ? (
           <BinderSection
