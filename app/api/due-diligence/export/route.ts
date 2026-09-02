@@ -6,29 +6,19 @@ import { createClient } from '@/lib/supabase/server';
 import JSZip from 'jszip';
 import { filePathFromFileUrl } from '@/lib/storage-path';
 import { pickCompanyLegalName } from '@/lib/company-name';
+import { sectionOfDocument } from '@/lib/minute-book-section';
+import { getSectionFolderName } from '@/lib/i18n/section-labels';
 
 /* ------------------------------------------------------------------ */
 /*  Section mapping                                                    */
 /* ------------------------------------------------------------------ */
 
-interface SectionConfig {
-  folder: string;
-  label: string;
-}
-
-const SECTION_MAP: Record<string, SectionConfig> = {
-  statuts: { folder: '01_Statuts', label: 'Statuts' },
-  registre: { folder: '02_Reglements', label: 'Règlements' },
-  resolution: { folder: '03_Resolutions', label: 'Résolutions' },
-  pv: { folder: '03_Resolutions', label: 'Résolutions' },
-  rapport: { folder: '04_Rapports', label: 'Rapports' },
-};
-
-const DEFAULT_SECTION: SectionConfig = { folder: '05_Autres', label: 'Autres' };
-
-function getSectionConfig(documentType: string): SectionConfig {
-  return SECTION_MAP[documentType] ?? DEFAULT_SECTION;
-}
+// ⚠️ CETTE ROUTE NE CLASSE PLUS, ELLE DEMANDE. Elle portait sa propre table de
+// cinq dossiers, indexée par `document_type` — donc une SECONDE classification,
+// qui ne pouvait que diverger de l'écran au premier changement. Le rangement
+// appelle désormais `sectionOfDocument`, la même fonction que la route du Livre,
+// et le nom de dossier vient du rang dans la liste ordonnée. Même fonction,
+// même repli, même ordre : c'est ce qui fait un miroir plutôt qu'une ressemblance.
 
 /* ------------------------------------------------------------------ */
 /*  Cover page (HTML → PDF via generatePDF)                            */
@@ -171,7 +161,7 @@ export async function GET(request: NextRequest) {
 
     let documentsQuery = supabase
       .from('documents')
-      .select('id, document_type, title, file_name, file_url')
+      .select('id, document_type, title, file_name, file_url, minute_book_section')
       .eq('company_id', companyId)
       .eq('status', 'active');
 
@@ -189,7 +179,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const allDocuments = documents ?? [];
+    // ⚠️ ANNOTÉ, ET C'EST CE QUI REND LA GARDE RÉELLE. Sans ce type, `documents`
+    // arrive en `any[]` du select non typé, et `doc.document_type` passait partout
+    // — un `getSectionFolderName(doc.document_type, …)` compilait sans broncher.
+    // Les six colonnes sont exactement celles que la requête demande.
+    interface ExportDocument {
+      id: string;
+      document_type: string;
+      title: string;
+      file_name: string;
+      file_url: string;
+      minute_book_section: string | null;
+    }
+    const allDocuments: ExportDocument[] = documents ?? [];
 
     /* ---------- Charger les exigences pour le score ---------- */
 
@@ -205,20 +207,34 @@ export async function GET(request: NextRequest) {
 
     /* ---------- Organiser par section ---------- */
 
+    // Compté par CLÉ de section, plus par une étiquette française : la clé est
+    // stable, l'étiquette dépend de la locale. (La page de garde le jette
+    // aujourd'hui — commit C.)
     const sectionCounts: Record<string, number> = {};
+
+    // ⚠️ LES PIÈCES INTROUVABLES SONT COMPTÉES, PLUS SAUTÉES. Trois `continue`
+    // vivaient dans cette boucle : chemin irrésolu, URL signée ratée,
+    // téléchargement raté. Chacun retirait une pièce de l'archive SANS RIEN
+    // DIRE — un livre incomplet remis à un avocat est un dommage irréversible,
+    // un export à relancer est un ennui. On refuse maintenant, et on nomme le
+    // nombre. Les identifiants partent au journal serveur : l'utilisateur ne
+    // peut pas réparer un fichier cassé, nous si, et personne ne savait qu'il
+    // en existait.
+    const unavailable: string[] = [];
 
     const zip = new JSZip();
 
     for (const doc of allDocuments) {
-      const section = getSectionConfig(doc.document_type);
+      const section = sectionOfDocument(doc);
 
       // Compteur par section
-      sectionCounts[section.label] = (sectionCounts[section.label] ?? 0) + 1;
+      sectionCounts[section] = (sectionCounts[section] ?? 0) + 1;
 
       // Normaliser file_url (legacy: full public URL ou clé relative) → clé relative.
       const storagePath = filePathFromFileUrl(doc.file_url);
       if (!storagePath) {
-        console.error(`Cannot resolve storage path for doc ${doc.id}`);
+        console.error(`[due-diligence/export] cannot resolve storage path for doc ${doc.id}`);
+        unavailable.push(doc.id);
         continue;
       }
 
@@ -228,13 +244,15 @@ export async function GET(request: NextRequest) {
         .createSignedUrl(storagePath, 60); // 60 secondes
 
       if (signedUrlError || !signedUrlData?.signedUrl) {
-        console.error(`Signed URL error for ${storagePath}:`, signedUrlError);
+        console.error(`[due-diligence/export] signed URL failed for doc ${doc.id} (${storagePath}):`, signedUrlError);
+        unavailable.push(doc.id);
         continue;
       }
 
       const fileResponse = await fetch(signedUrlData.signedUrl);
       if (!fileResponse.ok) {
-        console.error(`Download failed for ${doc.file_name}: ${fileResponse.status}`);
+        console.error(`[due-diligence/export] download failed for doc ${doc.id} (${doc.file_name}): ${fileResponse.status}`);
+        unavailable.push(doc.id);
         continue;
       }
 
@@ -249,7 +267,21 @@ export async function GET(request: NextRequest) {
       const ext = dotIdx === -1 ? '' : rawName.slice(dotIdx);
       const safeName = `${base}_${doc.id.slice(0, 8)}${ext}`;
 
-      zip.file(`${section.folder}/${safeName}`, fileBuffer);
+      zip.file(`${getSectionFolderName(section, docLanguage)}/${safeName}`, fileBuffer);
+    }
+
+    // ⛔ LE REFUS SORT ICI, AVANT LE MOINDRE OCTET D'ARCHIVE. La page de garde
+    // n'est pas rendue, `generateAsync` n'est pas appelé, rien n'est expédié :
+    // le zip n'existe encore qu'en mémoire, à moitié rempli, et il y reste.
+    if (unavailable.length > 0) {
+      console.error(
+        `[due-diligence/export] ABORTED for company ${companyId} — ${unavailable.length} document(s) unavailable:`,
+        unavailable.join(', '),
+      );
+      return NextResponse.json(
+        { error: 'documents_unavailable', missingCount: unavailable.length },
+        { status: 502 },
+      );
     }
 
     /* ---------- Page de garde ---------- */

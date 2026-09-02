@@ -43,6 +43,10 @@ export default function BinderExportModal({
   const [loadError, setLoadError] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(false);
+  // ⚠️ LE CORPS DE L'ERREUR EST LU, PLUS JETÉ. `res.ok` seul ne pouvait rien
+  // dire de plus que « ça a raté » ; la route nomme désormais COMBIEN de
+  // pièces manquaient. null = échec sans détail, on garde le message générique.
+  const [missingCount, setMissingCount] = useState<number | null>(null);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -158,11 +162,25 @@ export default function BinderExportModal({
   async function handleExport() {
     setExporting(true);
     setExportError(false);
+    setMissingCount(null);
     try {
       const res = await fetch(
         `/api/due-diligence/export?companyId=${encodeURIComponent(companyId)}&scope=finalized`,
       );
-      if (!res.ok) throw new Error('export failed');
+      if (!res.ok) {
+        // Le corps peut porter { error: 'documents_unavailable', missingCount }.
+        // Un corps illisible n'est pas un cas particulier : on retombe sur le
+        // message générique, qui reste juste.
+        try {
+          const body = await res.json();
+          if (typeof body?.missingCount === 'number' && body.missingCount > 0) {
+            setMissingCount(body.missingCount);
+          }
+        } catch {
+          /* corps non-JSON — le message générique suffit */
+        }
+        throw new Error('export failed');
+      }
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -278,7 +296,9 @@ export default function BinderExportModal({
                 className="mt-4 rounded-lg border border-[var(--error-border)] bg-[var(--error-bg)] p-4"
               >
                 <p className="text-sm text-[var(--error-text)]">
-                  {t('errors.exportFailed')}
+                  {missingCount !== null
+                    ? t('errors.exportIncomplete', { count: missingCount })
+                    : t('errors.exportFailed')}
                 </p>
               </div>
             )}

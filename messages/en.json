@@ -689,6 +689,7 @@
       "errors": {
         "loadFailed": "Unable to load minute book data. Please try again.",
         "exportFailed": "Export failed. Please try again.",
+        "exportIncomplete": "{count, plural, =1 {1 document could not be retrieved. The export was cancelled rather than hand you an incomplete book.} other {# documents could not be retrieved. The export was cancelled rather than hand you an incomplete book.}}",
         "retry": "Retry"
       }
     },

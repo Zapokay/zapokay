@@ -689,6 +689,7 @@
       "errors": {
         "loadFailed": "Impossible de charger les données du livre. Veuillez réessayer.",
         "exportFailed": "L'export a échoué. Veuillez réessayer.",
+        "exportIncomplete": "{count, plural, =1 {1 document n'a pas pu être récupéré. L'export est annulé plutôt que de vous livrer un livre incomplet.} other {# documents n'ont pas pu être récupérés. L'export est annulé plutôt que de vous livrer un livre incomplet.}}",
         "retry": "Réessayer"
       }
     },
