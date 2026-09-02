@@ -14,7 +14,6 @@ import RequirementSection from '@/components/minute-book/RequirementSection';
 import ArchiveSection from '@/components/minute-book/ArchiveSection';
 import EventSection from '@/components/minute-book/EventSection';
 import InventoryLine from '@/components/minute-book/InventoryLine';
-import DueDiligenceModal from '@/components/due-diligence/DueDiligenceModal';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import { useRowUpload } from '@/components/documents/useRowUpload';
 import BulkCatchUpButton from '@/components/minute-book/BulkCatchUpButton';
@@ -300,7 +299,6 @@ export default function CompletenessPage({
     ).length + events.filter((a) => a.liveness === 'live').length;
 
   const [loading, setLoading] = useState(true);
-  const [showDueDiligenceModal, setShowDueDiligenceModal] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   // Archive-replace (Piece-4 follow-up #1): opens the certify-capable modal
@@ -715,14 +713,6 @@ export default function CompletenessPage({
               onOpen={() => setIsBulkModalOpen(true)}
               disabled={anyFilterActive}
             />
-            <button
-              type="button"
-              onClick={() => setShowDueDiligenceModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border-[1.5px] border-[var(--card-hover-border)] text-[var(--text-heading)] bg-transparent transition-colors hover:bg-[var(--hover)]"
-              style={{ fontFamily: 'DM Sans, sans-serif' }}
-            >
-              ↓ {tMB('completeness.exportBook')}
-            </button>
           </div>
         </div>
         {!loading && data && (
@@ -928,12 +918,6 @@ export default function CompletenessPage({
           </>
         )}
       </div>
-
-      <DueDiligenceModal
-        companyId={companyId}
-        isOpen={showDueDiligenceModal}
-        onClose={() => setShowDueDiligenceModal(false)}
-      />
 
       <BulkCatchUpModal
         isOpen={isBulkModalOpen}

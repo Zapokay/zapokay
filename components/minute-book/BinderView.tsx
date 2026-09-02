@@ -23,7 +23,20 @@ interface Section {
   count: number
 }
 
-export default function BinderView() {
+interface BinderViewProps {
+  /**
+   * ⚠️ LE NOMBRE ET LES ÉTAGÈRES VIENNENT DE LA MÊME RÉPONSE, et c'est la
+   * contrainte de ce composant. `totalDocuments` est remonté depuis le MÊME
+   * `binderData` qui pose les sections — pas d'un second appel, pas d'une somme
+   * recalculée. Deux nombres tirés de deux lectures peuvent se contredire ;
+   * ceux-là ne le peuvent pas.
+   * Reçoit directement le setter de BinderPage : il est stable, donc il peut
+   * figurer dans les dépendances de l'effet sans le relancer.
+   */
+  onTotalDocuments: (total: number) => void
+}
+
+export default function BinderView({ onTotalDocuments }: BinderViewProps) {
   const t = useTranslations('minuteBook.registers')
   // Section headings — localized via key-map off section.key. La route
   // n'expédie plus de title_fr : le catalogue i18n est la seule source.
@@ -49,6 +62,7 @@ export default function BinderView() {
         ])
         const binderData = await binderRes.json()
         setSections(binderData.sections || [])
+        onTotalDocuments(binderData.totalDocuments ?? 0)
         setDirectors(await dirRes.json())
         setOfficers(await offRes.json())
         setShareholders(await shRes.json())
@@ -60,7 +74,7 @@ export default function BinderView() {
       }
     }
     fetchAll()
-  }, [])
+  }, [onTotalDocuments])
 
   if (loading) {
     return (

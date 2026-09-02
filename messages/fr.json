@@ -610,9 +610,7 @@
       "title": "Complétude",
       "requirementNotFound": "Exigence introuvable.",
       "documentUploaded": "Document téléversé.",
-      "exportBook": "Exporter le livre",
       "total": "Total",
-      "complete": "complet",
       "toSign": "à signer",
       "upcoming": "à venir",
       "actionableNow": "à faire maintenant",
@@ -633,6 +631,8 @@
       "livre": "Livre"
     },
     "binder": {
+      "documentCount": "{count, plural, =0 {Aucun document} =1 {1 document} other {# documents}}",
+      "exportBook": "Exporter le livre",
       "sections": {
         "statuts": "Statuts et actes constitutifs",
         "reglements": "Règlements",

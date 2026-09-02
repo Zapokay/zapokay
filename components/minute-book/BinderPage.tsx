@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Info } from 'lucide-react';
 import BinderView from '@/components/minute-book/BinderView';
 import BinderExportModal from '@/components/minute-book/BinderExportModal';
-import CompletenessProgressBar from '@/components/minute-book/CompletenessProgressBar';
-import type { CompletenessResponse } from '@/app/api/minute-book/completeness/route';
 
 interface BinderPageProps {
   locale: string;
@@ -14,27 +13,14 @@ interface BinderPageProps {
 
 export default function BinderPage({ locale, companyId }: BinderPageProps) {
   const fr = locale === 'fr';
-  const [score, setScore] = useState<number | null>(null);
+  const tBinder = useTranslations('minuteBook.binder');
   const [showTooltip, setShowTooltip] = useState(false);
   const [showBinderExportModal, setShowBinderExportModal] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/minute-book/completeness');
-        if (res.ok) {
-          const json: CompletenessResponse = await res.json();
-          if (!cancelled) setScore(json.score);
-        }
-      } catch (error) {
-        console.error('Failed to fetch completeness score:', error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // ⚠️ AUCUN APPEL RÉSEAU ICI. Le nombre arrive de BinderView, qui le tient de la
+  // MÊME réponse que ses étagères. Un second fetch — ou une somme recalculée —
+  // pourrait afficher un compte que les sections en dessous contredisent.
+  // `setTotalDocuments` est passé tel quel : un setter de useState est stable.
+  const [totalDocuments, setTotalDocuments] = useState<number | null>(null);
 
   return (
     <div>
@@ -67,18 +53,18 @@ export default function BinderPage({ locale, companyId }: BinderPageProps) {
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border-[1.5px] border-[var(--card-hover-border)] text-[var(--text-heading)] bg-transparent transition-colors hover:bg-[var(--hover)]"
             style={{ fontFamily: 'DM Sans, sans-serif' }}
           >
-            ↓ {fr ? 'Exporter le livre' : 'Export book'}
+            ↓ {tBinder('exportBook')}
           </button>
         </div>
-        {score !== null && (
-          <div className="mt-3">
-            <CompletenessProgressBar score={score} showLabel locale={locale} />
+        {totalDocuments !== null && (
+          <div className="mt-3 text-sm text-[var(--text-muted)]">
+            {tBinder('documentCount', { count: totalDocuments })}
           </div>
         )}
       </div>
 
       {/* Body */}
-      <BinderView />
+      <BinderView onTotalDocuments={setTotalDocuments} />
 
       <BinderExportModal
         companyId={companyId}
