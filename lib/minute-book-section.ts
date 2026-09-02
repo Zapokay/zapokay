@@ -83,6 +83,57 @@ export const DOC_TYPE_FALLBACK: Record<string, MinuteBookSection> = {
 };
 
 /**
+ * L'ÉTAGÈRE D'UN DOCUMENT DÉJÀ ÉCRIT — le chemin de LECTURE, distinct de
+ * `resolveMinuteBookSection` qui sert au chemin d'ÉCRITURE.
+ *
+ * ★ IL REND TOUJOURS UNE CLÉ DU VOCABULAIRE, ET C'EST TOUT L'OBJET. La route
+ * du livre rangeait avec `if (grouped[section])` : une valeur qu'elle ne
+ * connaissait pas donnait `undefined`, la condition était fausse, et le
+ * document n'était poussé NULLE PART — il s'évaporait de l'écran tout en
+ * restant compté dans le total. Huit documents réels étaient dans ce cas.
+ * Le `if` n'est pas devenu inutile : il est devenu IMPOSSIBLE À ÉCRIRE, parce
+ * que le type de retour ne laisse plus passer de clé inconnue.
+ *
+ * ⚠️ UNE VALEUR STOCKÉE HORS VOCABULAIRE VA À 'autres', PAS AU REPLI PAR TYPE.
+ * Une section en base est une DÉCISION déjà prise sur cette pièce ; la faire
+ * retomber sur `DOC_TYPE_FALLBACK` la ferait classer par sa nature de fichier,
+ * en contredisant une décision qu'on n'a simplement pas su lire. 'autres' dit
+ * la vérité : « rangée quelque part, mais pas là où on croyait ».
+ *
+ * ⚠️ `||` ET NON `??` sur la première ligne : c'est la sémantique exacte du
+ * code remplacé, qui testait `if (doc.minute_book_section)`. Une chaîne vide
+ * doit continuer de passer à la source suivante.
+ */
+export function sectionOfDocument(doc: {
+  minute_book_section?: string | null;
+  minute_book_requirements?: { section?: string | null } | null;
+  document_type?: string | null;
+}): MinuteBookSection {
+  const stored = doc.minute_book_section || doc.minute_book_requirements?.section;
+  if (stored) return isMinuteBookSection(stored) ? stored : 'autres';
+  return DOC_TYPE_FALLBACK[doc.document_type ?? ''] ?? 'autres';
+}
+
+/**
+ * Range une liste de documents sur les neuf étagères. Chaque étagère existe,
+ * même vide ; chaque document atterrit sur exactement une.
+ *
+ * ★ LA TOTALITÉ EST DANS LE TYPE, PAS DANS UN TEST. `Record<MinuteBookSection,
+ * T[]>` indexé par le retour de `sectionOfDocument` ne peut pas manquer : il
+ * n'y a aucun `if` à oublier de mettre à jour le jour où une clé s'ajoute.
+ */
+export function groupDocumentsBySection<
+  T extends Parameters<typeof sectionOfDocument>[0],
+>(documents: readonly T[]): Record<MinuteBookSection, T[]> {
+  // `{} as` puis remplissage immédiat par la liste elle-même : les neuf clés
+  // sont posées avant que quiconque lise l'objet.
+  const grouped = {} as Record<MinuteBookSection, T[]>;
+  for (const key of MINUTE_BOOK_SECTIONS) grouped[key] = [];
+  for (const doc of documents) grouped[sectionOfDocument(doc)].push(doc);
+  return grouped;
+}
+
+/**
  * Derive the section, in two steps, most specific first:
  *   1. the chosen requirement's own section;
  *   2. the document type's fallback shelf.

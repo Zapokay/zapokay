@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { MINUTE_BOOK_SECTIONS, DOC_TYPE_FALLBACK } from '@/lib/minute-book-section'
+import { MINUTE_BOOK_SECTIONS, groupDocumentsBySection } from '@/lib/minute-book-section'
 
 // ⚠️ CETTE ROUTE NE DÉCLARE PLUS RIEN. Elle portait un duplicata des neuf clés
 // (avec un `title_fr` que personne n'affichait) et une copie mot pour mot de la
 // table de repli. Les deux viennent maintenant de lib/minute-book-section.ts.
 // Le `title_fr` ne quitte plus cette route non plus : l'écran lit le catalogue
 // i18n depuis toujours, et cette copie avait déjà divergé de lui.
-
-function resolveSection(doc: any): string {
-  if (doc.minute_book_section) return doc.minute_book_section
-  if (doc.minute_book_requirements?.section) return doc.minute_book_requirements.section
-  return DOC_TYPE_FALLBACK[doc.document_type] || 'autres'
-}
 
 export async function GET(request: NextRequest) {
   const scopeParam = request.nextUrl.searchParams.get('scope') ?? 'all'
@@ -57,15 +51,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: docError.message }, { status: 500 })
   }
 
-  const grouped: Record<string, any[]> = {}
-  for (const key of MINUTE_BOOK_SECTIONS) grouped[key] = []
-
-  for (const doc of documents || []) {
-    const section = resolveSection(doc)
-    if (grouped[section]) {
-      grouped[section].push(doc)
-    }
-  }
+  // ⚠️ PLUS DE `if (grouped[section])`. Il n'a pas été retiré parce qu'il
+  // devenait inutile : il ne peut plus s'écrire. groupDocumentsBySection rend
+  // un Record indexé par les neuf clés, et sectionOfDocument ne peut rendre
+  // qu'une de ces neuf — aucune valeur ne peut plus manquer son étagère.
+  const grouped = groupDocumentsBySection(documents ?? [])
 
   const sections = MINUTE_BOOK_SECTIONS.map((key) => ({
     key,
