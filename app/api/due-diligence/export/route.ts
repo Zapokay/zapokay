@@ -8,7 +8,13 @@ import { filePathFromFileUrl } from '@/lib/storage-path';
 import { pickCompanyLegalName } from '@/lib/company-name';
 import { sectionOfDocument } from '@/lib/minute-book-section';
 import { getSectionFolderName } from '@/lib/i18n/section-labels';
-import { getCoverTitle, getCoverSubtitle, getCoverFileName, getCoverDate } from '@/lib/i18n/export-labels';
+import { applyBinderDocumentOrder } from '@/lib/minute-book/document-order';
+import {
+  getCoverTitle, getCoverSubtitle, getCoverFileName, getCoverDate,
+  getIndexTitle, getIndexFileName, getIndexColumns,
+} from '@/lib/i18n/export-labels';
+import { MINUTE_BOOK_SECTIONS } from '@/lib/minute-book-section';
+import { getSectionLabel } from '@/lib/i18n/section-labels';
 
 /* ------------------------------------------------------------------ */
 /*  Section mapping                                                    */
@@ -170,7 +176,9 @@ export async function GET(request: NextRequest) {
       documentsQuery = documentsQuery.eq('is_finalized', true);
     }
 
-    const { data: documents, error: docsError } = await documentsQuery;
+    // ⚠️ LE MÊME ORDRE QUE LE LIVRE, et il n'est écrit qu'une fois.
+    const { data: documents, error: docsError } =
+      await applyBinderDocumentOrder(documentsQuery);
 
     if (docsError) {
       console.error('Documents fetch error:', docsError);
@@ -205,6 +213,13 @@ export async function GET(request: NextRequest) {
     // peut pas réparer un fichier cassé, nous si, et personne ne savait qu'il
     // en existait.
     const unavailable: string[] = [];
+
+    // ⚠️ CE QUE LA BOUCLE ÉCRIT, ELLE LE RETIENT — l'index sera bâti là-dessus,
+    // jamais sur une seconde application de la règle de nommage. Une seule
+    // écriture, deux lecteurs : le zip et l'index ne peuvent pas se contredire.
+    // ★ Rempli APRÈS les trois `continue`, donc une pièce refusée n'y entre
+    // jamais — l'index ne décrit que ce qui est réellement dans l'archive.
+    const entrees: { section: string; titre: string; chemin: string }[] = [];
 
     const zip = new JSZip();
 
@@ -248,7 +263,9 @@ export async function GET(request: NextRequest) {
       const ext = dotIdx === -1 ? '' : rawName.slice(dotIdx);
       const safeName = `${base}_${doc.id.slice(0, 8)}${ext}`;
 
-      zip.file(`${getSectionFolderName(section, docLanguage)}/${safeName}`, fileBuffer);
+      const chemin = `${getSectionFolderName(section, docLanguage)}/${safeName}`;
+      zip.file(chemin, fileBuffer);
+      entrees.push({ section, titre: doc.title, chemin });
     }
 
     // ⛔ LE REFUS SORT ICI, AVANT LE MOINDRE OCTET D'ARCHIVE. La page de garde
@@ -277,6 +294,32 @@ export async function GET(request: NextRequest) {
     });
 
     zip.file(getCoverFileName(docLanguage), coverPageBuffer);
+
+    /* ---------- Page index ---------- */
+
+    // ⚠️ LES NEUF SECTIONS, VIDES COMPRISES. Une section sans document n'a pas
+    // de dossier dans l'archive — seul l'index peut dire qu'elle existe et
+    // qu'elle est vide. C'est là que le miroir se complète.
+    const { generateBinderIndexPDF } = await import('@/lib/pdf/generatePDF');
+    const indexBuffer = await generateBinderIndexPDF({
+      companyName,
+      neq: company.neq,
+      documentTitle: getIndexTitle(docLanguage),
+      documentSubtitle: getCoverSubtitle(allDocuments.length, docLanguage),
+      columns: getIndexColumns(docLanguage),
+      sections: MINUTE_BOOK_SECTIONS.map((cle, rang) => {
+        const siennes = entrees.filter((e) => e.section === cle);
+        return {
+          heading: `${rang + 1} - ${getSectionLabel(cle, docLanguage)}`,
+          count: getCoverSubtitle(siennes.length, docLanguage),
+          entries: siennes.map((e) => ({ title: e.titre, fileName: e.chemin })),
+        };
+      }),
+      footerDocName: getIndexTitle(docLanguage),
+      language: docLanguage,
+    });
+
+    zip.file(getIndexFileName(docLanguage), indexBuffer);
 
     /* ---------- Générer le ZIP ---------- */
 

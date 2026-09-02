@@ -10,5 +10,8 @@ export type { BoardResolutionData } from './resolution-board';
 export { shareholderResolutionHTML } from './resolution-shareholder';
 export type { ShareholderResolutionData } from './resolution-shareholder';
 
+export { binderIndexHTML } from './binder-index';
+export type { BinderIndexData } from './binder-index';
+
 export { annualRegisterHTML } from './annual-register';
 export type { AnnualRegisterData } from './annual-register';

@@ -50,3 +50,21 @@ export function getCoverDate(date: Date, locale: ServerLocale): string {
     day: 'numeric',
   });
 }
+
+/** Le titre de la page index. */
+export function getIndexTitle(locale: ServerLocale): string {
+  return getServerMessage('minuteBook.binderExport.index.indexTitle', locale);
+}
+
+/** Le nom du fichier de l'index dans l'archive — « 01_ » pour trier après la garde. */
+export function getIndexFileName(locale: ServerLocale): string {
+  return getServerMessage('minuteBook.binderExport.index.indexFileName', locale);
+}
+
+/** Les deux entêtes de colonnes de l'index. */
+export function getIndexColumns(locale: ServerLocale): { title: string; fileName: string } {
+  return {
+    title: getServerMessage('minuteBook.binderExport.index.columnTitle', locale),
+    fileName: getServerMessage('minuteBook.binderExport.index.columnFileName', locale),
+  };
+}

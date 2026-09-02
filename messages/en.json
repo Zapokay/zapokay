@@ -686,6 +686,12 @@
         "export": "Export",
         "exporting": "Exporting…"
       },
+      "index": {
+        "indexTitle": "Binder Index",
+        "indexFileName": "01_Index.pdf",
+        "columnTitle": "Document",
+        "columnFileName": "File in archive"
+      },
       "cover": {
         "title": "Minute Book",
         "fileName": "00_Cover_page.pdf"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { MINUTE_BOOK_SECTIONS, groupDocumentsBySection } from '@/lib/minute-book-section'
+import { applyBinderDocumentOrder } from '@/lib/minute-book/document-order'
 
 // ⚠️ CETTE ROUTE NE DÉCLARE PLUS RIEN. Elle portait un duplicata des neuf clés
 // (avec un `title_fr` que personne n'affichait) et une copie mot pour mot de la
@@ -43,9 +44,7 @@ export async function GET(request: NextRequest) {
     query = query.eq('is_finalized', true)
   }
 
-  const { data: documents, error: docError } = await query
-    .order('document_year', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
+  const { data: documents, error: docError } = await applyBinderDocumentOrder(query)
 
   if (docError) {
     return NextResponse.json({ error: docError.message }, { status: 500 })

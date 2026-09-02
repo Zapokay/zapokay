@@ -8,6 +8,7 @@ import {
   boardResolutionHTML,
   shareholderResolutionHTML,
   coverPageHTML,
+  binderIndexHTML,
 } from '@/lib/pdf-templates';
 import type { BoardResolutionData, ShareholderResolutionData, CoverPageData } from '@/lib/pdf-templates';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
@@ -92,6 +93,21 @@ interface ShareholderResolutionInput {
   documentId: string;
 }
 
+export interface BinderIndexInput {
+  companyName: string;
+  neq?: string;
+  documentTitle: string;
+  documentSubtitle?: string;
+  columns: { title: string; fileName: string };
+  sections: {
+    heading: string;
+    count: string;
+    entries: { title: string; fileName: string }[];
+  }[];
+  footerDocName: string;
+  language?: 'fr' | 'en' | 'bilingual';
+}
+
 export interface CoverPageInput {
   companyName: string;
   neq?: string;
@@ -110,7 +126,7 @@ export interface CoverPageInput {
 
 interface GeneratePDFInput {
   type: string;
-  data: BoardResolutionInput | ShareholderResolutionInput | CoverPageInput | Record<string, unknown>;
+  data: BoardResolutionInput | ShareholderResolutionInput | CoverPageInput | BinderIndexInput | Record<string, unknown>;
 }
 
 /**
@@ -124,6 +140,11 @@ interface GeneratePDFInput {
  */
 export function generateCoverPagePDF(input: CoverPageInput): Promise<Buffer> {
   return generatePDF({ type: 'cover-page', data: input });
+}
+
+/** La porte typée de l'index — même raison que celle de la page de garde. */
+export function generateBinderIndexPDF(input: BinderIndexInput): Promise<Buffer> {
+  return generatePDF({ type: 'binder-index', data: input });
 }
 
 export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buffer> {
@@ -171,6 +192,21 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
       };
       html = shareholderResolutionHTML(tmplData);
       footer = buildFooter(d);
+      break;
+    }
+
+    case 'binder-index': {
+      const d = data as BinderIndexInput;
+      html = binderIndexHTML({
+        companyName: d.companyName,
+        neq: d.neq,
+        documentTitle: d.documentTitle,
+        documentSubtitle: d.documentSubtitle,
+        columns: d.columns,
+        sections: d.sections,
+        footerDocName: d.footerDocName,
+        language: d.language ?? 'fr',
+      });
       break;
     }
 

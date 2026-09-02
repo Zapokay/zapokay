@@ -686,6 +686,12 @@
         "export": "Exporter",
         "exporting": "Exportation…"
       },
+      "index": {
+        "indexTitle": "Index du livre",
+        "indexFileName": "01_Index.pdf",
+        "columnTitle": "Document",
+        "columnFileName": "Fichier dans l’archive"
+      },
       "cover": {
         "title": "Livre de minutes",
         "fileName": "00_Page_de_garde.pdf"
