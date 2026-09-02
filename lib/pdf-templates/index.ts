@@ -10,6 +10,9 @@ export type { BoardResolutionData } from './resolution-board';
 export { shareholderResolutionHTML } from './resolution-shareholder';
 export type { ShareholderResolutionData } from './resolution-shareholder';
 
+export { binderRegistersHTML } from './binder-registers';
+export type { BinderRegistersData } from './binder-registers';
+
 export { binderIndexHTML } from './binder-index';
 export type { BinderIndexData } from './binder-index';
 

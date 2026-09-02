@@ -47,6 +47,9 @@ export default function BinderExportModal({
   // dire de plus que « ça a raté » ; la route nomme désormais COMBIEN de
   // pièces manquaient. null = échec sans détail, on garde le message générique.
   const [missingCount, setMissingCount] = useState<number | null>(null);
+  // Deux refus distincts depuis E2 : documents introuvables, ou registres
+  // illisibles. Le code du corps décide du message ; le compte est commun.
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -163,6 +166,7 @@ export default function BinderExportModal({
     setExporting(true);
     setExportError(false);
     setMissingCount(null);
+    setErrorCode(null);
     try {
       const res = await fetch(
         `/api/due-diligence/export?companyId=${encodeURIComponent(companyId)}&scope=finalized`,
@@ -175,6 +179,7 @@ export default function BinderExportModal({
           const body = await res.json();
           if (typeof body?.missingCount === 'number' && body.missingCount > 0) {
             setMissingCount(body.missingCount);
+            setErrorCode(typeof body?.error === 'string' ? body.error : null);
           }
         } catch {
           /* corps non-JSON — le message générique suffit */
@@ -296,9 +301,11 @@ export default function BinderExportModal({
                 className="mt-4 rounded-lg border border-[var(--error-border)] bg-[var(--error-bg)] p-4"
               >
                 <p className="text-sm text-[var(--error-text)]">
-                  {missingCount !== null
-                    ? t('errors.exportIncomplete', { count: missingCount })
-                    : t('errors.exportFailed')}
+                  {missingCount === null
+                    ? t('errors.exportFailed')
+                    : errorCode === 'registers_unavailable'
+                      ? t('errors.registersUnavailable', { count: missingCount })
+                      : t('errors.exportIncomplete', { count: missingCount })}
                 </p>
               </div>
             )}

@@ -9,6 +9,7 @@ import {
   shareholderResolutionHTML,
   coverPageHTML,
   binderIndexHTML,
+  binderRegistersHTML,
 } from '@/lib/pdf-templates';
 import type { BoardResolutionData, ShareholderResolutionData, CoverPageData } from '@/lib/pdf-templates';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
@@ -93,6 +94,22 @@ interface ShareholderResolutionInput {
   documentId: string;
 }
 
+export interface BinderRegistersInput {
+  companyName: string;
+  neq?: string;
+  documentTitle: string;
+  registers: {
+    title: string;
+    columns: { key: string; label: string }[];
+    rows: Record<string, string>[];
+    emptyMessage: string;
+    citation?: string;
+    footnote?: string;
+  }[];
+  footerDocName: string;
+  language?: 'fr' | 'en' | 'bilingual';
+}
+
 export interface BinderIndexInput {
   companyName: string;
   neq?: string;
@@ -126,7 +143,7 @@ export interface CoverPageInput {
 
 interface GeneratePDFInput {
   type: string;
-  data: BoardResolutionInput | ShareholderResolutionInput | CoverPageInput | BinderIndexInput | Record<string, unknown>;
+  data: BoardResolutionInput | ShareholderResolutionInput | CoverPageInput | BinderIndexInput | BinderRegistersInput | Record<string, unknown>;
 }
 
 /**
@@ -145,6 +162,11 @@ export function generateCoverPagePDF(input: CoverPageInput): Promise<Buffer> {
 /** La porte typée de l'index — même raison que celle de la page de garde. */
 export function generateBinderIndexPDF(input: BinderIndexInput): Promise<Buffer> {
   return generatePDF({ type: 'binder-index', data: input });
+}
+
+/** La porte typée des registres — écrite AVANT son appelant, comme au b552dff. */
+export function generateBinderRegistersPDF(input: BinderRegistersInput): Promise<Buffer> {
+  return generatePDF({ type: 'binder-registers', data: input });
 }
 
 export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buffer> {
@@ -192,6 +214,19 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
       };
       html = shareholderResolutionHTML(tmplData);
       footer = buildFooter(d);
+      break;
+    }
+
+    case 'binder-registers': {
+      const d = data as BinderRegistersInput;
+      html = binderRegistersHTML({
+        companyName: d.companyName,
+        neq: d.neq,
+        documentTitle: d.documentTitle,
+        registers: d.registers,
+        footerDocName: d.footerDocName,
+        language: d.language ?? 'fr',
+      });
       break;
     }
 

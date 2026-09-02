@@ -60,12 +60,16 @@ export async function readDirectorRegister(
   supabase: SupabaseClient,
   companyId: string,
 ): Promise<RegisterPayload<DirectorRegisterEntry>> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('company_people')
     .select('*, director_mandates(*)')
     .eq('company_id', companyId);
 
   // Une seule assertion, à la frontière de la base — pas un `any` par fonction.
+  // ⚠️ UN ÉCHEC DE LECTURE N'EST PAS UN REGISTRE VIDE. Sans cette ligne,
+  // `data` vaut null et le registre se rendait vide — le mensonge que 503ff11
+  // a corrigé à l'écran, et qui rendait impossible de faire échouer un export.
+  if (error) throw new Error(`readDirectorRegister: read failed: ${error.message}`);
   const people = (data ?? []) as unknown as PersonneAvecMandats[];
 
   // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted mandates from the register
@@ -136,11 +140,15 @@ export async function readOfficerRegister(
   supabase: SupabaseClient,
   companyId: string,
 ): Promise<RegisterPayload<OfficerRegisterEntry>> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('company_people')
     .select('*, officer_appointments(*)')
     .eq('company_id', companyId);
 
+  // ⚠️ UN ÉCHEC DE LECTURE N'EST PAS UN REGISTRE VIDE. Sans cette ligne,
+  // `data` vaut null et le registre se rendait vide — le mensonge que 503ff11
+  // a corrigé à l'écran, et qui rendait impossible de faire échouer un export.
+  if (error) throw new Error(`readOfficerRegister: read failed: ${error.message}`);
   const people = (data ?? []) as unknown as PersonneAvecCharges[];
 
   // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted appointments from the register
@@ -207,7 +215,7 @@ export async function readShareholderRegister(
 ): Promise<RegisterPayload<ShareholderRegisterEntry>> {
   // Atom 2: inverted-join shape per R-G2 audit §3 R6 recommendation. One
   // register entry per (shareholding × holder) tuple.
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('shareholdings')
     .select(`
       *,
@@ -220,6 +228,10 @@ export async function readShareholderRegister(
     `)
     .eq('company_id', companyId);
 
+  // ⚠️ UN ÉCHEC DE LECTURE N'EST PAS UN REGISTRE VIDE. Sans cette ligne,
+  // `data` vaut null et le registre se rendait vide — le mensonge que 503ff11
+  // a corrigé à l'écran, et qui rendait impossible de faire échouer un export.
+  if (error) throw new Error(`readShareholderRegister: read failed: ${error.message}`);
   const shareholdings = (data ?? []) as unknown as DetentionAvecDetenteurs[];
 
   const entries = shareholdings
@@ -282,7 +294,7 @@ export async function readStatedCapitalRegister(
   companyId: string,
   incorporationType: string | null,
 ): Promise<StatedCapitalPayload> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('shareholdings')
     .select(`
       share_class_id,
@@ -295,6 +307,10 @@ export async function readStatedCapitalRegister(
     `)
     .eq('company_id', companyId);
 
+  // ⚠️ UN ÉCHEC DE LECTURE N'EST PAS UN REGISTRE VIDE. Sans cette ligne,
+  // `data` vaut null et le registre se rendait vide — le mensonge que 503ff11
+  // a corrigé à l'écran, et qui rendait impossible de faire échouer un export.
+  if (error) throw new Error(`readStatedCapitalRegister: read failed: ${error.message}`);
   const shareholdings = (data ?? []) as unknown as DetentionPourCapital[];
 
   // Per-class accumulation. Capital model:

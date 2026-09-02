@@ -688,6 +688,9 @@
         "export": "Export",
         "exporting": "Exporting…"
       },
+      "registers": {
+        "fileName": "00_Corporate_registers.pdf"
+      },
       "index": {
         "indexTitle": "Binder Index",
         "indexFileName": "01_Index.pdf",
@@ -702,6 +705,7 @@
         "loadFailed": "Unable to load minute book data. Please try again.",
         "exportFailed": "Export failed. Please try again.",
         "exportIncomplete": "{count, plural, =1 {1 document could not be retrieved. The export was cancelled rather than hand you an incomplete book.} other {# documents could not be retrieved. The export was cancelled rather than hand you an incomplete book.}}",
+        "registersUnavailable": "{count, plural, =1 {1 register could not be read. The export was cancelled rather than hand you an incomplete book.} other {# registers could not be read. The export was cancelled rather than hand you an incomplete book.}}",
         "retry": "Retry"
       }
     },

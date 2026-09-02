@@ -68,3 +68,29 @@ export function getIndexColumns(locale: ServerLocale): { title: string; fileName
     fileName: getServerMessage('minuteBook.binderExport.index.columnFileName', locale),
   };
 }
+
+/** Le nom du fichier des registres, dans le dossier de l'étagère 7. */
+export function getRegistersFileName(locale: ServerLocale): string {
+  return getServerMessage('minuteBook.binderExport.registers.fileName', locale);
+}
+
+/**
+ * Les libellés des registres, tous tirés de `minuteBook.registers.*` — les MÊMES
+ * que l'écran emploie. ⛔ Aucune table neuve : ce lot en a supprimé sept.
+ */
+export function getRegisterLabels(locale: ServerLocale) {
+  const col = (k: string) => getServerMessage(`minuteBook.registers.columns.${k}`, locale);
+  return {
+    name: col('name'), residence: col('residence'), start: col('start'), end: col('end'),
+    active: col('active'), title: col('title'), shareClass: col('shareClass'),
+    quantity: col('quantity'), certificate: col('certificate'), issueDate: col('issueDate'),
+    statedCapital: col('statedCapital'),
+    empty: getServerMessage('minuteBook.registers.emptyRegister', locale),
+    yes: getServerMessage('minuteBook.registers.residentYes', locale),
+    no: getServerMessage('minuteBook.registers.residentNo', locale),
+    missingConsideration: (count: number) =>
+      getServerMessage('minuteBook.registers.missingConsideration', locale, { count }),
+    registerCount: (count: number) =>
+      getServerMessage('minuteBook.binder.registerCount', locale, { count }),
+  };
+}

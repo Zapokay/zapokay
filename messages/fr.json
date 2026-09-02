@@ -688,6 +688,9 @@
         "export": "Exporter",
         "exporting": "Exportation…"
       },
+      "registers": {
+        "fileName": "00_Registres_corporatifs.pdf"
+      },
       "index": {
         "indexTitle": "Index du livre",
         "indexFileName": "01_Index.pdf",
@@ -702,6 +705,7 @@
         "loadFailed": "Impossible de charger les données du livre. Veuillez réessayer.",
         "exportFailed": "L'export a échoué. Veuillez réessayer.",
         "exportIncomplete": "{count, plural, =1 {1 document n'a pas pu être récupéré. L'export est annulé plutôt que de vous livrer un livre incomplet.} other {# documents n'ont pas pu être récupérés. L'export est annulé plutôt que de vous livrer un livre incomplet.}}",
+        "registersUnavailable": "{count, plural, =1 {1 registre n'a pas pu être lu. L'export est annulé plutôt que de vous livrer un livre incomplet.} other {# registres n'ont pas pu être lus. L'export est annulé plutôt que de vous livrer un livre incomplet.}}",
         "retry": "Réessayer"
       }
     },

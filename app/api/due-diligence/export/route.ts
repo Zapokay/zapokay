@@ -10,8 +10,12 @@ import { sectionOfDocument } from '@/lib/minute-book-section';
 import { getSectionFolderName } from '@/lib/i18n/section-labels';
 import { applyBinderDocumentOrder } from '@/lib/minute-book/document-order';
 import {
+  readDirectorRegister, readOfficerRegister, readShareholderRegister, readStatedCapitalRegister,
+} from '@/lib/minute-book/registers';
+import {
   getCoverTitle, getCoverSubtitle, getCoverFileName, getCoverDate,
   getIndexTitle, getIndexFileName, getIndexColumns,
+  getRegistersFileName, getRegisterLabels,
 } from '@/lib/i18n/export-labels';
 import { MINUTE_BOOK_SECTIONS } from '@/lib/minute-book-section';
 import { getSectionLabel } from '@/lib/i18n/section-labels';
@@ -134,7 +138,7 @@ export async function GET(request: NextRequest) {
 
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('id, legal_name_fr, legal_name_en, neq')
+      .select('id, legal_name_fr, legal_name_en, neq, incorporation_type')
       .eq('id', companyId)
       .single();
 
@@ -163,6 +167,41 @@ export async function GET(request: NextRequest) {
         { status: 422 }
       );
     }
+
+    /* ---------- Lire les registres — AVANT toute dépense ---------- */
+
+    // ⚠️ ON ÉCHOUE SUR CE QUI COÛTE PEU. Quatre lectures de base précèdent la
+    // requête des documents et, surtout, leurs téléchargements : si un registre
+    // ne se lit pas, l'export refuse ici, avant d'avoir tiré un seul octet du
+    // stockage. La règle est celle du 61c7ed8 — on ne livre pas un livre dont
+    // une pièce manque en silence — appliquée aux registres.
+    // ★ Les quatre lecteurs LÈVENT sur une erreur de base depuis ce lot : un
+    // registre illisible n'est plus un registre vide.
+    const lectures = await Promise.allSettled([
+      readDirectorRegister(supabase, companyId),
+      readOfficerRegister(supabase, companyId),
+      readShareholderRegister(supabase, companyId),
+      readStatedCapitalRegister(supabase, companyId, company.incorporation_type),
+    ]);
+    const registresRates = lectures.filter((r) => r.status === 'rejected');
+    if (registresRates.length > 0) {
+      for (const r of registresRates) {
+        console.error(`[due-diligence/export] register read failed for company ${companyId}:`,
+          (r as PromiseRejectedResult).reason);
+      }
+      return NextResponse.json(
+        { error: 'registers_unavailable', missingCount: registresRates.length },
+        { status: 502 },
+      );
+    }
+    const [regAdmin, regDirig, regAct, regCapital] = lectures.map(
+      (r) => (r as PromiseFulfilledResult<unknown>).value,
+    ) as [
+      Awaited<ReturnType<typeof readDirectorRegister>>,
+      Awaited<ReturnType<typeof readOfficerRegister>>,
+      Awaited<ReturnType<typeof readShareholderRegister>>,
+      Awaited<ReturnType<typeof readStatedCapitalRegister>>,
+    ];
 
     /* ---------- Charger les documents actifs ---------- */
 
@@ -300,6 +339,11 @@ export async function GET(request: NextRequest) {
     // ⚠️ LES NEUF SECTIONS, VIDES COMPRISES. Une section sans document n'a pas
     // de dossier dans l'archive — seul l'index peut dire qu'elle existe et
     // qu'elle est vide. C'est là que le miroir se complète.
+    // Le chemin du PDF des registres ne dépend que de la locale : il est calculé
+    // ICI pour que l'index puisse le NOMMER, et il n'est calculé qu'une fois —
+    // l'archive et l'index citent la même chaîne, pas deux constructions.
+    const cheminRegistres = `${getSectionFolderName('registres', docLanguage)}/${getRegistersFileName(docLanguage)}`;
+
     const { generateBinderIndexPDF } = await import('@/lib/pdf/generatePDF');
     const indexBuffer = await generateBinderIndexPDF({
       companyName,
@@ -309,10 +353,26 @@ export async function GET(request: NextRequest) {
       columns: getIndexColumns(docLanguage),
       sections: MINUTE_BOOK_SECTIONS.map((cle, rang) => {
         const siennes = entrees.filter((e) => e.section === cle);
+        const lignes = siennes.map((e) => ({ title: e.titre, fileName: e.chemin }));
+        if (cle === 'registres') {
+          // ⚠️ L'ÉTAGÈRE 7 DIT CE QUE L'ÉCRAN DIT. Son compte vient de
+          // minuteBook.binder.registerCount, la clé même que BinderSection
+          // emploie depuis b595546 — « 4 registres », pas « 1 document ». Les
+          // registres ne sont pas des documents, et le compte total n'en tient
+          // pas compte non plus.
+          return {
+            heading: `${rang + 1} - ${getSectionLabel(cle, docLanguage)}`,
+            count: getRegisterLabels(docLanguage).registerCount(4),
+            entries: [
+              ...lignes,
+              { title: getSectionLabel('registres', docLanguage), fileName: cheminRegistres },
+            ],
+          };
+        }
         return {
           heading: `${rang + 1} - ${getSectionLabel(cle, docLanguage)}`,
           count: getCoverSubtitle(siennes.length, docLanguage),
-          entries: siennes.map((e) => ({ title: e.titre, fileName: e.chemin })),
+          entries: lignes,
         };
       }),
       footerDocName: getIndexTitle(docLanguage),
@@ -320,6 +380,90 @@ export async function GET(request: NextRequest) {
     });
 
     zip.file(getIndexFileName(docLanguage), indexBuffer);
+
+    /* ---------- Les registres, en UN document ---------- */
+
+    // ⚠️ IL N'ENTRE PAS DANS LE COMPTE DES DOCUMENTS. L'écran ne compte pas les
+    // registres parmi les documents ; s'il y entrait, la page de garde et
+    // l'index diraient un de plus que l'écran, et le miroir se casserait sur le
+    // chiffre même qui le résume.
+    const L = getRegisterLabels(docLanguage);
+    const fmtDate = (d: string | null) => d ?? '—';
+    const { generateBinderRegistersPDF } = await import('@/lib/pdf/generatePDF');
+    const registresBuffer = await generateBinderRegistersPDF({
+      companyName,
+      neq: company.neq,
+      documentTitle: getSectionLabel('registres', docLanguage),
+      registers: [
+        {
+          title: docLanguage === 'en' ? regAdmin.register_title_en : regAdmin.register_title_fr,
+          columns: [
+            { key: 'full_name', label: L.name }, { key: 'resident', label: L.residence },
+            { key: 'appointment_date', label: L.start }, { key: 'end_date', label: L.end },
+            { key: 'status', label: L.active },
+          ],
+          rows: regAdmin.entries.map((e) => ({
+            full_name: e.full_name,
+            resident: e.is_canadian_resident ? L.yes : L.no,
+            appointment_date: e.appointment_date,
+            end_date: fmtDate(e.end_date),
+            status: e.is_active ? '✓' : '✗',
+          })),
+          emptyMessage: L.empty,
+        },
+        {
+          title: docLanguage === 'en' ? regDirig.register_title_en : regDirig.register_title_fr,
+          columns: [
+            { key: 'full_name', label: L.name }, { key: 'title', label: L.title },
+            { key: 'appointment_date', label: L.start }, { key: 'end_date', label: L.end },
+            { key: 'status', label: L.active },
+          ],
+          rows: regDirig.entries.map((e) => ({
+            full_name: e.full_name, title: e.title,
+            appointment_date: e.appointment_date, end_date: fmtDate(e.end_date),
+            status: e.is_active ? '✓' : '✗',
+          })),
+          emptyMessage: L.empty,
+        },
+        {
+          title: docLanguage === 'en' ? regAct.register_title_en : regAct.register_title_fr,
+          columns: [
+            { key: 'full_name', label: L.name }, { key: 'share_class', label: L.shareClass },
+            { key: 'quantity', label: L.quantity }, { key: 'certificate_number', label: L.certificate },
+            { key: 'issue_date', label: L.issueDate },
+          ],
+          rows: regAct.entries.map((e) => ({
+            full_name: e.full_name, share_class: e.share_class,
+            quantity: String(e.quantity), certificate_number: e.certificate_number ?? '—',
+            issue_date: e.issue_date,
+          })),
+          emptyMessage: L.empty,
+        },
+        {
+          title: docLanguage === 'en' ? regCapital.register_title_en : regCapital.register_title_fr,
+          columns: [
+            { key: 'class_name', label: L.shareClass },
+            { key: 'stated_capital', label: L.statedCapital },
+          ],
+          rows: regCapital.entries.map((e) => ({
+            class_name: e.class_name,
+            stated_capital: new Intl.NumberFormat(docLanguage === 'en' ? 'en-CA' : 'fr-CA', {
+              style: 'currency', currency: e.currency || 'CAD',
+            }).format(e.stated_capital ?? 0),
+          })),
+          emptyMessage: L.empty,
+          citation: docLanguage === 'en' ? regCapital.citation_en : regCapital.citation_fr,
+          footnote: (() => {
+            const manquantes = regCapital.entries.reduce((n, e) => n + (e.issuances_missing_price || 0), 0);
+            return manquantes > 0 ? L.missingConsideration(manquantes) : undefined;
+          })(),
+        },
+      ],
+      footerDocName: getSectionLabel('registres', docLanguage),
+      language: docLanguage,
+    });
+
+    zip.file(cheminRegistres, registresBuffer);
 
     /* ---------- Générer le ZIP ---------- */
 
