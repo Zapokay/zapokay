@@ -84,18 +84,16 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
     )
   }
 
-  return (
-    <div className="space-y-4">
-      {sections.map((section, i) =>
-        section.key === 'registres' ? (
-          <BinderSection
-            key={section.key}
-            index={i}
-            title={tBinder(`sections.${section.key}`)}
-            documents={[]}
-          >
-            {directors && (
+  // ⚠️ LE TABLEAU QU'ON REND EST CELUI QU'ON COMPTE. Le compteur de la section
+  // affichait « 3 registres » — une chaîne FIGÉE dans le catalogue, qui ne
+  // comptait rien et se trompait : quatre cartes sont rendues. Le remplacer par
+  // un littéral `4` aurait recopié la faute d'un cran. Ici, une seule liste :
+  // `registerCards` est passée en enfants ET sa longueur est passée au compteur,
+  // donc ajouter ou retirer une carte déplace le nombre tout seul.
+  const registerCards = [
+    directors && (
               <RegisterCard
+                  key="directors"
                 title={locale === 'en' ? directors.register_title_en : directors.register_title_fr}
                 emptyMessage={t('emptyRegister')}
                 columns={[
@@ -116,10 +114,10 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                   ),
                 }))}
               />
-            )}
-
-            {officers && (
+    ),
+    officers && (
               <RegisterCard
+                  key="officers"
                 title={locale === 'en' ? officers.register_title_en : officers.register_title_fr}
                 emptyMessage={t('emptyRegister')}
                 columns={[
@@ -139,10 +137,10 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                   ),
                 }))}
               />
-            )}
-
-            {shareholders && (
+    ),
+    shareholders && (
               <RegisterCard
+                  key="shareholders"
                 title={locale === 'en' ? shareholders.register_title_en : shareholders.register_title_fr}
                 emptyMessage={t('emptyRegister')}
                 columns={[
@@ -157,10 +155,10 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                   certificate_number: e.certificate_number || '—',
                 }))}
               />
-            )}
-
-            {statedCapital && (
+    ),
+    statedCapital && (
               <RegisterCard
+                  key="statedCapital"
                 title={locale === 'en' ? statedCapital.register_title_en : statedCapital.register_title_fr}
                 emptyMessage={t('emptyRegister')}
                 columns={[
@@ -187,7 +185,21 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                   ) : undefined
                 })()}
               />
-            )}
+    ),
+  ].filter(Boolean)
+
+  return (
+    <div className="space-y-4">
+      {sections.map((section, i) =>
+        section.key === 'registres' ? (
+          <BinderSection
+            key={section.key}
+            index={i}
+            title={tBinder(`sections.${section.key}`)}
+            documents={[]}
+            registerCount={registerCards.length}
+          >
+            {registerCards}
           </BinderSection>
         ) : (
           <BinderSection

@@ -19,6 +19,13 @@ interface BinderSectionProps {
   title: string
   documents: Document[]
   children?: React.ReactNode
+  /**
+   * ⚠️ LE NOMBRE DE REGISTRES RÉELLEMENT RENDUS, passé par BinderView depuis la
+   * longueur du tableau qu'il rend. Il remplace `t('registres')`, une chaîne
+   * FIGÉE du catalogue qui valait « 3 registres » et ne comptait rien — et qui
+   * se trompait, puisque quatre cartes sont rendues.
+   */
+  registerCount?: number
 }
 
 function formatDate(dateStr: string, locale: string) {
@@ -54,6 +61,7 @@ export default function BinderSection({
   title,
   documents,
   children,
+  registerCount,
 }: BinderSectionProps) {
   const sectionNumber = index + 1
   const hasContent = documents.length > 0 || !!children
@@ -94,7 +102,7 @@ export default function BinderSection({
         </div>
         <span className="text-sm text-[var(--text-muted)]">
           {children
-            ? t('registres')
+            ? t('registerCount', { count: registerCount ?? 0 })
             : `${documents.length} document${documents.length !== 1 ? 's' : ''}`}
         </span>
       </div>

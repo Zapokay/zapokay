@@ -645,7 +645,7 @@
         "autres": "Autres documents"
       },
       "emptySection": "Aucun document signé dans cette section",
-      "registres": "3 registres",
+      "registerCount": "{count, plural, =0 {Aucun registre} =1 {1 registre} other {# registres}}",
       "yearSuffix": "(Exercice {year})",
       "typeLabels": {
         "statuts": "Statuts",
