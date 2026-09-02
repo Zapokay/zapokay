@@ -13,13 +13,14 @@
  * deliberate: the modal's prefill IS the precedence rule, so leaving the rule
  * behind would only move the divergence one notch.
  *
- * ⚠️ THE ROUTE CARRIES A DUPLICATE OF THE NINE, AND IT IS KNOWN.
- * app/api/minute-book/binder/route.ts declares its own `SECTIONS` constant with
- * the same nine keys in the same order, and does NOT import them from here.
- * That is a scoping decision, not an oversight: touching a route inside an
- * interface batch is what makes a visual gate say nothing. Filed as "la route
- * binder redéclare l'ordre des neuf sections". A divergence that is written
- * down gets fixed; a silent one gets found by breaking it.
+ * ⚠️ CE FICHIER EST LA SEULE SOURCE. Le duplicata que ce commentaire annonçait
+ * — le `SECTIONS` de app/api/minute-book/binder/route.ts, et le
+ * `DOC_TYPE_SECTION_MAP` qui l'accompagnait — n'existe plus : la route importe
+ * d'ici. Le type `SectionKey` de BinderView, lui aussi retapé à la main, DÉRIVE
+ * désormais de `MinuteBookSection`. Ajouter une clé à la liste ci-dessous élargit
+ * donc mécaniquement le type ; avant, rien n'échouait à la compilation pour le
+ * rappeler, et son propre commentaire l'avouait.
+ * ⚠️ Ne redéclare pas cette liste ailleurs. Importe-la.
  *
  * ⚠️ READ THIS BEFORE CHANGING THE PRECEDENCE. Since A2c the import form sends
  * the section it computed with THIS function, and the upload helper honours an
@@ -72,7 +73,7 @@ export function isMinuteBookSection(value: unknown): value is MinuteBookSection 
  * this way; `administrateurs`, `dirigeants` and `actionnaires` are not — only a
  * catalog requirement (or, now, an explicit choice) can reach those.
  */
-const DOC_TYPE_FALLBACK: Record<string, MinuteBookSection> = {
+export const DOC_TYPE_FALLBACK: Record<string, MinuteBookSection> = {
   statuts: 'statuts',
   resolution: 'resolutions',
   pv: 'resolutions',

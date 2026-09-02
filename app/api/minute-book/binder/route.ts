@@ -1,31 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { MINUTE_BOOK_SECTIONS, DOC_TYPE_FALLBACK } from '@/lib/minute-book-section'
 
-const SECTIONS = [
-  { key: 'statuts', title_fr: 'Statuts et actes constitutifs' },
-  { key: 'avis', title_fr: 'Avis et déclarations' },
-  { key: 'reglements', title_fr: 'Règlements' },
-  { key: 'resolutions', title_fr: 'Résolutions' },
-  { key: 'administrateurs', title_fr: 'Administrateurs' },
-  { key: 'dirigeants', title_fr: 'Dirigeants' },
-  { key: 'actionnaires', title_fr: 'Actionnaires et certificats' },
-  { key: 'registres', title_fr: 'Registres corporatifs' },
-  { key: 'autres', title_fr: 'Autres documents' },
-] as const
-
-const DOC_TYPE_SECTION_MAP: Record<string, string> = {
-  statuts: 'statuts',
-  resolution: 'resolutions',
-  pv: 'resolutions',
-  registre: 'registres',
-  rapport: 'avis',
-  autre: 'autres',
-}
+// ⚠️ CETTE ROUTE NE DÉCLARE PLUS RIEN. Elle portait un duplicata des neuf clés
+// (avec un `title_fr` que personne n'affichait) et une copie mot pour mot de la
+// table de repli. Les deux viennent maintenant de lib/minute-book-section.ts.
+// Le `title_fr` ne quitte plus cette route non plus : l'écran lit le catalogue
+// i18n depuis toujours, et cette copie avait déjà divergé de lui.
 
 function resolveSection(doc: any): string {
   if (doc.minute_book_section) return doc.minute_book_section
   if (doc.minute_book_requirements?.section) return doc.minute_book_requirements.section
-  return DOC_TYPE_SECTION_MAP[doc.document_type] || 'autres'
+  return DOC_TYPE_FALLBACK[doc.document_type] || 'autres'
 }
 
 export async function GET(request: NextRequest) {
@@ -72,7 +58,7 @@ export async function GET(request: NextRequest) {
   }
 
   const grouped: Record<string, any[]> = {}
-  for (const s of SECTIONS) grouped[s.key] = []
+  for (const key of MINUTE_BOOK_SECTIONS) grouped[key] = []
 
   for (const doc of documents || []) {
     const section = resolveSection(doc)
@@ -81,11 +67,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const sections = SECTIONS.map((s) => ({
-    key: s.key,
-    title_fr: s.title_fr,
-    documents: grouped[s.key],
-    count: grouped[s.key].length,
+  const sections = MINUTE_BOOK_SECTIONS.map((key) => ({
+    key,
+    documents: grouped[key],
+    count: grouped[key].length,
   }))
 
   const totalDocuments = (documents || []).length

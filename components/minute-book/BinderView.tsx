@@ -4,32 +4,29 @@ import { useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import BinderSection from './BinderSection'
 import RegisterCard from './RegisterCard'
+import type { MinuteBookSection } from '@/lib/minute-book-section'
 
 /**
  * `key` is narrowed to the nine section keys so `tBinder(\`sections.${section.key}\`)`
  * resolves against minuteBook.binder.sections instead of widening to `string`.
  *
- * ⚠️ THIS IS AN ASSERTION ABOUT API DATA, NOT A DERIVATION. The values arrive as JSON
- * from /api/minute-book/binder, so TypeScript cannot prove them — the union simply
- * mirrors the literal SECTIONS list in that route. It is defensible because that list
- * lives in this repo, but if a section key is ever added there, it must be added HERE
- * and to messages/*.json, and nothing will fail at compile time to remind you.
+ * ⚠️ CE TYPE EST DÉSORMAIS DÉRIVÉ, PLUS RECOPIÉ. Il valait autrefois une union
+ * de neuf littéraux retapée à la main, et sa propre docstring avouait le défaut :
+ * « nothing will fail at compile time to remind you ». Ajouter une clé à
+ * MINUTE_BOOK_SECTIONS élargit maintenant ce type mécaniquement.
  */
-type SectionKey =
-  | 'statuts' | 'avis' | 'reglements' | 'resolutions' | 'administrateurs'
-  | 'dirigeants' | 'actionnaires' | 'registres' | 'autres'
+type SectionKey = MinuteBookSection
 
 interface Section {
   key: SectionKey
-  title_fr: string
   documents: any[]
   count: number
 }
 
 export default function BinderView() {
   const t = useTranslations('minuteBook.registers')
-  // Section headings — route (b): localized via key-map off section.key (the
-  // binder API still ships title_fr, but display reads the i18n catalog).
+  // Section headings — localized via key-map off section.key. La route
+  // n'expédie plus de title_fr : le catalogue i18n est la seule source.
   // Document/requirement NAMES inside sections stay FR legal (untouched).
   const tBinder = useTranslations('minuteBook.binder')
   const locale = useLocale()

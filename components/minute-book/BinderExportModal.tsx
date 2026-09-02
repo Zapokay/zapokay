@@ -17,7 +17,6 @@ interface BinderExportModalProps {
 
 interface BinderSection {
   key: string;
-  title_fr: string;
   documents: any[];
   count: number;
 }
