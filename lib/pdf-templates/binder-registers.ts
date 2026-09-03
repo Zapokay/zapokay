@@ -17,6 +17,9 @@ export interface BinderRegistersData {
   companyName: string;
   neq?: string;
   documentTitle: string;
+  /** La date d'arrêté — REQUISE ici, optionnelle dans BaseLayoutData que
+   *  d'autres documents partagent. Déjà résolue, comme tous les libellés. */
+  effectiveDate: { label: string; value: string };
   registers: {
     title: string;
     columns: { key: string; label: string }[];
@@ -62,6 +65,7 @@ export function binderRegistersHTML(data: BinderRegistersData): string {
     companyName: data.companyName,
     neq: data.neq,
     documentTitle: data.documentTitle,
+    effectiveDate: data.effectiveDate,
     bodyContent: corps,
     footerDocName: data.footerDocName,
     language: data.language,

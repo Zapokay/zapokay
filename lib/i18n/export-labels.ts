@@ -75,6 +75,15 @@ export function getRegistersFileName(locale: ServerLocale): string {
 }
 
 /**
+ * L'étiquette de la date d'arrêté des registres — le mot du cabinet, « En date
+ * du » / « As at », jamais « Date ». La VALEUR se formate avec getCoverDate,
+ * le même formateur que la page de garde : un seul format de date dans l'export.
+ */
+export function getRegistersAsAtLabel(locale: ServerLocale): string {
+  return getServerMessage('minuteBook.binderExport.registers.asAtLabel', locale);
+}
+
+/**
  * Les libellés des registres, tous tirés de `minuteBook.registers.*` — les MÊMES
  * que l'écran emploie. ⛔ Aucune table neuve : ce lot en a supprimé sept.
  */
@@ -88,6 +97,10 @@ export function getRegisterLabels(locale: ServerLocale) {
     empty: getServerMessage('minuteBook.registers.emptyRegister', locale),
     yes: getServerMessage('minuteBook.registers.residentYes', locale),
     no: getServerMessage('minuteBook.registers.residentNo', locale),
+    // Colonne « Actif » : des MOTS, jamais un symbole. Le conteneur de
+    // production n'embarque qu'Open Sans, qui ne porte ni U+2713 ni U+2717.
+    activeYes: getServerMessage('minuteBook.registers.activeYes', locale),
+    activeNo: getServerMessage('minuteBook.registers.activeNo', locale),
     missingConsideration: (count: number) =>
       getServerMessage('minuteBook.registers.missingConsideration', locale, { count }),
     registerCount: (count: number) =>

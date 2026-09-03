@@ -4,11 +4,24 @@ export interface BaseLayoutData {
   documentTitle: string;
   documentSubtitle?: string;
   /**
-   * Generation date (YYYY-MM-DD), displayed in the right-hand footer slot as
-   * "Généré le {date}" / "Generated on {date}". The actual signature date is
-   * captured on the "Date: _______" line beside each signatory, not here.
+   * La DATE D'ARRÊTÉ, rendue sous le titre : « En date du 3 septembre 2026 ».
+   * Un registre dit qui est administrateur AUJOURD'HUI ; sans date, dans six
+   * mois personne ne sait de quel conseil il parle.
+   *
+   * ⚠️ CE CHAMP ÉTAIT DÉCLARÉ ET JAMAIS INTERPOLÉ — accepté puis jeté. Son
+   * ancien commentaire parlait d'un pied de page qui a migré vers `buildFooter`
+   * (generatePDF.ts) ; la déclaration continuait de le promettre.
+   *
+   * ★ POURQUOI UN OBJET ET NON UNE DATE NUE : les deux résolutions passaient
+   * `effectiveDate: data.resolutionDate`, sans effet tant que le champ était
+   * jeté. Le rendre avec le type `string` ferait apparaître une date sur CHAQUE
+   * résolution du conseil et des actionnaires. Le type composé rend cette ligne
+   * NON COMPILABLE : le compilateur ferme le trou, pas la vigilance.
+   *
+   * ⚠️ L'étiquette arrive DÉJÀ RÉSOLUE (lib/i18n/export-labels.ts). base-layout
+   * n'a plus de catalogue bilingue — ils ont migré vers buildFooter.
    */
-  effectiveDate?: string;
+  effectiveDate?: { label: string; value: string };
   bodyContent: string;
   /** Signature block markup, rendered in its own table row so it breaks as a unit. Optional — callers with no signatures (e.g. registers) omit it. */
   signaturesHtml?: string;
@@ -118,7 +131,13 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     color: ${COLORS.gray};
     margin-bottom: 0.2em;
   }
-  .title-block .sep {
+${data.effectiveDate ? `  /* Date d'arrêté — sous le sous-titre, au-dessus du filet. */
+  .title-block .as-at {
+    font-size: 12px;
+    color: ${COLORS.gray};
+    margin-bottom: 0.2em;
+  }
+` : ''}  .title-block .sep {
     width: 60px;
     height: 1px;
     background: ${COLORS.separator};
@@ -252,7 +271,8 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
       <tr><td>
         <div class="title-block">
           <h1>${escapeHtml(data.documentTitle)}</h1>
-          ${data.documentSubtitle ? `<div class="subtitle">${escapeHtml(data.documentSubtitle)}</div>` : ''}
+          ${data.documentSubtitle ? `<div class="subtitle">${escapeHtml(data.documentSubtitle)}</div>` : ''}${data.effectiveDate ? `
+          <div class="as-at">${escapeHtml(data.effectiveDate.label)} ${escapeHtml(data.effectiveDate.value)}</div>` : ''}
           <div class="sep"></div>
         </div>
 

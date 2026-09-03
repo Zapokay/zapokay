@@ -99,7 +99,8 @@ export function shareholderResolutionHTML(data: ShareholderResolutionData): stri
     neq: data.neq,
     documentTitle: data.documentTitle,
     documentSubtitle: data.fiscalYear !== null ? l.subtitle(data.fiscalYear) : undefined,
-    effectiveDate: data.resolutionDate,
+    // Pas de date d'arrêté ici : la date d'adoption se capte sur la ligne
+    // « Date : » de chaque signataire. Le champ passé jusqu'ici était jeté.
     bodyContent,
     signaturesHtml,
     footerDocName: data.documentTitle,

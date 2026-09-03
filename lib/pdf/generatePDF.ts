@@ -98,6 +98,9 @@ export interface BinderRegistersInput {
   companyName: string;
   neq?: string;
   documentTitle: string;
+  /** REQUIS, pas optionnel : un registre sans date d'arrêté ne dit pas de quel
+   *  conseil il parle. Étiquette et valeur arrivent déjà résolues de la route. */
+  effectiveDate: { label: string; value: string };
   registers: {
     title: string;
     columns: { key: string; label: string }[];
@@ -223,6 +226,7 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
         companyName: d.companyName,
         neq: d.neq,
         documentTitle: d.documentTitle,
+        effectiveDate: d.effectiveDate,
         registers: d.registers,
         footerDocName: d.footerDocName,
         language: d.language ?? 'fr',

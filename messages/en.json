@@ -689,7 +689,8 @@
         "exporting": "Exporting…"
       },
       "registers": {
-        "fileName": "00_Corporate_registers.pdf"
+        "fileName": "00_Corporate_registers.pdf",
+        "asAtLabel": "As at"
       },
       "index": {
         "indexTitle": "Binder Index",
@@ -729,6 +730,8 @@
       },
       "residentYes": "Yes",
       "residentNo": "No",
+      "activeYes": "Yes",
+      "activeNo": "No",
       "missingConsideration": "{count, plural, =0 {No issuances missing consideration} =1 {1 issuance missing consideration} other {# issuances missing consideration}}"
     },
     "bulkCatchUp": {

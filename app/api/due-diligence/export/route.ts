@@ -12,10 +12,11 @@ import { applyBinderDocumentOrder } from '@/lib/minute-book/document-order';
 import {
   readDirectorRegister, readOfficerRegister, readShareholderRegister, readStatedCapitalRegister,
 } from '@/lib/minute-book/registers';
+import { normalizePdfSpaces } from '@/lib/pdf/pdf-safe-text';
 import {
   getCoverTitle, getCoverSubtitle, getCoverFileName, getCoverDate,
   getIndexTitle, getIndexFileName, getIndexColumns,
-  getRegistersFileName, getRegisterLabels,
+  getRegistersFileName, getRegisterLabels, getRegistersAsAtLabel,
 } from '@/lib/i18n/export-labels';
 import { MINUTE_BOOK_SECTIONS } from '@/lib/minute-book-section';
 import { getSectionLabel } from '@/lib/i18n/section-labels';
@@ -394,6 +395,12 @@ export async function GET(request: NextRequest) {
       companyName,
       neq: company.neq,
       documentTitle: getSectionLabel('registres', docLanguage),
+      // `now` — le MÊME instant que le nom du fichier ZIP, pas un second
+      // `new Date()` qui pourrait basculer de jour entre les deux lectures.
+      effectiveDate: {
+        label: getRegistersAsAtLabel(docLanguage),
+        value: getCoverDate(now, docLanguage),
+      },
       registers: [
         {
           title: docLanguage === 'en' ? regAdmin.register_title_en : regAdmin.register_title_fr,
@@ -407,7 +414,7 @@ export async function GET(request: NextRequest) {
             resident: e.is_canadian_resident ? L.yes : L.no,
             appointment_date: e.appointment_date,
             end_date: fmtDate(e.end_date),
-            status: e.is_active ? '✓' : '✗',
+            status: e.is_active ? L.activeYes : L.activeNo,
           })),
           emptyMessage: L.empty,
         },
@@ -421,7 +428,7 @@ export async function GET(request: NextRequest) {
           rows: regDirig.entries.map((e) => ({
             full_name: e.full_name, title: e.title,
             appointment_date: e.appointment_date, end_date: fmtDate(e.end_date),
-            status: e.is_active ? '✓' : '✗',
+            status: e.is_active ? L.activeYes : L.activeNo,
           })),
           emptyMessage: L.empty,
         },
@@ -447,9 +454,13 @@ export async function GET(request: NextRequest) {
           ],
           rows: regCapital.entries.map((e) => ({
             class_name: e.class_name,
-            stated_capital: new Intl.NumberFormat(docLanguage === 'en' ? 'en-CA' : 'fr-CA', {
-              style: 'currency', currency: e.currency || 'CAD',
-            }).format(e.stated_capital ?? 0),
+            // normalizePdfSpaces : U+202F (ICU récentes, fr) est ABSENT d'Open
+            // Sans, la seule police du conteneur — le séparateur disparaîtrait.
+            stated_capital: normalizePdfSpaces(
+              new Intl.NumberFormat(docLanguage === 'en' ? 'en-CA' : 'fr-CA', {
+                style: 'currency', currency: e.currency || 'CAD',
+              }).format(e.stated_capital ?? 0)
+            ),
           })),
           emptyMessage: L.empty,
           citation: docLanguage === 'en' ? regCapital.citation_en : regCapital.citation_fr,
