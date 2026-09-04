@@ -43,13 +43,20 @@ import { getSectionLabel } from '@/lib/i18n/section-labels';
 const TITRE_MAX_CARACTERES = 60;
 
 /**
- * Passé à toStorageSafeName pour que sa troncature interne NE MORDE JAMAIS.
- * Elle raboterait la fin de la base — c'est-à-dire le DISCRIMINANT, qui y vit.
- * Pire cas construit : dénomination 33 + titre 60 + année 4 + discriminant 8 +
- * 3 séparateurs = 108. La borne est au-dessus, et la longueur est déjà maîtrisée
- * en amont par TITRE_MAX_CARACTERES.
+ * Plafond de la partie LISIBLE — dénomination, titre, année. Le discriminant
+ * n'en fait pas partie : il est apposé après, hors de portée de la troncature.
+ *
+ * ⛔ CE PLAFOND PEUT MORDRE SANS RIEN CASSER, et c'est tout son intérêt. La
+ * version précédente comptait sur un plafond assez haut pour ne jamais se
+ * déclencher — raisonnement fondé sur la dénomination la plus longue MESURÉE
+ * (33 caractères), alors que legal_name_fr est TEXT sans longueur maximale.
+ * Un échantillon tenait lieu de garantie. Ce qu'il tronque désormais, c'est du
+ * texte lisible ; l'unicité, elle, ne dépend plus d'aucun plafond.
+ *
+ * 120 laisse passer tout le parc — la partie lisible la plus longue y fait 73
+ * caractères — et borne le nom complet à ~135 dans le pire cas.
  */
-const NOM_BASE_MAX = 200;
+const PARTIE_LISIBLE_MAX = 120;
 
 /* ------------------------------------------------------------------ */
 /*  Section mapping                                                    */
@@ -359,12 +366,22 @@ export async function GET(request: NextRequest) {
       //   se déplacerait au premier document ajouté. Il reste indispensable :
       //   JSZip écrase en silence, et l'année seule laisse 11 documents en
       //   collision sur le parc (6 pour le pire groupe).
+      // ⚠️ LE DISCRIMINANT EST APPOSÉ APRÈS L'ASSAINISSEMENT, ET C'EST
+      // STRUCTUREL. toStorageSafeName tronque la FIN de la base quand elle
+      // dépasse son plafond — or le discriminant y vivait. Une dénomination
+      // assez longue le mangeait, et deux documents produisaient alors le MÊME
+      // chemin : JSZip en écrasait un sans bruit. Mesuré sur une dénomination
+      // de 210 caractères — que rien n'interdit, la colonne étant TEXT sans
+      // longueur maximale — deux documents devenaient un seul fichier.
+      // Hors de la chaîne assainie, le discriminant est hors d'atteinte : ce
+      // n'est plus un plafond bien choisi qui protège, c'est la construction.
       const titreCourt = doc.title.slice(0, TITRE_MAX_CARACTERES);
       const segAnnee = doc.document_year != null ? `-${doc.document_year}` : '';
-      const safeName = toStorageSafeName(
-        `${companyName}-${titreCourt}${segAnnee}-${doc.id.slice(0, 8)}${ext}`,
-        NOM_BASE_MAX,
-      );
+      const lisible = toStorageSafeName(
+        `${companyName}-${titreCourt}${segAnnee}`,
+        PARTIE_LISIBLE_MAX,
+      ).replace(/[._-]+$/, '');
+      const safeName = `${lisible || 'document'}-${doc.id.slice(0, 8)}${ext}`;
 
       const chemin = `${getSectionFolderName(section, docLanguage)}/${safeName}`;
       zip.file(chemin, fileBuffer);
