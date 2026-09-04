@@ -301,7 +301,11 @@ export async function GET(request: NextRequest) {
     // écriture, deux lecteurs : le zip et l'index ne peuvent pas se contredire.
     // ★ Rempli APRÈS les trois `continue`, donc une pièce refusée n'y entre
     // jamais — l'index ne décrit que ce qui est réellement dans l'archive.
-    const entrees: { section: string; titre: string; chemin: string }[] = [];
+    // `nom` est le nom SEUL, sans dossier : l'index le rend tel quel, et le
+    // chemin complet reste disponible pour qui en aurait besoin. Deux champs
+    // issus d'une seule écriture — pas deux constructions qui pourraient
+    // diverger.
+    const entrees: { section: string; titre: string; chemin: string; nom: string }[] = [];
 
     const zip = new JSZip();
 
@@ -386,7 +390,7 @@ export async function GET(request: NextRequest) {
 
       const chemin = `${getSectionFolderName(section, docLanguage)}/${safeName}`;
       zip.file(chemin, fileBuffer);
-      entrees.push({ section, titre: doc.title, chemin });
+      entrees.push({ section, titre: doc.title, chemin, nom: safeName });
     }
 
     // ⛔ LE REFUS SORT ICI, AVANT LE MOINDRE OCTET D'ARCHIVE. La page de garde
@@ -435,7 +439,12 @@ export async function GET(request: NextRequest) {
       columns: getIndexColumns(docLanguage),
       sections: MINUTE_BOOK_SECTIONS.map((cle, rang) => {
         const siennes = entrees.filter((e) => e.section === cle);
-        const lignes = siennes.map((e) => ({ title: e.titre, fileName: e.chemin }));
+        // ⚠️ LE NOM SEUL, PAS LE CHEMIN. La colonne répétait le préfixe de
+        // section sur toutes les lignes d'un même tableau — un préfixe déjà
+        // écrit deux fois : en titre juste au-dessus, et dans l'en-tête de page
+        // pour la société. Il ne portait aucune information et poussait chaque
+        // ligne sur deux.
+        const lignes = siennes.map((e) => ({ title: e.titre, fileName: e.nom }));
         if (cle === 'registres') {
           // ⚠️ L'ÉTAGÈRE 7 DIT CE QUE L'ÉCRAN DIT. Son compte vient de
           // minuteBook.binder.registerCount, la clé même que BinderSection
@@ -447,7 +456,7 @@ export async function GET(request: NextRequest) {
             count: getRegisterLabels(docLanguage).registerCount(4),
             entries: [
               ...lignes,
-              { title: getSectionLabel('registres', docLanguage), fileName: cheminRegistres },
+              { title: getSectionLabel('registres', docLanguage), fileName: getRegistersFileName(docLanguage) },
             ],
           };
         }
