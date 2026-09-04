@@ -31,6 +31,32 @@ interface FooterPayload {
   pageLabel: string;
 }
 
+/**
+ * La mention de confidentialité, dans les TROIS variantes de langue.
+ *
+ * ⛔ « Usage interne » a été retiré le 2026-09-05 : ces documents sont FABRIQUÉS
+ * pour être remis à un tiers — banquier, acheteur, vérificateur — et la mention
+ * contredisait la fonction même du document qui la portait. La confidentialité,
+ * elle, reste vraie : le mot reste.
+ *
+ * ★ UN SEUL ENDROIT LA RÉSOUT, pour le pied de page ET la page de garde. Elles
+ * en portaient chacune leur copie en dur, et elles ont divergé pendant trois
+ * commits : le pied disait « Confidentiel » quand la garde de la MÊME archive
+ * disait encore « Confidentiel — Usage interne ».
+ *
+ * La variante bilingue compose les deux locales — « Confidentiel /
+ * Confidential ». Elle n'atteint jamais la génération (signature-blocks.ts §9.1
+ * le note aussi), mais une variante morte qui affirme une chose fausse reste
+ * une dette : elle est alignée avec les deux autres.
+ */
+function confidentialLabel(language?: 'fr' | 'en' | 'bilingual'): string {
+  const fr = getServerMessage('minuteBook.pdfFooter.confidential', 'fr');
+  const en = getServerMessage('minuteBook.pdfFooter.confidential', 'en');
+  if (language === 'en') return en;
+  if (language === 'bilingual') return `${fr} / ${en}`;
+  return fr;
+}
+
 function buildFooter(d: {
   companyName: string;
   documentTitle: string;
@@ -48,12 +74,7 @@ function buildFooter(d: {
   documentId?: string;
 }): FooterPayload {
   const en = d.language === 'en';
-  // ⛔ « Usage interne » RETIRÉ le 2026-09-05, décision de Dom. Ces documents
-  // sont FABRIQUÉS pour être remis à un tiers — banquier, acheteur,
-  // vérificateur : la mention contredisait la fonction même du document. La
-  // confidentialité, elle, reste vraie, donc le mot reste.
-  // ★ Et il vient du catalogue, plus d'un ternaire en dur.
-  const confidential = getServerMessage('minuteBook.pdfFooter.confidential', en ? 'en' : 'fr');
+  const confidential = confidentialLabel(d.language);
   const generatedOnLabel = en ? 'Generated on' : 'Généré le';
   // #178 — the "Generated on / Généré le" footer shows the REAL generation date
   // (render-time today), locale-formatted via the §8.28 formatDate chokepoint.
@@ -287,6 +308,7 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
         subtitle: d.subtitle,
         preparedDate: d.preparedDate,
         language: d.language ?? 'fr',
+        confidentialLabel: confidentialLabel(d.language),
       };
       html = coverPageHTML(tmplData);
       break;

@@ -8,15 +8,16 @@ export interface CoverPageData {
   preparedFor?: string;
   preparedDate: string;
   language: 'fr' | 'en' | 'bilingual';
+  /**
+   * ⚠️ DÉJÀ RÉSOLUE PAR L'APPELANT, comme title et subtitle. Ce gabarit ne
+   * connaît aucun catalogue — et la mention en portait ici une copie en dur qui
+   * a divergé de celle du pied de page pendant trois commits.
+   */
+  confidentialLabel: string;
 }
 
 export function coverPageHTML(data: CoverPageData): string {
-  const confidential =
-    data.language === 'en'
-      ? 'Confidential — Internal Use'
-      : data.language === 'fr'
-        ? 'Confidentiel — Usage interne'
-        : 'Confidentiel / Confidential';
+  const confidential = data.confidentialLabel;
 
   const preparedLabel =
     data.language === 'en'
