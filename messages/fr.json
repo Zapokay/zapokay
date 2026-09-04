@@ -699,7 +699,7 @@
         "indexTitle": "Index du livre",
         "indexFileName": "01_Index.pdf",
         "columnTitle": "Document",
-        "columnFileName": "Fichier dans l’archive"
+        "columnYear": "Année"
       },
       "cover": {
         "title": "Livre de minutes",

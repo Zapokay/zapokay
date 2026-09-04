@@ -130,11 +130,11 @@ export interface BinderIndexInput {
   neq?: string;
   documentTitle: string;
   documentSubtitle?: string;
-  columns: { title: string; fileName: string };
+  columns: { title: string; year: string };
   sections: {
     heading: string;
     count: string;
-    entries: { title: string; fileName: string }[];
+    entries: { title: string; fileName: string; year: string }[];
   }[];
   footerDocName: string;
   language?: 'fr' | 'en' | 'bilingual';

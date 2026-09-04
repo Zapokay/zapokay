@@ -21,8 +21,15 @@ export interface BinderIndexData {
   documentTitle: string;
   /** Le compte total, déjà traduit — la même phrase que l'écran et la garde. */
   documentSubtitle?: string;
-  /** Entêtes des deux colonnes, déjà traduits. */
-  columns: { title: string; fileName: string };
+  /**
+   * Entêtes des deux colonnes, déjà traduits.
+   *
+   * ⚠️ « Document » désigne bien l'entrée ENTIÈRE — son titre ET le nom du
+   * fichier qui la porte, empilés dans la même cellule. « Titre » ou
+   * « Fichier » n'en couvrirait qu'une moitié. La clé columnFileName est partie
+   * avec la colonne qu'elle nommait.
+   */
+  columns: { title: string; year: string };
   /**
    * LES NEUF SECTIONS, dans l'ordre, VIDES COMPRISES. C'est là que l'index
    * complète le miroir : une section sans document n'a pas de dossier dans
@@ -38,7 +45,7 @@ export interface BinderIndexData {
      * depuis elle — jamais un nom recalculé ici. Deux applications de la même
      * règle de nommage finissent toujours par diverger.
      */
-    entries: { title: string; fileName: string }[];
+    entries: { title: string; fileName: string; year: string }[];
   }[];
   footerDocName: string;
   language: 'fr' | 'en' | 'bilingual';
@@ -47,18 +54,35 @@ export interface BinderIndexData {
 export function binderIndexHTML(data: BinderIndexData): string {
   const sections = data.sections
     .map((s) => {
+      // Le nom de fichier vit SOUS le titre, sur toute la largeur de la cellule —
+      // les deux colonnes se disputaient la place alors qu'elles disaient la même
+      // chose : le nom contient le titre depuis le 09-04.
+      //
+      // ★ 11px et #6B6560 ne sont pas des valeurs neuves : c'est la taille des
+      // entêtes et des citations, et le gris de la ligne « 20 documents » — le
+      // couple principal/secondaire que ce document porte déjà. Pas de quatrième
+      // taille inventée. Ce gris-là sert du texte DESTINÉ À ÊTRE LU ; #A09A93,
+      // plus pâle, est réservé aux mentions de signature et disparaîtrait sur une
+      // imprimante de bureau.
+      //
+      // ⚠️ CE COMMENTAIRE VIT ICI, ET PAS DANS LE GABARIT EN DESSOUS, POUR UNE
+      // RAISON MESURÉE : placé dans une interpolation `${…}` d'un littéral de
+      // gabarit, `npm run check:glyphs` le lisait comme du TEXTE et signalait son
+      // ★ comme un caractère absent d'Open Sans. Le dépouilleur du balayage ne
+      // traverse pas les interpolations — la limite que son propre en-tête
+      // annonce. Le commentaire n'a rien à faire dans la chaîne ; il est sorti.
       const table =
         s.entries.length === 0
           ? ''
           : `
     <table class="register">
       <thead><tr>
-        <th>${escapeHtml(data.columns.title)}</th><th>${escapeHtml(data.columns.fileName)}</th>
+        <th>${escapeHtml(data.columns.title)}</th><th style="width:2cm;">${escapeHtml(data.columns.year)}</th>
       </tr></thead>
       <tbody>${s.entries
         .map(
           (e) =>
-            `<tr><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.fileName)}</td></tr>`
+            `<tr><td><div>${escapeHtml(e.title)}</div><div style="font-size:11px;color:#6B6560;margin-top:1px;">${escapeHtml(e.fileName)}</div></td><td>${escapeHtml(e.year)}</td></tr>`
         )
         .join('')}</tbody>
     </table>`;

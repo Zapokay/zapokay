@@ -305,7 +305,7 @@ export async function GET(request: NextRequest) {
     // chemin complet reste disponible pour qui en aurait besoin. Deux champs
     // issus d'une seule écriture — pas deux constructions qui pourraient
     // diverger.
-    const entrees: { section: string; titre: string; chemin: string; nom: string }[] = [];
+    const entrees: { section: string; titre: string; chemin: string; nom: string; annee: string }[] = [];
 
     const zip = new JSZip();
 
@@ -390,7 +390,16 @@ export async function GET(request: NextRequest) {
 
       const chemin = `${getSectionFolderName(section, docLanguage)}/${safeName}`;
       zip.file(chemin, fileBuffer);
-      entrees.push({ section, titre: doc.title, chemin, nom: safeName });
+      // ⚠️ L'ANNÉE PARAÎT DEUX FOIS PAR LIGNE — en colonne et dans le nom du
+      // fichier. C'est délibéré : la colonne se balaie du regard, le nom dit la
+      // vérité littérale de ce qui est écrit dans l'archive.
+      // Absente pour 25 documents sur 113 : la cellule rend « — », la
+      // convention que le registre des administrateurs emploie déjà pour sa
+      // colonne FIN. U+2014 est mesuré PRÉSENT dans Open Sans.
+      entrees.push({
+        section, titre: doc.title, chemin, nom: safeName,
+        annee: doc.document_year != null ? String(doc.document_year) : '—',
+      });
     }
 
     // ⛔ LE REFUS SORT ICI, AVANT LE MOINDRE OCTET D'ARCHIVE. La page de garde
@@ -444,7 +453,7 @@ export async function GET(request: NextRequest) {
         // écrit deux fois : en titre juste au-dessus, et dans l'en-tête de page
         // pour la société. Il ne portait aucune information et poussait chaque
         // ligne sur deux.
-        const lignes = siennes.map((e) => ({ title: e.titre, fileName: e.nom }));
+        const lignes = siennes.map((e) => ({ title: e.titre, fileName: e.nom, year: e.annee }));
         if (cle === 'registres') {
           // ⚠️ L'ÉTAGÈRE 7 DIT CE QUE L'ÉCRAN DIT. Son compte vient de
           // minuteBook.binder.registerCount, la clé même que BinderSection
@@ -468,6 +477,9 @@ export async function GET(request: NextRequest) {
               ...[regAdmin, regDirig, regAct, regCapital].map((r) => ({
                 title: docLanguage === 'en' ? r.register_title_en : r.register_title_fr,
                 fileName: getRegistersFileName(docLanguage, companyName),
+                // Les registres décrivent un ÉTAT à la date d'arrêté, pas un
+                // exercice : ils n'ont pas d'année propre.
+                year: '—',
               })),
             ],
           };

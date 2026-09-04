@@ -63,11 +63,16 @@ export function getIndexFileName(locale: ServerLocale): string {
   return getServerMessage('minuteBook.binderExport.index.indexFileName', locale);
 }
 
-/** Les deux entêtes de colonnes de l'index. */
-export function getIndexColumns(locale: ServerLocale): { title: string; fileName: string } {
+/**
+ * Les deux entêtes de colonnes de l'index.
+ * ⚠️ « Document » couvre l'entrée entière — titre ET nom de fichier, empilés
+ * dans la même cellule depuis le 2026-09-05. `columnFileName` est partie avec
+ * la colonne qu'elle nommait.
+ */
+export function getIndexColumns(locale: ServerLocale): { title: string; year: string } {
   return {
     title: getServerMessage('minuteBook.binderExport.index.columnTitle', locale),
-    fileName: getServerMessage('minuteBook.binderExport.index.columnFileName', locale),
+    year: getServerMessage('minuteBook.binderExport.index.columnYear', locale),
   };
 }
 
