@@ -65,6 +65,14 @@ export function getSectionLabel(
  * ★ Le libellé accentué N'EST PAS PERDU : getSectionLabel le rend intact, et
  * c'est lui que l'index du PDF affiche en titre de section. L'archive perd les
  * accents dans ses CHEMINS, pas dans son texte.
+ *
+ * ── 2026-09-05 : LES ESPACES REVIENNENT, LES ACCENTS RESTENT PARTIS ─────────
+ * La décision du 09-04 avait emporté les espaces avec les accents, par un
+ * malentendu sur sa formulation : l'un était souhaité « s'il le faut », l'autre
+ * exigé. Le risque de compatibilité mesuré ne porte que sur les ACCENTS — un
+ * système de destination qui les abîme ne bute pas sur une espace, qui passe
+ * partout. « 6 - Minutes and Resolutions » se lit ; « 6_-_Minutes_and_
+ * Resolutions » ne se lit pas mieux qu'un nom accentué.
  */
 export function getSectionFolderName(
   section: MinuteBookSection,
@@ -75,5 +83,8 @@ export function getSectionFolderName(
     throw new Error(`getSectionFolderName: unknown section "${section}"`);
   }
   // La règle UNIQUE du dépôt, la même qui nomme les fichiers de l'archive.
-  return toStorageSafeName(`${rang + 1} - ${getSectionLabel(section, locale)}`);
+  // `keepSpaces` : voir la note du 2026-09-05 ci-dessus.
+  return toStorageSafeName(`${rang + 1} - ${getSectionLabel(section, locale)}`, 80, {
+    keepSpaces: true,
+  });
 }

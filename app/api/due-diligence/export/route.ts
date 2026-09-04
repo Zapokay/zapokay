@@ -376,12 +376,13 @@ export async function GET(request: NextRequest) {
       // Hors de la chaîne assainie, le discriminant est hors d'atteinte : ce
       // n'est plus un plafond bien choisi qui protège, c'est la construction.
       const titreCourt = doc.title.slice(0, TITRE_MAX_CARACTERES);
-      const segAnnee = doc.document_year != null ? `-${doc.document_year}` : '';
+      const segAnnee = doc.document_year != null ? ` - ${doc.document_year}` : '';
       const lisible = toStorageSafeName(
-        `${companyName}-${titreCourt}${segAnnee}`,
+        `${companyName} - ${titreCourt}${segAnnee}`,
         PARTIE_LISIBLE_MAX,
-      ).replace(/[._-]+$/, '');
-      const safeName = `${lisible || 'document'}-${doc.id.slice(0, 8)}${ext}`;
+        { keepSpaces: true },
+      ).replace(/[._ -]+$/, '');
+      const safeName = `${lisible || 'document'} - ${doc.id.slice(0, 8)}${ext}`;
 
       const chemin = `${getSectionFolderName(section, docLanguage)}/${safeName}`;
       zip.file(chemin, fileBuffer);
@@ -570,11 +571,15 @@ export async function GET(request: NextRequest) {
     // tout le reste hors [A-Za-z0-9._-] devient « _ ». L'ancienne règle locale
     // gardait les accents (classe À-ÿ) et posait donc U+00E9 dans un en-tête
     // HTTP, qui est ASCII seulement — « Café du Coin inc. » le déclenchait.
-    const sanitizedCompanyName = toStorageSafeName(companyName, 40);
+    const sanitizedCompanyName = toStorageSafeName(companyName, 40, { keepSpaces: true });
 
     const dateStr = now.toISOString().split('T')[0];
+    // ⚠️ L'ESPACE EST LÉGAL DANS `filename="…"` : la RFC 6266 y attend une
+    // quoted-string, où 0x20 est permis. Mesuré plutôt que supposé — un serveur
+    // local pose cet en-tête, un fetch le relit intact, et l'extraction du modal
+    // en tire le nom complet, espaces compris.
     const downloadFileName =
-      `${getArchiveBaseName(docLanguage)}-${sanitizedCompanyName}-${dateStr}.zip`;
+      `${getArchiveBaseName(docLanguage)} - ${sanitizedCompanyName} - ${dateStr}.zip`;
 
     // Patron RFC 5987, repris de app/api/documents/[id]/download/route.ts — pas
     // un second. `filename` porte l'ASCII ; `filename*` reste NON QUOTÉ, comme

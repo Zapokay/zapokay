@@ -15,7 +15,18 @@
  *   "C'est déjà fait.pdf" → "C_est_deja_fait.pdf"
  *   "Les Entreprises Z Inc." → "Les_Entreprises_Z_Inc"
  */
-export function toStorageSafeName(input: string, maxBaseLength = 80): string {
+export function toStorageSafeName(
+  input: string,
+  maxBaseLength = 80,
+  options: { keepSpaces?: boolean } = {},
+): string {
+  // `keepSpaces` — UN paramètre sur la règle unique, pas une deuxième règle.
+  // Le risque de compatibilité mesuré porte sur les ACCENTS, que le NFD retire
+  // dans les deux modes ; l'espace, lui, passe partout. Il n'est conservé que
+  // là où on le demande : les noms de l'archive, qui se lisent. Le défaut
+  // `false` laisse les CLÉS DE STOCKAGE — upload-document.ts, le téléchargement
+  // unitaire — rigoureusement inchangées : un fichier déjà rangé reste trouvable.
+  const { keepSpaces = false } = options;
   const raw = (input ?? '').toString();
 
   // Split base + extension. Treat as "no extension" if no dot, a leading dot,
@@ -31,18 +42,20 @@ export function toStorageSafeName(input: string, maxBaseLength = 80): string {
     ext = '';
   }
 
-  const sanitize = (s: string): string =>
-    s
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^A-Za-z0-9._-]/g, '_')
-      .replace(/_+/g, '_');
+  const sanitize = (s: string): string => {
+    const sansAccents = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return keepSpaces
+      ? sansAccents.replace(/[^A-Za-z0-9._ -]/g, '_').replace(/_+/g, '_').replace(/ {2,}/g, ' ')
+      : sansAccents.replace(/[^A-Za-z0-9._-]/g, '_').replace(/_+/g, '_');
+  };
 
-  let safeBase = sanitize(base).replace(/^[._]+|[._]+$/g, '');
+  // Le rognage des bords couvre l'espace : en mode `keepSpaces` il survit au
+  // nettoyage et se retrouverait sinon en t\u00eate ou en queue du nom.
+  let safeBase = sanitize(base).replace(/^[._ ]+|[._ ]+$/g, '');
   const safeExt = sanitize(ext);
 
   if (safeBase.length > maxBaseLength) {
-    safeBase = safeBase.slice(0, maxBaseLength).replace(/_+$/g, '');
+    safeBase = safeBase.slice(0, maxBaseLength).replace(/[_ ]+$/g, '');
   }
 
   const result = safeBase + safeExt;
