@@ -384,7 +384,7 @@ export async function GET(request: NextRequest) {
       const lisible = toStorageSafeName(
         `${companyName} - ${titreCourt}${segAnnee}`,
         PARTIE_LISIBLE_MAX,
-        { keepSpaces: true },
+        { readable: true },
       ).replace(/[._ -]+$/, '');
       const safeName = `${lisible || 'document'} - ${doc.id.slice(0, 8)}${ext}`;
 
@@ -592,7 +592,7 @@ export async function GET(request: NextRequest) {
     // tout le reste hors [A-Za-z0-9._-] devient « _ ». L'ancienne règle locale
     // gardait les accents (classe À-ÿ) et posait donc U+00E9 dans un en-tête
     // HTTP, qui est ASCII seulement — « Café du Coin inc. » le déclenchait.
-    const sanitizedCompanyName = toStorageSafeName(companyName, 40, { keepSpaces: true });
+    const sanitizedCompanyName = toStorageSafeName(companyName, 40, { readable: true });
 
     const dateStr = now.toISOString().split('T')[0];
     // ⚠️ L'ESPACE EST LÉGAL DANS `filename="…"` : la RFC 6266 y attend une

@@ -105,7 +105,7 @@ export function getRegistersFileName(locale: ServerLocale, companyName: string):
   return `${toStorageSafeName(
     `${companyName} - ${getSectionLabel('registres', locale)}`,
     120,
-    { keepSpaces: true },
+    { readable: true },
   ).replace(/[._ -]+$/, '')}.pdf`;
 }
 

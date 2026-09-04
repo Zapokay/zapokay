@@ -83,8 +83,8 @@ export function getSectionFolderName(
     throw new Error(`getSectionFolderName: unknown section "${section}"`);
   }
   // La règle UNIQUE du dépôt, la même qui nomme les fichiers de l'archive.
-  // `keepSpaces` : voir la note du 2026-09-05 ci-dessus.
+  // `readable` : voir la note du 2026-09-05 ci-dessus.
   return toStorageSafeName(`${rang + 1} - ${getSectionLabel(section, locale)}`, 80, {
-    keepSpaces: true,
+    readable: true,
   });
 }
