@@ -677,6 +677,9 @@
       "exporting": "Export en cours…",
       "exportAnyway": "Exporter quand même ({score}%)"
     },
+    "pdfFooter": {
+      "confidential": "Confidentiel"
+    },
     "binderExport": {
       "title": "Exporter le livre de minutes",
       "closeAriaLabel": "Fermer la fenêtre",

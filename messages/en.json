@@ -677,6 +677,9 @@
       "exporting": "Exporting…",
       "exportAnyway": "Export anyway ({score}%)"
     },
+    "pdfFooter": {
+      "confidential": "Confidential"
+    },
     "binderExport": {
       "title": "Export Minute Book",
       "closeAriaLabel": "Close dialog",

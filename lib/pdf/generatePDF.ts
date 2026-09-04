@@ -15,6 +15,7 @@ import type { BoardResolutionData, ShareholderResolutionData, CoverPageData } fr
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 import { escapeHtml } from '@/lib/pdf-templates/base-layout';
 import { formatDate } from '@/lib/utils';
+import { getServerMessage } from '@/lib/i18n/server-messages';
 
 /** Footer payload for the Puppeteer footerTemplate (bottom-pinned per page).
  *  Values are pre-escaped here since they are interpolated into footer HTML. */
@@ -35,13 +36,24 @@ function buildFooter(d: {
   documentTitle: string;
   resolutionDate: string;
   language?: 'fr' | 'en' | 'bilingual';
-  documentId: string;
+  /**
+   * ⚠️ FACULTATIF DEPUIS LE 2026-09-05, et la raison vaut plus que le geste.
+   * L'index et le PDF des registres sont SYNTHÉTISÉS à chaque export : ils
+   * n'existent dans aucune ligne de `documents`. Y imprimer un identifiant
+   * inventé mettrait sur chaque page un numéro que le service de vérification
+   * ne résoudrait pas — une affirmation sans support. Pour ces deux documents,
+   * la date de génération EST l'identité : elle suffit à distinguer deux
+   * archives. Les documents stockés, eux, le fournissent toujours.
+   */
+  documentId?: string;
 }): FooterPayload {
   const en = d.language === 'en';
-  // FR/EN footer labels — duplicated from base-layout per the WA amendment; the
-  // base-layout copies had zero remaining readers once the in-HTML footer was
-  // removed, so they were dropped there (grep-confirmed).
-  const confidential = en ? 'Confidential — Internal Use' : 'Confidentiel — Usage interne';
+  // ⛔ « Usage interne » RETIRÉ le 2026-09-05, décision de Dom. Ces documents
+  // sont FABRIQUÉS pour être remis à un tiers — banquier, acheteur,
+  // vérificateur : la mention contredisait la fonction même du document. La
+  // confidentialité, elle, reste vraie, donc le mot reste.
+  // ★ Et il vient du catalogue, plus d'un ternaire en dur.
+  const confidential = getServerMessage('minuteBook.pdfFooter.confidential', en ? 'en' : 'fr');
   const generatedOnLabel = en ? 'Generated on' : 'Généré le';
   // #178 — the "Generated on / Généré le" footer shows the REAL generation date
   // (render-time today), locale-formatted via the §8.28 formatDate chokepoint.
@@ -57,7 +69,7 @@ function buildFooter(d: {
     docName: escapeHtml(d.documentTitle),
     companyLabel: `${escapeHtml(d.companyName)} — ${confidential}`,
     dateLabel: `${generatedOnLabel} ${escapeHtml(generationDate)}`,
-    docId: escapeHtml(d.documentId),
+    docId: d.documentId ? escapeHtml(d.documentId) : '',
     pageLabel,
   };
 }
@@ -231,6 +243,16 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
         footerDocName: d.footerDocName,
         language: d.language ?? 'fr',
       });
+      // ⚠️ `resolutionDate: ''` — le champ est DÉCLARÉ par buildFooter et
+      // JAMAIS LU (seul un commentaire l'y nomme, pour dire qu'il ne s'en sert
+      // pas). Une signature qui ment sur ce qu'elle emploie : dette notée,
+      // volontairement pas corrigée ici. Même motif qu'`effectiveDate` au lot H1.
+      footer = buildFooter({
+        companyName: d.companyName,
+        documentTitle: d.footerDocName,
+        resolutionDate: '',
+        language: d.language,
+      });
       break;
     }
 
@@ -245,6 +267,13 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
         sections: d.sections,
         footerDocName: d.footerDocName,
         language: d.language ?? 'fr',
+      });
+      // Voir la note de la branche 'binder-registers' pour `resolutionDate`.
+      footer = buildFooter({
+        companyName: d.companyName,
+        documentTitle: d.footerDocName,
+        resolutionDate: '',
+        language: d.language,
       });
       break;
     }
