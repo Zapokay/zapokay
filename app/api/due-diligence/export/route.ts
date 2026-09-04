@@ -428,7 +428,7 @@ export async function GET(request: NextRequest) {
     // Le chemin du PDF des registres ne dépend que de la locale : il est calculé
     // ICI pour que l'index puisse le NOMMER, et il n'est calculé qu'une fois —
     // l'archive et l'index citent la même chaîne, pas deux constructions.
-    const cheminRegistres = `${getSectionFolderName('registres', docLanguage)}/${getRegistersFileName(docLanguage)}`;
+    const cheminRegistres = `${getSectionFolderName('registres', docLanguage)}/${getRegistersFileName(docLanguage, companyName)}`;
 
     const { generateBinderIndexPDF } = await import('@/lib/pdf/generatePDF');
     const indexBuffer = await generateBinderIndexPDF({
@@ -454,9 +454,21 @@ export async function GET(request: NextRequest) {
           return {
             heading: `${rang + 1} - ${getSectionLabel(cle, docLanguage)}`,
             count: getRegisterLabels(docLanguage).registerCount(4),
+            // ⚠️ LES QUATRE SONT NOMMÉS, ET C'EST CE QUI REND LE COMPTE LISIBLE.
+            // La section annonçait « 4 registres » au-dessus d'une seule ligne :
+            // exact — les quatre tiennent dans un PDF — mais illisible. Chacun
+            // porte son nom, tous renvoient au même fichier, qui les contient.
+            // ★ Les titres arrivent DÉJÀ RÉSOLUS des lecteurs (route.ts:219-222,
+            // déstructurés :235) : aucun second chemin, aucun libellé en dur.
+            // Le quatrième suit le RÉGIME de lui-même — readStatedCapitalRegister
+            // reçoit incorporation_type et rend « compte de capital-actions émis
+            // et payé » sous la LSAQ, « compte capital déclaré » sous la LCSA.
             entries: [
               ...lignes,
-              { title: getSectionLabel('registres', docLanguage), fileName: getRegistersFileName(docLanguage) },
+              ...[regAdmin, regDirig, regAct, regCapital].map((r) => ({
+                title: docLanguage === 'en' ? r.register_title_en : r.register_title_fr,
+                fileName: getRegistersFileName(docLanguage, companyName),
+              })),
             ],
           };
         }

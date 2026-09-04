@@ -9,6 +9,8 @@
  */
 
 import { getServerMessage, type ServerLocale } from '@/lib/i18n/server-messages';
+import { getSectionLabel } from '@/lib/i18n/section-labels';
+import { toStorageSafeName } from '@/lib/storage-key';
 
 /** Le titre de la page de garde. */
 export function getCoverTitle(locale: ServerLocale): string {
@@ -82,9 +84,29 @@ export function getArchiveBaseName(locale: ServerLocale): string {
   return getServerMessage('minuteBook.binderExport.archiveBaseName', locale);
 }
 
-/** Le nom du fichier des registres, dans le dossier de l'étagère 7. */
-export function getRegistersFileName(locale: ServerLocale): string {
-  return getServerMessage('minuteBook.binderExport.registers.fileName', locale);
+/**
+ * Le nom du fichier des registres, dans le dossier de l'étagère 7.
+ *
+ * ⚠️ IL SUIT LA MÊME CONVENTION QUE LES AUTRES, et il avait échappé à celle que
+ * le lot du 09-04 a installée : c'était le SEUL fichier de l'archive qui ne
+ * disait pas à qui il appartient. Détaché de son dossier, « 00_Corporate_
+ * registers.pdf » ne nommait aucune société.
+ *
+ * ★ Le préfixe « 00_ » disparaît. Il servait à trier en tête d'un dossier dont
+ * la mesure dit qu'il ne contient rien d'autre : ZÉRO document du parc n'est
+ * rangé en section « registres », qui est synthétique. Un préfixe qui trie un
+ * fichier unique ne trie rien, et il jurait avec les espaces revenus le 09-05.
+ *
+ * ⛔ Il n'y a plus de clé de catalogue pour ce nom : il se compose du même
+ * libellé de section que le dossier qui le contient, donc une clé dédiée en
+ * aurait été une seconde source, à faire diverger un jour.
+ */
+export function getRegistersFileName(locale: ServerLocale, companyName: string): string {
+  return `${toStorageSafeName(
+    `${companyName} - ${getSectionLabel('registres', locale)}`,
+    120,
+    { keepSpaces: true },
+  ).replace(/[._ -]+$/, '')}.pdf`;
 }
 
 /**

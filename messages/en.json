@@ -645,7 +645,7 @@
         "resolutions": "Minutes and Resolutions",
         "registres": "Corporate Registers",
         "actionnaires": "Shareholders and Certificates",
-        "autres": "Other documents"
+        "autres": "Other Documents"
       },
       "emptySection": "No signed documents in this section",
       "yearSuffix": "(Fiscal Year {year})",
@@ -690,7 +690,6 @@
       },
       "archiveBaseName": "minute-book",
       "registers": {
-        "fileName": "00_Corporate_registers.pdf",
         "asAtLabel": "As at"
       },
       "index": {
