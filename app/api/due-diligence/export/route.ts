@@ -23,6 +23,35 @@ import { MINUTE_BOOK_SECTIONS } from '@/lib/minute-book-section';
 import { getSectionLabel } from '@/lib/i18n/section-labels';
 
 /* ------------------------------------------------------------------ */
+/*  Longueurs du nom d'entrée                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Le TITRE, et lui seul, est borné : la dénomination identifie, l'année situe,
+ * le discriminant garantit l'unicité — les tronquer perdrait la fonction pour
+ * de la cosmétique.
+ *
+ * ⚠️ 60 EST UNE BORNE DE SÛRETÉ, PAS UNE COUPE. Mesuré sur le parc : le titre
+ * le plus long fait 53 caractères, le 90e centile 47, AUCUN ne dépasse 60.
+ * Elle ne tronque donc rien aujourd'hui et attend la saisie qui débordera.
+ *
+ * ⛔ AUCUNE LIMITE TECHNIQUE NE LA JUSTIFIE, et il faut le dire : JSZip accepte
+ * un nom de 5006 caractères avec un aller-retour fidèle (mesuré), et les limites
+ * des systèmes de destination ne sont pas observables depuis ici. C'est un choix
+ * de lisibilité, assumé comme tel.
+ */
+const TITRE_MAX_CARACTERES = 60;
+
+/**
+ * Passé à toStorageSafeName pour que sa troncature interne NE MORDE JAMAIS.
+ * Elle raboterait la fin de la base — c'est-à-dire le DISCRIMINANT, qui y vit.
+ * Pire cas construit : dénomination 33 + titre 60 + année 4 + discriminant 8 +
+ * 3 séparateurs = 108. La borne est au-dessus, et la longueur est déjà maîtrisée
+ * en amont par TITRE_MAX_CARACTERES.
+ */
+const NOM_BASE_MAX = 200;
+
+/* ------------------------------------------------------------------ */
 /*  Section mapping                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -209,7 +238,7 @@ export async function GET(request: NextRequest) {
 
     let documentsQuery = supabase
       .from('documents')
-      .select('id, document_type, title, file_name, file_url, minute_book_section')
+      .select('id, document_type, title, file_name, file_url, minute_book_section, document_year')
       .eq('company_id', companyId)
       .eq('status', 'active');
 
@@ -237,9 +266,14 @@ export async function GET(request: NextRequest) {
       id: string;
       document_type: string;
       title: string;
-      file_name: string;
+      /** ⚠️ NULLABLE EN BASE, et le type l'affirmait non-null : c'est ce
+       *  mensonge qui laissait `.replace()` compiler alors que 5 documents
+       *  actifs ont file_name à NULL. */
+      file_name: string | null;
       file_url: string;
       minute_book_section: string | null;
+      /** Nulle pour 25 documents sur 113 — le segment d'année est alors omis. */
+      document_year: number | null;
     }
     const allDocuments: ExportDocument[] = documents ?? [];
 
@@ -295,14 +329,42 @@ export async function GET(request: NextRequest) {
 
       const fileBuffer = await fileResponse.arrayBuffer();
 
-      // Suffixer doc.id pour garantir l'unicité dans la section : plusieurs
-      // documents peuvent partager le même file_name (JSZip écrase silencieusement
-      // les chemins en doublon).
-      const rawName = doc.file_name.replace(/[^a-zA-Z0-9À-ÿ._-]/g, '_');
-      const dotIdx = rawName.lastIndexOf('.');
-      const base = dotIdx === -1 ? rawName : rawName.slice(0, dotIdx);
-      const ext = dotIdx === -1 ? '' : rawName.slice(dotIdx);
-      const safeName = `${base}_${doc.id.slice(0, 8)}${ext}`;
+      // ⚠️ LE NOM D'IMPORT NE PARAÎT PLUS. Il ne disait rien : 29 documents
+      // actifs sur 85 portaient un UUID pur comme file_name, et le code y
+      // ajoutait 8 caractères d'UUID de plus — deux identifiants opaques et
+      // zéro mot lisible. La colonne reste en base ; elle cesse d'être affichée.
+      //
+      // ★ L'EXTENSION est le seul morceau qui vienne encore du fichier. Elle se
+      // lit sur file_name, PUIS sur storagePath — déjà normalisé plus haut, donc
+      // fiable même quand file_name est NULL (5 documents actifs le sont, et
+      // .replace() y levait un TypeError sur le chemin scope=all).
+      // Si NI l'un NI l'autre ne porte d'extension, on n'en invente pas : un
+      // « .pdf » supposé serait faux pour les .txt générés du parc.
+      const extDe = (s: string | null): string => {
+        const m = (s ?? '').match(/\.[A-Za-z0-9]+$/);
+        return m ? m[0] : '';
+      };
+      const ext = extDe(doc.file_name) || extDe(storagePath);
+
+      // {dénomination}-{titre}-{année}-{discriminant}.{ext}
+      // · dénomination : déjà résolue selon docLanguage par pickCompanyLegalName.
+      // · titre : documents.title, DANS SA LANGUE DE SAISIE — la colonne n'est
+      //   pas bilingue et TITLE-I18N-1 n'est pas implémentée ; on ne traduit
+      //   jamais ce que l'utilisateur a nommé.
+      // · année : document_year. Le segment est OMIS quand elle est nulle (25
+      //   documents sur 113) — un nom n'affirme que ce qu'on sait, et l'année
+      //   courante serait une affirmation fausse. ⛔ Pas fiscal_year : NULL partout.
+      // · discriminant : les 8 premiers caractères de documents.id. STABLE d'un
+      //   export à l'autre parce que l'id ne change jamais ; un numéro d'ordre
+      //   se déplacerait au premier document ajouté. Il reste indispensable :
+      //   JSZip écrase en silence, et l'année seule laisse 11 documents en
+      //   collision sur le parc (6 pour le pire groupe).
+      const titreCourt = doc.title.slice(0, TITRE_MAX_CARACTERES);
+      const segAnnee = doc.document_year != null ? `-${doc.document_year}` : '';
+      const safeName = toStorageSafeName(
+        `${companyName}-${titreCourt}${segAnnee}-${doc.id.slice(0, 8)}${ext}`,
+        NOM_BASE_MAX,
+      );
 
       const chemin = `${getSectionFolderName(section, docLanguage)}/${safeName}`;
       zip.file(chemin, fileBuffer);

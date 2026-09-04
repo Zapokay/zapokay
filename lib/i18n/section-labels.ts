@@ -20,6 +20,7 @@
 
 import { getServerMessage, type ServerLocale } from '@/lib/i18n/server-messages';
 import { MINUTE_BOOK_SECTIONS, type MinuteBookSection } from '@/lib/minute-book-section';
+import { toStorageSafeName } from '@/lib/storage-key';
 
 export type SectionLabelLocale = ServerLocale;
 
@@ -44,11 +45,26 @@ export function getSectionLabel(
  * ★ LE NUMÉRO VIENT DU RANG DANS LA LISTE, jamais d'un littéral. Réordonner la
  * taxonomie renumérote l'export sans que personne ait à y penser.
  *
- * ⚠️ ACCENTS ET ESPACES CONSERVÉS, et c'est une décision datée (2026-09-02).
- * Mesuré sur JSZip 3.10.1 : le drapeau UTF-8 (bit 11) est posé et l'aller-retour
- * d'un nom accentué est identique. Les très vieux extracteurs qui ignorent ce
- * drapeau afficheront des caractères abîmés ; un dossier nommé « Depots et avis
- * federaux » dans un livre de minutes québécois ferait plus de mal.
+ * ⛔ ACCENTS ET ESPACES RETIRÉS — DÉCISION DU 2026-09-04, QUI EN RENVERSE UNE.
+ *
+ * Le 2026-09-02, ce même commentaire disait l'inverse : accents conservés, au
+ * motif — MESURÉ, et toujours vrai — que JSZip 3.10.1 pose le drapeau UTF-8
+ * (bit 11) et qu'un nom accentué fait l'aller-retour à l'identique. Cette
+ * mesure n'est pas invalidée ; elle est hors sujet.
+ *
+ * Elle portait sur NOTRE producteur. La question posée le 09-04 porte sur le
+ * système du DESTINATAIRE : « on ne sait jamais à qui l'utilisateur envoie son
+ * archive ni quel système il utilise ». Ce terrain-là n'est pas observable
+ * depuis ici — nous ne pouvons ni le mesurer ni le nier. Devant une inconnue
+ * qu'on ne peut pas lever, la compatibilité passe devant l'orthographe.
+ *
+ * Le prix est assumé : « 4 - Depots et avis federaux » dans un livre de minutes
+ * québécois se lit moins bien. Cinq dossiers français sur neuf portaient des
+ * accents, un seul en anglais (« 5 - Québec Declarations »).
+ *
+ * ★ Le libellé accentué N'EST PAS PERDU : getSectionLabel le rend intact, et
+ * c'est lui que l'index du PDF affiche en titre de section. L'archive perd les
+ * accents dans ses CHEMINS, pas dans son texte.
  */
 export function getSectionFolderName(
   section: MinuteBookSection,
@@ -58,5 +74,6 @@ export function getSectionFolderName(
   if (rang === -1) {
     throw new Error(`getSectionFolderName: unknown section "${section}"`);
   }
-  return `${rang + 1} - ${getSectionLabel(section, locale)}`;
+  // La règle UNIQUE du dépôt, la même qui nomme les fichiers de l'archive.
+  return toStorageSafeName(`${rang + 1} - ${getSectionLabel(section, locale)}`);
 }
