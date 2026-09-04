@@ -191,9 +191,16 @@ export default function BinderExportModal({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
+      // ⚠️ L'EXTRACTION EST NON GOURMANDE, ET C'EST SOLIDAIRE DU `filename*`
+      // AJOUTÉ CÔTÉ ROUTE. `.+` gourmand courait jusqu'au DERNIER guillemet de
+      // l'en-tête ; un second paramètre quoté après `filename` lui aurait fait
+      // avaler les deux. Les deux changements vont ensemble ou pas du tout.
+      // ★ C'est `a.download` qui nomme le fichier, jamais l'en-tête : `a.href`
+      // est un blob: local, qui ne porte aucun en-tête. Le Content-Disposition
+      // n'est que LU ici — d'où le soin porté à cette ligne.
       a.download =
-        res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] ??
-        'livre-minutes.zip';
+        res.headers.get('Content-Disposition')?.match(/filename="(.+?)"/)?.[1] ??
+        `${t('archiveBaseName')}-${new Date().toISOString().slice(0, 10)}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();

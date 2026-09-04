@@ -13,10 +13,11 @@ import {
   readDirectorRegister, readOfficerRegister, readShareholderRegister, readStatedCapitalRegister,
 } from '@/lib/minute-book/registers';
 import { normalizePdfSpaces } from '@/lib/pdf/pdf-safe-text';
+import { toStorageSafeName } from '@/lib/storage-key';
 import {
   getCoverTitle, getCoverSubtitle, getCoverFileName, getCoverDate,
   getIndexTitle, getIndexFileName, getIndexColumns,
-  getRegistersFileName, getRegisterLabels, getRegistersAsAtLabel,
+  getRegistersFileName, getRegisterLabels, getRegistersAsAtLabel, getArchiveBaseName,
 } from '@/lib/i18n/export-labels';
 import { MINUTE_BOOK_SECTIONS } from '@/lib/minute-book-section';
 import { getSectionLabel } from '@/lib/i18n/section-labels';
@@ -486,19 +487,28 @@ export async function GET(request: NextRequest) {
 
     /* ---------- Réponse ---------- */
 
-    const sanitizedCompanyName = companyName
-      .replace(/[^a-zA-Z0-9À-ÿ\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .substring(0, 40);
+    // toStorageSafeName, la règle UNIQUE du dépôt : NFD, diacritiques retirés,
+    // tout le reste hors [A-Za-z0-9._-] devient « _ ». L'ancienne règle locale
+    // gardait les accents (classe À-ÿ) et posait donc U+00E9 dans un en-tête
+    // HTTP, qui est ASCII seulement — « Café du Coin inc. » le déclenchait.
+    const sanitizedCompanyName = toStorageSafeName(companyName, 40);
 
     const dateStr = now.toISOString().split('T')[0];
-    const downloadFileName = `livre-minutes-${sanitizedCompanyName}-${dateStr}.zip`;
+    const downloadFileName =
+      `${getArchiveBaseName(docLanguage)}-${sanitizedCompanyName}-${dateStr}.zip`;
+
+    // Patron RFC 5987, repris de app/api/documents/[id]/download/route.ts — pas
+    // un second. `filename` porte l'ASCII ; `filename*` reste NON QUOTÉ, comme
+    // la RFC l'exige, et sert le chemin sans JS (URL ouverte directement).
+    // Le nom étant déjà ASCII pur, les deux valeurs coïncident aujourd'hui.
+    const encodedFileName = encodeURIComponent(downloadFileName);
 
     return new NextResponse(zipBuffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${downloadFileName}"`,
+        'Content-Disposition':
+          `attachment; filename="${downloadFileName}"; filename*=UTF-8''${encodedFileName}`,
         'Cache-Control': 'no-store',
       },
     });

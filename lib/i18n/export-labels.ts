@@ -69,6 +69,19 @@ export function getIndexColumns(locale: ServerLocale): { title: string; fileName
   };
 }
 
+/**
+ * La BASE du nom de l'archive : « livre-minutes » / « minute-book ».
+ * Le nom complet est {base}-{dénomination}-{date}.zip, composé dans la route.
+ *
+ * ⚠️ Elle était écrite en dur, en français, à DEUX endroits — la route et le
+ * repli du modal. Le commit fa6cb2d avait localisé le nom du fichier DANS
+ * l'archive (la page de garde), pas celui de l'archive elle-même : deux objets
+ * que le mot « archive » confondait.
+ */
+export function getArchiveBaseName(locale: ServerLocale): string {
+  return getServerMessage('minuteBook.binderExport.archiveBaseName', locale);
+}
+
 /** Le nom du fichier des registres, dans le dossier de l'étagère 7. */
 export function getRegistersFileName(locale: ServerLocale): string {
   return getServerMessage('minuteBook.binderExport.registers.fileName', locale);

@@ -688,6 +688,7 @@
         "export": "Exporter",
         "exporting": "Exportation…"
       },
+      "archiveBaseName": "livre-minutes",
       "registers": {
         "fileName": "00_Registres_corporatifs.pdf",
         "asAtLabel": "En date du"
