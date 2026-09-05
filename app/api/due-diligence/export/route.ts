@@ -27,9 +27,8 @@ import { getSectionLabel } from '@/lib/i18n/section-labels';
 /* ------------------------------------------------------------------ */
 
 /**
- * Le TITRE, et lui seul, est borné : la dénomination identifie, l'année situe,
- * le discriminant garantit l'unicité — les tronquer perdrait la fonction pour
- * de la cosmétique.
+ * Le TITRE, et lui seul, est borné : la dénomination identifie et l'année situe
+ * — les tronquer perdrait la fonction pour de la cosmétique.
  *
  * ⚠️ 60 EST UNE BORNE DE SÛRETÉ, PAS UNE COUPE. Mesuré sur le parc : le titre
  * le plus long fait 53 caractères, le 90e centile 47, AUCUN ne dépasse 60.
@@ -43,18 +42,19 @@ import { getSectionLabel } from '@/lib/i18n/section-labels';
 const TITRE_MAX_CARACTERES = 60;
 
 /**
- * Plafond de la partie LISIBLE — dénomination, titre, année. Le discriminant
- * n'en fait pas partie : il est apposé après, hors de portée de la troncature.
+ * Plafond de la partie LISIBLE — dénomination, titre, année. Le numéro de
+ * doublon n'en fait pas partie : il est apposé après, hors de portée.
  *
- * ⛔ CE PLAFOND PEUT MORDRE SANS RIEN CASSER, et c'est tout son intérêt. La
- * version précédente comptait sur un plafond assez haut pour ne jamais se
- * déclencher — raisonnement fondé sur la dénomination la plus longue MESURÉE
- * (33 caractères), alors que legal_name_fr est TEXT sans longueur maximale.
- * Un échantillon tenait lieu de garantie. Ce qu'il tronque désormais, c'est du
- * texte lisible ; l'unicité, elle, ne dépend plus d'aucun plafond.
+ * ⛔ CE PLAFOND PEUT MORDRE SANS RIEN CASSER, et c'est tout son intérêt. Ce
+ * qu'il tronque est du texte lisible ; l'unicité, elle, ne dépend d'aucun
+ * plafond — elle vient du registre des chemins déjà écrits. Une version
+ * antérieure comptait sur un plafond assez haut pour ne jamais se déclencher,
+ * raisonnement fondé sur la dénomination la plus longue MESURÉE, alors que
+ * legal_name_fr est TEXT sans longueur maximale : un échantillon y tenait lieu
+ * de garantie.
  *
  * 120 laisse passer tout le parc — la partie lisible la plus longue y fait 73
- * caractères — et borne le nom complet à ~135 dans le pire cas.
+ * caractères.
  */
 const PARTIE_LISIBLE_MAX = 120;
 
@@ -245,7 +245,7 @@ export async function GET(request: NextRequest) {
 
     let documentsQuery = supabase
       .from('documents')
-      .select('id, document_type, title, file_name, file_url, minute_book_section, document_year')
+      .select('id, document_type, title, file_name, file_url, minute_book_section, document_year, created_at')
       .eq('company_id', companyId)
       .eq('status', 'active');
 
@@ -281,6 +281,9 @@ export async function GET(request: NextRequest) {
       minute_book_section: string | null;
       /** Nulle pour 25 documents sur 113 — le segment d'année est alors omis. */
       document_year: number | null;
+      /** L'ORDRE DE CRÉATION, qui numérote les doublons. NOT NULL en base, et
+       *  mesuré : 111 valeurs pour 111 documents, toutes distinctes. */
+      created_at: string;
     }
     const allDocuments: ExportDocument[] = documents ?? [];
 
@@ -306,6 +309,69 @@ export async function GET(request: NextRequest) {
     // issus d'une seule écriture — pas deux constructions qui pourraient
     // diverger.
     const entrees: { section: string; titre: string; chemin: string; nom: string; annee: string }[] = [];
+
+    /**
+     * La partie LISIBLE du nom : dénomination, titre, année. Sans extension,
+     * sans numéro de doublon. Extraite parce que deux passages en ont besoin —
+     * le précalcul des doublons ci-dessous, et la boucle d'écriture — et que
+     * deux compositions du même nom finiraient par diverger.
+     */
+    const partieLisible = (d: ExportDocument): string =>
+      toStorageSafeName(
+        `${companyName} - ${d.title.slice(0, TITRE_MAX_CARACTERES)}` +
+          `${d.document_year != null ? ` - ${d.document_year}` : ''}`,
+        PARTIE_LISIBLE_MAX,
+        { readable: true },
+      ).replace(/[._ -]+$/, '') || 'document';
+
+    /**
+     * ⛔ LE NUMÉRO DE DOUBLON, PRÉCALCULÉ — ET IL NE PEUT PAS SUIVRE LA BOUCLE.
+     *
+     * Le parcours est trié `document_year DESC, created_at DESC` : le plus
+     * RÉCENT vient en tête. Numéroter dans cet ordre donnerait « (1) » à chaque
+     * nouveau document et décalerait tous les autres — l'instabilité même qu'on
+     * veut éviter. L'ordre de numérotation est donc l'ordre de CRÉATION
+     * croissant, calculé à part.
+     *
+     * `created_at` est NOT NULL et mesuré distinct sur les 111 documents du
+     * parc, doublons compris. L'égalité parfaite est donc théorique ; si elle
+     * survenait, `id` départage — l'ordre reste TOTAL et déterministe, jamais
+     * l'ordre d'arrivée d'une requête.
+     *
+     * Le premier de son groupe ne porte pas de numéro : « … - 2024.pdf », puis
+     * « (2) », « (3) ». Un document ajouté plus tard est forcément le plus
+     * récent : il prend le suivant et ne déplace personne.
+     */
+    const numeroDeDoublon = new Map<string, number>();
+    {
+      const groupes = new Map<string, ExportDocument[]>();
+      for (const d of allDocuments) {
+        const cle = `${sectionOfDocument(d)} ${partieLisible(d)}`;
+        const g = groupes.get(cle);
+        if (g) g.push(d); else groupes.set(cle, [d]);
+      }
+      for (const g of Array.from(groupes.values())) {
+        if (g.length < 2) continue;
+        g.slice()
+          .sort((a, b) =>
+            a.created_at === b.created_at
+              ? a.id.localeCompare(b.id)
+              : a.created_at.localeCompare(b.created_at),
+          )
+          .forEach((d, i) => numeroDeDoublon.set(d.id, i + 1));
+      }
+    }
+
+    /**
+     * ⛔ ET LA GARANTIE, PAR-DESSUS LE CALCUL. JSZip écrase en silence : deux
+     * entrées au même chemin donnent un fichier et aucune erreur. Le précalcul
+     * ci-dessus devrait suffire, mais « devrait » n'est pas une garantie. Ce
+     * registre des chemins déjà écrits en est une : on incrémente jusqu'à
+     * trouver libre, donc deux entrées NE PEUVENT PAS partager un chemin.
+     * C'est strictement plus sûr que les huit caractères d'UUID qu'il remplace,
+     * qui n'étaient qu'une très forte probabilité.
+     */
+    const cheminsEcrits = new Set<string>();
 
     const zip = new JSZip();
 
@@ -379,16 +445,21 @@ export async function GET(request: NextRequest) {
       // longueur maximale — deux documents devenaient un seul fichier.
       // Hors de la chaîne assainie, le discriminant est hors d'atteinte : ce
       // n'est plus un plafond bien choisi qui protège, c'est la construction.
-      const titreCourt = doc.title.slice(0, TITRE_MAX_CARACTERES);
-      const segAnnee = doc.document_year != null ? ` - ${doc.document_year}` : '';
-      const lisible = toStorageSafeName(
-        `${companyName} - ${titreCourt}${segAnnee}`,
-        PARTIE_LISIBLE_MAX,
-        { readable: true },
-      ).replace(/[._ -]+$/, '');
-      const safeName = `${lisible || 'document'} - ${doc.id.slice(0, 8)}${ext}`;
+      // ⛔ LES HUIT CARACTÈRES D'UUID SONT PARTIS. Le nom redevient une
+      // ÉTIQUETTE — dénomination, titre, année — et c'est l'index qui devient le
+      // REGISTRE, en portant l'identifiant COMPLET. Un livre relié fait pareil :
+      // l'onglet dit « Statuts », l'index en tête dit quel document c'est.
+      const lisible = partieLisible(doc);
+      const n = numeroDeDoublon.get(doc.id) ?? 1;
+      let safeName = `${lisible}${n > 1 ? ` (${n})` : ''}${ext}`;
+      let chemin = `${getSectionFolderName(section, docLanguage)}/${safeName}`;
+      // La garantie, pas la probabilité : on avance jusqu'à un chemin libre.
+      for (let suivant = n; cheminsEcrits.has(chemin); suivant++) {
+        safeName = `${lisible} (${suivant + 1})${ext}`;
+        chemin = `${getSectionFolderName(section, docLanguage)}/${safeName}`;
+      }
+      cheminsEcrits.add(chemin);
 
-      const chemin = `${getSectionFolderName(section, docLanguage)}/${safeName}`;
       zip.file(chemin, fileBuffer);
       // ⚠️ L'ANNÉE PARAÎT DEUX FOIS PAR LIGNE — en colonne et dans le nom du
       // fichier. C'est délibéré : la colonne se balaie du regard, le nom dit la
