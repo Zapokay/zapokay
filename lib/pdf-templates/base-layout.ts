@@ -82,7 +82,20 @@ export function baseLayoutHTML(data: BaseLayoutData): string {
     vertical-align: top;
   }
   tr.sig-row { break-inside: avoid; page-break-inside: avoid; }
-      .footer-reserve { height: 0.8cm; padding: 0; }
+      /* ⚠️ CETTE HAUTEUR EST LA PLACE QUE LE CONTENU LAISSE AU PIED, et elle
+         était trop petite. Le tfoot se répète en bas de chaque page imprimée et
+         réserve cet espace dans le flux ; le footerTemplate de Puppeteer, lui,
+         est épinglé au bas de la page et ne connaît pas ce flux. Si la réserve
+         est plus courte que le pied, le contenu descend dessous.
+         ⛔ 0.8cm ne suffisait pas : le pied MESURÉ AU RENDU occupe 92 px sur une
+         page de 1584 px, soit 1,62 cm — pas les 1,08 cm qu'un calcul dans un
+         viewport à 96 dpi laissait croire. Le PDF rendu fait 144 px/pouce.
+         2.2cm est la première valeur qui dégage les DEUX documents : écart
+         mesuré au pixel de 93 px pour l'index et 80 px pour les registres,
+         contre 11 px et 2 px auparavant. Au-delà, l'écart ne bouge plus.
+         ★ Ni la marge du bas ni break-inside n'y changeaient quoi que ce soit
+         — mesuré de 2 à 3,2 cm de marge, et avec et sans la règle. */
+      .footer-reserve { height: 2.2cm; padding: 0; }
 
   /* ── Running header band (inside <thead>, repeats per printed page) ── */
   .header-band {
