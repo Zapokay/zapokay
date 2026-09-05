@@ -57,7 +57,7 @@ export function binderRegistersHTML(data: BinderRegistersData): string {
         r.citation ? `<p style="font-size:11px;color:#6B6560;font-style:italic;margin-top:0.4em;">${escapeHtml(r.citation)}</p>` : '',
       ].join('');
       return `
-    <h2 style="font-family:'Sora',sans-serif;font-weight:600;font-size:15px;color:#070E1C;margin:1.5em 0 0.5em;">${escapeHtml(r.title)}</h2>${contenu}${notes}`;
+    <h2 style="font-family:'Sora',sans-serif;font-weight:600;font-size:15px;color:#070E1C;margin:1.5em 0 0.5em;break-after:avoid;page-break-after:avoid;">${escapeHtml(r.title)}</h2>${contenu}${notes}`;
     })
     .join('');
 

@@ -87,8 +87,8 @@ export function binderIndexHTML(data: BinderIndexData): string {
         .join('')}</tbody>
     </table>`;
       return `
-    <h2 style="font-family:'Sora',sans-serif;font-weight:600;font-size:15px;color:#070E1C;margin:1.5em 0 0.2em;">${escapeHtml(s.heading)}</h2>
-    <p style="font-size:12px;color:#6B6560;margin-bottom:0.5em;">${escapeHtml(s.count)}</p>${table}`;
+    <h2 style="font-family:'Sora',sans-serif;font-weight:600;font-size:15px;color:#070E1C;margin:1.5em 0 0.2em;break-after:avoid;page-break-after:avoid;">${escapeHtml(s.heading)}</h2>
+    <p style="font-size:12px;color:#6B6560;margin-bottom:0.5em;break-after:avoid;page-break-after:avoid;">${escapeHtml(s.count)}</p>${table}`;
     })
     .join('');
 

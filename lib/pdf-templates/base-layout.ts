@@ -243,7 +243,10 @@ ${data.effectiveDate ? `  /* Date d'arrêté — sous le sous-titre, au-dessus d
     text-transform: uppercase;
     letter-spacing: 0.03em;
     color: ${COLORS.navy};
-    border-bottom: 2px solid ${COLORS.separator};
+    /* UN SEUL TRAIT — 2026-09-05. L'entête portait 2px là où les lignes en ont
+       1 ; la couleur, elle, était DÉJÀ la même (COLORS.separator des deux
+       côtés). Ce qu'on lisait comme « plus chaud » n'était que l'épaisseur. */
+    border-bottom: 1px solid ${COLORS.separator};
     padding: 0.6em 0.8em;
     text-align: left;
   }
@@ -251,6 +254,15 @@ ${data.effectiveDate ? `  /* Date d'arrêté — sous le sous-titre, au-dessus d
     padding: 0.5em 0.8em;
     border-bottom: 1px solid ${COLORS.separator};
   }
+  /* ⚠️ UNE ENTRÉE NE SE COUPE PAS EN DEUX. Depuis que l'index empile le titre
+     et le nom du fichier dans la même cellule, une ligne coupée à la pliure
+     laisse le nom seul en haut de la page suivante — orphelin, il ne dit plus
+     de quel document il est. Mesuré : deux entrées par langue, coupées entre
+     leurs deux lignes.
+     ⛔ Portée VOULUE : cela ne retient QUE la ligne, jamais le tableau ni la
+     section. Interdire la coupure plus haut ferait sauter des sections
+     entières et gonflerait le document. */
+  table.register tbody tr { break-inside: avoid; page-break-inside: avoid; }
 </style>
 </head>
 <body>
