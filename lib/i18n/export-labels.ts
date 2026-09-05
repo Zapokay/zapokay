@@ -69,10 +69,16 @@ export function getIndexFileName(locale: ServerLocale): string {
  * dans la même cellule depuis le 2026-09-05. `columnFileName` est partie avec
  * la colonne qu'elle nommait.
  */
-export function getIndexColumns(locale: ServerLocale): { title: string; year: string } {
+export function getIndexColumns(
+  locale: ServerLocale,
+): { title: string; year: string; documentIdPrefix: string } {
   return {
     title: getServerMessage('minuteBook.binderExport.index.columnTitle', locale),
     year: getServerMessage('minuteBook.binderExport.index.columnYear', locale),
+    // « ID » dans les deux locales aujourd'hui — une clé quand même, pour que
+    // « Réf. » en français n'ait pas à rouvrir un gabarit. Même raison que
+    // activeYes/residentYes, dont les valeurs coïncident aussi.
+    documentIdPrefix: getServerMessage('minuteBook.binderExport.index.documentIdPrefix', locale),
   };
 }
 

@@ -29,7 +29,7 @@ export interface BinderIndexData {
    * « Fichier » n'en couvrirait qu'une moitié. La clé columnFileName est partie
    * avec la colonne qu'elle nommait.
    */
-  columns: { title: string; year: string };
+  columns: { title: string; year: string; documentIdPrefix: string };
   /**
    * LES NEUF SECTIONS, dans l'ordre, VIDES COMPRISES. C'est là que l'index
    * complète le miroir : une section sans document n'a pas de dossier dans
@@ -45,7 +45,15 @@ export interface BinderIndexData {
      * depuis elle — jamais un nom recalculé ici. Deux applications de la même
      * règle de nommage finissent toujours par diverger.
      */
-    entries: { title: string; fileName: string; year: string }[];
+    /**
+     * ⚠️ `documentId` est FACULTATIF, et pour une seule raison : les quatre
+     * registres nommés dans la section 7 ne sont pas des lignes de `documents`.
+     * Ils sont synthétisés à chaque export et n'ont aucun identifiant à porter —
+     * la même raison qui leur retire le docId du pied de page depuis a93810d.
+     * Tous les VRAIS documents en ont un, importés compris : l'index est bâti
+     * depuis la base, pas depuis le fichier.
+     */
+    entries: { title: string; fileName: string; year: string; documentId?: string }[];
   }[];
   footerDocName: string;
   language: 'fr' | 'en' | 'bilingual';
@@ -61,7 +69,13 @@ export function binderIndexHTML(data: BinderIndexData): string {
       // ★ 11px et #6B6560 ne sont pas des valeurs neuves : c'est la taille des
       // entêtes et des citations, et le gris de la ligne « 20 documents » — le
       // couple principal/secondaire que ce document porte déjà. Pas de quatrième
-      // taille inventée. Ce gris-là sert du texte DESTINÉ À ÊTRE LU ; #A09A93,
+      // taille inventée.
+      //
+      // ★ LA TROISIÈME LIGNE — l'identifiant — se distingue de la deuxième par
+      // sa TAILLE et son PRÉFIXE, pas par un gris plus pâle : 10px existe déjà
+      // (logo-sub, sig-date) et #A09A93, le seul gris plus clair du dépôt,
+      // disparaîtrait sur une imprimante de bureau. Le point médian U+00B7 est
+      // MESURÉ présent dans Open Sans, la seule police du conteneur. Ce gris-là sert du texte DESTINÉ À ÊTRE LU ; #A09A93,
       // plus pâle, est réservé aux mentions de signature et disparaîtrait sur une
       // imprimante de bureau.
       //
@@ -82,7 +96,11 @@ export function binderIndexHTML(data: BinderIndexData): string {
       <tbody>${s.entries
         .map(
           (e) =>
-            `<tr><td><div>${escapeHtml(e.title)}</div><div style="font-size:11px;color:#6B6560;margin-top:1px;">${escapeHtml(e.fileName)}</div></td><td>${escapeHtml(e.year)}</td></tr>`
+            `<tr><td><div>${escapeHtml(e.title)}</div><div style="font-size:11px;color:#6B6560;margin-top:1px;">${escapeHtml(e.fileName)}</div>${
+              e.documentId
+                ? `<div style="font-size:10px;color:#6B6560;margin-top:1px;">${escapeHtml(data.columns.documentIdPrefix)} \u00B7 ${escapeHtml(e.documentId)}</div>`
+                : ''
+            }</td><td>${escapeHtml(e.year)}</td></tr>`
         )
         .join('')}</tbody>
     </table>`;

@@ -699,6 +699,7 @@
         "indexTitle": "Index du livre",
         "indexFileName": "01_Index.pdf",
         "columnTitle": "Document",
+        "documentIdPrefix": "ID",
         "columnYear": "Année"
       },
       "cover": {

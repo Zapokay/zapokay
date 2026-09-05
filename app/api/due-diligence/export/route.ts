@@ -308,7 +308,7 @@ export async function GET(request: NextRequest) {
     // chemin complet reste disponible pour qui en aurait besoin. Deux champs
     // issus d'une seule écriture — pas deux constructions qui pourraient
     // diverger.
-    const entrees: { section: string; titre: string; chemin: string; nom: string; annee: string }[] = [];
+    const entrees: { section: string; titre: string; chemin: string; nom: string; annee: string; id: string }[] = [];
 
     /**
      * La partie LISIBLE du nom : dénomination, titre, année. Sans extension,
@@ -470,6 +470,12 @@ export async function GET(request: NextRequest) {
       entrees.push({
         section, titre: doc.title, chemin, nom: safeName,
         annee: doc.document_year != null ? String(doc.document_year) : '—',
+        // ★ L'IDENTIFIANT COMPLET, POUR TOUS — importés compris. L'index est
+        // bâti depuis la BASE : chaque ligne de `documents` a son id, qu'on ait
+        // écrit quoi que ce soit dans le fichier ou non. Pour un document
+        // généré, c'est le MÊME que celui imprimé dans son pied de page : un
+        // lecteur peut confronter les deux.
+        id: doc.id,
       });
     }
 
@@ -524,7 +530,7 @@ export async function GET(request: NextRequest) {
         // écrit deux fois : en titre juste au-dessus, et dans l'en-tête de page
         // pour la société. Il ne portait aucune information et poussait chaque
         // ligne sur deux.
-        const lignes = siennes.map((e) => ({ title: e.titre, fileName: e.nom, year: e.annee }));
+        const lignes = siennes.map((e) => ({ title: e.titre, fileName: e.nom, year: e.annee, documentId: e.id }));
         if (cle === 'registres') {
           // ⚠️ L'ÉTAGÈRE 7 DIT CE QUE L'ÉCRAN DIT. Son compte vient de
           // minuteBook.binder.registerCount, la clé même que BinderSection
