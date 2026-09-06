@@ -11,6 +11,7 @@ import ShareholderCard from '@/components/shareholders/ShareholderCard';
 import IssueSharesModal from '@/components/shareholders/IssueSharesModal';
 import ShareClassModal from '@/components/shareholders/ShareClassModal';
 import EditShareholdingModal from '@/components/shareholders/EditShareholdingModal';
+import EditPersonModal from '@/components/people/EditPersonModal';
 import EndShareholdingModal from '@/components/shareholders/EndShareholdingModal';
 import TransferShareholdingModal from '@/components/shareholders/TransferShareholdingModal';
 import EditFormerShareholdingModal from '@/components/shareholders/EditFormerShareholdingModal';
@@ -50,6 +51,9 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
   const [showShareClassModal, setShowShareClassModal] = useState(false);
   const [editingShareClass, setEditingShareClass] = useState<ShareClass | null>(null);
   const [editingShareholding, setEditingShareholding] = useState<ShareholdingWithDetails | null>(null);
+  // L'IDENTITE, distincte de la participation ci-dessus. Personnes physiques
+  // seulement : la carte ne leve ce lien que si !isEntity && person.
+  const [editingPerson, setEditingPerson] = useState<CompanyPerson | null>(null);
   // #19d Phase 3 (cessation) — per-row state for end / edit-former / generate.
   const [endingShareholding, setEndingShareholding] = useState<ShareholdingWithDetails | null>(null);
   // #19d Phase 3 close — per-holding "Transférer" target. PER-HOLDING granularity
@@ -313,7 +317,8 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                   totalIssuedShares={totalIssued}
                   directorMandates={group.personId ? getDirectorMandatesForPerson(group.personId) : []}
                   officerAppointments={group.personId ? getOfficerAppointmentsForPerson(group.personId) : []}
-                  onEdit={(sh) => setEditingShareholding(sh)}
+                  onEdit={(sh) => { setEditingPerson(null); setEditingShareholding(sh); }}
+                  onEditPerson={(p) => { setEditingShareholding(null); setEditingPerson(p); }}
                   onEndShareholding={(sh) => setEndingShareholding(sh)}
                   getIssuanceAct={(id) => actsMap.get(`shareholding|${id}|issuance`)}
                   onGenerateIssuance={(sh) => setGeneratingIssuanceForShareholding(sh)}
@@ -505,6 +510,14 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
         />
       )}
 
+      {editingPerson && companyId && (
+        <EditPersonModal
+          person={editingPerson}
+          companyId={companyId}
+          onClose={() => setEditingPerson(null)}
+          onSuccess={() => { setEditingPerson(null); fetchData(); }}
+        />
+      )}
       {editingShareholding && companyId && (
         <EditShareholdingModal
           shareholding={editingShareholding}

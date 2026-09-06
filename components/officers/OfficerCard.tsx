@@ -215,22 +215,14 @@ export default function OfficerCard({
 
       {/* Actions */}
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--card-border)] pt-3">
-        {/* Edit button hidden pending scaffold (parity with DirectorCard Q-EDIT-DIR-1).
-            OfficersClient.tsx onEdit currently opens AddOfficerModal, not a real
-            Edit modal — misleading affordance.
-            See docs/audit-people-surfaces-2026-05-22.md A.2.
-            Re-enable: flip `false` to a real gate AND rewire OfficersClient.tsx
-            onEdit to open a (still-to-be-built) EditOfficerModal with officer hydrated. */}
-        {false && (
-          <button
-            type="button"
-            onClick={() => onEdit(officer)}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            {t('edit')}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => onEdit(officer)}
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          {t('edit')}
+        </button>
         <button
           type="button"
           onClick={() => onReplace(officer)}

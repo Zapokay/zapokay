@@ -1,11 +1,12 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Pencil, ArrowRightLeft, LogOut } from 'lucide-react';
+import { Pencil, ArrowRightLeft, LogOut, UserCog } from 'lucide-react';
 import type {
   ShareholdingWithDetails,
   DirectorMandate,
   OfficerAppointment,
+  CompanyPerson,
 } from '@/lib/supabase/people-types';
 import { formatDate } from '@/lib/utils';
 
@@ -21,7 +22,15 @@ interface ShareholderCardProps {
   directorMandates: DirectorMandate[];
   /** Active officer appointments for this person */
   officerAppointments: OfficerAppointment[];
+  /** LA PARTICIPATION (shareholdings) — quantite, classe, date, certificat. */
   onEdit: (shareholding: ShareholdingWithDetails) => void;
+  /**
+   * L'IDENTITE (company_people) — nom, courriel, telephone, adresse. Partagee
+   * avec les surfaces administrateur et dirigeant : la meme ligne y sert.
+   * ⛔ Personnes physiques SEULEMENT. Une societe actionnaire vit dans
+   * shareholder_entities, que ce lot ne touche pas — d'ou la garde !isEntity.
+   */
+  onEditPerson: (person: CompanyPerson) => void;
   /**
    * #19d Phase 3 (cessation) — per-holding "Terminer" affordance. PER-HOLDING
    * granularity is a locked decision (brief 2026-05-26): one End modal per
@@ -78,6 +87,7 @@ export default function ShareholderCard({
   directorMandates,
   officerAppointments,
   onEdit,
+  onEditPerson,
   onEndShareholding,
   getIssuanceAct,
   onGenerateIssuance,
@@ -278,6 +288,19 @@ export default function ShareholderCard({
           <Pencil className="h-3.5 w-3.5" />
           {t('edit')}
         </button>
+        {/* Second lien, DISTINCT du precedent : celui-ci corrige l'identite, pas
+            la participation. Garde !isEntity && person — une societe actionnaire
+            n'a pas de ligne company_people a corriger. */}
+        {!isEntity && person && (
+          <button
+            type="button"
+            onClick={() => onEditPerson(person)}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+          >
+            <UserCog className="h-3.5 w-3.5" />
+            {t('editPersonLink')}
+          </button>
+        )}
         {/* Single-holding case: bottom-bar Terminer targets the only holding.
             Multi-holding case shows Terminer on each detail row above instead,
             to enforce PER-HOLDING capture granularity. */}

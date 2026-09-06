@@ -16,6 +16,7 @@ import { LegalTerm } from '@/components/ui/LegalTerm';
 import AddDirectorModal from '@/components/directors/AddDirectorModal';
 import RemoveDirectorModal from '@/components/directors/RemoveDirectorModal';
 import EditFormerDirectorModal from '@/components/directors/EditFormerDirectorModal';
+import EditPersonModal from '@/components/people/EditPersonModal';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { formatDate } from '@/lib/utils';
@@ -276,7 +277,9 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
               officerAppointments={getOfficerAppointmentsForPerson(director.person_id)}
               shareholdings={getShareholdingsForPerson(director.person_id)}
               endedMandates={getEndedMandatesForPerson(director.person_id)}
-              onEdit={(d) => { setEditingDirector(d); setShowAddModal(true); }}
+              // ⚠️ N'OUVRE PLUS AddDirectorModal. Modifier une personne n'est pas
+              //    l'ajouter : ce clic ouvrait le formulaire d'AJOUT, vide.
+              onEdit={(d) => setEditingDirector(d)}
               onRemove={(d) => setRemovingDirector(d)}
               incorporationDate={incorporationDate}
               appointmentResolutionExists={
@@ -416,6 +419,19 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
           existingDirectorPersonIds={existingDirectorPersonIds}
           onClose={() => { setShowAddModal(false); setEditingDirector(null); }}
           onSuccess={() => { setShowAddModal(false); fetchData(); }}
+        />
+      )}
+      {/* L'identite, pas le mandat. EditPersonModal ecrit sur company_people,
+          partagee par les trois roles ; les dates et la fonction de CE mandat
+          restent le domaine des modales de mandat. Exclusif de showAddModal :
+          onEdit ne leve plus que cet etat, et le bouton « Ajouter » le remet
+          a null avant d'ouvrir l'autre. */}
+      {editingDirector && companyId && (
+        <EditPersonModal
+          person={editingDirector.person}
+          companyId={companyId}
+          onClose={() => setEditingDirector(null)}
+          onSuccess={() => { setEditingDirector(null); fetchData(); }}
         />
       )}
       {removingDirector && (

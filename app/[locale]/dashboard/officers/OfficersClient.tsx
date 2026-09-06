@@ -10,6 +10,7 @@ import AddOfficerModal from '@/components/officers/AddOfficerModal';
 import ReplaceOfficerModal from '@/components/officers/ReplaceOfficerModal';
 import RemoveOfficerModal from '@/components/officers/RemoveOfficerModal';
 import EditFormerOfficerModal from '@/components/officers/EditFormerOfficerModal';
+import EditPersonModal from '@/components/people/EditPersonModal';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { formatDate } from '@/lib/utils';
@@ -61,6 +62,9 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
   const [replacingOfficer, setReplacingOfficer] = useState<OfficerWithPerson | null>(null);
   const [removingOfficer, setRemovingOfficer] = useState<OfficerWithPerson | null>(null);
   // Phase 1B-CAPTURE Bundle 2: per-row edit affordance on former-appointment rows.
+  // L'IDENTITE (company_people, partagee par les trois roles).
+  const [editingOfficer, setEditingOfficer] = useState<OfficerWithPerson | null>(null);
+  // LE MANDAT (officer_appointments, propre a CE poste) — a ne pas confondre.
   const [editingFormerAppointment, setEditingFormerAppointment] = useState<OfficerWithPerson | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -238,7 +242,7 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
         <div />
         <button
           type="button"
-          onClick={() => setShowAddModal(true)}
+          onClick={() => { setEditingOfficer(null); setShowAddModal(true); }}
           className="inline-flex items-center gap-2 rounded-lg bg-[var(--amber-400)] px-4 py-2 text-sm font-semibold text-[var(--navy-900)] shadow-sm transition-colors hover:bg-[var(--spark-400)]"
         >
           <Zap className="h-4 w-4" />
@@ -267,7 +271,9 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
               directorMandates={getDirectorMandatesForPerson(officer.person_id)}
               shareholdings={getShareholdingsForPerson(officer.person_id)}
               endedAppointments={getEndedAppointmentsForPerson(officer.person_id)}
-              onEdit={() => setShowAddModal(true)}
+              // ⚠️ JETAIT SON ARGUMENT et ouvrait AddOfficerModal, vide.
+              //    Actifs uniquement : ce montage lit sortedOfficers.
+              onEdit={(o) => setEditingOfficer(o)}
               onReplace={(o) => setReplacingOfficer(o)}
               onRemove={(o) => setRemovingOfficer(o)}
               incorporationDate={incorporationDate}
@@ -428,6 +434,14 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
           officer={removingOfficer}
           onClose={() => setRemovingOfficer(null)}
           onSuccess={handleModalSuccess}
+        />
+      )}
+      {editingOfficer && companyId && (
+        <EditPersonModal
+          person={editingOfficer.person}
+          companyId={companyId}
+          onClose={() => setEditingOfficer(null)}
+          onSuccess={() => { setEditingOfficer(null); fetchData(); }}
         />
       )}
       {editingFormerAppointment && (
