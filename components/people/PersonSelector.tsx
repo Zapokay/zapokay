@@ -29,6 +29,9 @@ export type PersonSelectorValue =
       email: string;
       phone: string;
       addressLine1: string;
+      /** Suite / appartement. Ajoute le 2026-09-06 pour l'edition d'identite ;
+       *  les cinq appelants d'AJOUT ne le collectent pas (voir lockToNewMode). */
+      addressLine2: string;
       addressCity: string;
       addressProvince: string;
       addressPostalCode: string;
@@ -61,6 +64,26 @@ interface PersonSelectorProps {
   /** Fired when an existing entity row is picked. Does NOT flow through value/
    *  onChange — the PersonSelectorValue contract stays person-only (parallel path). */
   onSelectEntity?: (entity: ShareholderEntity) => void;
+  /**
+   * EDITION D'IDENTITE — verrouille l'affichage sur le bloc « nouvelle
+   * personne » et masque tout chemin de SELECTION : en edition la personne
+   * n'est pas a choisir, elle est deja connue.
+   *
+   * ⚠️ CE COMPOSANT N'ECRIT TOUJOURS RIEN. Il reste un selecteur controle a
+   * deux .select ; l'UPDATE vit dans EditPersonModal, comme les cinq appelants
+   * font chacun leur propre INSERT. Cette prop ne change que l'AFFICHAGE.
+   *
+   * ★ Elle commande aussi DEUX choses sans lesquelles elle ne servirait a rien :
+   *   · les champs se pre-remplissent depuis `value` (mode 'new') au lieu de
+   *     partir vides — sans cela, passer une valeur pre-remplie n'afficherait
+   *     rien, `value` n'etant lu que pour la branche 'existing' ;
+   *   · le champ « suite » n'apparait QUE la. Les cinq formulaires d'ajout ne
+   *     l'affichent pas, donc ne peuvent pas collecter une valeur que leurs
+   *     INSERT jetteraient.
+   *
+   * Defaut absent/false : les six montages existants ne voient rien changer.
+   */
+  lockToNewMode?: boolean;
 }
 
 // =============================================================================
@@ -97,6 +120,7 @@ export default function PersonSelector({
   onAddEntity,
   includeEntities = false,
   onSelectEntity,
+  lockToNewMode = false,
 }: PersonSelectorProps) {
   const t = useTranslations('people');
   const supabase = createClient();
@@ -110,15 +134,26 @@ export default function PersonSelector({
   const [showNewForm, setShowNewForm] = useState(defaultToNew);
 
   // New person form fields
-  const [newFullName, setNewFullName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newPhone, setNewPhone] = useState('');
-  const [newAddressLine1, setNewAddressLine1] = useState('');
-  const [newAddressCity, setNewAddressCity] = useState('');
-  const [newAddressProvince, setNewAddressProvince] = useState('QC');
-  const [newAddressPostalCode, setNewAddressPostalCode] = useState('');
-  const [newAddressCountry, setNewAddressCountry] = useState('CA');
-  const [newIsCanadianResident, setNewIsCanadianResident] = useState(true);
+  // ⚠️ PRE-REMPLISSAGE. `value` n'etait lu que pour la branche 'existing' ; une
+  // valeur de forme 'new' passee par l'appelant n'affichait donc RIEN. Ces
+  // initialiseurs la lisent. Sans effet sur les six montages existants, qui
+  // montent tous avec value={null} : `depart` y vaut null et les defauts
+  // litteraux d'origine s'appliquent, inchanges.
+  // ⚠️ useState ne lit son initialiseur QU'AU PREMIER RENDU : l'appelant doit
+  // donc construire la valeur AVANT de monter ce composant, pas apres.
+  const depart = value && value.mode === 'new' ? value : null;
+  const [newFullName, setNewFullName] = useState(depart?.fullName ?? '');
+  const [newEmail, setNewEmail] = useState(depart?.email ?? '');
+  const [newPhone, setNewPhone] = useState(depart?.phone ?? '');
+  const [newAddressLine1, setNewAddressLine1] = useState(depart?.addressLine1 ?? '');
+  const [newAddressLine2, setNewAddressLine2] = useState(depart?.addressLine2 ?? '');
+  const [newAddressCity, setNewAddressCity] = useState(depart?.addressCity ?? '');
+  const [newAddressProvince, setNewAddressProvince] = useState(depart?.addressProvince ?? 'QC');
+  const [newAddressPostalCode, setNewAddressPostalCode] = useState(depart?.addressPostalCode ?? '');
+  const [newAddressCountry, setNewAddressCountry] = useState(depart?.addressCountry ?? 'CA');
+  const [newIsCanadianResident, setNewIsCanadianResident] = useState(
+    depart?.isCanadianResident ?? true,
+  );
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -165,15 +200,23 @@ export default function PersonSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // ⚠️ LE VERROU EST DERIVE, PAS UN ETAT. `showNewForm` reste ce qu'il etait ;
+  // `enModeNouveau` le force quand l'appelant verrouille. Un chemin qui
+  // remettrait showNewForm a false — handleSelectPerson, handleClear — ne peut
+  // donc pas rouvrir la selection : ces deux fonctions sont d'ailleurs
+  // inatteignables en mode verrouille, leurs boutons n'etant pas rendus.
+  const enModeNouveau = lockToNewMode || showNewForm;
+
   // ---- Sync new-person form → parent onChange -------------------------------
   useEffect(() => {
-    if (showNewForm && newFullName.trim()) {
+    if (enModeNouveau && newFullName.trim()) {
       onChange({
         mode: 'new',
         fullName: newFullName.trim(),
         email: newEmail.trim(),
         phone: newPhone.trim(),
         addressLine1: newAddressLine1.trim(),
+        addressLine2: newAddressLine2.trim(),
         addressCity: newAddressCity.trim(),
         addressProvince: newAddressProvince,
         addressPostalCode: newAddressPostalCode.trim(),
@@ -183,11 +226,12 @@ export default function PersonSelector({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    showNewForm,
+    enModeNouveau,
     newFullName,
     newEmail,
     newPhone,
     newAddressLine1,
+    newAddressLine2,
     newAddressCity,
     newAddressProvince,
     newAddressPostalCode,
@@ -258,7 +302,7 @@ export default function PersonSelector({
       )}
 
       {/* ── Existing person selected ── */}
-      {selectedExisting && !showNewForm && (
+      {selectedExisting && !enModeNouveau && (
         <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/50">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
             {getInitials(selectedExisting.person.full_name)}
@@ -284,7 +328,7 @@ export default function PersonSelector({
       )}
 
       {/* ── Dropdown trigger ── */}
-      {!selectedExisting && !showNewForm && (
+      {!selectedExisting && !enModeNouveau && (
         <div ref={dropdownRef} className="relative">
           <button
             type="button"
@@ -421,13 +465,13 @@ export default function PersonSelector({
       )}
 
       {/* ── New person form (inline) ── */}
-      {showNewForm && (
+      {enModeNouveau && (
         <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800/50 dark:bg-amber-900/10">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
               {t('newPerson')}
             </p>
-            {hasExistingPeople && (
+            {hasExistingPeople && !lockToNewMode && (
               <button
                 type="button"
                 onClick={() => {
@@ -496,6 +540,26 @@ export default function PersonSelector({
               className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
           </div>
+
+          {/* Suite / appartement — ⚠️ AFFICHE SEULEMENT EN EDITION.
+              Les cinq formulaires d'AJOUT ne le montrent pas : leurs INSERT ne
+              passent pas address_line2, un champ visible la accepterait une
+              saisie pour la jeter. Le leur ouvrir demande de toucher leurs cinq
+              INSERT — un autre lot. */}
+          {lockToNewMode && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                {t('addressLine2')}
+              </label>
+              <input
+                type="text"
+                value={newAddressLine2}
+                onChange={(e) => setNewAddressLine2(e.target.value)}
+                placeholder={t('addressLine2Placeholder')}
+                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            </div>
+          )}
 
           {/* City + Province + Postal */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

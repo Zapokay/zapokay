@@ -12,6 +12,11 @@ export interface CompanyPerson {
   email: string | null;
   phone: string | null;
   address_line1: string | null;
+  /** Suite / appartement — colonne ajoutee le 2026-09-06. Nullable et sans
+   *  defaut : une suite absente reste indistinguable d une suite jamais saisie.
+   *  ⛔ shareholder_entities porte les memes colonnes d adresse et N EST PAS
+   *  touchee : ce lot ne concerne que les personnes physiques. */
+  address_line2: string | null;
   address_city: string | null;
   address_province: string | null;
   address_postal_code: string | null;

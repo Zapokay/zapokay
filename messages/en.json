@@ -401,9 +401,15 @@
     "phone": "Phone",
     "address": "Address",
     "addressLine1Placeholder": "123 Main Street",
+    "addressLine2": "Suite / apartment",
+    "addressLine2Placeholder": "suite 510",
     "city": "City",
     "province": "Province",
     "postalCode": "Postal code",
+    "cancel": "Cancel",
+    "editPerson": "Edit person",
+    "editPersonSharedNote": "These details belong to the person, not to any one role. A correction made here appears everywhere they are listed — directors, officers, shareholders.",
+    "errorNameRequired": "Full name is required.",
     "canadianResident": "Canadian resident"
   },
   "directors": {
@@ -508,6 +514,7 @@
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
+    "editPersonLink": "Edit person",
     "transfer": "Transfer",
     "errorSelectPerson": "Please select a person.",
     "errorShareClass": "Please select a share class.",

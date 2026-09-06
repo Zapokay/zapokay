@@ -401,9 +401,15 @@
     "phone": "Téléphone",
     "address": "Adresse",
     "addressLine1Placeholder": "123, rue Principale",
+    "addressLine2": "Suite / appartement",
+    "addressLine2Placeholder": "bureau 510",
     "city": "Ville",
     "province": "Province",
     "postalCode": "Code postal",
+    "cancel": "Annuler",
+    "editPerson": "Modifier la personne",
+    "editPersonSharedNote": "Ces coordonnées sont celles de la personne, pas de son mandat. Une correction faite ici se voit partout où elle figure — administrateurs, dirigeants, actionnaires.",
+    "errorNameRequired": "Le nom complet est requis.",
     "canadianResident": "Résident canadien"
   },
   "directors": {
@@ -508,6 +514,7 @@
     "save": "Enregistrer",
     "cancel": "Annuler",
     "edit": "Modifier",
+    "editPersonLink": "Modifier la personne",
     "transfer": "Transférer",
     "errorSelectPerson": "Veuillez sélectionner une personne.",
     "errorShareClass": "Veuillez sélectionner une classe d'actions.",
