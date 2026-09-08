@@ -171,12 +171,12 @@ export const LEGAL_DEFINITIONS: LegalDefinition[] = [
   },
   {
     key: 'resident_canadien',
-    term_fr: 'Résident canadien',
-    term_en: 'Canadian resident',
+    term_fr: 'Résidence canadienne',
+    term_en: 'Canadian residency',
     definition_fr:
-      "Pour les sociétés CBCA : citoyen canadien ou résident permanent résidant habituellement au Canada. Au moins 25% du conseil doit être composé de résidents canadiens.",
+      "Exigence FÉDÉRALE seulement : au moins 25 % des administrateurs doivent être des résidents canadiens — citoyen canadien ou résident permanent résidant habituellement au Canada (LCSA art. 105(3)).",
     definition_en:
-      'For CBCA corporations: a Canadian citizen or permanent resident ordinarily residing in Canada. At least 25% of the board must be Canadian residents.',
+      'FEDERAL requirement only: at least 25% of directors must be Canadian residents — a Canadian citizen or permanent resident ordinarily residing in Canada (CBCA s. 105(3)).',
   },
   {
     key: 'dispense_verificateur',

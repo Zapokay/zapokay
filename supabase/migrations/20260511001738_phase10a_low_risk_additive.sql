@@ -48,7 +48,7 @@ ALTER TABLE companies
 
 
 -- LOCK-5 — company_people.citizenship
--- is_canadian_resident stays unchanged (load-bearing for LSAQ 110 / CBCA s.105 residency rule).
+-- is_canadian_resident stays unchanged (CBCA s.105(3) residency rule — no LSAQ equivalent).
 -- citizenship is the legal nationality (passport country), separate from residency.
 -- Per Q-A3 resolution: keep both columns. NULL on existing rows ("we don't know yet");
 -- Phase 10F UX captures forward.

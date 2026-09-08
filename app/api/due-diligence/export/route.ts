@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
     // ★ Les quatre lecteurs LÈVENT sur une erreur de base depuis ce lot : un
     // registre illisible n'est plus un registre vide.
     const lectures = await Promise.allSettled([
-      readDirectorRegister(supabase, companyId),
+      readDirectorRegister(supabase, companyId, company.incorporation_type),
       readOfficerRegister(supabase, companyId),
       readShareholderRegister(supabase, companyId),
       readStatedCapitalRegister(supabase, companyId, company.incorporation_type),
@@ -595,14 +595,23 @@ export async function GET(request: NextRequest) {
       registers: [
         {
           title: docLanguage === 'en' ? regAdmin.register_title_en : regAdmin.register_title_fr,
+          // La colonne de residence suit la DECISION du registre, jamais un
+          // regime recalcule ici : l'ecran et le PDF lisent le meme booleen,
+          // donc ils ne peuvent pas diverger.
           columns: [
-            { key: 'full_name', label: L.name }, { key: 'resident', label: L.residence },
+            { key: 'full_name', label: L.name },
+            ...(regAdmin.shows_residency
+              ? [{ key: 'resident', label: L.residence }]
+              : []),
             { key: 'appointment_date', label: L.start }, { key: 'end_date', label: L.end },
             { key: 'status', label: L.active },
           ],
           rows: regAdmin.entries.map((e) => ({
             full_name: e.full_name,
-            resident: e.is_canadian_resident ? L.yes : L.no,
+            resident:
+              e.is_canadian_resident === true ? L.yes
+              : e.is_canadian_resident === false ? L.no
+              : L.notDeclared,
             appointment_date: e.appointment_date,
             end_date: fmtDate(e.end_date),
             status: e.is_active ? L.activeYes : L.activeNo,

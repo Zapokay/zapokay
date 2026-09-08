@@ -6,6 +6,7 @@ import BinderSection from './BinderSection'
 import RegisterCard from './RegisterCard'
 import type { MinuteBookSection } from '@/lib/minute-book-section'
 import { readSettledRegister, partitionRegisterLoads } from '@/lib/minute-book/register-loads'
+import type { DirectorRegisterPayload } from '@/lib/minute-book/registers'
 
 /**
  * `key` is narrowed to the nine section keys so `tBinder(\`sections.${section.key}\`)`
@@ -45,7 +46,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
   const tBinder = useTranslations('minuteBook.binder')
   const locale = useLocale()
   const [sections, setSections] = useState<Section[]>([])
-  const [directors, setDirectors] = useState<any>(null)
+  const [directors, setDirectors] = useState<DirectorRegisterPayload | null>(null)
   const [officers, setOfficers] = useState<any>(null)
   const [shareholders, setShareholders] = useState<any>(null)
   const [statedCapital, setStatedCapital] = useState<any>(null)
@@ -85,13 +86,21 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
 
       // ── Les quatre registres, chacun retenu seulement s'il est TENU et `ok`.
       const outcomes = {
-        directors: await readSettledRegister<unknown>(dirRes),
+        directors: await readSettledRegister<DirectorRegisterPayload>(dirRes),
         officers: await readSettledRegister<unknown>(offRes),
         shareholders: await readSettledRegister<unknown>(shRes),
         statedCapital: await readSettledRegister<unknown>(scRes),
       }
       const { loaded, failed } = partitionRegisterLoads(outcomes)
-      setDirectors(loaded.directors ?? null)
+      // ⚠️ L'ASSERTION EST A LA FRONTIERE JSON, ET ELLE Y EST DEJA :
+      //    readSettledRegister fait `json() as T` (register-loads.ts:53), et
+      //    partitionRegisterLoads partage UN SEUL T entre les quatre registres,
+      //    qui s'effondre donc en `{}`. Aucune verification statique n'est
+      //    possible de l'autre cote d'un appel HTTP.
+      //    ★ CE QUI COMPTE EST EN AVAL : l'etat est type, donc une faute de
+      //    frappe sur `directors.shows_residency` est REFUSEE par tsc — ce
+      //    qu'elle n'etait pas avant, ou l'etat valait `any`.
+      setDirectors((loaded.directors as DirectorRegisterPayload | undefined) ?? null)
       setOfficers(loaded.officers ?? null)
       setShareholders(loaded.shareholders ?? null)
       setStatedCapital(loaded.statedCapital ?? null)
@@ -122,16 +131,28 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                   key="directors"
                 title={locale === 'en' ? directors.register_title_en : directors.register_title_fr}
                 emptyMessage={t('emptyRegister')}
+                // Meme booleen que le PDF, venu du meme registre : les deux
+                // surfaces montrent le meme etat parce qu'elles ne decident
+                // rien chacune de son cote.
                 columns={[
                   { key: 'full_name', label: t('columns.name') },
-                  { key: 'resident', label: t('columns.residence') },
+                  ...(directors.shows_residency
+                    ? [{ key: 'resident', label: t('columns.residence') }]
+                    : []),
                   { key: 'appointment_date', label: t('columns.start') },
                   { key: 'end_date_display', label: t('columns.end') },
                   { key: 'status', label: t('columns.active') },
                 ]}
                 rows={(directors.entries || []).map((e: any) => ({
                   ...e,
-                  resident: e.is_canadian_resident ? t('residentYes') : t('residentNo'),
+                  // ⚠️ TROIS ETATS, ET LE `null` N'EST PAS UN `false`. Une ternaire
+                  //    sur boolean|null rangerait l'absence avec le refus — c'est
+                  //    exactement ce que le `?? true` du registre faisait a l'envers.
+                  //    tsc ne signale PAS cette faute : la ternaire est legale.
+                  resident:
+                    e.is_canadian_resident === true ? t('residentYes')
+                    : e.is_canadian_resident === false ? t('residentNo')
+                    : t('residentNotDeclared'),
                   end_date_display: e.end_date || '—',
                   status: e.is_active ? (
                     <span className="text-green-600">✓</span>

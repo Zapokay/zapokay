@@ -12,11 +12,13 @@ export async function GET() {
 
   const { data: company } = await supabase
     .from('companies')
-    .select('id')
+    .select('id, incorporation_type')
     .eq('user_id', user.id)
     .single()
 
   if (!company) return NextResponse.json({ error: 'No company' }, { status: 404 })
 
-  return NextResponse.json(await readDirectorRegister(supabase, company.id))
+  return NextResponse.json(
+    await readDirectorRegister(supabase, company.id, company.incorporation_type),
+  )
 }

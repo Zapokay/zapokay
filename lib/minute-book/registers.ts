@@ -20,6 +20,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { residencyApplies } from '@/lib/residency';
 
 /** La forme que les quatre routes rendent, et que BinderView consomme. */
 export interface RegisterPayload<E> {
@@ -32,10 +33,28 @@ export interface RegisterPayload<E> {
 /*  Administrateurs                                                    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Le registre des administrateurs porte sa propre decision de rendu, comme
+ * StatedCapitalPayload porte ses citations : les rendus impriment, ils ne
+ * decident pas. Un seul calcul de regime dans tout le chemin.
+ */
+export interface DirectorRegisterPayload
+  extends RegisterPayload<DirectorRegisterEntry> {
+  /** La colonne de residence est-elle imprimable ? Voir readDirectorRegister. */
+  shows_residency: boolean;
+}
+
 export interface DirectorRegisterEntry {
   full_name: string;
   address: string;
-  is_canadian_resident: boolean;
+  /**
+   * ⚠️ TROIS ETATS : true · false · null (JAMAIS DECLARE). Le `?? true` qui
+   * vivait ici transformait une absence en affirmation « Oui » — et le badge
+   * de la carte, lisant la meme colonne BRUTE, disait « Non-resident » du meme
+   * vide. Deux lectures opposees d'une seule donnee. Le null voyage desormais
+   * intact jusqu'aux rendus, qui en font un troisieme libelle.
+   */
+  is_canadian_resident: boolean | null;
   appointment_date: string;
   end_date: string | null;
   end_reason: string | null;
@@ -59,7 +78,19 @@ interface PersonneAvecMandats {
 export async function readDirectorRegister(
   supabase: SupabaseClient,
   companyId: string,
-): Promise<RegisterPayload<DirectorRegisterEntry>> {
+  /**
+   * ⚠️ REQUIS ET SANS DEFAUT. Un defaut ferait qu'un appelant qui l'oublie
+   * recoit une valeur en silence — l'asymetrie muette que ce module existe
+   * pour empecher. tsc force les deux appelants a decider.
+   *
+   * ★ `string` ET NON `string | null` : companies.incorporation_type est
+   * NOT NULL en base, borne par un CHECK a 'LSA' | 'CBCA'. Le client
+   * supabase ne type rien (il rend `any`, mesure au canari), donc le type
+   * est un choix — et un type qui admet un etat impossible est un mensonge
+   * qui coute une branche.
+   */
+  incorporationType: string,
+): Promise<DirectorRegisterPayload> {
   const { data, error } = await supabase
     .from('company_people')
     .select('*, director_mandates(*)')
@@ -82,7 +113,7 @@ export async function readDirectorRegister(
         .map((m) => ({
           full_name: p.full_name,
           address: p.address_line1 ? `${p.address_line1}, ${p.address_city || ''}`.trim().replace(/,$/, '') : '',
-          is_canadian_resident: p.is_canadian_resident ?? true,
+          is_canadian_resident: p.is_canadian_resident,
           appointment_date: m.appointment_date,
           end_date: m.end_date || null,
           end_reason: m.end_reason || null,
@@ -98,6 +129,17 @@ export async function readDirectorRegister(
   return {
     register_title_fr: 'Registre des administrateurs',
     register_title_en: 'Director Register',
+    // ⛔ LA QUESTION N'EST PAS TRANCHEE ICI. residencyApplies est le SEUL
+    //    endroit du depot qui compare un regime pour cette question ; ce
+    //    fichier ne fait que consommer sa reponse. Le pourquoi du
+    //    `=== 'CBCA'`, celui de l'echec ferme sur l'inconnu et le fondement
+    //    legal vivent dans lib/residency.ts, en un seul exemplaire.
+    //
+    //    ⚠️ Le voisin readStatedCapitalRegister, lui, refait sa propre
+    //    comparaison — et sa branche « sinon » AFFIRME l'art. 68 LSAQ. C'est
+    //    une autre question (le capital declare, pas la residence) et un
+    //    autre lot ; on ne la fusionne pas ici.
+    shows_residency: residencyApplies(incorporationType),
     entries,
   };
 }

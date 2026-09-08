@@ -143,6 +143,9 @@ export function getRegisterLabels(locale: ServerLocale) {
     empty: getServerMessage('minuteBook.registers.emptyRegister', locale),
     yes: getServerMessage('minuteBook.registers.residentYes', locale),
     no: getServerMessage('minuteBook.registers.residentNo', locale),
+    // Le TROISIEME etat, meme cle que l'ecran — une seule source pour un
+    // seul mot. Voir minuteBook.registers.residentNotDeclared.
+    notDeclared: getServerMessage('minuteBook.registers.residentNotDeclared', locale),
     // Colonne « Actif » : des MOTS, jamais un symbole. Le conteneur de
     // production n'embarque qu'Open Sans, qui ne porte ni U+2713 ni U+2717.
     activeYes: getServerMessage('minuteBook.registers.activeYes', locale),
