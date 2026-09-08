@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Language, OnboardingData, Province } from '@/lib/types';
 import { normalizeNeq, normalizeCorporationNumber } from '@/lib/identifiers';
+import { residencyApplies } from '@/lib/residency';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
 import { StepProvince } from './StepProvince';
@@ -730,7 +731,14 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
         {step === 1 && <StepLanguage data={data} setData={setData} onNext={() => setStep(2)} onBack={() => {}} locale={activeLocale} />}
         {step === 2 && <StepCompany data={data} setData={setData} onNext={() => setStep(3)} onBack={() => setStep(1)} locale={activeLocale} />}
         {step === 3 && <StepProvince data={data} setData={setData} onNext={handleProvinceContinue} onBack={() => setStep(2)} locale={activeLocale} saving={saving} saveError={saveError} />}
-        {step === 4 && <StepDirectors locale={activeLocale} incorporationDate={incorporationDate} initialDirectors={directors.length > 0 ? directors : undefined} onContinue={handleDirectorsContinue} onSkip={() => setStep(5)} />}
+        {/* ⚠️ AUCUNE CONVERSION, ET C'EST DELIBERE. Ce flux manipule
+            'LSAQ' | 'CBCA' quand la base porte 'LSA' | 'CBCA' — mais 'CBCA'
+            est IDENTIQUE dans les deux vocabulaires, et c'est precisement ce
+            qui rend la liste d'admission juste ici. Convertir serait du bruit ;
+            passer a une liste de refus `!== 'LSA'` serait FAUX, puisque 'LSAQ'
+            la franchirait. C'est ici qu'on voudra « simplifier » : ne le faites
+            pas. */}
+        {step === 4 && <StepDirectors locale={activeLocale} incorporationDate={incorporationDate} residencyApplies={residencyApplies(data.company.incorporationType)} initialDirectors={directors.length > 0 ? directors : undefined} onContinue={handleDirectorsContinue} onSkip={() => setStep(5)} />}
         {step === 5 && <StepShareholders locale={activeLocale} directors={directors} incorporationDate={incorporationDate} initialShareholders={shareholders.length > 0 ? shareholders : undefined} onContinue={handleShareholdersContinue} onSkip={() => setStep(6)} />}
         {step === 6 && <StepOfficers locale={activeLocale} directors={directors} shareholders={shareholders} incorporationDate={incorporationDate} initialOfficers={officers.presidentName ? officers : undefined} onContinue={handleOfficersContinue} onSkip={() => setStep(7)} />}
         {step === 7 && <StepCelebration locale={activeLocale} companyName={data.company.legalName} incorporationType={data.company.incorporationType} directors={directors} shareholders={shareholders} officers={officers} onContinue={handleCelebrationContinue} />}

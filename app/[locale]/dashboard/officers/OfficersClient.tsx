@@ -12,6 +12,7 @@ import RemoveOfficerModal from '@/components/officers/RemoveOfficerModal';
 import EditFormerOfficerModal from '@/components/officers/EditFormerOfficerModal';
 import EditPersonModal from '@/components/people/EditPersonModal';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
+import { residencyApplies } from '@/lib/residency';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { formatDate } from '@/lib/utils';
 import type {
@@ -49,6 +50,7 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
 
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [incorporationDate, setIncorporationDate] = useState<string | null>(null);
+  const [jurisdiction, setJurisdiction] = useState<string | null>(null);
   const [officers, setOfficers] = useState<OfficerWithPerson[]>([]);
   // Phase 1C: keep person embed on ended rows so the "former officers"
   // section can render full_name without a separate lookup. The card prop
@@ -91,11 +93,12 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
     // on purpose: two active companies should be impossible, and a case that should
     // be impossible must fail, not be made deterministic.
     const { data: company } = await supabase
-      .from('companies').select('id, incorporation_date').eq('user_id', user.id).eq('status', 'active').single();
+      .from('companies').select('id, incorporation_date, incorporation_type').eq('user_id', user.id).eq('status', 'active').single();
     if (!company) { setLoading(false); return; }
 
     setCompanyId(company.id);
     setIncorporationDate(company.incorporation_date);
+    setJurisdiction(company.incorporation_type);
     const cid = company.id;
 
     // Phase 1B-view: fetch ALL appointments (active + ended). Active rows remain
@@ -161,6 +164,10 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ⚠️ `jurisdiction` vaut null AVANT le chargement : une absence, pas un
+  //   regime. Tant qu'on ne sait pas, la residence ne s'applique pas — le
+  //   champ reste ferme plutot que d'etre ouvert a tort.
+  const residencyApplicable = jurisdiction !== null && residencyApplies(jurisdiction);
   const sortedOfficers = [...officers].sort((a, b) => ROLE_ORDER.indexOf(a.title) - ROLE_ORDER.indexOf(b.title));
   const uniqueOfficerCount = new Set(officers.map(o => o.person_id)).size;
 
@@ -415,6 +422,7 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
 
       {showAddModal && companyId && (
         <AddOfficerModal
+          residencyApplies={residencyApplicable}
           companyId={companyId}
           incorporationDate={incorporationDate}
           onClose={() => setShowAddModal(false)}
@@ -423,6 +431,7 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
       )}
       {replacingOfficer && companyId && (
         <ReplaceOfficerModal
+          residencyApplies={residencyApplicable}
           officer={replacingOfficer}
           companyId={companyId}
           onClose={() => setReplacingOfficer(null)}
@@ -438,6 +447,7 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
       )}
       {editingOfficer && companyId && (
         <EditPersonModal
+          residencyApplies={residencyApplicable}
           person={editingOfficer.person}
           companyId={companyId}
           onClose={() => setEditingOfficer(null)}

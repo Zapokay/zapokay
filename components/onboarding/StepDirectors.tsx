@@ -11,7 +11,12 @@ import { OnboardingStepLayout } from './OnboardingStepLayout';
 export interface OnboardingDirector {
   fullName: string;
   appointmentDate: string;
-  isCanadianResident: boolean;
+  /**
+   * ⚠️ TROIS ETATS : declare oui · declare non · JAMAIS DECLARE (`null`).
+   * `null` quand la residence ne s'applique pas au regime — jamais `false`,
+   * qui affirmerait qu'une personne n'est pas residente.
+   */
+  isCanadianResident: boolean | null;
 }
 
 interface StepDirectorsProps {
@@ -19,6 +24,12 @@ interface StepDirectorsProps {
   userFullName?: string;
   incorporationDate?: string;
   initialDirectors?: OnboardingDirector[];
+  /**
+   * La residence canadienne s'applique-t-elle ? Cette etape porte son PROPRE
+   * interrupteur, hors PersonSelector — elle a donc besoin de la meme decision.
+   * Decidee par OnboardingFlow, jamais ici.
+   */
+  residencyApplies: boolean;
   // ⚠️ Promise<boolean>, NOT void. A `=> void` prop on an async handler makes the
   // promise float: the step cannot await the write, so it advances whether or not
   // anything was saved. That was the second half of the bceb84d defect at step 5,
@@ -56,6 +67,7 @@ export default function StepDirectors({
   initialDirectors,
   onContinue,
   onSkip,
+  residencyApplies,
 }: StepDirectorsProps) {
 
   const fr = locale === 'fr';
@@ -77,7 +89,13 @@ export default function StepDirectors({
           {
             fullName: userFullName,
             appointmentDate: defaultDate,
-            isCanadianResident: true,
+            // ② `null`, PAS une omission ni un `false` : la colonne porte encore
+            //    son DEFAULT TRUE (retire seulement a l'etape 7a), donc omettre
+            //    refabriquerait un « Oui ». Ecrire null vaut avant et apres.
+            // ⛔ « Non declare » a l'ajout, jamais « Oui » : preselectionner
+            //    une declaration la fabriquerait dans l'interface, exactement
+            //    ce que le DEFAULT TRUE fait en base et qu'on retire.
+            isCanadianResident: null,
           },
         ]
   );
@@ -95,7 +113,11 @@ export default function StepDirectors({
   function addDirector() {
     setDirectors((prev) => [
       ...prev,
-      { fullName: '', appointmentDate: defaultDate, isCanadianResident: true },
+      {
+        fullName: '',
+        appointmentDate: defaultDate,
+        isCanadianResident: null,
+      },
     ]);
   }
 
@@ -240,39 +262,56 @@ export default function StepDirectors({
                   style={inputStyle}
                 />
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '4px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <input
-                      type="checkbox"
-                      checked={director.isCanadianResident}
-                      onChange={(e) => updateDirector(index, 'isCanadianResident', e.target.checked)}
-                      style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
-                    />
-                    <div
-                      style={{
-                        width: '36px', height: '20px', borderRadius: '10px',
-                        background: director.isCanadianResident ? '#F5B91E' : 'var(--card-border)',
-                        transition: 'background 200ms', cursor: 'pointer',
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: 'absolute', top: '2px',
-                        left: director.isCanadianResident ? '18px' : '2px',
-                        width: '16px', height: '16px', borderRadius: '50%',
-                        background: 'white',
-                        transition: 'left 200ms',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                        pointerEvents: 'none',
-                      }}
-                    />
-                  </div>
+              {/* ① REMPLACE, PAS DESACTIVE. Un interrupteur grise en position
+                  « off » se lit `false` — une affirmation fausse sur une
+                  personne. Deux couches seulement : le champ disparait et rien
+                  n'est ecrit pour lui ; les autres champs de l'etape et son
+                  bouton « Continuer » restent actifs. */}
+              {!residencyApplies ? (
+                <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '4px' }}>
                   <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {fr ? 'Résident canadien' : 'Canadian resident'}
+                    {fr ? 'Résidence canadienne : ne s\u2019applique pas à ce régime'
+                        : 'Canadian residency: not applicable under this regime'}
                   </span>
+                </div>
+              ) : (
+              /* ⛔ UN MENU, PAS UN INTERRUPTEUR — meme raison que dans
+                 PersonSelector : deux positions fabriquent forcement un
+                 troisieme etat par defaut, et c'est ainsi qu'une absence
+                 devenait « Oui ». Trois choix nommes, et « Non declare »
+                 selectionnable pour revenir en arriere.
+                 ⚠️ Les trois mots sont ceux du registre. Ce fichier porte ses
+                 libelles en ternaires codees en dur — convention du fichier,
+                 anterieure a ce lot — donc ils ne viennent PAS de la cle
+                 partagee. Si ce fichier passe a i18n un jour, c'est la
+                 premiere chose a brancher. */
+              <div>
+                <label style={fieldLabelStyle}>
+                  {fr ? 'Résident canadien' : 'Canadian resident'}
                 </label>
+                <select
+                  value={
+                    director.isCanadianResident === true ? 'true'
+                    : director.isCanadianResident === false ? 'false'
+                    : 'null'
+                  }
+                  onChange={(e) =>
+                    updateDirector(
+                      index,
+                      'isCanadianResident',
+                      e.target.value === 'true' ? true
+                      : e.target.value === 'false' ? false
+                      : null,
+                    )
+                  }
+                  style={inputStyle}
+                >
+                  <option value="null">{fr ? 'Non déclaré' : 'Not declared'}</option>
+                  <option value="true">{fr ? 'Oui' : 'Yes'}</option>
+                  <option value="false">{fr ? 'Non' : 'No'}</option>
+                </select>
               </div>
+              )}
             </div>
           </div>
         ))}

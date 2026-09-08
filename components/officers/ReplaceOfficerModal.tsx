@@ -47,6 +47,12 @@ function getRoleLabel(officer: OfficerWithPerson, locale: string): string {
 interface ReplaceOfficerModalProps {
   officer: OfficerWithPerson;
   companyId: string;
+  /**
+   * La residence canadienne s'applique-t-elle a cette societe ? DECIDE en
+   * amont par residencyApplies(), jamais recalcule ici : cette modale
+   * TRANSPORTE, elle ne compare pas.
+   */
+  residencyApplies: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -58,6 +64,7 @@ interface ReplaceOfficerModalProps {
 export default function ReplaceOfficerModal({
   officer,
   companyId,
+  residencyApplies,
   onClose,
   onSuccess,
 }: ReplaceOfficerModalProps) {
@@ -206,6 +213,7 @@ export default function ReplaceOfficerModal({
 
           {/* Select incoming person */}
           <PersonSelector
+            residencyApplies={residencyApplies}
             companyId={companyId}
             value={personValue}
             onChange={setPersonValue}

@@ -47,6 +47,12 @@ interface IssueSharesModalProps {
   shareClasses: ShareClass[];
   /** Current max certificate number so we can auto-increment */
   nextCertificateNumber: number;
+  /**
+   * La residence canadienne s'applique-t-elle a cette societe ? DECIDE en
+   * amont par residencyApplies(), jamais recalcule ici : cette modale
+   * TRANSPORTE, elle ne compare pas.
+   */
+  residencyApplies: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -62,6 +68,7 @@ export default function IssueSharesModal({
   incorporationDate,
   shareClasses,
   nextCertificateNumber,
+  residencyApplies,
   onClose,
   onSuccess,
 }: IssueSharesModalProps) {
@@ -356,6 +363,7 @@ export default function IssueSharesModal({
             </div>
           ) : !entityMode ? (
             <PersonSelector
+              residencyApplies={residencyApplies}
               companyId={companyId}
               value={personValue}
               onChange={setPersonValue}
@@ -533,6 +541,7 @@ export default function IssueSharesModal({
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
                         <PersonSelector
+                          residencyApplies={residencyApplies}
                           companyId={companyId}
                           value={row.personValue}
                           onChange={(pv) =>

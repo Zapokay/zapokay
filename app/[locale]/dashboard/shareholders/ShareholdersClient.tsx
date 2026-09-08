@@ -17,6 +17,7 @@ import TransferShareholdingModal from '@/components/shareholders/TransferShareho
 import EditFormerShareholdingModal from '@/components/shareholders/EditFormerShareholdingModal';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
 import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
+import { residencyApplies } from '@/lib/residency';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { formatDate } from '@/lib/utils';
 import type {
@@ -42,6 +43,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [incorporationDate, setIncorporationDate] = useState<string | null>(null);
+  const [jurisdiction, setJurisdiction] = useState<string | null>(null);
   const [shareClasses, setShareClasses] = useState<ShareClass[]>([]);
   const [shareholdings, setShareholdings] = useState<ShareholdingWithDetails[]>([]);
   const [directorMandates, setDirectorMandates] = useState<DirectorMandate[]>([]);
@@ -91,11 +93,12 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
     // on purpose: two active companies should be impossible, and a case that should
     // be impossible must fail, not be made deterministic.
     const { data: company } = await supabase
-      .from('companies').select('id, incorporation_date').eq('user_id', user.id).eq('status', 'active').single();
+      .from('companies').select('id, incorporation_date, incorporation_type').eq('user_id', user.id).eq('status', 'active').single();
     if (!company) { setLoading(false); return; }
 
     setCompanyId(company.id);
     setIncorporationDate(company.incorporation_date);
+    setJurisdiction(company.incorporation_type);
     const cid = company.id;
 
     const { data: classesRaw } = await supabase
@@ -175,6 +178,10 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ⚠️ `jurisdiction` vaut null AVANT le chargement : une absence, pas un
+  //   regime. Tant qu'on ne sait pas, la residence ne s'applique pas — le
+  //   champ reste ferme plutot que d'etre ouvert a tort.
+  const residencyApplicable = jurisdiction !== null && residencyApplies(jurisdiction);
   const currentShareholdings = useMemo(
     () => shareholdings.filter((s) => s.end_date === null),
     [shareholdings]
@@ -492,6 +499,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
       {showIssueModal && companyId && (
         <IssueSharesModal
+          residencyApplies={residencyApplicable}
           companyId={companyId}
           incorporationDate={incorporationDate}
           shareClasses={shareClasses}
@@ -512,6 +520,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
       {editingPerson && companyId && (
         <EditPersonModal
+          residencyApplies={residencyApplicable}
           person={editingPerson}
           companyId={companyId}
           onClose={() => setEditingPerson(null)}
@@ -537,6 +546,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
       {transferingShareholding && (
         <TransferShareholdingModal
+          residencyApplies={residencyApplicable}
           shareholding={transferingShareholding}
           onClose={() => setTransferingShareholding(null)}
           onSuccess={() => { setTransferingShareholding(null); fetchData(); }}

@@ -50,6 +50,16 @@ import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
 
 interface TransferShareholdingModalProps {
   shareholding: ShareholdingWithDetails;
+  /**
+   * La residence canadienne s'applique-t-elle a cette societe ? DECIDE en
+   * amont par residencyApplies(), jamais recalcule ici.
+   *
+   * ⚠️ CETTE MODALE N'A PAS `companyId` — la seule des six dans ce cas. Elle
+   * transporte donc le booleen SANS pouvoir remonter a la societe. Si un jour
+   * elle a besoin du regime lui-meme, il n'est pas la : il faudra le lui
+   * passer, pas le lui faire chercher.
+   */
+  residencyApplies: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -60,6 +70,7 @@ interface TransferShareholdingModalProps {
 
 export default function TransferShareholdingModal({
   shareholding,
+  residencyApplies,
   onClose,
   onSuccess,
 }: TransferShareholdingModalProps) {
@@ -230,6 +241,7 @@ export default function TransferShareholdingModal({
 
           {/* New holder picker */}
           <PersonSelector
+            residencyApplies={residencyApplies}
             companyId={shareholding.company_id}
             value={personValue}
             onChange={setPersonValue}

@@ -29,6 +29,13 @@ interface DirectorCardProps {
   onRemove: (director: DirectorWithPerson) => void;
   /** Company incorporation date — founder gate: appointment button shows only when appointment_date is strictly after. */
   incorporationDate: string | null;
+  /**
+   * La residence canadienne s'applique-t-elle ? DECIDE par residencyApplies()
+   * en amont ; cette carte ne compare aucun regime, elle affiche ou se tait.
+   * ⚠️ SEULE CARTE CONCERNEE : OfficerCard et ShareholderCard ne portent aucun
+   * badge de residence — mesure, pas supposition.
+   */
+  residencyApplies: boolean;
   /** True when an appointment resolution already exists for this mandate (event_documents row, any source). */
   appointmentResolutionExists: boolean;
   /** Opens the appointment-resolution dialog for this director. */
@@ -66,6 +73,7 @@ export default function DirectorCard({
   endedMandates,
   onEdit,
   onRemove,
+  residencyApplies,
   incorporationDate,
   appointmentResolutionExists,
   onGenerateAppointment,
@@ -147,19 +155,33 @@ export default function DirectorCard({
           </div>
         )}
 
-        {/* Canadian resident badge */}
+        {/* ⛔ LE BADGE DISPARAIT QUAND LA RESIDENCE NE S'APPLIQUE PAS. Il ne se
+            grise pas et ne dit pas « non » : une societe non federale n'a aucune
+            residence a montrer, et un badge muet vaudrait mieux qu'un badge faux.
+            Meme decision que la colonne du registre, meme booleen. */}
+        {residencyApplies && (
         <div className="flex items-center gap-2 text-sm">
           <Flag className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
-          {person.is_canadian_resident ? (
+          {/* ⚠️ `=== true` ET `=== false`, PAS UNE TERNAIRE. Sur boolean|null une
+              ternaire rangerait l'absence avec le refus — la carte disait
+              « Non-resident » d'une personne qui n'avait rien declare, pendant
+              que le registre disait « Oui » du meme vide. tsc ne refuse pas la
+              ternaire : c'est a la lecture qu'il faut la voir. */}
+          {person.is_canadian_resident === true ? (
             <span className="text-[var(--success-text)]">
-              {locale === 'fr' ? 'Résident canadien' : 'Canadian resident'}
+              {t('residentBadge')}
+            </span>
+          ) : person.is_canadian_resident === false ? (
+            <span className="text-[var(--text-muted)]">
+              {t('nonResidentBadge')}
             </span>
           ) : (
-            <span className="text-[var(--text-muted)]">
-              {locale === 'fr' ? 'Non-résident' : 'Non-resident'}
+            <span className="text-[var(--text-muted)] italic">
+              {t('residencyNotDeclaredBadge')}
             </span>
           )}
         </div>
+        )}
 
         {/* Other roles ("Aussi") */}
         {otherRoles.length > 0 && (

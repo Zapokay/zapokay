@@ -36,7 +36,13 @@ export type PersonSelectorValue =
       addressProvince: string;
       addressPostalCode: string;
       addressCountry: string;
-      isCanadianResident: boolean;
+      /**
+       * ⚠️ TROIS ETATS, PAS DEUX : declare oui · declare non · JAMAIS DECLARE.
+       * `null` quand la residence ne s'applique pas au regime — et `null` n'est
+       * PAS `false`. « Non » est une affirmation sur une personne ; l'absence
+       * de declaration n'en est pas une.
+       */
+      isCanadianResident: boolean | null;
     };
 
 interface PersonSelectorProps {
@@ -84,6 +90,20 @@ interface PersonSelectorProps {
    * Defaut absent/false : les six montages existants ne voient rien changer.
    */
   lockToNewMode?: boolean;
+
+  /**
+   * La residence canadienne s'applique-t-elle ? REQUIS, et sans defaut.
+   *
+   * ⛔ OPTIONNEL, IL SERAIT DANGEREUX DANS LE SENS LE PLUS COUTEUX : un
+   * montage qui l'oublierait recevrait `undefined`, donc falsy, donc le champ
+   * se VERROUILLERAIT sur une societe federale — empechant une declaration que
+   * la LCSA art. 105(3) exige, et sans un mot. Requis, tsc force les sept
+   * montages a decider.
+   *
+   * ⚠️ C'est un BOOLEEN, pas un regime : ce composant ne compare rien. La
+   * decision vient de residencyApplies(), en amont.
+   */
+  residencyApplies: boolean;
 }
 
 // =============================================================================
@@ -121,8 +141,17 @@ export default function PersonSelector({
   includeEntities = false,
   onSelectEntity,
   lockToNewMode = false,
+  residencyApplies,
 }: PersonSelectorProps) {
   const t = useTranslations('people');
+  /**
+   * ⚠️ UN SECOND ESPACE DE NOMS, ET C'EST DELIBERE. Les trois libelles du
+   * menu sont EXACTEMENT ceux de la colonne du registre. Les recopier sous
+   * `people` donnerait deux jeux de mots identiques a tenir synchronises, et
+   * le jour ou l'un bougerait, l'ecran de saisie et le document imprime ne
+   * diraient plus la meme chose de la meme donnee. Une seule source.
+   */
+  const tRegistres = useTranslations('minuteBook.registers');
   const supabase = createClient();
 
   // ---- State ----------------------------------------------------------------
@@ -151,8 +180,21 @@ export default function PersonSelector({
   const [newAddressProvince, setNewAddressProvince] = useState(depart?.addressProvince ?? 'QC');
   const [newAddressPostalCode, setNewAddressPostalCode] = useState(depart?.addressPostalCode ?? '');
   const [newAddressCountry, setNewAddressCountry] = useState(depart?.addressCountry ?? 'CA');
-  const [newIsCanadianResident, setNewIsCanadianResident] = useState(
-    depart?.isCanadianResident ?? true,
+  /**
+   * ⛔ AUCUN `?? true` ICI, ET AUCUNE PRESELECTION A « OUI » NON PLUS.
+   *
+   * Le `?? true` qui vivait sur cette ligne fabriquait une declaration a partir
+   * d'une absence — le defaut meme que ce lot retire de la base. Le presenter
+   * dans le menu le rebatirait d'un cran, dans l'interface.
+   *
+   * A l'AJOUT, `depart` est nul : la valeur de depart est donc `null`, soit
+   * « Non declare ». C'est voulu — personne n'a rien declare tant que personne
+   * n'a rien choisi.
+   * A l'EDITION, `depart` porte la valeur reelle de la personne, `null` compris,
+   * et le menu sait desormais l'afficher.
+   */
+  const [newIsCanadianResident, setNewIsCanadianResident] = useState<boolean | null>(
+    depart?.isCanadianResident ?? null,
   );
 
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -221,7 +263,11 @@ export default function PersonSelector({
         addressProvince: newAddressProvince,
         addressPostalCode: newAddressPostalCode.trim(),
         addressCountry: newAddressCountry,
-        isCanadianResident: newIsCanadianResident,
+        // ② ON ECRIT `null`, ON N'OMET PAS. Omettre laisserait le DEFAULT TRUE
+        //    de la colonne refabriquer un « Oui » a l'insertion — il est encore
+        //    la, on ne le retire qu'a l'etape 7a. Ecrire null rend ce code juste
+        //    avant ET apres ce retrait, dans les deux ordres.
+        isCanadianResident: residencyApplies ? newIsCanadianResident : null,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,6 +283,7 @@ export default function PersonSelector({
     newAddressPostalCode,
     newAddressCountry,
     newIsCanadianResident,
+    residencyApplies,
   ]);
 
   // ---- Filtered list --------------------------------------------------------
@@ -605,22 +652,60 @@ export default function PersonSelector({
             </div>
           </div>
 
-          {/* Canadian resident toggle */}
-          <label className="flex cursor-pointer items-center gap-3">
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={newIsCanadianResident}
-                onChange={(e) => setNewIsCanadianResident(e.target.checked)}
-                className="peer sr-only"
-              />
-              <div className="h-5 w-9 rounded-full bg-zinc-300 transition-colors peer-checked:bg-amber-500 dark:bg-zinc-600" />
-              <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+          {/* ① LE CHAMP EST REMPLACE, PAS DESACTIVE. Un interrupteur grise en
+              position « off » se lit `false` — une AFFIRMATION fausse sur une
+              personne. Ici il n'y a rien a affirmer : la question ne se pose
+              pas. Une mention neutre, et aucune valeur.
+              ⚠️ DEUX COUCHES SEULEMENT. Un seul champ sur neuf est
+              inapplicable ; les huit autres s'enregistrent normalement, donc
+              le bouton « Enregistrer » reste actif. Ne pas copier la
+              troisieme couche du patron isTransfer, qui verrouille TOUTE sa
+              modale. */}
+          {residencyApplies ? (
+            /* ⛔ UN MENU, PAS UN INTERRUPTEUR. Un interrupteur n'a que deux
+               positions et il en fabrique donc une troisieme par defaut — c'est
+               ainsi qu'une absence devenait « Oui ». Trois etats demandent trois
+               choix nommes.
+               ★ « Non declare » RESTE SELECTIONNABLE : une declaration faite par
+               erreur doit pouvoir revenir a l'absence, comme toute donnee de ce
+               lot se corrige.
+               ⚠️ L'ETIQUETTE GARDE LA FORME PERSONNE, « Resident canadien ». La
+               forme PROPRIETE, « Residence canadienne », appartient a la colonne
+               du registre et au pourcentage. Deux sens, deux libelles. */
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                {t('canadianResident')}
+              </label>
+              <select
+                value={
+                  newIsCanadianResident === true ? 'true'
+                  : newIsCanadianResident === false ? 'false'
+                  : 'null'
+                }
+                onChange={(e) =>
+                  setNewIsCanadianResident(
+                    e.target.value === 'true' ? true
+                    : e.target.value === 'false' ? false
+                    : null,
+                  )
+                }
+                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              >
+                <option value="null">{tRegistres('residentNotDeclared')}</option>
+                <option value="true">{tRegistres('residentYes')}</option>
+                <option value="false">{tRegistres('residentNo')}</option>
+              </select>
             </div>
-            <span className="text-sm text-zinc-700 dark:text-zinc-300">
-              {t('canadianResident')}
-            </span>
-          </label>
+          ) : (
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-zinc-700 dark:text-zinc-300">
+                {t('canadianResident')}
+              </span>
+              <span className="text-[var(--text-muted)]">
+                {t('residencyNotApplicable')}
+              </span>
+            </div>
+          )}
         </div>
       )}
 

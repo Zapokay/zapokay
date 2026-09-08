@@ -34,6 +34,12 @@ interface EditPersonModalProps {
   /** La ligne company_people à corriger, telle qu'elle est en base. */
   person: CompanyPerson;
   companyId: string;
+  /**
+   * La residence canadienne s'applique-t-elle a cette societe ? DECIDE en
+   * amont par residencyApplies(), jamais recalcule ici : cette modale
+   * TRANSPORTE, elle ne compare pas.
+   */
+  residencyApplies: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -41,6 +47,7 @@ interface EditPersonModalProps {
 export default function EditPersonModal({
   person,
   companyId,
+  residencyApplies,
   onClose,
   onSuccess,
 }: EditPersonModalProps) {
@@ -69,9 +76,13 @@ export default function EditPersonModal({
     addressProvince: person.address_province ?? 'QC',
     addressPostalCode: person.address_postal_code ?? '',
     addressCountry: person.address_country ?? 'CA',
-    // ⛔ REPRISE TELLE QUELLE, jamais réinterprétée. La sémantique de ce champ
-    // — et son `?? true` du lecteur — est un autre lot, verrouillé.
-    isCanadianResident: person.is_canadian_resident ?? true,
+    // ⛔ REPRISE TELLE QUELLE, jamais réinterprétée — y compris le `null`, qui
+    //    est une VALEUR (« jamais déclaré ») et non une absence de valeur.
+    // ⛔ PLUS DE `?? true`. Il transformait une absence de declaration en
+    //    « Oui » des l'ouverture de la modale — donc un simple enregistrement,
+    //    sans que personne ne touche au champ, ecrivait une affirmation que
+    //    personne n'avait faite. Le menu sait afficher `null`.
+    isCanadianResident: person.is_canadian_resident,
   });
 
   const [saving, setSaving] = useState(false);
@@ -88,23 +99,42 @@ export default function EditPersonModal({
     setSaving(true);
     setError(null);
     try {
+      /**
+       * ③ LA RESIDENCE SORT DE LA CHARGE UTILE, ELLE N'EST PAS ECRASEE.
+       *
+       * Quand elle ne s'applique pas, ce champ n'est PAS envoye — ni `null`,
+       * ni `false`. Une personne peut porter une residence DECLAREE alors que
+       * la societe n'est pas federale : une prorogation dans l'autre sens,
+       * rare mais reelle. On ne detruit pas une declaration parce que le
+       * regime COURANT s'en desinteresse ; elle redeviendrait pertinente au
+       * retour. Meme logique que le verrou, qui est derive et non stocke.
+       *
+       * ⚠️ ET C'EST L'INVERSE DE LA CREATION, DELIBEREMENT. A l'insertion on
+       * ecrit `null` explicitement (PersonSelector), parce qu'omettre y
+       * laisserait le DEFAULT TRUE fabriquer un « Oui ». Ici il n'y a pas de
+       * defaut a craindre : omettre PRESERVE, et c'est ce qu'on veut.
+       */
+      const correctifIdentite: Record<string, unknown> = {
+        full_name: valeur.fullName.trim(),
+        // ⚠️ Chaîne vide → NULL. Un champ vidé par l'utilisateur doit
+        // redevenir un MANQUE en base, pas une chaîne vide qui affirmerait
+        // « renseigné, et vide ».
+        email: valeur.email.trim() || null,
+        phone: valeur.phone.trim() || null,
+        address_line1: valeur.addressLine1.trim() || null,
+        address_line2: valeur.addressLine2.trim() || null,
+        address_city: valeur.addressCity.trim() || null,
+        address_province: valeur.addressProvince || null,
+        address_postal_code: valeur.addressPostalCode.trim() || null,
+        address_country: valeur.addressCountry,
+      };
+      if (residencyApplies) {
+        correctifIdentite.is_canadian_resident = valeur.isCanadianResident;
+      }
+
       const { error: updateErr } = await supabase
         .from('company_people')
-        .update({
-          full_name: valeur.fullName.trim(),
-          // ⚠️ Chaîne vide → NULL. Un champ vidé par l'utilisateur doit
-          // redevenir un MANQUE en base, pas une chaîne vide qui affirmerait
-          // « renseigné, et vide ».
-          email: valeur.email.trim() || null,
-          phone: valeur.phone.trim() || null,
-          address_line1: valeur.addressLine1.trim() || null,
-          address_line2: valeur.addressLine2.trim() || null,
-          address_city: valeur.addressCity.trim() || null,
-          address_province: valeur.addressProvince || null,
-          address_postal_code: valeur.addressPostalCode.trim() || null,
-          address_country: valeur.addressCountry,
-          is_canadian_resident: valeur.isCanadianResident,
-        })
+        .update(correctifIdentite)
         .eq('id', person.id);
 
       if (updateErr) throw new Error(updateErr.message);
@@ -134,7 +164,7 @@ export default function EditPersonModal({
       setError(err instanceof Error ? err.message : tCommon('saveFailed'));
       setSaving(false);
     }
-  }, [valeur, person, companyId, supabase, onSuccess, t, tCommon]);
+  }, [valeur, person, companyId, supabase, onSuccess, t, tCommon, residencyApplies]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -166,6 +196,7 @@ export default function EditPersonModal({
           </p>
 
           <PersonSelector
+            residencyApplies={residencyApplies}
             companyId={companyId}
             value={valeur}
             onChange={setValeur}

@@ -29,6 +29,12 @@ const END_REASON_VALUES: OfficerEndReason[] = [
 interface AddOfficerModalProps {
   companyId: string;
   incorporationDate: string | null;
+  /**
+   * La residence canadienne s'applique-t-elle a cette societe ? DECIDE en
+   * amont par residencyApplies(), jamais recalcule ici : cette modale
+   * TRANSPORTE, elle ne compare pas.
+   */
+  residencyApplies: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -52,6 +58,7 @@ const TITLE_OPTIONS: { value: OfficerTitle; fr: string; en: string }[] = [
 export default function AddOfficerModal({
   companyId,
   incorporationDate,
+  residencyApplies,
   onClose,
   onSuccess,
 }: AddOfficerModalProps) {
@@ -296,6 +303,7 @@ export default function AddOfficerModal({
         <div className="space-y-5 px-6 py-5">
           {/* Person selector */}
           <PersonSelector
+            residencyApplies={residencyApplies}
             companyId={companyId}
             value={personValue}
             onChange={setPersonValue}

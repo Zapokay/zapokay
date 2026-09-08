@@ -9,6 +9,7 @@ import {
   Info,
   ShieldCheck,
   AlertTriangle,
+  HelpCircle,
   Loader2,
 } from 'lucide-react';
 import DirectorCard from '@/components/directors/DirectorCard';
@@ -18,6 +19,7 @@ import RemoveDirectorModal from '@/components/directors/RemoveDirectorModal';
 import EditFormerDirectorModal from '@/components/directors/EditFormerDirectorModal';
 import EditPersonModal from '@/components/people/EditPersonModal';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
+import { residencyApplies, residencyVerdict } from '@/lib/residency';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { formatDate } from '@/lib/utils';
 import type {
@@ -162,11 +164,66 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const isCBCA = jurisdiction === 'CBCA';
+  // ⭑ NOMME D'APRES LA QUESTION, PAS D'APRES LE REGIME. `isCBCA` invitait le
+  //   prochain lecteur a le reutiliser pour une autre question federale ; ses
+  //   trois usages ne servaient QUE la residence. Deux questions voudront deux
+  //   noms, et deux appels.
+  // ⚠️ `jurisdiction` vaut null AVANT le chargement : c'est une absence, pas un
+  //   regime. On ne la convertit pas — tant qu'on ne sait pas, la residence ne
+  //   s'applique pas, et la pastille reste fermee.
+  const residencyApplicable = jurisdiction !== null && residencyApplies(jurisdiction);
   const totalDirectors = directors.length;
-  const canadianDirectors = directors.filter((d) => d.person.is_canadian_resident).length;
-  const residencyPct = totalDirectors > 0 ? Math.round((canadianDirectors / totalDirectors) * 100) : 0;
-  const residencyOk = !isCBCA || residencyPct >= 25;
+  // ⚠️ `=== true`, PAS LA VERITE DE LA VALEUR. Un `null` est FALSY : le filtre
+  //    nu le comptait comme non-resident, donc une absence de declaration
+  //    faisait CHUTER le pourcentage et virer la pastille au rouge. Compter
+  //    explicitement les declares OUI separe les trois etats ; ce qui reste
+  //    (les non declares) est traite a part, plus bas.
+  const canadianDirectors = directors.filter((d) => d.person.is_canadian_resident === true).length;
+  const undeclaredDirectors = directors.filter((d) => d.person.is_canadian_resident == null).length;
+  /**
+   * ⚠️ POUR L'AFFICHAGE SEULEMENT. La DECISION passe par residencyVerdict, qui
+   * compare en entiers : `pct >= 25` sur un arrondi declare conforme un taux de
+   * 24,5 % — mesure, 49 residents sur 199 font 24,62 %.
+   *
+   * ⛔ ET C'EST UN Math.floor, PAS UN Math.round. Le meme 49 sur 199 s'arrondit
+   * a 25 % : la pastille aurait affiche « 25% » a cote de « minimum 25% requis »,
+   * un chiffre qui CONTREDIT le verdict de sa propre ligne, et un lecteur en
+   * aurait conclu l'inverse. Avec floor, un taux ne peut jamais s'afficher
+   * au-dessus de sa valeur reelle, dans aucune branche.
+   *
+   * ★ Le plancher « au moins X % » reste vrai : le plancher d'un plancher est un
+   * plancher.
+   */
+  const residencyPct = totalDirectors > 0 ? Math.floor((canadianDirectors / totalDirectors) * 100) : 0;
+  const verdict = residencyVerdict({
+    total: totalDirectors,
+    declaresResidents: canadianDirectors,
+    nonDeclares: undeclaredDirectors,
+  });
+  /**
+   * ⛔ TANT QU'IL RESTE UN NON DECLARE, LE NOMBRE N'EST PAS UN TAUX.
+   *
+   * C'est un PLANCHER : le taux reel est celui-ci OU PLUS HAUT, puisque chaque
+   * declaration manquante ne peut que l'elever. L'afficher nu affirmerait une
+   * mesure qu'on n'a pas faite — et « 0 % » a cote de « non verifiable » se
+   * contredit dans la meme ligne : il dit qu'AUCUN administrateur n'est
+   * resident, ce qu'on ignore precisement.
+   *
+   * ★ ET UN PLANCHER NUL NE S'AFFICHE PAS DU TOUT. « Au moins 0 % » n'informe
+   * de rien. Le libelle « non verifiable » et le compte des manquants portent
+   * alors seuls l'information.
+   *
+   * ⚠️ VRAI DANS LES TROIS BRANCHES, pas seulement dans « non verifiable ».
+   * Un conseil CONFORME peut compter des non declares — 1 resident declare sur
+   * 4 franchit deja la barre — et son nombre est un plancher lui aussi.
+   */
+  const tauxEstUnPlancher = undeclaredDirectors > 0;
+  const chiffreAffichable = !tauxEstUnPlancher || residencyPct > 0;
+  const partieChiffree = !chiffreAffichable
+    ? ''
+    : tauxEstUnPlancher
+      ? t('residencyFloor', { pct: residencyPct })
+      : `${residencyPct}%`;
   const existingDirectorPersonIds = directors.map((d) => d.person_id);
 
   // Phase 1C: derive fully-former directors (ended rows whose person_id is NOT
@@ -250,19 +307,42 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
 
       {/* CBCA residency compliance badge (sole 25%-resident readout for this page).
           Active-count was previously rendered here as well; removed 2026-05-22 to dedupe
-          against the H1 subtitle. Outer conditional tightened to `isCBCA` so LSAQ tenants
+          against the H1 subtitle. Outer conditional tightened to `residencyApplicable`
+          so LSAQ tenants
           do not see an empty bar. See docs/audit-people-surfaces-2026-05-22.md B.1. */}
-      {totalDirectors > 0 && isCBCA && (
+      {totalDirectors > 0 && residencyApplicable && (
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-5 py-3">
+          {/* ⛔ TROIS ETATS, ET LE TROISIEME N'EST NI L'UN NI L'AUTRE. « Non
+              verifiable » n'est pas une alarme attenuee : c'est l'aveu que le
+              resultat depend de ce qu'on ne sait pas. Le verdict est calcule par
+              residencyVerdict, pas ici — cette pastille affiche, elle ne juge
+              pas. */}
           <div
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${residencyOk ? 'bg-emerald-100 text-emerald-700' : 'border'}`}
-            style={residencyOk ? undefined : { backgroundColor: 'var(--error-bg)', color: 'var(--error-text)', borderColor: 'var(--error-border)' }}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+              verdict === 'conforme' ? 'bg-emerald-100 text-emerald-700' : 'border'
+            }`}
+            style={
+              verdict === 'conforme'
+                ? undefined
+                : verdict === 'sous_le_seuil'
+                  ? { backgroundColor: 'var(--error-bg)', color: 'var(--error-text)', borderColor: 'var(--error-border)' }
+                  : { backgroundColor: 'var(--card-bg)', color: 'var(--text-muted)', borderColor: 'var(--card-border)' }
+            }
           >
-            {residencyOk ? <ShieldCheck className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+            {verdict === 'conforme' ? <ShieldCheck className="h-3.5 w-3.5" />
+             : verdict === 'sous_le_seuil' ? <AlertTriangle className="h-3.5 w-3.5" />
+             : <HelpCircle className="h-3.5 w-3.5" />}
             {locale === 'fr'
-              ? <><LegalTerm termKey="resident_canadien" lang="fr" /> : {residencyPct}%</>
-              : <><LegalTerm termKey="resident_canadien" lang="en" />: {residencyPct}%</>}
-            {residencyOk ? ' ✔' : locale === 'fr' ? ' — minimum 25% requis' : ' — 25% minimum required'}
+              ? <LegalTerm termKey="resident_canadien" lang="fr" />
+              : <LegalTerm termKey="resident_canadien" lang="en" />}
+            {partieChiffree && (locale === 'fr' ? ` : ${partieChiffree}` : `: ${partieChiffree}`)}
+            {/* ⛔ PAS DE COCHE SUR L'ETAT CONFORME. Le vert et le bouclier le
+                disent deja : trois signaux pour une information, deux suffisent.
+                (Le dépôt employait U+2714 HEAVY CHECK MARK ici.) */}
+            {verdict === 'sous_le_seuil' ? t('residencyMinimum')
+             : verdict === 'non_verifiable'
+               ? ` — ${t('residencyUnverifiable', { count: undeclaredDirectors })}`
+               : null}
           </div>
         </div>
       )}
@@ -273,6 +353,7 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
           {directors.map((director) => (
             <DirectorCard
               key={director.id}
+              residencyApplies={residencyApplicable}
               director={director}
               officerAppointments={getOfficerAppointmentsForPerson(director.person_id)}
               shareholdings={getShareholdingsForPerson(director.person_id)}
@@ -414,6 +495,7 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
       {/* Modals */}
       {showAddModal && companyId && (
         <AddDirectorModal
+          residencyApplies={residencyApplicable}
           companyId={companyId}
           incorporationDate={incorporationDate}
           existingDirectorPersonIds={existingDirectorPersonIds}
@@ -428,6 +510,7 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
           a null avant d'ouvrir l'autre. */}
       {editingDirector && companyId && (
         <EditPersonModal
+          residencyApplies={residencyApplicable}
           person={editingDirector.person}
           companyId={companyId}
           onClose={() => setEditingDirector(null)}
