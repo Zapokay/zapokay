@@ -698,7 +698,7 @@
       "title": "Exporter le livre de minutes",
       "closeAriaLabel": "Fermer la fenêtre",
       "loading": "Chargement…",
-      "countSummary": "{count, plural, =0 {Aucun document signé n'est encore disponible.} =1 {1 document sera inclus dans cet export.} other {# documents seront inclus dans cet export.}}",
+      "countSummary": "{count, plural, =0 {Aucun document signé — l'archive contiendra la page de garde, l'index et les registres corporatifs.} =1 {1 document sera inclus dans cet export.} other {# documents seront inclus dans cet export.}}",
       "emptySectionsNote": "Certaines sections ne contiennent aucun document signé pour le moment.",
       "cta": {
         "cancel": "Annuler",

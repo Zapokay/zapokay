@@ -217,12 +217,14 @@ export default function BinderExportModal({
   if (!isOpen) return null;
 
   const totalCount = binderData?.totalDocuments ?? 0;
-  // registres is synthetic and never empty in practice — exclude it from the
-  // empty-section signal.
+  // Exclu parce que ce compte ne dit rien ici : il compte des documents rangés
+  // en section `registres`, et le parc n'en a aucun — pas parce qu'elle est pleine.
   const hasEmptySections = !!binderData?.sections.some(
     (s) => s.count === 0 && s.key !== 'registres',
   );
-  const canExport = !loading && !loadError && totalCount > 0;
+  // Un livre mince est un fait, pas une erreur : le compte ne garde plus rien.
+  // `binderData` garde ce qui compte — que la modale sache ce qu'elle exporte.
+  const canExport = !loading && !loadError && !!binderData;
 
   const modal = (
     <div
