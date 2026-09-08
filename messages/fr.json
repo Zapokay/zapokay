@@ -405,6 +405,7 @@
     "addressLine2Placeholder": "bureau 510",
     "city": "Ville",
     "province": "Province",
+    "provinceNotDeclared": "Non déclarée",
     "postalCode": "Code postal",
     "cancel": "Annuler",
     "editPerson": "Modifier la personne",

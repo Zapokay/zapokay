@@ -177,7 +177,9 @@ export default function PersonSelector({
   const [newAddressLine1, setNewAddressLine1] = useState(depart?.addressLine1 ?? '');
   const [newAddressLine2, setNewAddressLine2] = useState(depart?.addressLine2 ?? '');
   const [newAddressCity, setNewAddressCity] = useState(depart?.addressCity ?? '');
-  const [newAddressProvince, setNewAddressProvince] = useState(depart?.addressProvince ?? 'QC');
+  // Une province non déclarée reste non déclarée. `''` porte l'absence, et le
+  // `|| null` des sept chemins d'écriture la convertit en NULL — jamais 'QC'.
+  const [newAddressProvince, setNewAddressProvince] = useState(depart?.addressProvince ?? '');
   const [newAddressPostalCode, setNewAddressPostalCode] = useState(depart?.addressPostalCode ?? '');
   const [newAddressCountry, setNewAddressCountry] = useState(depart?.addressCountry ?? 'CA');
   /**
@@ -631,6 +633,9 @@ export default function PersonSelector({
                 onChange={(e) => setNewAddressProvince(e.target.value)}
                 className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               >
+                {/* En tête, et valeur de départ à l'ajout — même patron que les
+                    trois états de la résidence, dix lignes plus bas. */}
+                <option value="">{t('provinceNotDeclared')}</option>
                 {PROVINCES.map((prov) => (
                   <option key={prov.value} value={prov.value}>
                     {prov.value}

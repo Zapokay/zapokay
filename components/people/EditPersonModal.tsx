@@ -73,7 +73,9 @@ export default function EditPersonModal({
     addressLine1: person.address_line1 ?? '',
     addressLine2: person.address_line2 ?? '',
     addressCity: person.address_city ?? '',
-    addressProvince: person.address_province ?? 'QC',
+    // La province ne se fabrique plus ; le pays attend son champ (étape 2) —
+    // le retirer ici déplacerait la fabrication vers le DEFAULT 'CA' de la base.
+    addressProvince: person.address_province ?? '',
     addressPostalCode: person.address_postal_code ?? '',
     addressCountry: person.address_country ?? 'CA',
     // ⛔ REPRISE TELLE QUELLE, jamais réinterprétée — y compris le `null`, qui

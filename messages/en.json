@@ -405,6 +405,7 @@
     "addressLine2Placeholder": "suite 510",
     "city": "City",
     "province": "Province",
+    "provinceNotDeclared": "Not declared",
     "postalCode": "Postal code",
     "cancel": "Cancel",
     "editPerson": "Edit person",
