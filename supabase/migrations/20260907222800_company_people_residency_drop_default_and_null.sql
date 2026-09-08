@@ -1,0 +1,121 @@
+-- =============================================================================
+-- La résidence canadienne cesse d'être fabriquée
+--   7a. company_people.is_canadian_resident — DROP DEFAULT
+--   7b. les 30 lignes existantes passent à NULL
+-- =============================================================================
+--
+-- ⚠️ CECI N'EST PAS QU'UNE MIGRATION DE SCHÉMA. C'est une CORRECTION DE
+-- DONNÉES sur 30 lignes, dont QUATRE sur la seule société réelle du parc.
+-- Sans ce fichier, personne ne saura jamais pourquoi toutes les résidences
+-- sont devenues nulles le 2026-09-07.
+--
+-- -----------------------------------------------------------------------------
+-- POURQUOI LE DÉFAUT TOMBE (7a)
+-- -----------------------------------------------------------------------------
+-- `DEFAULT TRUE` (posé au 20260405000000_sprint6_people_ownership.sql:20)
+-- fabriquait une DÉCLARATION que personne n'avait faite. Une colonne qui se
+-- remplit toute seule d'un « Oui » sur une question juridique — la résidence
+-- canadienne d'un administrateur, art. 105(3) LCSA — affirme au nom d'une
+-- personne qui n'a rien dit.
+--
+-- ⚠️ ET CE N'EST PAS UN NO-OP. Mesuré à l'état déployé, en ancrant chaque
+-- `.insert(` sur le `.from()` de SA chaîne : NEUF sites insèrent dans
+-- company_people, SEPT nomment la colonne, DEUX non —
+-- OnboardingFlow.tsx:432 (la personne d'un actionnaire) et :568 (celle d'un
+-- dirigeant). Ces deux-là comptaient sur le défaut. Après ce retrait ils
+-- écriront NULL, et c'est JUSTE : un actionnaire ou un dirigeant créé à
+-- l'inscription n'a rien déclaré.
+--
+-- -----------------------------------------------------------------------------
+-- POURQUOI LES 30 LIGNES PASSENT À NULL (7b)
+-- -----------------------------------------------------------------------------
+-- Relevé du 2026-09-07, avant exécution : 30 personnes, 30 à `true`, ZÉRO à
+-- `false`, ZÉRO à NULL. Une colonne où tout le monde répond « Oui » et
+-- personne « Non » n'enregistre pas des réponses : elle enregistre un défaut.
+-- La valeur ne venait d'aucune personne.
+--
+-- Le produit sait désormais dire TROIS états — déclaré oui, déclaré non,
+-- JAMAIS DÉCLARÉ — et la pastille de conformité dit « non vérifiable »
+-- plutôt que d'affirmer sur du vide. NULL est donc la seule valeur honnête
+-- pour une donnée que personne n'a fournie.
+--
+-- -----------------------------------------------------------------------------
+-- POURQUOI APRÈS LE DÉPLOIEMENT, ET JAMAIS AVANT
+-- -----------------------------------------------------------------------------
+-- ⛔ Exécuté avant, l'ancien code aurait lu ces NULL avec :
+--      · le `?? true` de la couche des registres    → « Oui » à l'impression
+--      · le badge brut de DirectorCard              → « Non-résident »
+--      · le filtre du seuil, où un NULL est falsy   → ZÉRO résident
+--    soit trois lectures contradictoires de la même donnée, et une pastille
+--    ROUGE affirmant une non-conformité fédérale sur la vraie société de Dom.
+--    Le code qui lit correctement le troisième état est déployé depuis
+--    984e23c ; ce fichier vient après lui, pas avant.
+--
+-- -----------------------------------------------------------------------------
+-- LE FEU VERT, VERBATIM
+-- -----------------------------------------------------------------------------
+-- Dom, 2026-09-07 : « Feu vert de Dom, verbatim, pour 7b : Art et Technologie
+-- DePictura Inc., a1805bf2-f9c8-4834-8deb-9a4264ce0d14, quatre lignes. Il
+-- redéclare lui-même ses deux administrateurs après. »
+--
+-- Ses quatre lignes, nommées, toutes à `true` avant exécution :
+--   Dominique Roussy                        b372e6b1-…  administrateur + dirigeant
+--   Jacques Frégault                        758747a5-…  administrateur + dirigeant
+--   Innovation numérique Sans Paprika inc.  84f6bec6-…  actionnaire
+--   Solutions technologiques Artefact inc.  4aee7e23-…  actionnaire
+--
+-- ⚠️ Les deux dernières sont des SOCIÉTÉS logées dans company_people. Une
+-- personne morale n'a pas de résidence au sens de l'art. 105(3), qui vise les
+-- administrateurs individuels : leur `true` était doublement sans objet.
+--
+-- -----------------------------------------------------------------------------
+-- ⚠️ APPLIQUÉE PAR LE TABLEAU DE BORD SUPABASE, DONC ABSENTE DU REGISTRE.
+-- Comme toutes les migrations de ce dépôt, celle-ci est collée dans l'éditeur
+-- SQL du tableau de bord. Elle n'est PAS enregistrée dans
+-- `supabase_migrations.schema_migrations` : le fichier existe pour la
+-- traçabilité du dépôt, pas pour un `supabase db push`.
+--
+-- ⚠️ LES DEUX INSTRUCTIONS EN UNE SEULE EXÉCUTION. Entre les deux, le défaut
+-- serait retiré pendant que des lignes portent encore un `true` fabriqué —
+-- état faux pour personne, mais qui n'a aucune raison d'exister.
+--
+-- Le WHERE de 7b ne change rien aujourd'hui (les 30 lignes portent une
+-- valeur) : il rend l'instruction IDEMPOTENTE, et il dit ce qu'elle fait —
+-- retirer des valeurs, jamais en poser.
+--
+-- Attendu après : 30 NULL, 0 true, 0 false, aucun défaut sur la colonne.
+--                 `count(*)` sur company_people : 30 avant comme après.
+--
+-- -----------------------------------------------------------------------------
+-- CONSTATÉ APRÈS EXÉCUTION — 2026-09-08 02:31:53.667356+00
+-- -----------------------------------------------------------------------------
+-- Appliquée par Dom au tableau de bord. Vingt-huit lignes portent encore
+-- l'horodatage exact de l'UPDATE en bloc ; les deux autres ont été
+-- REDÉCLARÉES par Dom quatre-vingts secondes plus tard, par la modale :
+--   02:33:06  Dominique Roussy  → true
+--   02:33:12  Jacques Frégault  → true
+-- Les deux administrateurs réels d'Art et Technologie DePictura Inc.
+--
+-- ★ CE SONT LES DEUX PREMIÈRES RÉSIDENCES VÉRITABLEMENT DÉCLARÉES DU PRODUIT.
+-- Avant elles, les 30 valeurs venaient du défaut de la colonne, pas d'une
+-- personne. Le journal les porte, avec leur type d'événement propre.
+--
+--   colonne is_canadian_resident : column_default = null   ✔ le défaut est tombé
+--   count(*) company_people      : 30, inchangé            ✔ aucune ligne créée
+--                                                            ni détruite
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- 7a. Le défaut tombe
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE public.company_people
+  ALTER COLUMN is_canadian_resident DROP DEFAULT;
+
+-- ---------------------------------------------------------------------------
+-- 7b. Les valeurs fabriquées sont retirées
+-- ---------------------------------------------------------------------------
+
+UPDATE public.company_people
+  SET is_canadian_resident = NULL
+  WHERE is_canadian_resident IS NOT NULL;
