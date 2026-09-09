@@ -230,6 +230,36 @@ export default function PersonSelector({
    */
   const empreinte = JSON.stringify(form);
 
+  /**
+   * Pays canadien OU non déclaré → la liste fermée des 13 codes.
+   * Sinon un champ libre : aucune liste ne couvre les subdivisions du monde,
+   * et sans lui une adresse étrangère ne peut pas s'écrire du tout.
+   */
+  const subdivisionCanadienne =
+    form.addressCountry === 'CA' || form.addressCountry === '';
+
+  /**
+   * ⛔ CECI N'EST PAS LE VIDAGE ÉCARTÉ LE 2026-09-08, et la distinction est
+   * la raison d'être de ce prédicat.
+   *
+   * Le vidage automatique effaçait la province au changement de pays : il
+   * empêchait une erreur d'UTILISATEUR, et Dom l'a écarté — « France + QC »
+   * est une faute de saisie, qu'un formulaire d'adresse n'a pas à corriger.
+   *
+   * Ceci empêche le PRODUIT d'afficher une chose et d'en sauver une autre.
+   * Revenu au Canada avec « Occitanie » en état, le <select> montrerait sa
+   * première option pendant que « Occitanie » resterait la valeur écrite.
+   *
+   * ★ RIEN N'EST EFFACÉ NI POSÉ : c'est un prédicat de RENDU, comme
+   * subdivisionCanadienne. La valeur détenue gagne son option, reste
+   * sélectionnée et remplaçable ; l'option disparaît d'elle-même dès qu'un
+   * vrai code est choisi, sa condition cessant d'être vraie. Aucun nettoyage.
+   */
+  const valeurHorsListe =
+    subdivisionCanadienne &&
+    form.addressProvince !== '' &&
+    !PROVINCES.some((prov) => prov.value === form.addressProvince);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // ---- Fetch existing people ------------------------------------------------
@@ -639,22 +669,36 @@ export default function PersonSelector({
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                {t('province')}
+                {subdivisionCanadienne ? t('province') : t('stateRegion')}
               </label>
-              <select
-                value={form.addressProvince}
-                onChange={(e) => maj('addressProvince', e.target.value)}
-                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                {/* En tête, et valeur de départ à l'ajout — même patron que les
-                    trois états de la résidence, dix lignes plus bas. */}
-                <option value="">{t('provinceNotDeclared')}</option>
-                {PROVINCES.map((prov) => (
-                  <option key={prov.value} value={prov.value}>
-                    {prov.value}
-                  </option>
-                ))}
-              </select>
+              {subdivisionCanadienne ? (
+                <select
+                  value={form.addressProvince}
+                  onChange={(e) => maj('addressProvince', e.target.value)}
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  {/* En tête, et valeur de départ à l'ajout — même patron que les
+                      trois états de la résidence, dix lignes plus bas. */}
+                  <option value="">{t('provinceNotDeclared')}</option>
+                  {/* La valeur détenue, telle quelle et sans décoration — c'est
+                      une valeur, pas un message. Voir valeurHorsListe. */}
+                  {valeurHorsListe && (
+                    <option value={form.addressProvince}>{form.addressProvince}</option>
+                  )}
+                  {PROVINCES.map((prov) => (
+                    <option key={prov.value} value={prov.value}>
+                      {prov.value}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={form.addressProvince}
+                  onChange={(e) => maj('addressProvince', e.target.value)}
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                />
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">

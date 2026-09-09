@@ -406,6 +406,7 @@
     "city": "Ville",
     "province": "Province",
     "provinceNotDeclared": "Non déclarée",
+    "stateRegion": "État / région / province",
     "postalCode": "Code postal",
     "country": "Pays",
     "countryNotDeclared": "Non déclaré",
