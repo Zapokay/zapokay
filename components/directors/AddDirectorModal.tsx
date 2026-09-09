@@ -81,6 +81,30 @@ export default function AddDirectorModal({
     }
   }, [defaultAppointmentDate]);
 
+  /**
+   * ⛔ LE DOMICILE, EXIGE A LA CREATION SEULEMENT.
+   *
+   * `mode === 'new'` est la condition entiere : en mode « personne existante »,
+   * l'utilisateur ne DECLARE aucune adresse — PersonSelector ne rend meme pas
+   * le bloc — donc il n'y a rien a exiger. Et l'EDITION n'est pas touchee :
+   * 16 fiches sur 18 n'ont pas de domicile, les rendre non enregistrables
+   * punirait l'utilisateur d'une donnee que le produit ne lui a jamais demandee.
+   */
+  const domicileManquant =
+    personValue?.mode === 'new'
+      ? { ville: !personValue.addressCity.trim(), pays: !personValue.addressCountry }
+      : null;
+  const domicileIncomplet =
+    !!domicileManquant && (domicileManquant.ville || domicileManquant.pays);
+  // ★ Le message NOMME ce qui manque, et il passe par la fente de PersonSelector
+  //   — construite depuis toujours, remplie par personne jusqu'ici.
+  const messageDomicile = !domicileManquant
+    ? undefined
+    : domicileManquant.ville && domicileManquant.pays ? t('errorCityAndCountry')
+    : domicileManquant.ville ? t('errorCity')
+    : domicileManquant.pays ? t('errorCountry')
+    : undefined;
+
   // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async () => {
     if (!personValue) {
@@ -89,6 +113,13 @@ export default function AddDirectorModal({
     }
     if (!appointmentDate) {
       setError(t('errorAppointmentDate'));
+      return;
+    }
+    // Ceinture : le bouton est deja desactive par domicileIncomplet. Gardee pour
+    // le jour ou une touche Entree contournerait le bouton, comme la ceinture de
+    // reentrance de StepDirectors.
+    if (domicileIncomplet && messageDomicile) {
+      setError(messageDomicile);
       return;
     }
     // Retroactive mode requires end_date + end_reason; end_date >= appointment_date.
@@ -237,6 +268,7 @@ export default function AddDirectorModal({
             onChange={setPersonValue}
             excludePersonIds={existingDirectorPersonIds}
             label={t('person')}
+            error={messageDomicile}
             defaultToNew={existingDirectorPersonIds.length === 0}
           />
 
@@ -323,7 +355,7 @@ export default function AddDirectorModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !personValue || (!stillInOffice && !endReason)}
+            disabled={saving || !personValue || (!stillInOffice && !endReason) || domicileIncomplet}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { countryOptions } from '@/lib/countries';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 
 // =============================================================================
@@ -11,6 +12,13 @@ import { OnboardingStepLayout } from './OnboardingStepLayout';
 export interface OnboardingDirector {
   fullName: string;
   appointmentDate: string;
+  /**
+   * Le domicile, exige a la CREATION. `''` = non declare — jamais une
+   * valeur fabriquee. Requis et sans defaut : les deux litteraux qui
+   * construisent un administrateur echouent a compiler s'ils l'omettent.
+   */
+  addressCity: string;
+  addressCountry: string;
   /**
    * ⚠️ TROIS ETATS : declare oui · declare non · JAMAIS DECLARE (`null`).
    * `null` quand la residence ne s'applique pas au regime — jamais `false`,
@@ -80,6 +88,10 @@ export default function StepDirectors({
   // NOT converted — that is a separate, queued cleanup, not this bundle.
   const t = useTranslations('directors');
   const tCommon = useTranslations('common');
+  // ★ Les etiquettes d'adresse viennent de `people`, celles que PersonSelector
+  //   emploie deja : une meme etiquette ne vit pas a deux endroits du catalogue.
+  const tPeople = useTranslations('people');
+  const paysOptions = useMemo(() => countryOptions(locale), [locale]);
   const defaultDate = incorporationDate || new Date().toISOString().split('T')[0];
 
   const [directors, setDirectors] = useState<OnboardingDirector[]>(
@@ -89,6 +101,10 @@ export default function StepDirectors({
           {
             fullName: userFullName,
             appointmentDate: defaultDate,
+            addressCity: '',
+            // ⛔ AUCUNE PRESELECTION. Un champ obligatoire dont le defaut est
+            //    deja valide n'est pas obligatoire.
+            addressCountry: '',
             // ② `null`, PAS une omission ni un `false` : la colonne porte encore
             //    son DEFAULT TRUE (retire seulement a l'etape 7a), donc omettre
             //    refabriquerait un « Oui ». Ecrire null vaut avant et apres.
@@ -116,6 +132,8 @@ export default function StepDirectors({
       {
         fullName: '',
         appointmentDate: defaultDate,
+        addressCity: '',
+        addressCountry: '',
         isCanadianResident: null,
       },
     ]);
@@ -148,6 +166,18 @@ export default function StepDirectors({
         setError(t('errorAppointmentDate'));
         return;
       }
+      // ⛔ LE DOMICILE, EXIGE A LA CREATION SEULEMENT. Ce chemin ne cree que des
+      //    administrateurs neufs ; aucune fiche existante n'y passe.
+      const villeVide = !d.addressCity.trim();
+      const paysVide = !d.addressCountry;
+      if (villeVide || paysVide) {
+        setError(
+          villeVide && paysVide ? t('errorCityAndCountry')
+          : villeVide ? t('errorCity')
+          : t('errorCountry'),
+        );
+        return;
+      }
     }
 
     setSaving(true);
@@ -172,6 +202,32 @@ export default function StepDirectors({
       if (!ok) setSaving(false);
     }
   }
+
+  /**
+   * ⛔ UNE SEULE SOURCE, DEUX CONSOMMATEURS — ET C'EST LE CORRECTIF D'UNE GARDE
+   * MUETTE. Le bouton se desactivait par un predicat, le message ne se rendait
+   * qu'a la soumission : un bouton desactive rend cette soumission
+   * INATTEIGNABLE, donc le refus n'avait pas de voix. La liste ci-dessous est
+   * rendue A L'ECRAN et desactive le bouton ; les deux ne peuvent plus diverger.
+   *
+   * ★ Un administrateur NOMME doit porter ville et pays. Une ligne SANS nom est
+   * ignoree par la boucle d'ecriture — rien ne lui est exige, et rien ne
+   * s'affiche a son sujet. Un utilisateur qui arrive sur l'etape ne lit aucun
+   * reproche.
+   */
+  const domicilesIncomplets = directors
+    .map((d, i) => {
+      if (!d.fullName.trim()) return null;
+      const ville = !d.addressCity.trim();
+      const pays = !d.addressCountry;
+      if (!ville && !pays) return null;
+      return {
+        n: i + 1,
+        detail: ville && pays ? t('errorCityAndCountry') : ville ? t('errorCity') : t('errorCountry'),
+      };
+    })
+    .filter((x): x is { n: number; detail: string } => x !== null);
+  const domicileManquant = domicilesIncomplets.length > 0;
 
   const usersIcon = (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -200,6 +256,7 @@ export default function StepDirectors({
       onSkip={onSkip}
       onContinue={handleContinue}
       saving={saving}
+      continueDisabled={domicileManquant}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {directors.map((director, index) => (
@@ -313,6 +370,38 @@ export default function StepDirectors({
               </div>
               )}
             </div>
+
+            {/* Domicile — ville + pays, exiges a la creation */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+              <div>
+                <label style={fieldLabelStyle}>
+                  {tPeople('city')} <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={director.addressCity}
+                  onChange={(e) => updateDirector(index, 'addressCity', e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={fieldLabelStyle}>
+                  {tPeople('country')} <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  value={director.addressCountry}
+                  onChange={(e) => updateDirector(index, 'addressCountry', e.target.value)}
+                  style={inputStyle}
+                >
+                  <option value="">{tPeople('countryNotDeclared')}</option>
+                  {paysOptions.map((pays) => (
+                    <option key={pays.code} value={pays.code}>
+                      {pays.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         ))}
 
@@ -341,6 +430,20 @@ export default function StepDirectors({
             {error}
           </p>
         )}
+
+        {/* ⛔ DERNIER ENFANT DE LA CARTE, DONC ADJACENT AU BOUTON. Cette ligne
+            parle du BOUTON « Continuer », pas d'un champ : la placer sous les
+            champs la detacherait de ce qu'elle explique. La rangee d'actions du
+            layout suit immediatement cette carte.
+            ★ Jeton Aria `--error-text`, jamais un litteral. */}
+        {domicilesIncomplets.map((d) => (
+          <p
+            key={d.n}
+            style={{ fontSize: '12px', color: 'var(--error-text)', marginTop: '8px' }}
+          >
+            {t('domicileMissingFor', { n: d.n, detail: d.detail })}
+          </p>
+        ))}
       </div>
     </OnboardingStepLayout>
   );

@@ -332,6 +332,13 @@ export default function PersonSelector({
         //    avant ET apres ce retrait, dans les deux ordres.
         isCanadianResident: residencyApplies ? form.isCanadianResident : null,
       });
+    } else if (enModeNouveau) {
+      // ⛔ LE NOM VIDE RETIRE LA VALEUR, IL NE LA FIGE PLUS. Sans cette branche,
+      // effacer le nom APRES avoir emis laissait le parent sur la derniere
+      // valeur — bouton actif, garde du domicile calculee sur un fantome.
+      // ★ Sûr parce que `value` n'est PAS dans les dependances : ce que le
+      //   parent renvoie ne peut pas re-declencher cet effet. Mesure du jour.
+      onChange(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enModeNouveau, empreinte, residencyApplies]);

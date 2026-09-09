@@ -56,7 +56,11 @@ const today = new Date().toISOString().split('T')[0];
 // the session JSON does not contain it. The value would reach the input as
 // `undefined` and flip the field from uncontrolled to controlled on the first
 // keystroke. The version gate is the only thing that can reject such a draft.
-const DRAFT_VERSION = 4;
+// ⚠️ 5 DEPUIS LE LOT DOMICILE : OnboardingDirector gagne addressCity et
+// addressCountry, REQUIS. Un brouillon en v4 porte des administrateurs sans
+// ces champs ; `d.addressCity.trim()` y leverait. La porte de version est,
+// comme le dit le commentaire ci-dessus, la SEULE chose qui puisse le rejeter.
+const DRAFT_VERSION = 5;
 
 interface OnboardingDraft {
   v: number;
@@ -294,7 +298,10 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
                 company_id: companyId,
                 full_name: dir.fullName.trim(),
                 is_canadian_resident: dir.isCanadianResident,
-                address_country: 'CA',
+                // ⛔ PLUS DE LITTERAL 'CA'. Le pays vient de ce que
+                //    l'utilisateur a choisi ; vide -> null, comme partout.
+                address_city: dir.addressCity.trim() || null,
+                address_country: dir.addressCountry || null,
               })
               .select('id')
               .single();
