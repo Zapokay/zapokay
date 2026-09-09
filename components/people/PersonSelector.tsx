@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
+import { countryOptions } from '@/lib/countries';
 import {
   UserPlus,
   Building2,
@@ -35,7 +36,7 @@ export type PersonSelectorValue =
       addressCity: string;
       addressProvince: string;
       addressPostalCode: string;
-      addressCountry: string;
+      addressCountry: string | null;
       /**
        * ⚠️ TROIS ETATS, PAS DEUX : declare oui · declare non · JAMAIS DECLARE.
        * `null` quand la residence ne s'applique pas au regime — et `null` n'est
@@ -44,6 +45,42 @@ export type PersonSelectorValue =
        */
       isCanadianResident: boolean | null;
     };
+
+/**
+ * ⛔ L'ÉTAT VIERGE, DÉCLARÉ UNE SEULE FOIS — ET LE TYPE L'IMPOSE.
+ *
+ * `handleClear` et le montage déclaraient chacun ce qu'est un formulaire vide.
+ * Les deux ont divergé sans que rien ne le dise : le lot résidence a retiré le
+ * `?? true` de l'initialiseur et laissé `setNewIsCanadianResident(true)` dans
+ * handleClear, avec un `'QC'` à côté. Corriger la liste aurait laissé la
+ * divergence ÉCRIVABLE ; le dixième champ ajouté un jour l'aurait refaite.
+ *
+ * ★ Le type est DÉRIVÉ de PersonSelectorValue, il n'est pas recopié. Ajouter un
+ * champ à la branche « new » fait donc échouer tsc ici tant que VIERGE ne le
+ * porte pas — la seconde liste ne peut plus être écrite, pas seulement ne plus
+ * exister.
+ */
+type ChampsFormulaire = Omit<
+  Extract<PersonSelectorValue, { mode: 'new' }>,
+  'mode' | 'addressCountry'
+> & {
+  /** `''` = non déclaré ; converti en `null` à l'émission, en un seul endroit. */
+  addressCountry: string;
+};
+
+const VIERGE: ChampsFormulaire = {
+  fullName: '',
+  email: '',
+  phone: '',
+  addressLine1: '',
+  addressLine2: '',
+  addressCity: '',
+  // ★ Ni 'QC', ni 'CA', ni `true`. Une déclaration se fait, elle ne se devine pas.
+  addressProvince: '',
+  addressPostalCode: '',
+  addressCountry: '',
+  isCanadianResident: null,
+};
 
 interface PersonSelectorProps {
   companyId: string;
@@ -144,6 +181,9 @@ export default function PersonSelector({
   residencyApplies,
 }: PersonSelectorProps) {
   const t = useTranslations('people');
+  const locale = useLocale();
+  // 252 pays triés à chaque frappe du formulaire sans ce memo.
+  const paysOptions = useMemo(() => countryOptions(locale), [locale]);
   /**
    * ⚠️ UN SECOND ESPACE DE NOMS, ET C'EST DELIBERE. Les trois libelles du
    * menu sont EXACTEMENT ceux de la colonne du registre. Les recopier sous
@@ -164,40 +204,31 @@ export default function PersonSelector({
 
   // New person form fields
   // ⚠️ PRE-REMPLISSAGE. `value` n'etait lu que pour la branche 'existing' ; une
-  // valeur de forme 'new' passee par l'appelant n'affichait donc RIEN. Ces
-  // initialiseurs la lisent. Sans effet sur les six montages existants, qui
-  // montent tous avec value={null} : `depart` y vaut null et les defauts
-  // litteraux d'origine s'appliquent, inchanges.
+  // valeur de forme 'new' passee par l'appelant n'affichait donc RIEN.
+  // L'initialiseur la lit. Sans effet sur les six montages existants, qui
+  // montent tous avec value={null} : `depart` y vaut null et VIERGE
+  // s'applique — l'absence, plus les defauts litteraux d'origine.
   // ⚠️ useState ne lit son initialiseur QU'AU PREMIER RENDU : l'appelant doit
   // donc construire la valeur AVANT de monter ce composant, pas apres.
   const depart = value && value.mode === 'new' ? value : null;
-  const [newFullName, setNewFullName] = useState(depart?.fullName ?? '');
-  const [newEmail, setNewEmail] = useState(depart?.email ?? '');
-  const [newPhone, setNewPhone] = useState(depart?.phone ?? '');
-  const [newAddressLine1, setNewAddressLine1] = useState(depart?.addressLine1 ?? '');
-  const [newAddressLine2, setNewAddressLine2] = useState(depart?.addressLine2 ?? '');
-  const [newAddressCity, setNewAddressCity] = useState(depart?.addressCity ?? '');
-  // Une province non déclarée reste non déclarée. `''` porte l'absence, et le
-  // `|| null` des sept chemins d'écriture la convertit en NULL — jamais 'QC'.
-  const [newAddressProvince, setNewAddressProvince] = useState(depart?.addressProvince ?? '');
-  const [newAddressPostalCode, setNewAddressPostalCode] = useState(depart?.addressPostalCode ?? '');
-  const [newAddressCountry, setNewAddressCountry] = useState(depart?.addressCountry ?? 'CA');
+  const [form, setForm] = useState<ChampsFormulaire>(() => {
+    if (!depart) return VIERGE;
+    const { mode: _mode, ...champs } = depart;
+    // `null` en base = non déclaré ; le formulaire le porte comme `''`.
+    return { ...VIERGE, ...champs, addressCountry: champs.addressCountry ?? '' };
+  });
+  const maj = <C extends keyof ChampsFormulaire>(
+    champ: C,
+    valeur: ChampsFormulaire[C],
+  ) => setForm((f) => ({ ...f, [champ]: valeur }));
+
   /**
-   * ⛔ AUCUN `?? true` ICI, ET AUCUNE PRESELECTION A « OUI » NON PLUS.
-   *
-   * Le `?? true` qui vivait sur cette ligne fabriquait une declaration a partir
-   * d'une absence — le defaut meme que ce lot retire de la base. Le presenter
-   * dans le menu le rebatirait d'un cran, dans l'interface.
-   *
-   * A l'AJOUT, `depart` est nul : la valeur de depart est donc `null`, soit
-   * « Non declare ». C'est voulu — personne n'a rien declare tant que personne
-   * n'a rien choisi.
-   * A l'EDITION, `depart` porte la valeur reelle de la personne, `null` compris,
-   * et le menu sait desormais l'afficher.
+   * ⚠️ L'EMPREINTE, PAS L'OBJET. Une dépendance `[form]` re-tirerait sur un
+   * changement d'IDENTITÉ à valeurs égales. Mesuré sur une suite de 14 actions :
+   * 12 scalaires → 13 émissions, `[form]` nu → 14, l'empreinte → 13. Elle rend
+   * exactement ce que les douze dépendances rendaient.
    */
-  const [newIsCanadianResident, setNewIsCanadianResident] = useState<boolean | null>(
-    depart?.isCanadianResident ?? null,
-  );
+  const empreinte = JSON.stringify(form);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -253,40 +284,27 @@ export default function PersonSelector({
 
   // ---- Sync new-person form → parent onChange -------------------------------
   useEffect(() => {
-    if (enModeNouveau && newFullName.trim()) {
+    if (enModeNouveau && form.fullName.trim()) {
       onChange({
         mode: 'new',
-        fullName: newFullName.trim(),
-        email: newEmail.trim(),
-        phone: newPhone.trim(),
-        addressLine1: newAddressLine1.trim(),
-        addressLine2: newAddressLine2.trim(),
-        addressCity: newAddressCity.trim(),
-        addressProvince: newAddressProvince,
-        addressPostalCode: newAddressPostalCode.trim(),
-        addressCountry: newAddressCountry,
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        addressLine1: form.addressLine1.trim(),
+        addressLine2: form.addressLine2.trim(),
+        addressCity: form.addressCity.trim(),
+        addressProvince: form.addressProvince,
+        addressPostalCode: form.addressPostalCode.trim(),
+        addressCountry: form.addressCountry || null,
         // ② ON ECRIT `null`, ON N'OMET PAS. Omettre laisserait le DEFAULT TRUE
         //    de la colonne refabriquer un « Oui » a l'insertion — il est encore
         //    la, on ne le retire qu'a l'etape 7a. Ecrire null rend ce code juste
         //    avant ET apres ce retrait, dans les deux ordres.
-        isCanadianResident: residencyApplies ? newIsCanadianResident : null,
+        isCanadianResident: residencyApplies ? form.isCanadianResident : null,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    enModeNouveau,
-    newFullName,
-    newEmail,
-    newPhone,
-    newAddressLine1,
-    newAddressLine2,
-    newAddressCity,
-    newAddressProvince,
-    newAddressPostalCode,
-    newAddressCountry,
-    newIsCanadianResident,
-    residencyApplies,
-  ]);
+  }, [enModeNouveau, empreinte, residencyApplies]);
 
   // ---- Filtered list --------------------------------------------------------
   const filteredPeople = people.filter((p) => {
@@ -317,14 +335,9 @@ export default function PersonSelector({
   function handleClear() {
     onChange(null);
     setShowNewForm(defaultToNew);
-    setNewFullName('');
-    setNewEmail('');
-    setNewPhone('');
-    setNewAddressLine1('');
-    setNewAddressCity('');
-    setNewAddressProvince('QC');
-    setNewAddressPostalCode('');
-    setNewIsCanadianResident(true);
+    // ★ EXACTEMENT l'état d'un montage sans `depart` — plus une liste à tenir
+    //   à jour, donc plus de divergence possible avec l'initialiseur.
+    setForm(VIERGE);
   }
 
   // ---- Helpers --------------------------------------------------------------
@@ -541,8 +554,8 @@ export default function PersonSelector({
             </label>
             <input
               type="text"
-              value={newFullName}
-              onChange={(e) => setNewFullName(e.target.value)}
+              value={form.fullName}
+              onChange={(e) => maj('fullName', e.target.value)}
               placeholder="Jean-Philippe Roussy"
               className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
@@ -556,8 +569,8 @@ export default function PersonSelector({
               </label>
               <input
                 type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
+                value={form.email}
+                onChange={(e) => maj('email', e.target.value)}
                 placeholder="jp@example.com"
                 className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
@@ -568,8 +581,8 @@ export default function PersonSelector({
               </label>
               <input
                 type="tel"
-                value={newPhone}
-                onChange={(e) => setNewPhone(e.target.value)}
+                value={form.phone}
+                onChange={(e) => maj('phone', e.target.value)}
                 placeholder="514-555-0123"
                 className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
@@ -583,8 +596,8 @@ export default function PersonSelector({
             </label>
             <input
               type="text"
-              value={newAddressLine1}
-              onChange={(e) => setNewAddressLine1(e.target.value)}
+              value={form.addressLine1}
+              onChange={(e) => maj('addressLine1', e.target.value)}
               placeholder={t('addressLine1Placeholder')}
               className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
@@ -602,8 +615,8 @@ export default function PersonSelector({
               </label>
               <input
                 type="text"
-                value={newAddressLine2}
-                onChange={(e) => setNewAddressLine2(e.target.value)}
+                value={form.addressLine2}
+                onChange={(e) => maj('addressLine2', e.target.value)}
                 placeholder={t('addressLine2Placeholder')}
                 className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
@@ -618,8 +631,8 @@ export default function PersonSelector({
               </label>
               <input
                 type="text"
-                value={newAddressCity}
-                onChange={(e) => setNewAddressCity(e.target.value)}
+                value={form.addressCity}
+                onChange={(e) => maj('addressCity', e.target.value)}
                 placeholder="Sainte-Adèle"
                 className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
@@ -629,8 +642,8 @@ export default function PersonSelector({
                 {t('province')}
               </label>
               <select
-                value={newAddressProvince}
-                onChange={(e) => setNewAddressProvince(e.target.value)}
+                value={form.addressProvince}
+                onChange={(e) => maj('addressProvince', e.target.value)}
                 className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               >
                 {/* En tête, et valeur de départ à l'ajout — même patron que les
@@ -649,12 +662,32 @@ export default function PersonSelector({
               </label>
               <input
                 type="text"
-                value={newAddressPostalCode}
-                onChange={(e) => setNewAddressPostalCode(e.target.value)}
+                value={form.addressPostalCode}
+                onChange={(e) => maj('addressPostalCode', e.target.value)}
                 placeholder="J8B 1A1"
                 className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              {t('country')}
+            </label>
+            {/* Le Canada en tête, puis l'ordre alphabétique DE LA LOCALE —
+                26 noms à initiale accentuée l'exigent (voir lib/countries.ts). */}
+            <select
+              value={form.addressCountry}
+              onChange={(e) => maj('addressCountry', e.target.value)}
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            >
+              <option value="">{t('countryNotDeclared')}</option>
+              {paysOptions.map((pays) => (
+                <option key={pays.code} value={pays.code}>
+                  {pays.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* ① LE CHAMP EST REMPLACE, PAS DESACTIVE. Un interrupteur grise en
@@ -683,12 +716,13 @@ export default function PersonSelector({
               </label>
               <select
                 value={
-                  newIsCanadianResident === true ? 'true'
-                  : newIsCanadianResident === false ? 'false'
+                  form.isCanadianResident === true ? 'true'
+                  : form.isCanadianResident === false ? 'false'
                   : 'null'
                 }
                 onChange={(e) =>
-                  setNewIsCanadianResident(
+                  maj(
+                    'isCanadianResident',
                     e.target.value === 'true' ? true
                     : e.target.value === 'false' ? false
                     : null,

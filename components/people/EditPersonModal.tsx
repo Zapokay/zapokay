@@ -73,11 +73,11 @@ export default function EditPersonModal({
     addressLine1: person.address_line1 ?? '',
     addressLine2: person.address_line2 ?? '',
     addressCity: person.address_city ?? '',
-    // La province ne se fabrique plus ; le pays attend son champ (étape 2) —
-    // le retirer ici déplacerait la fabrication vers le DEFAULT 'CA' de la base.
+    // Ni la province ni le pays ne se fabriquent : `''` porte l'absence, et
+    // PersonSelector la convertit en NULL au moment d'émettre.
     addressProvince: person.address_province ?? '',
     addressPostalCode: person.address_postal_code ?? '',
-    addressCountry: person.address_country ?? 'CA',
+    addressCountry: person.address_country ?? '',
     // ⛔ REPRISE TELLE QUELLE, jamais réinterprétée — y compris le `null`, qui
     //    est une VALEUR (« jamais déclaré ») et non une absence de valeur.
     // ⛔ PLUS DE `?? true`. Il transformait une absence de declaration en

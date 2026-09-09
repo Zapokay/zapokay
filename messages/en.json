@@ -407,6 +407,8 @@
     "province": "Province",
     "provinceNotDeclared": "Not declared",
     "postalCode": "Postal code",
+    "country": "Country",
+    "countryNotDeclared": "Not declared",
     "cancel": "Cancel",
     "editPerson": "Edit person",
     "editPersonSharedNote": "These details belong to the person, not to any one role. A correction made here appears everywhere they are listed — directors, officers, shareholders.",
