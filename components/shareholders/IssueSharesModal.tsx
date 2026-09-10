@@ -363,6 +363,7 @@ export default function IssueSharesModal({
             </div>
           ) : !entityMode ? (
             <PersonSelector
+              exigences="shareholder"
               residencyApplies={residencyApplies}
               companyId={companyId}
               value={personValue}
@@ -541,6 +542,7 @@ export default function IssueSharesModal({
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
                         <PersonSelector
+                          exigences="entity_signatory"
                           residencyApplies={residencyApplies}
                           companyId={companyId}
                           value={row.personValue}

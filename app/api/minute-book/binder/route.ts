@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { MINUTE_BOOK_SECTIONS, groupDocumentsBySection } from '@/lib/minute-book-section'
 import { applyBinderDocumentOrder } from '@/lib/minute-book/document-order'
+import { trousDeLaSociete } from '@/lib/data-gaps'
 
 // ⚠️ CETTE ROUTE NE DÉCLARE PLUS RIEN. Elle portait un duplicata des neuf clés
 // (avec un `title_fr` que personne n'affichait) et une copie mot pour mot de la
@@ -64,5 +65,13 @@ export async function GET(request: NextRequest) {
 
   const totalDocuments = (documents || []).length
 
-  return NextResponse.json({ sections, totalDocuments })
+  // ⛔ LE CALCUL NE VIT PAS ICI. Cette route APPELLE trousDeLaSociete et
+  // transporte son résultat ; la page Administrateurs voudra la même liste
+  // un jour et n'appellera jamais cette route. Écrite ici, la logique y
+  // serait réécrite là-bas, et les deux divergeraient.
+  // ⚪ Le modal appelle cette route deux fois ; recalculer deux fois est sans
+  // conséquence — aucun cache n'est bâti pour ça.
+  const dataGaps = await trousDeLaSociete(supabase, company.id, 'director')
+
+  return NextResponse.json({ sections, totalDocuments, dataGaps })
 }

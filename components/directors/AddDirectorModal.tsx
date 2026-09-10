@@ -8,6 +8,7 @@ import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
 import { logActivity } from '@/lib/activity-log';
+import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
 import type { DirectorEndReason } from '@/lib/supabase/people-types';
 
 // =============================================================================
@@ -87,23 +88,34 @@ export default function AddDirectorModal({
    * `mode === 'new'` est la condition entiere : en mode « personne existante »,
    * l'utilisateur ne DECLARE aucune adresse — PersonSelector ne rend meme pas
    * le bloc — donc il n'y a rien a exiger. Et l'EDITION n'est pas touchee :
-   * 16 fiches sur 18 n'ont pas de domicile, les rendre non enregistrables
-   * punirait l'utilisateur d'une donnee que le produit ne lui a jamais demandee.
+   * LA PLUPART DES FICHES EXISTANTES n'ont pas de domicile, les rendre non
+   * enregistrables punirait l'utilisateur d'une donnee que le produit ne lui
+   * a jamais demandee.
    */
-  const domicileManquant =
+  /**
+   * ★ LA GARDE DÉRIVE, ELLE NE SE RÉÉCRIT PAS. Cette condition était écrite à la
+   * main dans ce fichier ; elle vient désormais de lib/data-gaps.ts, la même
+   * source que l'astérisque de PersonSelector et que la liste des trous à
+   * l'export. Trois consommateurs, une déclaration.
+   *
+   * ★ ET LE BOUTON ET handleSave LISENT LA MÊME LISTE, pas deux calculs — le
+   * correctif de la garde muette d'hier, appliqué d'emblée.
+   */
+  const manquants: ChampPersonne[] =
     personValue?.mode === 'new'
-      ? { ville: !personValue.addressCity.trim(), pays: !personValue.addressCountry }
-      : null;
-  const domicileIncomplet =
-    !!domicileManquant && (domicileManquant.ville || domicileManquant.pays);
+      ? champsManquants('director', {
+          address_city: personValue.addressCity,
+          address_country: personValue.addressCountry,
+        })
+      : [];
+  const domicileIncomplet = manquants.length > 0;
   // ★ Le message NOMME ce qui manque, et il passe par la fente de PersonSelector
   //   — construite depuis toujours, remplie par personne jusqu'ici.
-  const messageDomicile = !domicileManquant
+  const messageDomicile = !domicileIncomplet
     ? undefined
-    : domicileManquant.ville && domicileManquant.pays ? t('errorCityAndCountry')
-    : domicileManquant.ville ? t('errorCity')
-    : domicileManquant.pays ? t('errorCountry')
-    : undefined;
+    : manquants.length === 2 ? t('errorCityAndCountry')
+    : manquants[0] === 'address_city' ? t('errorCity')
+    : t('errorCountry');
 
   // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async () => {
@@ -262,6 +274,7 @@ export default function AddDirectorModal({
         <div className="space-y-5 px-6 py-5">
           {/* Person selector */}
           <PersonSelector
+            exigences="director"
             residencyApplies={residencyApplies}
             companyId={companyId}
             value={personValue}

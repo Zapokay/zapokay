@@ -443,7 +443,7 @@
     "errorCity": "La ville du domicile est requise.",
     "errorCountry": "Le pays du domicile est requis.",
     "errorCityAndCountry": "La ville et le pays du domicile sont requis.",
-    "domicileMissingFor": "Administrateur {n} : {detail}",
+    "domicileNoticeForExport": "Ces adresses seront requises pour exporter votre livre.",
     "errorSave": "L'enregistrement des administrateurs a échoué. Vérifiez vos informations et réessayez.",
     "viewHistory": "Voir l'historique",
     "hideHistory": "Masquer l'historique",
@@ -708,6 +708,12 @@
       "loading": "Chargement…",
       "countSummary": "{count, plural, =0 {Aucun document signé — l'archive contiendra la page de garde, l'index et les registres corporatifs.} =1 {1 document sera inclus dans cet export.} other {# documents seront inclus dans cet export.}}",
       "emptySectionsNote": "Certaines sections ne contiennent aucun document signé pour le moment.",
+      "gapsTitle": "Ce livre est incomplet",
+      "gapCity": "ville du domicile",
+      "gapCountry": "pays du domicile",
+      "gapCityAndCountry": "ville et pays du domicile",
+      "gapsFixLink": "Corriger dans Administrateurs",
+      "exportAnyway": "Exporter quand même",
       "cta": {
         "cancel": "Annuler",
         "export": "Exporter",
@@ -726,7 +732,8 @@
       },
       "cover": {
         "title": "Livre de minutes",
-        "fileName": "00_Page_de_garde.pdf"
+        "fileName": "00_Page_de_garde.pdf",
+        "incompleteNotice": "{count, plural, =0 {} =1 {Livre incomplet — 1 donnée manquante} other {Livre incomplet — # données manquantes}}"
       },
       "errors": {
         "loadFailed": "Impossible de charger les données du livre. Veuillez réessayer.",

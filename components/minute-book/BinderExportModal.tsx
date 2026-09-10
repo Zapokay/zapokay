@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useTranslations } from 'next-intl';
+import type { TrouDePersonne } from '@/lib/data-gaps';
+import { useTranslations, useLocale } from 'next-intl';
 import Button from '@/components/ui/Button';
 
 /* ------------------------------------------------------------------ */
@@ -24,6 +25,8 @@ interface BinderSection {
 interface BinderData {
   sections: BinderSection[];
   totalDocuments: number;
+  /** Transporté par la route, calculé par lib/data-gaps.ts. Jamais recalculé ici. */
+  dataGaps: TrouDePersonne[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -36,6 +39,7 @@ export default function BinderExportModal({
   onClose,
 }: BinderExportModalProps) {
   const t = useTranslations('minuteBook.binderExport');
+  const locale = useLocale();
 
   /* ---------- State ---------- */
   const [binderData, setBinderData] = useState<BinderData | null>(null);
@@ -226,6 +230,22 @@ export default function BinderExportModal({
   // `binderData` garde ce qui compte — que la modale sache ce qu'elle exporte.
   const canExport = !loading && !loadError && !!binderData;
 
+  /**
+   * ⛔ LE CRITÈRE EST LE CONTENU, JAMAIS UN COMPTE. « des données déclarées
+   * manquent » reste vrai quoi qu'il advienne de l'archive ; une garde
+   * fondée sur un nombre de documents a déjà pourri ici en quatre mois
+   * (cc47ea3), sa prémisse ayant changé sans que la garde le sache.
+   */
+  const trous = binderData?.dataGaps ?? [];
+  const livreIncomplet = trous.length > 0;
+  // ★ CHAQUE LIGNE NOMME QUI ET QUOI. « des données manquent » recréerait la
+  //   garde muette d'hier, à l'échelle du produit.
+  const libelleChamps = (champs: TrouDePersonne['champs']): string => {
+    const ville = champs.includes('address_city');
+    const pays = champs.includes('address_country');
+    return ville && pays ? t('gapCityAndCountry') : ville ? t('gapCity') : t('gapCountry');
+  };
+
   const modal = (
     <div
       ref={overlayRef}
@@ -304,6 +324,30 @@ export default function BinderExportModal({
               </p>
             )}
 
+            {livreIncomplet && (
+              <div className="mt-4 rounded-lg border border-[var(--error-border)] bg-[var(--error-bg)] p-4">
+                <p className="text-sm font-semibold text-[var(--error-text)]">
+                  {t('gapsTitle')}
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {trous.map((trou) => (
+                    <li key={trou.personId} className="text-sm text-[var(--error-text)]">
+                      {trou.nom} — {libelleChamps(trou.champs)}
+                    </li>
+                  ))}
+                </ul>
+                {/* ⛔ VERS LES ADMINISTRATEURS, PAS VERS COMPLÉTUDE. Mesuré : le bouton
+                    « Voir dans Complétude » pousse vers la page entière, sans ancre ni
+                    filtre, et ne montre rien sur la personne d'où l'on vient. */}
+                <a
+                  href={`/${locale}/dashboard/directors`}
+                  className="mt-3 inline-block text-sm font-medium underline text-[var(--error-text)]"
+                >
+                  {t('gapsFixLink')}
+                </a>
+              </div>
+            )}
+
             {exportError && (
               <div
                 role="alert"
@@ -337,10 +381,24 @@ export default function BinderExportModal({
             variant="secondary"
             size="md"
             onClick={handleExport}
-            disabled={!canExport || exporting}
+            disabled={!canExport || exporting || livreIncomplet}
           >
             {t('cta.export')}
           </Button>
+          {/* ★ DISCRET MAIS PRÉSENT. Le serveur ne refuse rien — mesuré, ses treize
+              sorties ne portent aucun contrôle de complétude. Ce n'est donc pas une
+              barrière qu'on perce, c'est un avertissement qu'on lève. */}
+          {livreIncomplet && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={handleExport}
+              disabled={!canExport || exporting}
+            >
+              {t('exportAnyway')}
+            </Button>
+          )}
         </div>
       </div>
     </div>

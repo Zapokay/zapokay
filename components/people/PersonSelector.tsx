@@ -5,6 +5,13 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations, useLocale } from 'next-intl';
 import { countryOptions } from '@/lib/countries';
 import {
+  CHAMPS_REQUIS,
+  HORS_ROLE_AUCUNE_EXIGENCE,
+  REQUIS_PAR_LE_COMPOSANT,
+  type ChampPersonne,
+  type PorteeExigence,
+} from '@/lib/data-gaps';
+import {
   UserPlus,
   Building2,
   ChevronDown,
@@ -97,6 +104,15 @@ interface PersonSelectorProps {
   label?: string;
   /** Error message */
   error?: string;
+  /**
+   * ⚠️ REQUISE ET SANS DÉFAUT. Un défaut ferait qu'un appelant qui l'oublie
+   * reçoit « aucune exigence » en silence — et son formulaire cesserait de
+   * marquer ce qu'il exige, sans que rien ne le dise. Les SEPT montages
+   * doivent se prononcer, et tsc refuse celui qui omet.
+   *
+   * `HORS_ROLE_AUCUNE_EXIGENCE` est une décision lisible, pas un trou.
+   */
+  exigences: PorteeExigence;
   /** When provided, renders a second footer link signalling the parent to switch
    *  to entity (company/trust) creation. PersonSelector stays an identity picker —
    *  the PersonSelectorValue contract is untouched; this is a fire-and-forget signal. */
@@ -179,6 +195,7 @@ export default function PersonSelector({
   onSelectEntity,
   lockToNewMode = false,
   residencyApplies,
+  exigences,
 }: PersonSelectorProps) {
   const t = useTranslations('people');
   const locale = useLocale();
@@ -229,6 +246,19 @@ export default function PersonSelector({
    * exactement ce que les douze dépendances rendaient.
    */
   const empreinte = JSON.stringify(form);
+
+  /**
+   * ⛔ PLUS AUCUN ASTÉRISQUE ÉCRIT À LA MAIN DANS CE COMPOSANT. La marque
+   * dérive de la déclaration — c'est ce qui corrige au passage le défaut que
+   * d1746da a créé : ville et pays étaient exigés par AddDirectorModal et ne
+   * portaient aucune marque.
+   */
+  const champsRequis = new Set<ChampPersonne>([
+    ...REQUIS_PAR_LE_COMPOSANT,
+    ...(exigences === HORS_ROLE_AUCUNE_EXIGENCE ? [] : CHAMPS_REQUIS[exigences]),
+  ]);
+  const marque = (champ: ChampPersonne) =>
+    champsRequis.has(champ) ? <span className="text-red-500">*</span> : null;
 
   /**
    * Pays canadien OU non déclaré → la liste fermée des 13 codes.
@@ -587,7 +617,7 @@ export default function PersonSelector({
           {/* Full name */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              {t('fullName')} <span className="text-red-500">*</span>
+              {t('fullName')} {marque('full_name')}
             </label>
             <input
               type="text"
@@ -664,7 +694,7 @@ export default function PersonSelector({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                {t('city')}
+                {t('city')} {marque('address_city')}
               </label>
               <input
                 type="text"
@@ -723,7 +753,7 @@ export default function PersonSelector({
 
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              {t('country')}
+              {t('country')} {marque('address_country')}
             </label>
             {/* Le Canada en tête, puis l'ordre alphabétique DE LA LOCALE —
                 26 noms à initiale accentuée l'exigent (voir lib/countries.ts). */}

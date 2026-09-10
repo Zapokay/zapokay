@@ -53,6 +53,17 @@ export function getCoverDate(date: Date, locale: ServerLocale): string {
   });
 }
 
+/**
+ * La mention d'incomplétude de la page de garde.
+ *
+ * ⚠️ LE COMPTE EST CELUI DES DONNÉES MANQUANTES, pas des personnes : une fiche
+ * à qui il manque la ville ET le pays en compte deux. Rendue vide à zéro par la
+ * clause `=0` du catalogue — l'appelant n'a donc pas de branche à écrire.
+ */
+export function getCoverIncompleteNotice(count: number, locale: ServerLocale): string {
+  return getServerMessage('minuteBook.binderExport.cover.incompleteNotice', locale, { count });
+}
+
 /** Le titre de la page index. */
 export function getIndexTitle(locale: ServerLocale): string {
   return getServerMessage('minuteBook.binderExport.index.indexTitle', locale);

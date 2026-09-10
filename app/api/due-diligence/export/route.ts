@@ -13,11 +13,13 @@ import {
   readDirectorRegister, readOfficerRegister, readShareholderRegister, readStatedCapitalRegister,
 } from '@/lib/minute-book/registers';
 import { normalizePdfSpaces } from '@/lib/pdf/pdf-safe-text';
+import { trousDeLaSociete } from '@/lib/data-gaps';
 import { toStorageSafeName } from '@/lib/storage-key';
 import {
   getCoverTitle, getCoverSubtitle, getCoverFileName, getCoverDate,
   getIndexTitle, getIndexFileName, getIndexColumns,
   getRegistersFileName, getRegisterLabels, getRegistersAsAtLabel, getArchiveBaseName,
+  getCoverIncompleteNotice,
 } from '@/lib/i18n/export-labels';
 import { MINUTE_BOOK_SECTIONS } from '@/lib/minute-book-section';
 import { getSectionLabel } from '@/lib/i18n/section-labels';
@@ -86,16 +88,26 @@ interface CoverPageData {
   neq: string;
   documentCount: number;
   locale: 'fr' | 'en';
+  /**
+   * ⚠️ CHAÎNE DÉJÀ RÉSOLUE, comme tout ce qui entre dans un gabarit — ils ne
+   * connaissent aucun catalogue. `undefined` quand rien ne manque : le
+   * sous-titre reste alors EXACTEMENT ce qu'il était.
+   */
+  incompleteNotice?: string;
 }
 
 async function generateCoverPage(data: CoverPageData): Promise<Buffer> {
   const { generateCoverPagePDF } = await import('@/lib/pdf/generatePDF');
 
+  const compte = getCoverSubtitle(data.documentCount, data.locale);
+
   return generateCoverPagePDF({
     companyName: data.companyName,
     neq: data.neq,
     title: getCoverTitle(data.locale),
-    subtitle: getCoverSubtitle(data.documentCount, data.locale),
+    // ★ LA MENTION S'AJOUTE AU COMPTE, elle ne le remplace pas : le lecteur doit
+    //   garder ce que le livre CONTIENT en plus de ce qui lui manque.
+    subtitle: data.incompleteNotice ? `${compte} — ${data.incompleteNotice}` : compte,
     preparedDate: getCoverDate(new Date(), data.locale),
     language: data.locale,
   });
@@ -497,11 +509,26 @@ export async function GET(request: NextRequest) {
 
     const now = new Date();
 
+    /**
+     * ⛔ L'ARCHIVE DIT CE QU'ELLE EST. Le serveur ne REFUSE rien — ses treize
+     * sorties ne portent aucun contrôle de complétude, et ce lot n'en ajoute
+     * aucun : ce sont les données de l'utilisateur, pas une autorisation.
+     * Mais une archive sortie par « Exporter quand même » doit se reconnaître,
+     * et la mention est calculée ICI, jamais transmise par le client — un
+     * paramètre d'URL se retirerait à la main.
+     * ★ trousDeLaSociete est APPELÉE, jamais recopiée : même source que
+     * l'astérisque et que la liste du modal.
+     */
+    const trous = await trousDeLaSociete(supabase, companyId, 'director');
+    const donneesManquantes = trous.reduce((n, t) => n + t.champs.length, 0);
+    const mentionIncomplet = getCoverIncompleteNotice(donneesManquantes, docLanguage);
+
     const coverPageBuffer = await generateCoverPage({
       companyName,
       neq: company.neq,
       documentCount: allDocuments.length,
       locale: docLanguage,
+      incompleteNotice: mentionIncomplet || undefined,
     });
 
     zip.file(getCoverFileName(docLanguage), coverPageBuffer);

@@ -303,6 +303,7 @@ export default function AddOfficerModal({
         <div className="space-y-5 px-6 py-5">
           {/* Person selector */}
           <PersonSelector
+            exigences="officer"
             residencyApplies={residencyApplies}
             companyId={companyId}
             value={personValue}

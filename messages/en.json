@@ -443,7 +443,7 @@
     "errorCity": "Home address city is required.",
     "errorCountry": "Home address country is required.",
     "errorCityAndCountry": "Home address city and country are required.",
-    "domicileMissingFor": "Director {n}: {detail}",
+    "domicileNoticeForExport": "These addresses will be required to export your minute book.",
     "errorSave": "Saving the directors failed. Check your information and try again.",
     "viewHistory": "View history",
     "hideHistory": "Hide history",
@@ -708,6 +708,12 @@
       "loading": "Loading…",
       "countSummary": "{count, plural, =0 {No signed documents — the archive will contain the cover page, the index and the corporate registers.} =1 {1 document will be included in this export.} other {# documents will be included in this export.}}",
       "emptySectionsNote": "Some sections do not yet contain signed documents.",
+      "gapsTitle": "This minute book is incomplete",
+      "gapCity": "home address city",
+      "gapCountry": "home address country",
+      "gapCityAndCountry": "home address city and country",
+      "gapsFixLink": "Fix in Directors",
+      "exportAnyway": "Export anyway",
       "cta": {
         "cancel": "Cancel",
         "export": "Export",
@@ -726,7 +732,8 @@
       },
       "cover": {
         "title": "Minute Book",
-        "fileName": "00_Cover_page.pdf"
+        "fileName": "00_Cover_page.pdf",
+        "incompleteNotice": "{count, plural, =0 {} =1 {Incomplete minute book — 1 missing data point} other {Incomplete minute book — # missing data points}}"
       },
       "errors": {
         "loadFailed": "Unable to load minute book data. Please try again.",

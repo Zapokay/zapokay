@@ -241,6 +241,7 @@ export default function TransferShareholdingModal({
 
           {/* New holder picker */}
           <PersonSelector
+            exigences="shareholder"
             residencyApplies={residencyApplies}
             companyId={shareholding.company_id}
             value={personValue}

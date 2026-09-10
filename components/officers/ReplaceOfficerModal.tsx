@@ -213,6 +213,7 @@ export default function ReplaceOfficerModal({
 
           {/* Select incoming person */}
           <PersonSelector
+            exigences="officer"
             residencyApplies={residencyApplies}
             companyId={companyId}
             value={personValue}

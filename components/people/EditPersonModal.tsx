@@ -28,6 +28,7 @@ import { useTranslations } from 'next-intl';
 import { X, Pencil, Loader2 } from 'lucide-react';
 import PersonSelector, { type PersonSelectorValue } from '@/components/people/PersonSelector';
 import type { CompanyPerson } from '@/lib/supabase/people-types';
+import { HORS_ROLE_AUCUNE_EXIGENCE } from '@/lib/data-gaps';
 import { logActivity } from '@/lib/activity-log';
 
 interface EditPersonModalProps {
@@ -198,6 +199,7 @@ export default function EditPersonModal({
           </p>
 
           <PersonSelector
+            exigences={HORS_ROLE_AUCUNE_EXIGENCE}
             residencyApplies={residencyApplies}
             companyId={companyId}
             value={valeur}
