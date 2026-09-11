@@ -18,10 +18,11 @@
 import { estVide } from '@/lib/data-gaps';
 
 /**
- * Les six colonnes d'adresse de `company_people`. Les mêmes existent sur
- * `shareholder_entities` À CINQ — il n'y a pas d'`address_line2` là-bas — et
- * ce module ne les sert pas : le registre des actionnaires ne porte pas
- * d'adresse, par décision mesurée (le pays y est fabriqué par COALESCE).
+ * Les six colonnes d'adresse. `company_people` et `shareholder_entities` les
+ * portent TOUTES LES SIX, aux mêmes noms — la seconde a gagné `address_line2`
+ * avec aed7f5c. Une ligne de l'une ou de l'autre se compose donc ici SANS
+ * VARIANTE : le registre des administrateurs y passe ses personnes, celui des
+ * actionnaires ses personnes et ses sociétés.
  */
 export type ChampAdresse =
   | 'address_line1'

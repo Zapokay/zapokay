@@ -666,7 +666,12 @@ export async function GET(request: NextRequest) {
           title: docLanguage === 'en' ? regAct.register_title_en : regAct.register_title_fr,
           columns: resoudre(COLONNES_ACTIONNAIRES, false, etiq),
           rows: regAct.entries.map((e) => ({
-            full_name: e.full_name, share_class: e.share_class,
+            full_name: e.full_name,
+            // ⚪ Même règle qu'aux administrateurs : rien de déclaré = cellule
+            //    vide, jamais un tiret. Ce rendu construit ses lignes champ par
+            //    champ — sans cette clé, la seconde ligne ne sortirait pas.
+            address: e.address,
+            share_class: e.share_class,
             quantity: String(e.quantity), certificate_number: e.certificate_number ?? '—',
             issue_date: e.issue_date,
           })),

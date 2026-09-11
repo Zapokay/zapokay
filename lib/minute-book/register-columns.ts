@@ -30,9 +30,10 @@
 export type CleEtiquette =
   | 'name'
   /**
-   * ⚠️ LA COLONNE FUSIONNÉE DU REGISTRE DES ADMINISTRATEURS, et une clé NEUVE.
-   * `name` n'est pas modifiée : les trois autres registres l'emploient et n'ont
-   * pas d'adresse. Deux colonnes différentes, deux étiquettes.
+   * ⚠️ LA COLONNE FUSIONNÉE — nom et adresse. Les administrateurs d'abord
+   * (3ba3a2e), les actionnaires ensuite. `name` n'est pas modifiée : le registre
+   * des dirigeants l'emploie et n'a pas d'adresse. Deux colonnes différentes,
+   * deux étiquettes.
    */
   | 'nameAndAddress'
   | 'residence'
@@ -190,25 +191,32 @@ export const COLONNES_DIRIGEANTS: readonly ColonneRegistre[] = [
 ];
 
 /**
- * ⛔ PAS D'ADRESSE ICI, ET C'EST UNE DÉCISION MESURÉE, PAS UN OUBLI.
+ * ★ L'ADRESSE, SOUS LE NOM — comme au registre des administrateurs.
  *
- * Ce registre porte des PERSONNES et des SOCIÉTÉS (registers.ts:288 —
- * `h.person?.full_name ?? h.entity?.legal_name`). L'adresse d'une société
- * viendrait de `shareholder_entities`, et elle y est FABRIQUÉE :
+ * Elle était bloquée ici par décision : l'adresse d'une société était
+ * FABRIQUÉE — un pays posé par COALESCE, une province pré-sélectionnée — et
+ * rien ne permettait de la corriger. Les deux conditions sont levées : la
+ * fabrication est fermée depuis aed7f5c, la correction existe depuis 2e1a7ee.
  *
- *   · le pays est impossible à déclarer — IssueSharesModal n'envoie jamais la
- *     clé à `create_entity_with_signatories`, dont le COALESCE le pose donc à
- *     chaque création ;
- *   · la province vient d'un `useState` de formulaire, pas d'une saisie.
+ * Ce registre porte des PERSONNES et des SOCIÉTÉS. L'adresse sort de la même
+ * branche que le nom (registers.ts, `identiteDetenteur`) et passe par la même
+ * composition, `adresseRegistre`, pour les deux.
  *
- * Imprimer ça mettrait une FABRICATION sur un document corporatif. Bloqué
- * jusqu'au lot qui règle le jumeau.
+ * ⚠️ LE COÛT EST CONNU ET ASSUMÉ. La colonne fusionnée prend sa largeur aux
+ * autres ; une catégorie longue se renvoie alors sur deux lignes, y compris
+ * dans les rangées sans adresse. La hauteur se pagine ; un registre incomplet
+ * ne se rattrape pas.
  *
- * ⛔ AUCUN COMPTE DE PARC ICI : l'état des entités a été mesuré et le chiffre
- * est au message de commit. Il changera ; le motif, non.
+ * ⛔ AUCUN CHIFFRE ICI : les largeurs et les hauteurs ont été rendues et
+ * mesurées, et elles vivent au message de commit.
  */
 export const COLONNES_ACTIONNAIRES: readonly ColonneRegistre[] = [
-  { key: 'full_name', cleEtiquette: 'name' },
+  {
+    key: 'full_name',
+    cleSecondaire: 'address',
+    cleEtiquette: 'nameAndAddress',
+    traitement: 'coupable',
+  },
   { key: 'share_class', cleEtiquette: 'shareClass' },
   { key: 'quantity', cleEtiquette: 'quantity', traitement: 'insecable' },
   { key: 'certificate_number', cleEtiquette: 'certificate', traitement: 'insecable' },

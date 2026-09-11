@@ -21,7 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { residencyApplies } from '@/lib/residency';
-import { adresseRegistre } from '@/lib/address';
+import { adresseRegistre, type ChampAdresse } from '@/lib/address';
 
 /** La forme que les quatre routes rendent, et que BinderView consomme. */
 export interface RegisterPayload<E> {
@@ -251,11 +251,36 @@ export async function readOfficerRegister(
 
 export interface ShareholderRegisterEntry {
   full_name: string;
+  /**
+   * L'adresse du détenteur, composée par `adresseRegistre` — la MÊME fonction
+   * pour une personne et pour une société. Chaîne vide quand rien n'est
+   * déclaré : une cellule vide, jamais un tiret. Un registre n'invente pas.
+   */
+  address: string;
   share_class: string;
   quantity: number;
   certificate_number: string | null;
   issue_date: string;
   issue_price_per_share: number | null;
+}
+
+/** Les six colonnes d'adresse, telles que `*` les rend des deux tables. */
+type AdresseLue = { [K in ChampAdresse]: string | null };
+
+interface DetenteurLu {
+  holder_type: 'individual' | 'entity';
+  display_order: number;
+  /**
+   * ⚠️ LES SIX COLONNES D'ADRESSE, DES DEUX CÔTÉS — ET LA REQUÊTE LES RAMENAIT
+   * DÉJÀ. `person:company_people(*)` et `entity:shareholder_entities(*)`
+   * rendent toutes les colonnes ; ce type ne déclarait que le nom et jetait le
+   * reste. Vérifié le 2026-09-11 : les six colonnes existent aux mêmes noms sur
+   * les deux tables, et le droit SELECT est accordé aux deux rôles qui lisent
+   * ce registre — `authenticated` pour l'écran, `service_role` pour l'export.
+   * Élargir le type sans toucher la requête ne ment donc pas.
+   */
+  person: ({ full_name: string } & AdresseLue) | null;
+  entity: ({ legal_name: string } & AdresseLue) | null;
 }
 
 interface DetentionAvecDetenteurs {
@@ -264,12 +289,26 @@ interface DetentionAvecDetenteurs {
   issue_date: string;
   issue_price_per_share: number | null;
   share_classes?: { name: string } | null;
-  shareholding_holders?: {
-    holder_type: 'individual' | 'entity';
-    display_order: number;
-    person: { full_name: string } | null;
-    entity: { legal_name: string } | null;
-  }[];
+  shareholding_holders?: DetenteurLu[];
+}
+
+/**
+ * LE NOM ET L'ADRESSE D'UN DÉTENTEUR — la personne, sinon la société. Les deux
+ * sortent de la même branche : l'adresse ne peut pas venir d'un autre
+ * détenteur que le nom.
+ *
+ * ⛔ AUCUN REPLI. Le `'(unknown holder)'` qui vivait ici imprimait — en anglais,
+ * dans un registre qui peut être français — un détenteur que personne n'a
+ * nommé. La base interdit ce cas : le CHECK de shareholding_holders exige une
+ * personne OU une société, et les deux clés étrangères sont en RESTRICT. Ce qui
+ * reste possible, c'est un embed rendu nul — une ligne que la RLS cache. On
+ * refuse alors de lire le registre plutôt que de l'imprimer faux, exactement
+ * comme pour un échec de lecture.
+ */
+function identiteDetenteur(h: DetenteurLu): { full_name: string; address: string } {
+  if (h.person) return { full_name: h.person.full_name, address: adresseRegistre(h.person) };
+  if (h.entity) return { full_name: h.entity.legal_name, address: adresseRegistre(h.entity) };
+  throw new Error('readShareholderRegister: holder with neither person nor entity');
 }
 
 export async function readShareholderRegister(
@@ -305,10 +344,17 @@ export async function readShareholderRegister(
       const sortedHolders = [...holders].sort(
         (a, b) => a.display_order - b.display_order
       );
+      // ⛔ AUCUNE CATÉGORIE FABRIQUÉE. `|| 'Classe A'` inventait un nom quand il
+      //    manquait — la famille de 'CA' et de 'QC'. La colonne est NOT NULL et
+      //    la clé de la détention aussi : une catégorie qui ne revient pas est
+      //    un embed caché, et on refuse de la baptiser.
+      const categorie = sh.share_classes?.name;
+      if (!categorie) {
+        throw new Error('readShareholderRegister: shareholding without share class name');
+      }
       return sortedHolders.map((h) => ({
-        full_name:
-          h.person?.full_name ?? h.entity?.legal_name ?? '(unknown holder)',
-        share_class: sh.share_classes?.name || 'Classe A',
+        ...identiteDetenteur(h),
+        share_class: categorie,
         quantity: sh.quantity,
         certificate_number: sh.certificate_number || null,
         issue_date: sh.issue_date,
