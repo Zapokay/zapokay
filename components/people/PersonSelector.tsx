@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations, useLocale } from 'next-intl';
 import { countryOptions } from '@/lib/countries';
+import { PROVINCE_CODES } from '@/lib/provinces';
 import {
   CHAMPS_REQUIS,
   HORS_ROLE_AUCUNE_EXIGENCE,
@@ -160,25 +161,6 @@ interface PersonSelectorProps {
 }
 
 // =============================================================================
-// Province options (Canada)
-// =============================================================================
-const PROVINCES = [
-  { value: 'AB', label: 'Alberta' },
-  { value: 'BC', label: 'Colombie-Britannique / British Columbia' },
-  { value: 'MB', label: 'Manitoba' },
-  { value: 'NB', label: 'Nouveau-Brunswick / New Brunswick' },
-  { value: 'NL', label: 'Terre-Neuve / Newfoundland' },
-  { value: 'NS', label: 'Nouvelle-Écosse / Nova Scotia' },
-  { value: 'NT', label: 'Territoires du Nord-Ouest' },
-  { value: 'NU', label: 'Nunavut' },
-  { value: 'ON', label: 'Ontario' },
-  { value: 'PE', label: 'Île-du-Prince-Édouard / PEI' },
-  { value: 'QC', label: 'Québec' },
-  { value: 'SK', label: 'Saskatchewan' },
-  { value: 'YT', label: 'Yukon' },
-];
-
-// =============================================================================
 // Component
 // =============================================================================
 export default function PersonSelector({
@@ -288,7 +270,7 @@ export default function PersonSelector({
   const valeurHorsListe =
     subdivisionCanadienne &&
     form.addressProvince !== '' &&
-    !PROVINCES.some((prov) => prov.value === form.addressProvince);
+    !PROVINCE_CODES.some((code) => code === form.addressProvince);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -722,9 +704,9 @@ export default function PersonSelector({
                   {valeurHorsListe && (
                     <option value={form.addressProvince}>{form.addressProvince}</option>
                   )}
-                  {PROVINCES.map((prov) => (
-                    <option key={prov.value} value={prov.value}>
-                      {prov.value}
+                  {PROVINCE_CODES.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
                     </option>
                   ))}
                 </select>

@@ -436,7 +436,17 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
               // inoffensif, en retrouvant ce que le premier passage a écrit.
               const { data: newPerson, error: newPersonErr } = await supabase
                 .from('company_people')
-                .insert({ company_id: companyId, full_name: sh.fullName.trim(), address_country: 'CA' })
+                // ⛔ NULL EXPLICITE, PAS 'CA'. Ce chemin ne demande que le NOM : poser
+        //    un pays ici, c'est declarer a la place de l'utilisateur.
+        // ⛔ ET is_canadian_resident S'ECRIT, IL NE S'OMET PAS. La regle du lot
+        //    residence : le code doit etre juste AVEC ou SANS defaut en base.
+        //    Celui-ci ne l'etait que parce que le defaut avait disparu.
+        .insert({
+          company_id: companyId,
+          full_name: sh.fullName.trim(),
+          address_country: null,
+          is_canadian_resident: null,
+        })
                 .select('id')
                 .single();
               if (newPersonErr || !newPerson) return false;
@@ -572,7 +582,14 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
           } else {
             const { data: newPerson, error: newPersonErr } = await supabase
               .from('company_people')
-              .insert({ company_id: companyId, full_name: name.trim(), address_country: 'CA' })
+              // ⛔ Meme regle qu'au site actionnaire ci-dessus : null explicite
+          //    pour le pays, et la residence ecrite plutot qu'omise.
+          .insert({
+            company_id: companyId,
+            full_name: name.trim(),
+            address_country: null,
+            is_canadian_resident: null,
+          })
               .select('id')
               .single();
             if (newPersonErr || !newPerson) return false;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X, Zap, Loader2, Plus } from 'lucide-react';
@@ -10,6 +10,9 @@ import PersonSelector, {
 import type { ShareClass, ShareholderEntityType, EntityDescriptor, ShareholderEntity, ShareholderEntitySignatoryRole } from '@/lib/supabase/people-types';
 import { getSignatoryRoleLabel } from '@/lib/i18n/lifecycle-labels';
 import { logActivity } from '@/lib/activity-log';
+import { countryOptions } from '@/lib/countries';
+import { PROVINCE_CODES } from '@/lib/provinces';
+import { nullSiVide, type ChargeEntite } from '@/lib/entity-payload';
 
 // =============================================================================
 // Types
@@ -61,8 +64,6 @@ interface IssueSharesModalProps {
 // Component
 // =============================================================================
 
-const PROVINCES = ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'];
-
 export default function IssueSharesModal({
   companyId,
   incorporationDate,
@@ -74,6 +75,24 @@ export default function IssueSharesModal({
 }: IssueSharesModalProps) {
   const t = useTranslations('shareholders');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
+  /**
+   * ⛔ UN SECOND ESPACE DE NOMS, PAS DIX CHAINES DE PLUS. Les etiquettes
+   * d'adresse generiques — suite, etat/region, pays, et les deux « non
+   * declare » — existent deja sous `people`, traduites dans les deux locales.
+   * Les recopier sous `shareholders` aurait ajoute DIX entrees de catalogue
+   * disant exactement la meme chose.
+   * ⚪ `address`, `city`, `province` et `postalCode` restent pris dans
+   * `shareholders` : celui de `people` dit « Adresse du domicile », ce qu'une
+   * societe n'a pas.
+   */
+  const tAdresse = useTranslations('people');
+  /**
+   * ★ MEME SOURCE QUE LA PERSONNE — Canada en tete, puis l'ordre alphabetique
+   * de la locale. lib/countries.ts:60-62 portait deja l'intention : « la
+   * personne ET l'entite actionnaire lisent cette fonction ». Le module a ete
+   * ecrit pour cet appelant et ne l'avait jamais recu.
+   */
+  const paysOptions = useMemo(() => countryOptions(locale), [locale]);
   const supabase = createClient();
 
   // ---- State ----------------------------------------------------------------
@@ -96,9 +115,46 @@ export default function IssueSharesModal({
   const [entityDescriptor, setEntityDescriptor] = useState<EntityDescriptor>('corporation');
   const [entityDate, setEntityDate] = useState(''); // date_incorporated (corp) | date_constituted (trust)
   const [entAddressLine1, setEntAddressLine1] = useState('');
+  // Suite / appartement — la personne en a un depuis 20260905141500 ; la table
+  // des entites vient de le recevoir.
+  const [entAddressLine2, setEntAddressLine2] = useState('');
   const [entAddressCity, setEntAddressCity] = useState('');
-  const [entAddressProvince, setEntAddressProvince] = useState('QC');
+  /**
+   * ⛔ VIDE, ET C'ETAIT 'QC'. Une province preselectionnee est une declaration
+   * que personne n'a faite — la meme faute que le pays fabrique, en plus
+   * discret : elle part en base au premier enregistrement sans qu'on l'ait
+   * touchee.
+   */
+  const [entAddressProvince, setEntAddressProvince] = useState('');
   const [entAddressPostal, setEntAddressPostal] = useState('');
+  /**
+   * ⛔ LE CHAMP QUI N'EXISTAIT PAS. Sans lui, la cle ne partait jamais et le
+   * COALESCE de create_entity_with_signatories posait 'CA' a chaque creation.
+   * Vide = non declare, jamais presélectionné.
+   */
+  const [entAddressCountry, setEntAddressCountry] = useState('');
+
+  /**
+   * ★ LE COMPORTEMENT DE PersonSelector EST REPRIS, PAS REINVENTE. Un
+   * formulaire d'adresse qui se comporte autrement selon qu'on decrit une
+   * personne ou une societe serait le meme defaut a deux endroits.
+   *
+   * Pays canadien OU non declare → la liste fermee des treize codes. Sinon un
+   * champ libre : aucune liste ne couvre les subdivisions du monde, et sans lui
+   * une adresse etrangere ne peut pas s'ecrire du tout.
+   */
+  const subdivisionCanadienne = entAddressCountry === 'CA' || entAddressCountry === '';
+  /**
+   * ⛔ RIEN N'EST EFFACE NI POSE : c'est un predicat de RENDU. Revenu au Canada
+   * avec « Occitanie » en etat, le <select> montrerait sa premiere option
+   * pendant que « Occitanie » resterait la valeur ecrite — le produit
+   * afficherait une chose et en sauverait une autre. L'option disparait d'elle
+   * meme des qu'un vrai code est choisi.
+   */
+  const valeurHorsListe =
+    subdivisionCanadienne &&
+    entAddressProvince !== '' &&
+    !PROVINCE_CODES.some((code) => code === entAddressProvince);
   // Existing-entity selection (parallel path — not a new entity, reuse entity_id).
   const [selectedExistingEntity, setSelectedExistingEntity] = useState<ShareholderEntity | null>(null);
   // Slice 2b-ii — signatory rows for the NEW-entity branch (0 allowed; additive).
@@ -207,20 +263,33 @@ export default function IssueSharesModal({
         }
 
         // Call 1 — atomic entity + its signatory roster (0..N).
+        /**
+         * ⛔ ANNOTATION EXPLICITE, JAMAIS UN CAST. `supabase.rpc` type sa
+         * charge en `any` : sans ce `: ChargeEntite`, une cle d'adresse
+         * oubliee repart en silence — c'est exactement ainsi que
+         * `address_country` s'est perdue et que le COALESCE fabriquait. Un
+         * `as` aurait fait taire la garde au lieu de la poser.
+         *
+         * ★ LES SIX CLES D'ADRESSE SONT ECRITES, meme quand la valeur est
+         * nulle. `nullSiVide` transforme la saisie vide en `null` explicite.
+         */
+        const p_entity: ChargeEntite = {
+          company_id: companyId,
+          entity_type: entityType,
+          legal_name: legalName.trim(),
+          entity_number: entityType === 'corporation' ? entityNumber.trim() : '',
+          entity_descriptor: entityType === 'corporation' ? entityDescriptor : '',
+          date_incorporated: entityType === 'corporation' ? entityDate : '',
+          date_constituted: entityType === 'trust' ? entityDate : '',
+          address_line1: nullSiVide(entAddressLine1),
+          address_line2: nullSiVide(entAddressLine2),
+          address_city: nullSiVide(entAddressCity),
+          address_province: nullSiVide(entAddressProvince),
+          address_postal_code: nullSiVide(entAddressPostal),
+          address_country: nullSiVide(entAddressCountry),
+        };
         const { data: entityId, error: entErr } = await supabase.rpc('create_entity_with_signatories', {
-          p_entity: {
-            company_id: companyId,
-            entity_type: entityType,
-            legal_name: legalName.trim(),
-            entity_number: entityType === 'corporation' ? entityNumber.trim() : '',
-            entity_descriptor: entityType === 'corporation' ? entityDescriptor : '',
-            date_incorporated: entityType === 'corporation' ? entityDate : '',
-            date_constituted: entityType === 'trust' ? entityDate : '',
-            address_line1: entAddressLine1.trim(),
-            address_city: entAddressCity.trim(),
-            address_province: entAddressProvince,
-            address_postal_code: entAddressPostal.trim(),
-          },
+          p_entity,
           p_signatories,
         });
         if (entErr) throw new Error(entErr.message);
@@ -304,9 +373,11 @@ export default function IssueSharesModal({
     entityDescriptor,
     entityDate,
     entAddressLine1,
+    entAddressLine2,
     entAddressCity,
     entAddressProvince,
     entAddressPostal,
+    entAddressCountry,
     shareClassId,
     quantity,
     pricePerShare,
@@ -489,6 +560,17 @@ export default function IssueSharesModal({
                   className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 />
               </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {tAdresse('addressLine2')}
+                </label>
+                <input
+                  type="text"
+                  value={entAddressLine2}
+                  onChange={(e) => setEntAddressLine2(e.target.value)}
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                />
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
@@ -502,18 +584,36 @@ export default function IssueSharesModal({
                   />
                 </div>
                 <div>
+                  {/* ★ L'ETIQUETTE COMMUTE, comme chez la personne : une
+                      subdivision etrangere n'est pas une « province ». */}
                   <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                    {t('province')}
+                    {subdivisionCanadienne ? t('province') : tAdresse('stateRegion')}
                   </label>
-                  <select
-                    value={entAddressProvince}
-                    onChange={(e) => setEntAddressProvince(e.target.value)}
-                    className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                  >
-                    {PROVINCES.map((p) => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
+                  {subdivisionCanadienne ? (
+                    <select
+                      value={entAddressProvince}
+                      onChange={(e) => setEntAddressProvince(e.target.value)}
+                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    >
+                      {/* En tete, et valeur de depart : aucune province n'est
+                          preselectionnee. */}
+                      <option value="">{tAdresse('provinceNotDeclared')}</option>
+                      {/* La valeur detenue, telle quelle. Voir valeurHorsListe. */}
+                      {valeurHorsListe && (
+                        <option value={entAddressProvince}>{entAddressProvince}</option>
+                      )}
+                      {PROVINCE_CODES.map((code) => (
+                        <option key={code} value={code}>{code}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={entAddressProvince}
+                      onChange={(e) => setEntAddressProvince(e.target.value)}
+                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
@@ -527,6 +627,27 @@ export default function IssueSharesModal({
                     className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </div>
+              </div>
+              <div>
+                {/* ⛔ LE CHAMP QUI N'EXISTAIT PAS. Sans lui, une societe ne
+                    pouvait declarer aucune adresse hors du Canada, et la cle
+                    ne partait jamais a la fonction — qui posait 'CA'.
+                    ★ Meme source que la personne : countryOptions(locale). */}
+                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {tAdresse('country')}
+                </label>
+                <select
+                  value={entAddressCountry}
+                  onChange={(e) => setEntAddressCountry(e.target.value)}
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  <option value="">{tAdresse('countryNotDeclared')}</option>
+                  {paysOptions.map((pays) => (
+                    <option key={pays.code} value={pays.code}>
+                      {pays.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Signatories (Slice 2b-ii) — 0 allowed; additive, force-pick per row */}
