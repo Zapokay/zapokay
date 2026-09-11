@@ -24,6 +24,7 @@ import { residencyApplies } from '@/lib/residency';
 import { adresseRegistre, type ChampAdresse } from '@/lib/address';
 import { getServerMessage, type ServerLocale } from '@/lib/i18n/server-messages';
 import type { ShareholdingEndReason } from '@/lib/supabase/people-types';
+import { libelleTitre } from '@/lib/officer-titles';
 
 /** La forme que les quatre routes rendent, et que BinderView consomme. */
 export interface RegisterPayload<E> {
@@ -171,17 +172,25 @@ export async function readDirectorRegister(
 /*  Dirigeants                                                         */
 /* ------------------------------------------------------------------ */
 
-const TITLE_FR_MAP: Record<string, string> = {
-  president: 'Président·e',
-  vice_president: 'Vice-président·e',
-  secretary: 'Secrétaire',
-  treasurer: 'Trésorier·ère',
-  director_general: 'Directeur·rice général·e',
-};
-
 export interface OfficerRegisterEntry {
   full_name: string;
-  title: string;
+  /**
+   * L'adresse, composée par `adresseRegistre` — la MÊME fonction qu'aux deux
+   * autres registres, sans variante. Chaîne vide quand rien n'est déclaré.
+   */
+  address: string;
+  /**
+   * LE TITRE, DANS LES DEUX LANGUES — comme les titres de registre et comme la
+   * fin d'une détention : le lecteur ne connaît pas la langue du document, et
+   * chaque surface choisit la sienne.
+   *
+   * ⛔ CE CHAMP ÉTAIT FRANÇAIS DES DEUX CÔTÉS. `TITLE_FR_MAP`, une table
+   * française posée ici, servait aussi au document ANGLAIS : mesuré au rendu,
+   * il imprimait « Président·e » et « Trésorier·ère ». Les libellés viennent
+   * désormais du catalogue, par `lib/officer-titles.ts`.
+   */
+  title_fr: string;
+  title_en: string;
   appointment_date: string;
   end_date: string | null;
   end_reason: string | null;
@@ -190,6 +199,21 @@ export interface OfficerRegisterEntry {
 
 interface PersonneAvecCharges {
   full_name: string;
+  /**
+   * ⚠️ LES SIX COLONNES, ET LE SELECT LES RAMENAIT DÉJÀ — même constat qu'au
+   * registre des administrateurs, et même conclusion : ce type en déclarait
+   * ZÉRO sur six et jetait ce que la base rendait. La requête ci-dessous
+   * demande `*` et ne change pas d'un caractère.
+   *
+   * ★ `address_country: string | null` DIT LA VÉRITÉ ICI, là où CompanyPerson
+   * le type `string` sur une colonne NULLABLE (dette portée, people-types:23).
+   */
+  address_line1: string | null;
+  address_line2: string | null;
+  address_city: string | null;
+  address_province: string | null;
+  address_postal_code: string | null;
+  address_country: string | null;
   officer_appointments?: {
     deleted_at: string | null;
     title: string;
@@ -225,9 +249,12 @@ export async function readOfficerRegister(
         .filter((m) => !m.deleted_at)
         .map((m) => ({
           full_name: p.full_name,
-          title: m.title === 'custom'
-            ? (m.custom_title || m.title)
-            : (TITLE_FR_MAP[m.title] || m.title),
+          address: adresseRegistre(p),
+          // Les deux langues, composées ici : `libelleTitre` rend le texte de
+          // l'utilisateur pour un titre personnalisé, et une clé du catalogue
+          // pour les quatre autres — il ne devine rien.
+          title_fr: libelleTitre(m, (cle) => getServerMessage(cle, 'fr')),
+          title_en: libelleTitre(m, (cle) => getServerMessage(cle, 'en')),
           appointment_date: m.appointment_date,
           end_date: m.end_date || null,
           end_reason: m.end_reason || null,

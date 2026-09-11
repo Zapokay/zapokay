@@ -183,7 +183,21 @@ export function colonnesAdministrateurs(
 }
 
 export const COLONNES_DIRIGEANTS: readonly ColonneRegistre[] = [
-  { key: 'full_name', cleEtiquette: 'name' },
+  /**
+   * ⚪ LE NOM ET L'ADRESSE, EN UNE SEULE COLONNE — la MÊME que les deux autres
+   * registres, `coupable` compris. La clé d'étiquette est PARTAGÉE avec eux :
+   * son texte ne change pas, et « NOM » ne reste plus qu'au capital déclaré.
+   *
+   * ⭑ LE COÛT EST ASSUMÉ : la colonne « Titre » se resserre, et « Vice-
+   * président·e » passe sur deux lignes — mesuré chez Acme, 2 rangées sur 5,
+   * y compris pour des dirigeants SANS adresse. Aucune page de plus.
+   */
+  {
+    key: 'full_name',
+    cleSecondaire: 'address',
+    cleEtiquette: 'nameAndAddress',
+    traitement: 'coupable',
+  },
   { key: 'title', cleEtiquette: 'title' },
   { key: 'appointment_date', cleEtiquette: 'start', traitement: 'insecable' },
   { key: 'end_date', cleEtiquette: 'end', cleEcran: 'end_date_display', traitement: 'insecable' },

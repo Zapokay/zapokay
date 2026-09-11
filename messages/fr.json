@@ -474,6 +474,13 @@
     "person": "Personne",
     "role": "Poste",
     "customTitle": "Titre personnalisé",
+    "titles": {
+      "president": "Président·e",
+      "vice_president": "Vice-président·e",
+      "secretary": "Secrétaire",
+      "treasurer": "Trésorier·ère",
+      "custom": "Titre personnalisé"
+    },
     "signingAuthority": "Signataire autorisé",
     "appointmentDate": "Date de nomination",
     "stillInOffice": "Toujours en poste?",

@@ -672,7 +672,11 @@ export async function GET(request: NextRequest) {
           title: docLanguage === 'en' ? regDirig.register_title_en : regDirig.register_title_fr,
           columns: resoudre(COLONNES_DIRIGEANTS, false, etiq),
           rows: regDirig.entries.map((e) => ({
-            full_name: e.full_name, title: e.title,
+            // ⚠️ CETTE ROUTE CONSTRUIT SES LIGNES CHAMP PAR CHAMP : sans
+            //    `address`, la seconde ligne ne sortirait jamais au PDF, comme
+            //    au registre des actionnaires (7bb1d9e).
+            full_name: e.full_name, address: e.address,
+            title: docLanguage === 'en' ? e.title_en : e.title_fr,
             appointment_date: e.appointment_date, end_date: fmtDate(e.end_date),
             status: e.is_active ? L.activeYes : L.activeNo,
           })),

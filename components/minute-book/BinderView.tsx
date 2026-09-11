@@ -207,7 +207,11 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                 emptyMessage={t('emptyRegister')}
                 columns={resoudre(COLONNES_DIRIGEANTS, true, etiq)}
                 rows={(officers.entries || []).map((e: any) => ({
+                  // `address` arrive par l'etalement, comme chez les
+                  // administrateurs ; seul le TITRE se choisit, parce que le
+                  // lecteur en rend deux versions.
                   ...e,
+                  title: locale === 'en' ? e.title_en : e.title_fr,
                   end_date_display: e.end_date || '—',
                   status: e.is_active ? (
                     <span className="text-green-600">✓</span>

@@ -240,6 +240,11 @@ const SOUS_ARBRES = [
   // Les motifs de fin d'une détention : le registre des actionnaires les
   // imprime en seconde ligne de la colonne « Émission ».
   'shareholders.endReasons',
+  // Les titres de dirigeant : le registre les imprime en pleine colonne, et
+  // trois d'entre eux portent un POINT MÉDIAN (U+00B7). Jusqu'ici ils vivaient
+  // dans un littéral de lib/minute-book/registers.ts, qui n'est pas une source
+  // balayée : le glyphe partait au conteneur sans garde.
+  'officers.titles',
 ];
 
 function descendre(noeud: unknown, chemin: string): unknown {

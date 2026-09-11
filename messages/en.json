@@ -474,6 +474,13 @@
     "person": "Person",
     "role": "Position",
     "customTitle": "Custom title",
+    "titles": {
+      "president": "President",
+      "vice_president": "Vice President",
+      "secretary": "Secretary",
+      "treasurer": "Treasurer",
+      "custom": "Custom title"
+    },
     "signingAuthority": "Authorized signatory",
     "appointmentDate": "Appointment date",
     "stillInOffice": "Still in office?",
