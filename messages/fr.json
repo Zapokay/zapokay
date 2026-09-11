@@ -750,6 +750,7 @@
       "emptyRegister": "Aucune donnée enregistrée",
       "columns": {
         "name": "Nom",
+        "nameAndAddress": "Nom et adresse",
         "residence": "Résidence canadienne",
         "start": "Début",
         "end": "Fin",

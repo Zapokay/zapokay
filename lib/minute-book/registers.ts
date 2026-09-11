@@ -21,6 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { residencyApplies } from '@/lib/residency';
+import { adresseRegistre } from '@/lib/address';
 
 /** La forme que les quatre routes rendent, et que BinderView consomme. */
 export interface RegisterPayload<E> {
@@ -63,8 +64,23 @@ export interface DirectorRegisterEntry {
 
 interface PersonneAvecMandats {
   full_name: string;
+  /**
+   * ⚠️ LES SIX COLONNES, ET LE SELECT LES RAMENAIT DEJA. La requete ci-dessous
+   * demande `*` : les quatre colonnes absentes de ce type revenaient de la base
+   * et etaient jetees par le typage. Verifie le 2026-09-10 — `*` rend les
+   * quinze colonnes de company_people, dont les six d'adresse. Elargir ce type
+   * sans toucher la requete ne ment donc pas ; l'inverse aurait menti.
+   *
+   * ★ `address_country: string | null` DIT LA VERITE ICI, la ou CompanyPerson
+   * le type `string` sur une colonne NULLABLE (dette portee, people-types:23).
+   * Ce type-ci est local et n'herite pas de la discordance.
+   */
   address_line1: string | null;
+  address_line2: string | null;
   address_city: string | null;
+  address_province: string | null;
+  address_postal_code: string | null;
+  address_country: string | null;
   is_canadian_resident: boolean | null;
   director_mandates?: {
     deleted_at: string | null;
@@ -112,7 +128,12 @@ export async function readDirectorRegister(
         .filter((m) => !m.deleted_at)
         .map((m) => ({
           full_name: p.full_name,
-          address: p.address_line1 ? `${p.address_line1}, ${p.address_city || ''}`.trim().replace(/,$/, '') : '',
+          // ⛔ COMPOSEE AILLEURS. Cette ligne composait DEUX colonnes sur six
+          //    — line1 et ville — et sa garde jetait la ville quand line1
+          //    manquait. Elle etait morte depuis 702fa65 (2026-04-08) : cinq
+          //    mois, aucun lecteur ni a l'ecran ni au PDF. Elle en a un
+          //    maintenant, et elle rend les six champs.
+          address: adresseRegistre(p),
           is_canadian_resident: p.is_canadian_resident,
           appointment_date: m.appointment_date,
           end_date: m.end_date || null,

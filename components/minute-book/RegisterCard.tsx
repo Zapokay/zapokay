@@ -1,10 +1,22 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { styleCelluleReact, type TraitementCellule } from '@/lib/minute-book/register-columns'
 
 interface RegisterCardProps {
   title: string
-  columns: { key: string; label: string }[]
+  /**
+   * ⚠️ `traitement` PORTE LA COUPURE, et il vient de la declaration unique des
+   * colonnes — jamais d'une decision prise ici. Facultatif : absent = defaut du
+   * navigateur.
+   */
+  columns: {
+    key: string
+    label: string
+    /** La seconde ligne de la cellule, si la declaration en prevoit une. */
+    cleSecondaire?: string
+    traitement?: TraitementCellule
+  }[]
   rows: Record<string, any>[]
   emptyMessage?: string
   citation?: string
@@ -46,9 +58,27 @@ export default function RegisterCard({
             <tbody>
               {rows.map((row, i) => (
                 <tr key={i} className="border-b border-[var(--card-border)] last:border-0">
+                  {/* ⛔ LE STYLE VA SUR LA CELLULE, PAS SUR L'EN-TETE — meme
+                      regle qu'au PDF, et pour la meme raison mesuree le
+                      2026-09-10 : pose sur l'en-tete, il coupait ACTIF et
+                      CERT. en deux. */}
                   {columns.map((col) => (
-                    <td key={col.key} className="px-5 py-2.5 text-[var(--text-body)]">
+                    <td
+                      key={col.key}
+                      className="px-5 py-2.5 text-[var(--text-body)]"
+                      style={styleCelluleReact(col.traitement)}
+                    >
                       {row[col.key]}
+                      {/* ⛔ SECONDAIRE VIDE = RIEN DU TOUT. Pas de <br />, pas
+                          d'espace reserve : la rangee garde sa hauteur d'avant.
+                          ⛔ AUCUNE REDUCTION DE TAILLE, AUCUN GRIS — l'adresse
+                          est un contenu exige par la loi, pas une note. */}
+                      {col.cleSecondaire && row[col.cleSecondaire] ? (
+                        <>
+                          <br />
+                          {row[col.cleSecondaire]}
+                        </>
+                      ) : null}
                     </td>
                   ))}
                 </tr>

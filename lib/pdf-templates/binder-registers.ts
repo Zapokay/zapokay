@@ -1,4 +1,5 @@
 import { baseLayoutHTML, escapeHtml } from './base-layout';
+import { styleCellule, type TraitementCellule } from '@/lib/minute-book/register-columns';
 
 /**
  * Les quatre registres du Livre, en UN document — décision de Dom, au
@@ -22,7 +23,18 @@ export interface BinderRegistersData {
   effectiveDate: { label: string; value: string };
   registers: {
     title: string;
-    columns: { key: string; label: string }[];
+    /**
+     * ⚠️ `traitement` PORTE LA COUPURE, ET IL EST FACULTATIF. Absent = defaut
+     * du navigateur. Il vient de la declaration unique des colonnes, jamais
+     * d'une decision prise ici.
+     */
+    columns: {
+      key: string;
+      label: string;
+      /** La seconde ligne de la cellule, si la declaration en prevoit une. */
+      cleSecondaire?: string;
+      traitement?: TraitementCellule;
+    }[];
     /** Valeurs DÉJÀ formatées en chaînes — dates, devises, oui/non. */
     rows: Record<string, string>[];
     emptyMessage: string;
@@ -34,6 +46,14 @@ export interface BinderRegistersData {
 }
 
 export function binderRegistersHTML(data: BinderRegistersData): string {
+  // ⛔ AUCUN STYLE SUR L'EN-TETE — voir les <th> ci-dessous. Un overflow-wrap
+  //    pose la coupait ACTIVE en ACTIV/E et CERT. en CERT/., filme le
+  //    2026-09-10. Sans lui, ces deux mots redeviennent insecables d'eux-memes
+  //    et RESIDENCE CANADIENNE se renvoie sur son espace, comme avant.
+  // ⚠️ CE COMMENTAIRE VIT HORS DU LITTERAL GABARIT, ET C'EST OBLIGATOIRE.
+  //    Place a l'interieur, scan-glyphes le lit comme du TEXTE DE CHAINE — pas
+  //    comme un commentaire — et le refuse : ce fichier est l'une de ses douze
+  //    sources. Mesure : il a signale U+26D4 a la ligne 52.
   const corps = data.registers
     .map((r) => {
       const contenu =
@@ -48,7 +68,23 @@ export function binderRegistersHTML(data: BinderRegistersData): string {
       <tbody>${r.rows
         .map(
           (row) =>
-            `<tr>${r.columns.map((c) => `<td>${escapeHtml(row[c.key] ?? '')}</td>`).join('')}</tr>`
+            `<tr>${r.columns
+              .map((c) => {
+                const s = styleCellule(c.traitement);
+                // ⛔ LES DEUX VALEURS PASSENT PAR escapeHtml, exactement comme
+                //    avant. Seul le <br> est du balisage, et il vient de NOUS,
+                //    jamais de la donnee.
+                const principal = escapeHtml(row[c.key] ?? '');
+                const brut = c.cleSecondaire ? row[c.cleSecondaire] ?? '' : '';
+                // ⛔ SECONDAIRE VIDE = RIEN DU TOUT. Pas de <br>, pas d'espace
+                //    reserve : une fiche sans adresse rend ce qu'elle rendait
+                //    avant ce lot, a l'octet.
+                // ⛔ AUCUNE REDUCTION DE TAILLE, AUCUN GRIS. L'adresse est un
+                //    contenu exige par la loi, pas une note de bas de page.
+                const secondaire = brut ? `<br>${escapeHtml(brut)}` : '';
+                return `<td${s ? ` style="${s}"` : ''}>${principal}${secondaire}</td>`;
+              })
+              .join('')}</tr>`
         )
         .join('')}</tbody>
     </table>`;

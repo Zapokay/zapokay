@@ -263,6 +263,21 @@ ${data.effectiveDate ? `  /* Date d'arrêté — sous le sous-titre, au-dessus d
     padding: 0.6em 0.8em;
     text-align: left;
   }
+  /* ⛔ AUCUN TRAITEMENT DE COUPURE ICI, ET C'EST UNE CORRECTION.
+     Une premiere version posait overflow-wrap: anywhere sur th ET td. Trop
+     large : filme le 2026-09-10, il coupait l'en-tete ACTIVE en ACTIV/E,
+     CERT. en CERT/., les dates en 2025-06-/30, et surtout une QUANTITE
+     D'ACTIONS en 50000/0. Un nombre d'actions scinde dans un registre est un
+     document FAUX — la garde faisait plus de mal que le debordement qu'elle
+     prevenait.
+     Le traitement est desormais PAR COLONNE, declare dans
+     lib/minute-book/register-columns.ts, la ou les colonnes vivent deja. Seule
+     l'adresse peut porter un jeton continu plus large que sa colonne ; seules
+     les dates et les nombres doivent rester insecables.
+     ⛔ ET TOUJOURS RIEN D'AUTRE : pas de table-layout fixe, pas de largeur
+     declaree, pas d'ellipse, pas de changement de taille de police.
+     ⚠️ AUCUN ACCENT GRAVE DANS CE COMMENTAIRE — ce CSS vit dans un litteral
+     gabarit, et un accent grave le terminerait. */
   table.register td {
     padding: 0.5em 0.8em;
     border-bottom: 1px solid ${COLORS.separator};

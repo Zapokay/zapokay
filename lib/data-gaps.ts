@@ -109,7 +109,7 @@ export const REQUIS_PAR_LE_COMPOSANT: readonly ChampPersonne[] = ['full_name'];
  * comparaison naïve `!== null` laisserait passer, alors qu'une ville faite de
  * deux espaces n'est pas une ville.
  */
-function estVide(valeur: unknown): boolean {
+export function estVide(valeur: unknown): boolean {
   if (valeur === null || valeur === undefined) return true;
   if (typeof valeur === 'string') return valeur.trim() === '';
   return false;

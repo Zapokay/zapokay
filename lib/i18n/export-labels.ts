@@ -141,11 +141,23 @@ export function getRegistersAsAtLabel(locale: ServerLocale): string {
 }
 
 /**
+ * Le resolveur d'etiquette de colonne, pour lib/minute-book/register-columns.
+ *
+ * ⛔ LA DECLARATION NE CONNAIT AUCUN CATALOGUE : elle rend des SUFFIXES, et
+ * chaque surface les resout avec son propre mecanisme — `useTranslations` a
+ * l'ecran, `getServerMessage` ici. Une seule liste de colonnes, deux
+ * resolutions, aucun libelle en double.
+ */
+export function getColumnLabeller(locale: ServerLocale): (suffixe: string) => string {
+  return (k) => getServerMessage(`minuteBook.registers.columns.${k}`, locale);
+}
+
+/**
  * Les libellés des registres, tous tirés de `minuteBook.registers.*` — les MÊMES
  * que l'écran emploie. ⛔ Aucune table neuve : ce lot en a supprimé sept.
  */
 export function getRegisterLabels(locale: ServerLocale) {
-  const col = (k: string) => getServerMessage(`minuteBook.registers.columns.${k}`, locale);
+  const col = getColumnLabeller(locale);
   return {
     name: col('name'), residence: col('residence'), start: col('start'), end: col('end'),
     active: col('active'), title: col('title'), shareClass: col('shareClass'),

@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import BinderSection from './BinderSection'
 import RegisterCard from './RegisterCard'
+import {
+  colonnesAdministrateurs, COLONNES_DIRIGEANTS, COLONNES_ACTIONNAIRES,
+  COLONNES_CAPITAL, resoudre, type CleEtiquette,
+} from '@/lib/minute-book/register-columns'
 import type { MinuteBookSection } from '@/lib/minute-book-section'
 import { readSettledRegister, partitionRegisterLoads } from '@/lib/minute-book/register-loads'
 import type { DirectorRegisterPayload } from '@/lib/minute-book/registers'
@@ -40,6 +44,34 @@ interface BinderViewProps {
 
 export default function BinderView({ onTotalDocuments }: BinderViewProps) {
   const t = useTranslations('minuteBook.registers')
+  // ⛔ LES COLONNES NE SE DECLARENT PLUS ICI. Meme source que le PDF —
+  // lib/minute-book/register-columns. Elles etaient ecrites DEUX FOIS, et rien
+  // n'obligeait les deux listes a coincider.
+  // ★ Les appels passent `true` : cette surface etale l'entree brute (`...e`),
+  //   donc la date affichable porte une seconde cle. La declaration la connait.
+  //
+  // ★ UN Record SUR L'UNION, PAS UNE CHAINE LIBRE. next-intl type ses cles
+  //   LITTERALEMENT : chacun des douze `t('columns.x')` ci-dessous est verifie
+  //   contre le catalogue par tsc. Et parce que la table est un
+  //   `Record<CleEtiquette, string>`, tsc refuse aussi celle qui OUBLIE un
+  //   suffixe declare.
+  // ⛔ Un cast sur un gabarit `columns.${k}` aurait compile et rendu une cle
+  //   manquante A L'EXECUTION — la faute muette se serait deplacee, pas retiree.
+  const ETIQUETTES: Record<CleEtiquette, string> = {
+    name: t('columns.name'),
+    nameAndAddress: t('columns.nameAndAddress'),
+    residence: t('columns.residence'),
+    start: t('columns.start'),
+    end: t('columns.end'),
+    active: t('columns.active'),
+    title: t('columns.title'),
+    shareClass: t('columns.shareClass'),
+    quantity: t('columns.quantity'),
+    certificate: t('columns.certificate'),
+    issueDate: t('columns.issueDate'),
+    statedCapital: t('columns.statedCapital'),
+  }
+  const etiq = (k: CleEtiquette) => ETIQUETTES[k]
   // Section headings — localized via key-map off section.key. La route
   // n'expédie plus de title_fr : le catalogue i18n est la seule source.
   // Document/requirement NAMES inside sections stay FR legal (untouched).
@@ -134,15 +166,11 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                 // Meme booleen que le PDF, venu du meme registre : les deux
                 // surfaces montrent le meme etat parce qu'elles ne decident
                 // rien chacune de son cote.
-                columns={[
-                  { key: 'full_name', label: t('columns.name') },
-                  ...(directors.shows_residency
-                    ? [{ key: 'resident', label: t('columns.residence') }]
-                    : []),
-                  { key: 'appointment_date', label: t('columns.start') },
-                  { key: 'end_date_display', label: t('columns.end') },
-                  { key: 'status', label: t('columns.active') },
-                ]}
+                columns={resoudre(colonnesAdministrateurs(directors.shows_residency), true, etiq)}
+                // ⚪ `address` ARRIVE PAR L'ETALEMENT `...e` ci-dessous, comme
+                //    `full_name` : le registre la compose (lib/address.ts) et
+                //    l'entree la porte. Une fiche sans adresse rend la chaine
+                //    vide, donc une cellule vide — jamais un tiret.
                 rows={(directors.entries || []).map((e: any) => ({
                   ...e,
                   // ⚠️ TROIS ETATS, ET LE `null` N'EST PAS UN `false`. Une ternaire
@@ -167,13 +195,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                   key="officers"
                 title={locale === 'en' ? officers.register_title_en : officers.register_title_fr}
                 emptyMessage={t('emptyRegister')}
-                columns={[
-                  { key: 'full_name', label: t('columns.name') },
-                  { key: 'title', label: t('columns.title') },
-                  { key: 'appointment_date', label: t('columns.start') },
-                  { key: 'end_date_display', label: t('columns.end') },
-                  { key: 'status', label: t('columns.active') },
-                ]}
+                columns={resoudre(COLONNES_DIRIGEANTS, true, etiq)}
                 rows={(officers.entries || []).map((e: any) => ({
                   ...e,
                   end_date_display: e.end_date || '—',
@@ -190,13 +212,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                   key="shareholders"
                 title={locale === 'en' ? shareholders.register_title_en : shareholders.register_title_fr}
                 emptyMessage={t('emptyRegister')}
-                columns={[
-                  { key: 'full_name', label: t('columns.name') },
-                  { key: 'share_class', label: t('columns.shareClass') },
-                  { key: 'quantity', label: t('columns.quantity') },
-                  { key: 'certificate_number', label: t('columns.certificate') },
-                  { key: 'issue_date', label: t('columns.issueDate') },
-                ]}
+                columns={resoudre(COLONNES_ACTIONNAIRES, true, etiq)}
                 rows={(shareholders.entries || []).map((e: any) => ({
                   ...e,
                   certificate_number: e.certificate_number || '—',
@@ -208,10 +224,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                   key="statedCapital"
                 title={locale === 'en' ? statedCapital.register_title_en : statedCapital.register_title_fr}
                 emptyMessage={t('emptyRegister')}
-                columns={[
-                  { key: 'class_name', label: t('columns.shareClass') },
-                  { key: 'stated_capital', label: t('columns.statedCapital') },
-                ]}
+                columns={resoudre(COLONNES_CAPITAL, true, etiq)}
                 rows={(statedCapital.entries || []).map((e: any) => ({
                   ...e,
                   stated_capital: new Intl.NumberFormat(

@@ -19,8 +19,12 @@ import {
   getCoverTitle, getCoverSubtitle, getCoverFileName, getCoverDate,
   getIndexTitle, getIndexFileName, getIndexColumns,
   getRegistersFileName, getRegisterLabels, getRegistersAsAtLabel, getArchiveBaseName,
-  getCoverIncompleteNotice,
+  getCoverIncompleteNotice, getColumnLabeller,
 } from '@/lib/i18n/export-labels';
+import {
+  colonnesAdministrateurs, COLONNES_DIRIGEANTS, COLONNES_ACTIONNAIRES,
+  COLONNES_CAPITAL, resoudre,
+} from '@/lib/minute-book/register-columns';
 import { MINUTE_BOOK_SECTIONS } from '@/lib/minute-book-section';
 import { getSectionLabel } from '@/lib/i18n/section-labels';
 
@@ -607,6 +611,12 @@ export async function GET(request: NextRequest) {
     // l'index diraient un de plus que l'écran, et le miroir se casserait sur le
     // chiffre même qui le résume.
     const L = getRegisterLabels(docLanguage);
+    // ⛔ LES COLONNES NE SE DECLARENT PLUS ICI. Meme source que BinderView —
+    // lib/minute-book/register-columns. Elles etaient ecrites DEUX FOIS, et
+    // rien n'obligeait les deux listes a coincider : binder-registers.ts:51
+    // rend row[c.key] ?? '', donc une cle presente d'un seul cote rendait une
+    // CELLULE VIDE, sans erreur et sans diagnostic.
+    const etiq = getColumnLabeller(docLanguage);
     const fmtDate = (d: string | null) => d ?? '—';
     const { generateBinderRegistersPDF } = await import('@/lib/pdf/generatePDF');
     const registresBuffer = await generateBinderRegistersPDF({
@@ -625,16 +635,13 @@ export async function GET(request: NextRequest) {
           // La colonne de residence suit la DECISION du registre, jamais un
           // regime recalcule ici : l'ecran et le PDF lisent le meme booleen,
           // donc ils ne peuvent pas diverger.
-          columns: [
-            { key: 'full_name', label: L.name },
-            ...(regAdmin.shows_residency
-              ? [{ key: 'resident', label: L.residence }]
-              : []),
-            { key: 'appointment_date', label: L.start }, { key: 'end_date', label: L.end },
-            { key: 'status', label: L.active },
-          ],
+          columns: resoudre(colonnesAdministrateurs(regAdmin.shows_residency), false, etiq),
           rows: regAdmin.entries.map((e) => ({
             full_name: e.full_name,
+            // ⚪ CELLULE VIDE QUAND RIEN N'EST DECLARE, jamais un tiret. Le
+            //    tiret de `end_date` dit « pas de fin » — un fait. Une adresse
+            //    absente n'affirme rien, et un registre n'invente pas.
+            address: e.address,
             resident:
               e.is_canadian_resident === true ? L.yes
               : e.is_canadian_resident === false ? L.no
@@ -647,11 +654,7 @@ export async function GET(request: NextRequest) {
         },
         {
           title: docLanguage === 'en' ? regDirig.register_title_en : regDirig.register_title_fr,
-          columns: [
-            { key: 'full_name', label: L.name }, { key: 'title', label: L.title },
-            { key: 'appointment_date', label: L.start }, { key: 'end_date', label: L.end },
-            { key: 'status', label: L.active },
-          ],
+          columns: resoudre(COLONNES_DIRIGEANTS, false, etiq),
           rows: regDirig.entries.map((e) => ({
             full_name: e.full_name, title: e.title,
             appointment_date: e.appointment_date, end_date: fmtDate(e.end_date),
@@ -661,11 +664,7 @@ export async function GET(request: NextRequest) {
         },
         {
           title: docLanguage === 'en' ? regAct.register_title_en : regAct.register_title_fr,
-          columns: [
-            { key: 'full_name', label: L.name }, { key: 'share_class', label: L.shareClass },
-            { key: 'quantity', label: L.quantity }, { key: 'certificate_number', label: L.certificate },
-            { key: 'issue_date', label: L.issueDate },
-          ],
+          columns: resoudre(COLONNES_ACTIONNAIRES, false, etiq),
           rows: regAct.entries.map((e) => ({
             full_name: e.full_name, share_class: e.share_class,
             quantity: String(e.quantity), certificate_number: e.certificate_number ?? '—',
@@ -675,10 +674,7 @@ export async function GET(request: NextRequest) {
         },
         {
           title: docLanguage === 'en' ? regCapital.register_title_en : regCapital.register_title_fr,
-          columns: [
-            { key: 'class_name', label: L.shareClass },
-            { key: 'stated_capital', label: L.statedCapital },
-          ],
+          columns: resoudre(COLONNES_CAPITAL, false, etiq),
           rows: regCapital.entries.map((e) => ({
             class_name: e.class_name,
             // normalizePdfSpaces : U+202F (ICU récentes, fr) est ABSENT d'Open

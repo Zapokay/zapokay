@@ -11,6 +11,7 @@ import type {
   Shareholding,
   ShareClass,
 } from '@/lib/supabase/people-types';
+import { adresseCourte } from '@/lib/address';
 import { formatDate } from '@/lib/utils';
 
 // =============================================================================
@@ -115,10 +116,12 @@ export default function DirectorCard({
     );
   }
 
-  // Location string
-  const location = [person.address_city, person.address_province]
-    .filter(Boolean)
-    .join(', ');
+  // ★ COMPOSÉE AILLEURS, ET C'EST LE POINT. Cette carte écrivait sa propre
+  //   composition ; le registre en écrivait une autre, différente. Une seule
+  //   vit maintenant dans lib/address.ts, et les deux surfaces en dérivent.
+  //   L'innocuité a été prouvée sur les fiches réelles — le compte et
+  //   l'empreinte sont dans le message de commit, pas ici : ils vieilliraient.
+  const location = adresseCourte(person);
 
   return (
     <div className="group rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5 transition-shadow hover:shadow-md">
