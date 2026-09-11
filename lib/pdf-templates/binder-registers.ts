@@ -1,5 +1,5 @@
 import { baseLayoutHTML, escapeHtml } from './base-layout';
-import { styleCellule, type TraitementCellule } from '@/lib/minute-book/register-columns';
+import { styleCellule, STYLES_RANG, type RangBloc, type TraitementCellule } from '@/lib/minute-book/register-columns';
 
 /**
  * Les quatre registres du Livre, en UN document — décision de Dom, au
@@ -23,6 +23,12 @@ export interface BinderRegistersData {
   effectiveDate: { label: string; value: string };
   registers: {
     title: string;
+    /**
+     * Le RANG du bloc — registre, ou sous-section d'un registre. Absent =
+     * registre. Il vient de la declaration unique (register-columns.ts), et
+     * le titre en suit la table STYLES_RANG : ce gabarit ne decide rien.
+     */
+    rang?: RangBloc;
     /**
      * ⚠️ `traitement` PORTE LA COUPURE, ET IL EST FACULTATIF. Absent = defaut
      * du navigateur. Il vient de la declaration unique des colonnes, jamais
@@ -92,8 +98,11 @@ export function binderRegistersHTML(data: BinderRegistersData): string {
         r.footnote ? `<p style="font-size:11px;color:#B45309;margin-top:0.4em;">${escapeHtml(r.footnote)}</p>` : '',
         r.citation ? `<p style="font-size:11px;color:#6B6560;font-style:italic;margin-top:0.4em;">${escapeHtml(r.citation)}</p>` : '',
       ].join('');
+      // Le titre suit le RANG du bloc, declare une fois (STYLES_RANG). Absent =
+      // registre : la balise et le style d'avant, a l'octet.
+      const titre = STYLES_RANG[r.rang ?? 'registre'].pdf;
       return `
-    <h2 style="font-family:'Sora',sans-serif;font-weight:600;font-size:15px;color:#070E1C;margin:1.5em 0 0.5em;break-after:avoid;page-break-after:avoid;">${escapeHtml(r.title)}</h2>${contenu}${notes}`;
+    <${titre.balise} style="${titre.style}">${escapeHtml(r.title)}</${titre.balise}>${contenu}${notes}`;
     })
     .join('');
 

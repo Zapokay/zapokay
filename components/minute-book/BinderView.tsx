@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import BinderSection from './BinderSection'
 import RegisterCard from './RegisterCard'
 import {
   colonnesAdministrateurs, COLONNES_DIRIGEANTS, COLONNES_ACTIONNAIRES,
-  COLONNES_CAPITAL, resoudre, type CleEtiquette,
+  COLONNES_CAPITAL, resoudre, RANG_ANCIENNES_DETENTIONS, type CleEtiquette,
 } from '@/lib/minute-book/register-columns'
 import type { MinuteBookSection } from '@/lib/minute-book-section'
 import { readSettledRegister, partitionRegisterLoads } from '@/lib/minute-book/register-loads'
@@ -151,6 +151,16 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
     )
   }
 
+  // Les lignes du registre des actionnaires — UNE construction, pour le
+  // registre et pour sa section. La fin, dans la langue de l'ECRAN, meme choix
+  // que les titres. Vide = detention en cours, aucune seconde ligne.
+  const lignesActionnaires = (entries: any[]) =>
+    entries.map((e: any) => ({
+      ...e,
+      certificate_number: e.certificate_number || '—',
+      fin: locale === 'en' ? e.fin_en : e.fin_fr,
+    }))
+
   // ⚠️ LE TABLEAU QU'ON REND EST CELUI QU'ON COMPTE. Le compteur de la section
   // affichait « 3 registres » — une chaîne FIGÉE dans le catalogue, qui ne
   // comptait rien et se trompait : quatre cartes sont rendues. Le remplacer par
@@ -207,17 +217,32 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                 }))}
               />
     ),
+    // ⚠️ UN FRAGMENT, ET CE N'EST PAS COSMETIQUE : la section « Anciennes
+    //    detentions » appartient au registre des actionnaires. Posee comme une
+    //    carte de plus dans cette liste, elle aurait fait dire « 5 registres »
+    //    au compteur, qui compte cette liste.
     shareholders && (
+              <Fragment key="shareholders">
               <RegisterCard
-                  key="shareholders"
                 title={locale === 'en' ? shareholders.register_title_en : shareholders.register_title_fr}
                 emptyMessage={t('emptyRegister')}
                 columns={resoudre(COLONNES_ACTIONNAIRES, true, etiq)}
-                rows={(shareholders.entries || []).map((e: any) => ({
-                  ...e,
-                  certificate_number: e.certificate_number || '—',
-                }))}
+                rows={lignesActionnaires(shareholders.entries || [])}
               />
+              {/* ★ ABSENTE quand le lecteur rend `former_holdings: null` — la
+                  decision est prise la-bas, une fois, pour l'ecran et le PDF. */}
+              {shareholders.former_holdings && (
+                <RegisterCard
+                  // Une SOUS-SECTION du registre ci-dessus : son rang vient de la
+                  // declaration unique, lue aussi par le PDF.
+                  rang={RANG_ANCIENNES_DETENTIONS}
+                  title={locale === 'en' ? shareholders.former_holdings.register_title_en : shareholders.former_holdings.register_title_fr}
+                  emptyMessage={t('emptyRegister')}
+                  columns={resoudre(COLONNES_ACTIONNAIRES, true, etiq)}
+                  rows={lignesActionnaires(shareholders.former_holdings.entries)}
+                />
+              )}
+              </Fragment>
     ),
     statedCapital && (
               <RegisterCard

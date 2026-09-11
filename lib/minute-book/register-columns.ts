@@ -220,7 +220,16 @@ export const COLONNES_ACTIONNAIRES: readonly ColonneRegistre[] = [
   { key: 'share_class', cleEtiquette: 'shareClass' },
   { key: 'quantity', cleEtiquette: 'quantity', traitement: 'insecable' },
   { key: 'certificate_number', cleEtiquette: 'certificate', traitement: 'insecable' },
-  { key: 'issue_date', cleEtiquette: 'issueDate', traitement: 'insecable' },
+  /**
+   * ★ LA FIN, SOUS L'ÉMISSION — « Motif · date », jamais un état stocké. Une
+   * seconde ligne absente dit une détention en cours. Pas de colonne de statut :
+   * celle des administrateurs lit un `is_active` STOCKÉ, et un état stocké peut
+   * contredire sa date ; celle-ci est dérivée de `end_date` et ne le peut pas.
+   *
+   * ⚠️ `insecable` TIENT SUR LES DEUX LIGNES : le traitement va sur la CELLULE,
+   * donc la date de fin ne se coupe pas plus que la date d'émission.
+   */
+  { key: 'issue_date', cleSecondaire: 'fin', cleEtiquette: 'issueDate', traitement: 'insecable' },
 ];
 
 export const COLONNES_CAPITAL: readonly ColonneRegistre[] = [
@@ -300,3 +309,61 @@ export function styleCelluleReact(
 ): { overflowWrap?: 'anywhere'; whiteSpace?: 'nowrap' } | undefined {
   return t ? STYLES_CELLULE[t].react : undefined;
 }
+
+/**
+ * LE RANG D'UN BLOC — un registre, ou une sous-section d'un registre.
+ *
+ * ⛔ LES TITRES DÉCLARENT LA STRUCTURE DU DOCUMENT. « Anciennes détentions »
+ * posée au rang d'un registre donnait cinq titres de même rang, sous un index
+ * qui annonce quatre registres et un écran qui en compte quatre : le PDF
+ * contredisait son propre index. C'est une PARTIE du registre des
+ * actionnaires, pas un cinquième registre.
+ *
+ * ★ MÊME PATRON QUE LE TRAITEMENT DE CELLULE. Le bloc déclare son RANG ; la
+ * table ci-dessous en dérive les deux formes — balise et style pour le PDF,
+ * balise et classes pour l'écran — et aucun rendu ne décide seul de quoi une
+ * sous-section a l'air. Absent = `registre`, qui rend EXACTEMENT ce qu'il
+ * rendait : les quatre registres doivent sortir identiques à l'octet.
+ */
+export type RangBloc = 'registre' | 'sousSection';
+
+/** « Anciennes détentions » est SUBORDONNÉE au registre des actionnaires. */
+export const RANG_ANCIENNES_DETENTIONS: RangBloc = 'sousSection';
+
+export const STYLES_RANG: Record<
+  RangBloc,
+  {
+    pdf: { balise: 'h2' | 'h3'; style: string };
+    ecran: { carte: string; balise: 'h4' | 'h5'; titre: string };
+  }
+> = {
+  registre: {
+    pdf: {
+      balise: 'h2',
+      style: "font-family:'Sora',sans-serif;font-weight:600;font-size:15px;color:#070E1C;margin:1.5em 0 0.5em;break-after:avoid;page-break-after:avoid;",
+    },
+    ecran: {
+      carte: 'rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] overflow-hidden',
+      balise: 'h4',
+      titre: 'font-semibold text-[var(--text-body)] text-sm',
+    },
+  },
+  /**
+   * ★ TRANCHÉ À L'ŒIL PAR DOM, LE 2026-09-11 : « ON GARDE ».
+   * Un titre de rang inférieur — plus petit au PDF, discret à l'écran — et
+   * RATTACHÉ à ce qui précède : peu d'espace au-dessus, là où un registre en
+   * laisse beaucoup avant le suivant. À l'écran, la carte est en retrait sous
+   * celle du registre.
+   */
+  sousSection: {
+    pdf: {
+      balise: 'h3',
+      style: "font-family:'Sora',sans-serif;font-weight:600;font-size:12px;color:#070E1C;margin:0.4em 0 0.35em;break-after:avoid;page-break-after:avoid;",
+    },
+    ecran: {
+      carte: 'ml-6 -mt-1 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] overflow-hidden',
+      balise: 'h5',
+      titre: 'font-medium text-[var(--text-muted)] text-xs',
+    },
+  },
+};

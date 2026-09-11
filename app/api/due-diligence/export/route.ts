@@ -23,7 +23,7 @@ import {
 } from '@/lib/i18n/export-labels';
 import {
   colonnesAdministrateurs, COLONNES_DIRIGEANTS, COLONNES_ACTIONNAIRES,
-  COLONNES_CAPITAL, resoudre,
+  COLONNES_CAPITAL, resoudre, RANG_ANCIENNES_DETENTIONS,
 } from '@/lib/minute-book/register-columns';
 import { MINUTE_BOOK_SECTIONS } from '@/lib/minute-book-section';
 import { getSectionLabel } from '@/lib/i18n/section-labels';
@@ -618,6 +618,22 @@ export async function GET(request: NextRequest) {
     // CELLULE VIDE, sans erreur et sans diagnostic.
     const etiq = getColumnLabeller(docLanguage);
     const fmtDate = (d: string | null) => d ?? '—';
+    // Les lignes du registre des actionnaires — UNE construction, pour le
+    // registre et pour sa section « Anciennes détentions ».
+    const lignesActionnaires = (entries: typeof regAct.entries) =>
+      entries.map((e) => ({
+        full_name: e.full_name,
+        // ⚪ Même règle qu'aux administrateurs : rien de déclaré = cellule
+        //    vide, jamais un tiret. Ce rendu construit ses lignes champ par
+        //    champ — sans cette clé, la seconde ligne ne sortirait pas.
+        address: e.address,
+        share_class: e.share_class,
+        quantity: String(e.quantity), certificate_number: e.certificate_number ?? '—',
+        issue_date: e.issue_date,
+        // La fin, dans la langue du DOCUMENT — le lecteur la compose dans
+        // les deux, comme les titres. Vide = détention en cours.
+        fin: docLanguage === 'en' ? e.fin_en : e.fin_fr,
+      }));
     const { generateBinderRegistersPDF } = await import('@/lib/pdf/generatePDF');
     const registresBuffer = await generateBinderRegistersPDF({
       companyName,
@@ -665,18 +681,27 @@ export async function GET(request: NextRequest) {
         {
           title: docLanguage === 'en' ? regAct.register_title_en : regAct.register_title_fr,
           columns: resoudre(COLONNES_ACTIONNAIRES, false, etiq),
-          rows: regAct.entries.map((e) => ({
-            full_name: e.full_name,
-            // ⚪ Même règle qu'aux administrateurs : rien de déclaré = cellule
-            //    vide, jamais un tiret. Ce rendu construit ses lignes champ par
-            //    champ — sans cette clé, la seconde ligne ne sortirait pas.
-            address: e.address,
-            share_class: e.share_class,
-            quantity: String(e.quantity), certificate_number: e.certificate_number ?? '—',
-            issue_date: e.issue_date,
-          })),
+          rows: lignesActionnaires(regAct.entries),
           emptyMessage: L.empty,
         },
+        // ★ « ANCIENNES DÉTENTIONS » — une SOUS-SECTION du registre des
+        //   actionnaires, pas un cinquième registre : son rang vient de la
+        //   déclaration unique, et le document garde quatre titres de registre,
+        //   comme l'index de l'archive. ⛔ ABSENTE quand le lecteur rend
+        //   `former_holdings: null` : la décision est prise là, pas ici.
+        ...(regAct.former_holdings
+          ? [
+              {
+                rang: RANG_ANCIENNES_DETENTIONS,
+                title: docLanguage === 'en'
+                  ? regAct.former_holdings.register_title_en
+                  : regAct.former_holdings.register_title_fr,
+                columns: resoudre(COLONNES_ACTIONNAIRES, false, etiq),
+                rows: lignesActionnaires(regAct.former_holdings.entries),
+                emptyMessage: L.empty,
+              },
+            ]
+          : []),
         {
           title: docLanguage === 'en' ? regCapital.register_title_en : regCapital.register_title_fr,
           columns: resoudre(COLONNES_CAPITAL, false, etiq),

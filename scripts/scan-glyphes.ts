@@ -237,6 +237,9 @@ const SOUS_ARBRES = [
   'minuteBook.binder.sections',
   'minuteBook.binder.documentCount',
   'minuteBook.binder.registerCount',
+  // Les motifs de fin d'une détention : le registre des actionnaires les
+  // imprime en seconde ligne de la colonne « Émission ».
+  'shareholders.endReasons',
 ];
 
 function descendre(noeud: unknown, chemin: string): unknown {

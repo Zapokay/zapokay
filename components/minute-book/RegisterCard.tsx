@@ -1,10 +1,16 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { styleCelluleReact, type TraitementCellule } from '@/lib/minute-book/register-columns'
+import { styleCelluleReact, STYLES_RANG, type RangBloc, type TraitementCellule } from '@/lib/minute-book/register-columns'
 
 interface RegisterCardProps {
   title: string
+  /**
+   * Le RANG de la carte — registre, ou sous-section d'un registre. Absent =
+   * registre. La carte et son titre suivent STYLES_RANG, la meme table que le
+   * PDF : aucune decision de dessin n'est prise ici.
+   */
+  rang?: RangBloc
   /**
    * ⚠️ `traitement` PORTE LA COUPURE, et il vient de la declaration unique des
    * colonnes — jamais d'une decision prise ici. Facultatif : absent = defaut du
@@ -25,16 +31,19 @@ interface RegisterCardProps {
 
 export default function RegisterCard({
   title,
+  rang,
   columns,
   rows,
   emptyMessage = 'Aucune donnée enregistrée',
   citation,
   footnote,
 }: RegisterCardProps) {
+  const style = STYLES_RANG[rang ?? 'registre'].ecran
+  const Titre = style.balise
   return (
-    <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] overflow-hidden">
+    <div className={style.carte}>
       <div className="px-5 py-3 border-b border-[var(--card-border)]">
-        <h4 className="font-semibold text-[var(--text-body)] text-sm">{title}</h4>
+        <Titre className={style.titre}>{title}</Titre>
       </div>
       {rows.length === 0 ? (
         <p className="px-5 py-6 text-sm text-[var(--text-muted)] italic text-center">

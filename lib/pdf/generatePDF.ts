@@ -13,6 +13,7 @@ import {
 } from '@/lib/pdf-templates';
 import type { BoardResolutionData, ShareholderResolutionData, CoverPageData } from '@/lib/pdf-templates';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
+import type { BinderRegistersData } from '@/lib/pdf-templates/binder-registers';
 import { escapeHtml } from '@/lib/pdf-templates/base-layout';
 import { formatDate } from '@/lib/utils';
 import { getServerMessage } from '@/lib/i18n/server-messages';
@@ -134,14 +135,14 @@ export interface BinderRegistersInput {
   /** REQUIS, pas optionnel : un registre sans date d'arrêté ne dit pas de quel
    *  conseil il parle. Étiquette et valeur arrivent déjà résolues de la route. */
   effectiveDate: { label: string; value: string };
-  registers: {
-    title: string;
-    columns: { key: string; label: string }[];
-    rows: Record<string, string>[];
-    emptyMessage: string;
-    citation?: string;
-    footnote?: string;
-  }[];
+  /**
+   * ⛔ LE TYPE DU GABARIT, PAS UNE COPIE. Ce champ recopiait la forme d'un bloc
+   * et la copie avait déjà divergé : elle ignorait `cleSecondaire` et
+   * `traitement`, qui ne passaient que parce que le tableau est transmis tel
+   * quel (`registers: d.registers`, plus bas). Une seule description du bloc,
+   * celle que binderRegistersHTML lit.
+   */
+  registers: BinderRegistersData['registers'];
   footerDocName: string;
   language?: 'fr' | 'en' | 'bilingual';
 }

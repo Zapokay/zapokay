@@ -22,6 +22,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { residencyApplies } from '@/lib/residency';
 import { adresseRegistre, type ChampAdresse } from '@/lib/address';
+import { getServerMessage, type ServerLocale } from '@/lib/i18n/server-messages';
+import type { ShareholdingEndReason } from '@/lib/supabase/people-types';
 
 /** La forme que les quatre routes rendent, et que BinderView consomme. */
 export interface RegisterPayload<E> {
@@ -262,6 +264,59 @@ export interface ShareholderRegisterEntry {
   certificate_number: string | null;
   issue_date: string;
   issue_price_per_share: number | null;
+  /**
+   * LA FIN DE LA DÉTENTION — « Motif · date » — composée ici, dans les DEUX
+   * langues, comme les titres du registre : le lecteur ne connaît pas la langue
+   * du document, et chaque surface choisit la sienne. Chaîne VIDE pour une
+   * détention en cours.
+   *
+   * ⛔ AUCUN ÉTAT STOCKÉ. `shareholdings` n'a pas d'`is_active` : la fin est
+   * DÉRIVÉE de `end_date`, et elle ne peut donc pas contredire sa source.
+   */
+  fin_fr: string;
+  fin_en: string;
+}
+
+/**
+ * ★ UN MOTIF, UNE CLÉ DU CATALOGUE — ET LA TABLE EST EXHAUSTIVE.
+ * `Record<ShareholdingEndReason, …>` exige une entrée par motif admis par le
+ * CHECK de `shareholdings` : un cinquième motif ajouté au type échoue À LA
+ * COMPILATION tant que sa clé n'est pas écrite. Un ternaire, ou un `if` par
+ * motif, le laisserait passer en silence — le défaut que
+ * `readStatedCapitalRegister` (deux motifs nommés, les autres ignorés) et
+ * `correctifEntite` (une branche par type) portent déjà.
+ */
+const CLE_MOTIF_FIN: Record<ShareholdingEndReason, `shareholders.endReasons.${ShareholdingEndReason}`> = {
+  transfer: 'shareholders.endReasons.transfer',
+  redemption: 'shareholders.endReasons.redemption',
+  cancellation: 'shareholders.endReasons.cancellation',
+  conversion: 'shareholders.endReasons.conversion',
+};
+
+/**
+ * « Motif · date », dans une langue. Le gabarit et ses deux mots vivent au
+ * catalogue — sous `minuteBook.registers` et `shareholders.endReasons`, deux
+ * sous-arbres que check:glyphs balaie : aucun glyphe de cette ligne n'est écrit
+ * dans le code.
+ *
+ *   · `end_date` est la SEULE source de « terminée », comme partout ailleurs
+ *     dans le produit : un motif sans date ne rend rien ;
+ *   · une fin SANS motif, que la base admet, rend « Terminée · date » — ce qui
+ *     est su, sans motif inventé et sans l'ambiguïté d'une date nue ;
+ *   · un motif que la table ne connaît pas fait échouer la lecture : il ne
+ *     s'imprime ni brut ni deviné.
+ */
+function ligneDeFin(sh: DetentionAvecDetenteurs, locale: ServerLocale): string {
+  if (!sh.end_date) return '';
+  let motif: string;
+  if (!sh.end_reason) {
+    motif = getServerMessage('minuteBook.registers.holdingEndWithoutReason', locale);
+  } else {
+    const cle = CLE_MOTIF_FIN[sh.end_reason];
+    if (!cle) throw new Error(`readShareholderRegister: unknown end reason "${sh.end_reason}"`);
+    motif = getServerMessage(cle, locale);
+  }
+  return getServerMessage('minuteBook.registers.holdingEnd', locale, { reason: motif, date: sh.end_date });
 }
 
 /** Les six colonnes d'adresse, telles que `*` les rend des deux tables. */
@@ -288,6 +343,12 @@ interface DetentionAvecDetenteurs {
   certificate_number: string | null;
   issue_date: string;
   issue_price_per_share: number | null;
+  /**
+   * La fin, telle que `*` la rend déjà. `end_reason` est typé par l'union que
+   * le CHECK de la table borne aux quatre mêmes valeurs.
+   */
+  end_date: string | null;
+  end_reason: ShareholdingEndReason | null;
   share_classes?: { name: string } | null;
   shareholding_holders?: DetenteurLu[];
 }
@@ -311,10 +372,23 @@ function identiteDetenteur(h: DetenteurLu): { full_name: string; address: string
   throw new Error('readShareholderRegister: holder with neither person nor entity');
 }
 
+/**
+ * Le registre des actionnaires, et sa section « Anciennes détentions ».
+ *
+ * ⛔ `former_holdings` VAUT NULL QUAND AUCUNE DÉTENTION N'EST TERMINÉE — et la
+ * décision de montrer la section se prend ICI, une seule fois. L'export et
+ * l'écran rendent le bloc s'il existe, rien s'il n'existe pas : aucun des deux
+ * ne recompte, donc ils ne peuvent pas diverger sur QUAND il paraît.
+ */
+export interface ShareholderRegisterPayload
+  extends RegisterPayload<ShareholderRegisterEntry> {
+  former_holdings: RegisterPayload<ShareholderRegisterEntry> | null;
+}
+
 export async function readShareholderRegister(
   supabase: SupabaseClient,
   companyId: string,
-): Promise<RegisterPayload<ShareholderRegisterEntry>> {
+): Promise<ShareholderRegisterPayload> {
   // Atom 2: inverted-join shape per R-G2 audit §3 R6 recommendation. One
   // register entry per (shareholding × holder) tuple.
   const { data, error } = await supabase
@@ -336,7 +410,7 @@ export async function readShareholderRegister(
   if (error) throw new Error(`readShareholderRegister: read failed: ${error.message}`);
   const shareholdings = (data ?? []) as unknown as DetentionAvecDetenteurs[];
 
-  const entries = shareholdings
+  const lignes = shareholdings
     .flatMap((sh) => {
       const holders = sh.shareholding_holders ?? [];
       // Sort holders by display_order so joint-holder entries surface in the
@@ -352,23 +426,51 @@ export async function readShareholderRegister(
       if (!categorie) {
         throw new Error('readShareholderRegister: shareholding without share class name');
       }
+      const fin_fr = ligneDeFin(sh, 'fr');
+      const fin_en = ligneDeFin(sh, 'en');
+      const terminee = Boolean(sh.end_date);
       return sortedHolders.map((h) => ({
-        ...identiteDetenteur(h),
-        share_class: categorie,
-        quantity: sh.quantity,
-        certificate_number: sh.certificate_number || null,
-        issue_date: sh.issue_date,
-        issue_price_per_share: sh.issue_price_per_share ?? null,
+        terminee,
+        entree: {
+          ...identiteDetenteur(h),
+          share_class: categorie,
+          quantity: sh.quantity,
+          certificate_number: sh.certificate_number || null,
+          issue_date: sh.issue_date,
+          issue_price_per_share: sh.issue_price_per_share ?? null,
+          fin_fr,
+          fin_en,
+        },
       }));
-    })
-    .sort(
-      (a, b) => new Date(b.issue_date).getTime() - new Date(a.issue_date).getTime()
-    );
+    });
+
+  // ★ DEUX LISTES — LES DÉTENTIONS EN COURS, PUIS LES TERMINÉES, DANS LEUR
+  //   PROPRE SECTION. La séparation EST le tri : aucun second mécanisme ne
+  //   range les terminées en fin de liste. À l'intérieur de chacune, l'ordre
+  //   de toujours : l'émission la plus récente d'abord.
+  // ⛔ LE CRITÈRE EST `end_date`, DÉRIVÉ — la même source que la seconde ligne
+  //   (`ligneDeFin`). Les registres voisins distinguent leurs anciens par un
+  //   `is_active` STOCKÉ, qui peut contredire leur propre date de fin ; celui-ci
+  //   ne le peut pas.
+  const parEmission = (a: ShareholderRegisterEntry, b: ShareholderRegisterEntry) =>
+    new Date(b.issue_date).getTime() - new Date(a.issue_date).getTime();
+  const entries = lignes.filter((l) => !l.terminee).map((l) => l.entree).sort(parEmission);
+  const anciennes = lignes.filter((l) => l.terminee).map((l) => l.entree).sort(parEmission);
 
   return {
     register_title_fr: 'Registre des actionnaires',
     register_title_en: 'Shareholder Register',
     entries,
+    // La seconde ligne « Motif · date » reste dans la section : le titre dit
+    // QUE la détention est terminée, la ligne dit QUAND et POURQUOI.
+    former_holdings:
+      anciennes.length === 0
+        ? null
+        : {
+            register_title_fr: getServerMessage('minuteBook.registers.formerHoldings', 'fr'),
+            register_title_en: getServerMessage('minuteBook.registers.formerHoldings', 'en'),
+            entries: anciennes,
+          },
   };
 }
 
