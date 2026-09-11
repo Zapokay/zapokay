@@ -159,10 +159,27 @@ export interface ShareholderEntity {
   date_constituted: string | null;
   date_incorporated: string | null;
   address_line1: string | null;
+  /**
+   * ⚠️ AJOUTÉE AU TYPE, ET ELLE MANQUAIT DEPUIS LA MIGRATION 20260910210000.
+   * La colonne existe en base depuis ce lot-là ; le type ne la déclarait pas,
+   * donc aucun code ne pouvait la lire sans contourner le typage. L'écran de
+   * correction est le premier à en avoir besoin.
+   */
+  address_line2: string | null;
   address_city: string | null;
   address_province: string | null;
   address_postal_code: string | null;
-  address_country: string;
+  /**
+   * ⚠️ `string | null`, ET NON PLUS `string`. La colonne est NULLABLE et elle
+   * PORTE des NULL depuis le nettoyage de 20260910210000 — une entité sans pays
+   * déclaré n'en a plus. Le type affirmait une valeur que la base ne garantit
+   * pas. Aucun lecteur ne dépendait de l'ancienne forme (mesuré avant le
+   * changement : zéro lecture de cette colonne sur un objet entité).
+   *
+   * ⚪ La même discordance existe sur `CompanyPerson.address_country` et reste
+   * une dette ouverte : ce lot ne corrige que le type de l'entité.
+   */
+  address_country: string | null;
   created_at: string;
   updated_at: string;
 }

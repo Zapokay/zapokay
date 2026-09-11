@@ -1,18 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X, Zap, Loader2, Plus } from 'lucide-react';
 import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
-import type { ShareClass, ShareholderEntityType, EntityDescriptor, ShareholderEntity, ShareholderEntitySignatoryRole } from '@/lib/supabase/people-types';
+import type { ShareClass, ShareholderEntity, ShareholderEntitySignatoryRole } from '@/lib/supabase/people-types';
 import { getSignatoryRoleLabel } from '@/lib/i18n/lifecycle-labels';
 import { logActivity } from '@/lib/activity-log';
-import { countryOptions } from '@/lib/countries';
-import { PROVINCE_CODES } from '@/lib/provinces';
-import { nullSiVide, type ChargeEntite } from '@/lib/entity-payload';
+import {
+  chargeEntite,
+  VALEUR_ENTITE_VIDE,
+  type ChargeEntite,
+  type ValeurEntite,
+} from '@/lib/entity-payload';
+import EntityForm from '@/components/shareholders/EntityForm';
 
 // =============================================================================
 // Types
@@ -75,24 +79,6 @@ export default function IssueSharesModal({
 }: IssueSharesModalProps) {
   const t = useTranslations('shareholders');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
-  /**
-   * ⛔ UN SECOND ESPACE DE NOMS, PAS DIX CHAINES DE PLUS. Les etiquettes
-   * d'adresse generiques — suite, etat/region, pays, et les deux « non
-   * declare » — existent deja sous `people`, traduites dans les deux locales.
-   * Les recopier sous `shareholders` aurait ajoute DIX entrees de catalogue
-   * disant exactement la meme chose.
-   * ⚪ `address`, `city`, `province` et `postalCode` restent pris dans
-   * `shareholders` : celui de `people` dit « Adresse du domicile », ce qu'une
-   * societe n'a pas.
-   */
-  const tAdresse = useTranslations('people');
-  /**
-   * ★ MEME SOURCE QUE LA PERSONNE — Canada en tete, puis l'ordre alphabetique
-   * de la locale. lib/countries.ts:60-62 portait deja l'intention : « la
-   * personne ET l'entite actionnaire lisent cette fonction ». Le module a ete
-   * ecrit pour cet appelant et ne l'avait jamais recu.
-   */
-  const paysOptions = useMemo(() => countryOptions(locale), [locale]);
   const supabase = createClient();
 
   // ---- State ----------------------------------------------------------------
@@ -109,52 +95,13 @@ export default function IssueSharesModal({
 
   // ---- Entity-mode state (Slice 2b-i: zero-signatory entity creation) --------
   const [entityMode, setEntityMode] = useState(false);
-  const [entityType, setEntityType] = useState<ShareholderEntityType>('corporation');
-  const [legalName, setLegalName] = useState('');
-  const [entityNumber, setEntityNumber] = useState(''); // NEQ, corporation-only
-  const [entityDescriptor, setEntityDescriptor] = useState<EntityDescriptor>('corporation');
-  const [entityDate, setEntityDate] = useState(''); // date_incorporated (corp) | date_constituted (trust)
-  const [entAddressLine1, setEntAddressLine1] = useState('');
-  // Suite / appartement — la personne en a un depuis 20260905141500 ; la table
-  // des entites vient de le recevoir.
-  const [entAddressLine2, setEntAddressLine2] = useState('');
-  const [entAddressCity, setEntAddressCity] = useState('');
   /**
-   * ⛔ VIDE, ET C'ETAIT 'QC'. Une province preselectionnee est une declaration
-   * que personne n'a faite — la meme faute que le pays fabrique, en plus
-   * discret : elle part en base au premier enregistrement sans qu'on l'ait
-   * touchee.
+   * ★ UN SEUL ETAT POUR L'ENTITE, a la place de onze. Sa forme et son etat
+   * initial sont declares dans lib/entity-payload.ts — la creation et la
+   * correction les partagent. VALEUR_ENTITE_VIDE reprend valeur pour valeur les
+   * onze `useState` qu'il remplace.
    */
-  const [entAddressProvince, setEntAddressProvince] = useState('');
-  const [entAddressPostal, setEntAddressPostal] = useState('');
-  /**
-   * ⛔ LE CHAMP QUI N'EXISTAIT PAS. Sans lui, la cle ne partait jamais et le
-   * COALESCE de create_entity_with_signatories posait 'CA' a chaque creation.
-   * Vide = non declare, jamais presélectionné.
-   */
-  const [entAddressCountry, setEntAddressCountry] = useState('');
-
-  /**
-   * ★ LE COMPORTEMENT DE PersonSelector EST REPRIS, PAS REINVENTE. Un
-   * formulaire d'adresse qui se comporte autrement selon qu'on decrit une
-   * personne ou une societe serait le meme defaut a deux endroits.
-   *
-   * Pays canadien OU non declare → la liste fermee des treize codes. Sinon un
-   * champ libre : aucune liste ne couvre les subdivisions du monde, et sans lui
-   * une adresse etrangere ne peut pas s'ecrire du tout.
-   */
-  const subdivisionCanadienne = entAddressCountry === 'CA' || entAddressCountry === '';
-  /**
-   * ⛔ RIEN N'EST EFFACE NI POSE : c'est un predicat de RENDU. Revenu au Canada
-   * avec « Occitanie » en etat, le <select> montrerait sa premiere option
-   * pendant que « Occitanie » resterait la valeur ecrite — le produit
-   * afficherait une chose et en sauverait une autre. L'option disparait d'elle
-   * meme des qu'un vrai code est choisi.
-   */
-  const valeurHorsListe =
-    subdivisionCanadienne &&
-    entAddressProvince !== '' &&
-    !PROVINCE_CODES.some((code) => code === entAddressProvince);
+  const [valeurEntite, setValeurEntite] = useState<ValeurEntite>(VALEUR_ENTITE_VIDE);
   // Existing-entity selection (parallel path — not a new entity, reuse entity_id).
   const [selectedExistingEntity, setSelectedExistingEntity] = useState<ShareholderEntity | null>(null);
   // Slice 2b-ii — signatory rows for the NEW-entity branch (0 allowed; additive).
@@ -172,11 +119,11 @@ export default function IssueSharesModal({
     if (selectedExistingEntity) {
       // Existing entity selected — holder already resolved, no field validation.
     } else if (entityMode) {
-      if (!legalName.trim()) {
+      if (!valeurEntite.legalName.trim()) {
         setError(t('errorEntityName'));
         return;
       }
-      if (entityType === 'corporation' && !entityNumber.trim()) {
+      if (valeurEntite.entityType === 'corporation' && !valeurEntite.entityNumber.trim()) {
         setError(t('errorNeq'));
         return;
       }
@@ -271,30 +218,18 @@ export default function IssueSharesModal({
          * `as` aurait fait taire la garde au lieu de la poser.
          *
          * ★ LES SIX CLES D'ADRESSE SONT ECRITES, meme quand la valeur est
-         * nulle. `nullSiVide` transforme la saisie vide en `null` explicite.
+         * nulle. `chargeEntite` transforme la saisie vide en `null` explicite.
          */
-        const p_entity: ChargeEntite = {
-          company_id: companyId,
-          entity_type: entityType,
-          legal_name: legalName.trim(),
-          entity_number: entityType === 'corporation' ? entityNumber.trim() : '',
-          entity_descriptor: entityType === 'corporation' ? entityDescriptor : '',
-          date_incorporated: entityType === 'corporation' ? entityDate : '',
-          date_constituted: entityType === 'trust' ? entityDate : '',
-          address_line1: nullSiVide(entAddressLine1),
-          address_line2: nullSiVide(entAddressLine2),
-          address_city: nullSiVide(entAddressCity),
-          address_province: nullSiVide(entAddressProvince),
-          address_postal_code: nullSiVide(entAddressPostal),
-          address_country: nullSiVide(entAddressCountry),
-        };
+        // ★ La charge est CONSTRUITE par lib/entity-payload.ts, cle pour cle
+        //   comme le litteral qu'elle remplace — preuve d'identite au commit.
+        const p_entity: ChargeEntite = chargeEntite(companyId, valeurEntite);
         const { data: entityId, error: entErr } = await supabase.rpc('create_entity_with_signatories', {
           p_entity,
           p_signatories,
         });
         if (entErr) throw new Error(entErr.message);
         holders = [{ holder_type: 'entity', entity_id: entityId as string }];
-        holderName = legalName.trim();
+        holderName = valeurEntite.legalName.trim();
         holderDetails = { entity_id: entityId };
       } else {
         let personId: string;
@@ -367,17 +302,7 @@ export default function IssueSharesModal({
     selectedExistingEntity,
     signatoryRows,
     entityMode,
-    entityType,
-    legalName,
-    entityNumber,
-    entityDescriptor,
-    entityDate,
-    entAddressLine1,
-    entAddressLine2,
-    entAddressCity,
-    entAddressProvince,
-    entAddressPostal,
-    entAddressCountry,
+    valeurEntite,
     shareClassId,
     quantity,
     pricePerShare,
@@ -462,8 +387,9 @@ export default function IssueSharesModal({
                   type="button"
                   onClick={() => {
                     setEntityMode(false);
-                    setLegalName('');
-                    setEntityNumber('');
+                    // Meme effet qu'avant l'extraction : seuls le nom et le
+                    // NEQ sont vides au retour, le reste est conserve.
+                    setValeurEntite((v) => ({ ...v, legalName: '', entityNumber: '' }));
                   }}
                   className="text-xs text-zinc-500 underline hover:text-zinc-700 dark:hover:text-zinc-300"
                 >
@@ -471,184 +397,12 @@ export default function IssueSharesModal({
                 </button>
               </div>
 
-              {/* Legal name */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {t('legalName')} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={legalName}
-                  onChange={(e) => setLegalName(e.target.value)}
-                  placeholder="9453-2281 Québec Inc."
-                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </div>
-
-              {/* Entity type */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {t('entityType')} <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={entityType}
-                  onChange={(e) => setEntityType(e.target.value as ShareholderEntityType)}
-                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                >
-                  <option value="corporation">{t('entityTypeCorporation')}</option>
-                  <option value="trust">{t('entityTypeTrust')}</option>
-                </select>
-              </div>
-
-              {/* Conditional row: NEQ (corp, required) + descriptor (corp only) */}
-              {entityType === 'corporation' && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                      {t('neq')} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={entityNumber}
-                      onChange={(e) => setEntityNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      maxLength={10}
-                      placeholder="1234567890"
-                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                      {t('descriptor')}
-                    </label>
-                    <select
-                      value={entityDescriptor}
-                      onChange={(e) => setEntityDescriptor(e.target.value as EntityDescriptor)}
-                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                    >
-                      <option value="corporation">{t('descriptorCorporation')}</option>
-                      <option value="holding">{t('descriptorHolding')}</option>
-                      <option value="nonprofit">{t('descriptorNonprofit')}</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Date — label + target column depend on entity type */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {entityType === 'corporation' ? t('dateIncorporated') : t('dateConstituted')}
-                </label>
-                <input
-                  type="date"
-                  value={entityDate}
-                  onChange={(e) => setEntityDate(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]}
-                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </div>
-
-              {/* Address */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {t('address')}
-                </label>
-                <input
-                  type="text"
-                  value={entAddressLine1}
-                  onChange={(e) => setEntAddressLine1(e.target.value)}
-                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {tAdresse('addressLine2')}
-                </label>
-                <input
-                  type="text"
-                  value={entAddressLine2}
-                  onChange={(e) => setEntAddressLine2(e.target.value)}
-                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                    {t('city')}
-                  </label>
-                  <input
-                    type="text"
-                    value={entAddressCity}
-                    onChange={(e) => setEntAddressCity(e.target.value)}
-                    className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                  />
-                </div>
-                <div>
-                  {/* ★ L'ETIQUETTE COMMUTE, comme chez la personne : une
-                      subdivision etrangere n'est pas une « province ». */}
-                  <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                    {subdivisionCanadienne ? t('province') : tAdresse('stateRegion')}
-                  </label>
-                  {subdivisionCanadienne ? (
-                    <select
-                      value={entAddressProvince}
-                      onChange={(e) => setEntAddressProvince(e.target.value)}
-                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                    >
-                      {/* En tete, et valeur de depart : aucune province n'est
-                          preselectionnee. */}
-                      <option value="">{tAdresse('provinceNotDeclared')}</option>
-                      {/* La valeur detenue, telle quelle. Voir valeurHorsListe. */}
-                      {valeurHorsListe && (
-                        <option value={entAddressProvince}>{entAddressProvince}</option>
-                      )}
-                      {PROVINCE_CODES.map((code) => (
-                        <option key={code} value={code}>{code}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={entAddressProvince}
-                      onChange={(e) => setEntAddressProvince(e.target.value)}
-                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                    />
-                  )}
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                    {t('postalCode')}
-                  </label>
-                  <input
-                    type="text"
-                    value={entAddressPostal}
-                    onChange={(e) => setEntAddressPostal(e.target.value)}
-                    placeholder="J8B 1A1"
-                    className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                  />
-                </div>
-              </div>
-              <div>
-                {/* ⛔ LE CHAMP QUI N'EXISTAIT PAS. Sans lui, une societe ne
-                    pouvait declarer aucune adresse hors du Canada, et la cle
-                    ne partait jamais a la fonction — qui posait 'CA'.
-                    ★ Meme source que la personne : countryOptions(locale). */}
-                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {tAdresse('country')}
-                </label>
-                <select
-                  value={entAddressCountry}
-                  onChange={(e) => setEntAddressCountry(e.target.value)}
-                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                >
-                  <option value="">{tAdresse('countryNotDeclared')}</option>
-                  {paysOptions.map((pays) => (
-                    <option key={pays.code} value={pays.code}>
-                      {pays.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* ⛔ LE FORMULAIRE D'ENTITE EST UN COMPOSANT, PARTAGE AVEC LA
+                  CORRECTION. Il etait tisse ici sur 178 lignes ; son rendu est
+                  identique a l'octet (preuve au message de commit). L'enveloppe,
+                  l'en-tete « Nouvelle entite » et les signataires restent ici :
+                  ce sont des soucis de CREATION, pas des proprietes de l'entite. */}
+              <EntityForm value={valeurEntite} onChange={setValeurEntite} />
 
               {/* Signatories (Slice 2b-ii) — 0 allowed; additive, force-pick per row */}
               <div className="space-y-3 border-t border-amber-200/60 pt-3 dark:border-amber-800/40">
@@ -883,7 +637,7 @@ export default function IssueSharesModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || shareClasses.length === 0 || !issueDate || (selectedExistingEntity ? false : entityMode ? (!legalName.trim() || !signatoryRowsComplete(signatoryRows)) : !personValue)}
+            disabled={saving || shareClasses.length === 0 || !issueDate || (selectedExistingEntity ? false : entityMode ? (!valeurEntite.legalName.trim() || !signatoryRowsComplete(signatoryRows)) : !personValue)}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

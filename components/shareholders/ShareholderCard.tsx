@@ -1,12 +1,14 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Pencil, ArrowRightLeft, LogOut, UserCog } from 'lucide-react';
+import { CLE_CORRIGER_ENTITE } from '@/lib/entity-labels';
+import { Pencil, ArrowRightLeft, LogOut, UserCog, Building2 } from 'lucide-react';
 import type {
   ShareholdingWithDetails,
   DirectorMandate,
   OfficerAppointment,
   CompanyPerson,
+  ShareholderEntity,
 } from '@/lib/supabase/people-types';
 import { formatDate } from '@/lib/utils';
 
@@ -28,9 +30,15 @@ interface ShareholderCardProps {
    * L'IDENTITE (company_people) — nom, courriel, telephone, adresse. Partagee
    * avec les surfaces administrateur et dirigeant : la meme ligne y sert.
    * ⛔ Personnes physiques SEULEMENT. Une societe actionnaire vit dans
-   * shareholder_entities, que ce lot ne touche pas — d'ou la garde !isEntity.
+   * shareholder_entities — elle a son propre lien, `onEditEntity`, ci-dessous.
    */
   onEditPerson: (person: CompanyPerson) => void;
+  /**
+   * L'IDENTITE D'UNE ENTITE (shareholder_entities) — denomination, type, NEQ,
+   * descripteur, date, adresse. ⛔ Entites SEULEMENT : le pendant exact de
+   * `onEditPerson`, pose a la place que la garde !isEntity laissait vide.
+   */
+  onEditEntity: (entity: ShareholderEntity) => void;
   /**
    * #19d Phase 3 (cessation) — per-holding "Terminer" affordance. PER-HOLDING
    * granularity is a locked decision (brief 2026-05-26): one End modal per
@@ -88,6 +96,7 @@ export default function ShareholderCard({
   officerAppointments,
   onEdit,
   onEditPerson,
+  onEditEntity,
   onEndShareholding,
   getIssuanceAct,
   onGenerateIssuance,
@@ -289,8 +298,8 @@ export default function ShareholderCard({
           {t('edit')}
         </button>
         {/* Second lien, DISTINCT du precedent : celui-ci corrige l'identite, pas
-            la participation. Garde !isEntity && person — une societe actionnaire
-            n'a pas de ligne company_people a corriger. */}
+            la participation. Une personne et une societe n'ont pas la meme
+            table, donc pas le meme lien — mais le meme emplacement. */}
         {!isEntity && person && (
           <button
             type="button"
@@ -299,6 +308,21 @@ export default function ShareholderCard({
           >
             <UserCog className="h-3.5 w-3.5" />
             {t('editPersonLink')}
+          </button>
+        )}
+        {/* ⛔ LA PLACE QUE LA GARDE !isEntity LAISSAIT VIDE. Avant ce lien, une
+            entite actionnaire n'avait AUCUN chemin de correction — zero UPDATE,
+            mesure. Symetrique de « Modifier la personne ». */}
+        {isEntity && entity && (
+          <button
+            type="button"
+            onClick={() => onEditEntity(entity)}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--card-border)] hover:text-[var(--text-heading)]"
+          >
+            <Building2 className="h-3.5 w-3.5" />
+            {/* Societe ou fiducie : l'etiquette dit laquelle, derivee d'une
+                table exhaustive sur le type (lib/entity-labels.ts). */}
+            {t(CLE_CORRIGER_ENTITE[entity.entity_type])}
           </button>
         )}
         {/* Single-holding case: bottom-bar Terminer targets the only holding.

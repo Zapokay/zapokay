@@ -12,6 +12,8 @@ import IssueSharesModal from '@/components/shareholders/IssueSharesModal';
 import ShareClassModal from '@/components/shareholders/ShareClassModal';
 import EditShareholdingModal from '@/components/shareholders/EditShareholdingModal';
 import EditPersonModal from '@/components/people/EditPersonModal';
+import EditEntityModal from '@/components/shareholders/EditEntityModal';
+import { CLE_CORRIGER_ENTITE } from '@/lib/entity-labels';
 import EndShareholdingModal from '@/components/shareholders/EndShareholdingModal';
 import TransferShareholdingModal from '@/components/shareholders/TransferShareholdingModal';
 import EditFormerShareholdingModal from '@/components/shareholders/EditFormerShareholdingModal';
@@ -27,6 +29,7 @@ import type {
   ShareholdingHolderWithDetails,
   DirectorMandate,
   OfficerAppointment,
+  ShareholderEntity,
 } from '@/lib/supabase/people-types';
 
 interface ShareholdersClientProps {
@@ -56,6 +59,11 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
   // L'IDENTITE, distincte de la participation ci-dessus. Personnes physiques
   // seulement : la carte ne leve ce lien que si !isEntity && person.
   const [editingPerson, setEditingPerson] = useState<CompanyPerson | null>(null);
+  // L'IDENTITE D'UNE ENTITE, pendant d'editingPerson pour shareholder_entities.
+  // ⛔ Ouvrable depuis la carte ET depuis une ligne de detention TERMINEE : sans
+  //    le second chemin, un clic sur « Terminer » refermait la seule surface de
+  //    correction qu'une entite ait jamais eue.
+  const [editingEntity, setEditingEntity] = useState<ShareholderEntity | null>(null);
   // #19d Phase 3 (cessation) — per-row state for end / edit-former / generate.
   const [endingShareholding, setEndingShareholding] = useState<ShareholdingWithDetails | null>(null);
   // #19d Phase 3 close — per-holding "Transférer" target. PER-HOLDING granularity
@@ -325,7 +333,8 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                   directorMandates={group.personId ? getDirectorMandatesForPerson(group.personId) : []}
                   officerAppointments={group.personId ? getOfficerAppointmentsForPerson(group.personId) : []}
                   onEdit={(sh) => { setEditingPerson(null); setEditingShareholding(sh); }}
-                  onEditPerson={(p) => { setEditingShareholding(null); setEditingPerson(p); }}
+                  onEditPerson={(p) => { setEditingShareholding(null); setEditingEntity(null); setEditingPerson(p); }}
+                  onEditEntity={(e) => { setEditingShareholding(null); setEditingPerson(null); setEditingEntity(e); }}
                   onEndShareholding={(sh) => setEndingShareholding(sh)}
                   getIssuanceAct={(id) => actsMap.get(`shareholding|${id}|issuance`)}
                   onGenerateIssuance={(sh) => setGeneratingIssuanceForShareholding(sh)}
@@ -471,6 +480,23 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                       >
                         {t('edit')}
                       </button>
+                      {/* ⛔ LE SECOND CHEMIN, et sans lui la surface se refermait.
+                          Une entite dont la seule detention est terminee sort des
+                          cartes : ce lien est alors son SEUL acces a sa correction.
+                          « Modifier » a sa gauche corrige la CESSATION, pas
+                          l'identite. */}
+                      {sh.holders[0]?.holder_type === 'entity' && sh.holders[0].entity && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingFormerShareholding(null);
+                            setEditingEntity(sh.holders[0].entity);
+                          }}
+                          className="text-xs font-medium text-[var(--amber-500,#F59E0B)] hover:underline"
+                        >
+                          {t(CLE_CORRIGER_ENTITE[sh.holders[0].entity.entity_type])}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -525,6 +551,14 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
           companyId={companyId}
           onClose={() => setEditingPerson(null)}
           onSuccess={() => { setEditingPerson(null); fetchData(); }}
+        />
+      )}
+      {editingEntity && companyId && (
+        <EditEntityModal
+          entity={editingEntity}
+          companyId={companyId}
+          onClose={() => setEditingEntity(null)}
+          onSuccess={() => { setEditingEntity(null); fetchData(); }}
         />
       )}
       {editingShareholding && companyId && (
