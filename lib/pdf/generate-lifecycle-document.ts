@@ -50,8 +50,9 @@ import { formatDate } from '@/lib/utils';
 import {
   getDirectorRoleLabel,
   getEndReasonLabel,
-  getOfficerTitleLabel,
 } from '@/lib/i18n/lifecycle-labels';
+import { libelleTitre } from '@/lib/officer-titles';
+import { getServerMessage } from '@/lib/i18n/server-messages';
 import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
 
 export type LifecycleLanguage = 'fr' | 'en';
@@ -519,10 +520,23 @@ export async function generateLifecycleDocument(
     ctx.personName = personName!;
     // Officer docKeys need officerTitle. director_removal omits endReason.
     if (entry.satisfies.event_type === 'officer_appointment') {
-      ctx.officerTitle = getOfficerTitleLabel(
-        officerTitleRaw ?? '',
-        officerCustomTitle ?? null,
-        language,
+      /**
+       * ⛔ LA LEVÉE D'ORIGINE EST CONSERVÉE, ET CE N'EST PAS DÉCORATIF.
+       * `getOfficerTitleLabel` levait quand un titre `custom` n'avait pas de
+       * texte, plutôt que d'imprimer un poste vide dans une résolution.
+       * `libelleTitre`, lui, retombe sur le libellé « Titre personnalisé » —
+       * le bon comportement à L'ÉCRAN, pas dans un document juridique. La
+       * politique reste donc ici, où elle était ; seule la SOURCE DU LIBELLÉ
+       * change.
+       */
+      if ((officerTitleRaw ?? '') === 'custom' && !(officerCustomTitle ?? '').trim()) {
+        throw new Error(
+          'generateLifecycleDocument: title="custom" but custom_title is empty',
+        );
+      }
+      ctx.officerTitle = libelleTitre(
+        { title: officerTitleRaw ?? '', custom_title: officerCustomTitle ?? null },
+        (cle) => getServerMessage(cle, language),
       );
     }
   }
@@ -569,7 +583,7 @@ export async function generateLifecycleDocument(
     }
     directors = (mandates ?? []).map((d) => ({
       name: (d.company_people as unknown as { full_name: string }).full_name,
-      title: getDirectorRoleLabel(language),
+      title: getDirectorRoleLabel((cle) => getServerMessage(cle, language)),
     }));
   } else {
     const { data: holdings, error: hErr } = await supabaseAdmin

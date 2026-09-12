@@ -10,6 +10,8 @@ import PersonSelector, {
 import type { OfficerWithPerson, OfficerEndReason } from '@/lib/supabase/people-types';
 import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
 import { chargePersonne, insererPersonne } from '@/lib/person-payload';
+import { libelleTitre } from '@/lib/officer-titles';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 // =============================================================================
 // End-reason options (labels resolved via t('endReasons.{value}')). NO default
@@ -23,24 +25,6 @@ const END_REASON_VALUES: OfficerEndReason[] = [
   'death',
   'disqualification',
 ];
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-const TITLE_LABELS: Record<string, { fr: string; en: string }> = {
-  president: { fr: 'Président·e', en: 'President' },
-  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
-  secretary: { fr: 'Secrétaire', en: 'Secretary' },
-  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
-};
-
-function getRoleLabel(officer: OfficerWithPerson, locale: string): string {
-  if (officer.title === 'custom') {
-    return officer.custom_title || 'Custom';
-  }
-  return TITLE_LABELS[officer.title]?.[locale as 'fr' | 'en'] ?? officer.title;
-}
 
 // =============================================================================
 // Types
@@ -71,11 +55,12 @@ export default function ReplaceOfficerModal({
   onSuccess,
 }: ReplaceOfficerModalProps) {
   const t = useTranslations('officers');
+  const tCatalogue = useResolveurCatalogue();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
   const today = new Date().toISOString().split('T')[0];
-  const roleLabel = getRoleLabel(officer, locale);
+  const roleLabel = libelleTitre(officer, tCatalogue);
 
   // ---- State ----------------------------------------------------------------
   const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);

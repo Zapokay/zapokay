@@ -577,6 +577,9 @@
     "addSignatory": "Ajouter un signataire",
     "removeSignatory": "Retirer ce signataire",
     "rolePlaceholder": "Sélectionner un poste…",
+    "signatoryRoles": {
+      "trustee": "Fiduciaire"
+    },
     "customRoleOption": "Autre…",
     "customRoleLabel": "Préciser le poste",
     "signatoryStartDate": "Date de début",
@@ -868,8 +871,8 @@
     "bodyBoard": "Cette résolution est adoptée aujourd'hui par le conseil d'administration actuel pour constater un événement passé. Confirmez que les détails ci-dessous sont exacts.",
     "bodyShareholder": "Cette résolution est adoptée aujourd'hui par les actionnaires actuels pour constater un événement passé. Confirmez que les détails ci-dessous sont exacts.",
     "personLabel": "Personne",
-    "roleDirector": "Administrateur",
-    "roleOfficer": "Dirigeant",
+    "roleDirector": "Administrateur·rice",
+    "roleOfficer": "Dirigeant·e",
     "roleShareholder": "Actionnaire",
     "eventDateLabel": "Date de l'événement",
     "reasonLabel": "Motif",

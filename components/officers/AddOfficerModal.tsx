@@ -9,6 +9,8 @@ import PersonSelector, {
 } from '@/components/people/PersonSelector';
 import type { OfficerTitle, OfficerEndReason } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
+import { libelleTitre } from '@/lib/officer-titles';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
 import { chargePersonne, insererPersonne } from '@/lib/person-payload';
 
@@ -45,12 +47,17 @@ interface AddOfficerModalProps {
 // Title options
 // =============================================================================
 
-const TITLE_OPTIONS: { value: OfficerTitle; fr: string; en: string }[] = [
-  { value: 'president', fr: 'Président·e', en: 'President' },
-  { value: 'vice_president', fr: 'Vice-président·e', en: 'Vice President' },
-  { value: 'secretary', fr: 'Secrétaire', en: 'Secretary' },
-  { value: 'treasurer', fr: 'Trésorier·ière', en: 'Treasurer' },
-  { value: 'custom', fr: 'Autre (personnalisé)', en: 'Other (custom)' },
+/**
+ * ⛔ DES VALEURS, PLUS DE LIBELLÉS. Cette liste portait les cinq textes de la
+ * liste déroulante — c'était la table de libellés n° 9. Elle ne porte plus que
+ * l'ORDRE des options ; chaque texte vient du catalogue par `libelleTitre`.
+ */
+const TITLE_VALUES: OfficerTitle[] = [
+  'president',
+  'vice_president',
+  'secretary',
+  'treasurer',
+  'custom',
 ];
 
 // =============================================================================
@@ -66,6 +73,7 @@ export default function AddOfficerModal({
 }: AddOfficerModalProps) {
   const t = useTranslations('officers');
   const tCommon = useTranslations('common');
+  const tCatalogue = useResolveurCatalogue();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -196,7 +204,8 @@ export default function AddOfficerModal({
           const name = Array.isArray(existingPerson)
             ? (existingPerson[0] as { full_name: string } | undefined)?.full_name ?? ''
             : (existingPerson as { full_name: string } | null)?.full_name ?? '';
-          const titleLabel = TITLE_OPTIONS.find(o => o.value === title)?.[locale === 'fr' ? 'fr' : 'en'] ?? title;
+          // Cette branche ne s'atteint pas pour `custom` (garde à L178).
+          const titleLabel = libelleTitre({ title, custom_title: null }, tCatalogue);
           setConflictOfficer({ id: existing[0].id, personId: existing[0].person_id, name, titleLabel });
           setSaving(false);
           return;
@@ -305,7 +314,7 @@ export default function AddOfficerModal({
     } finally {
       setSaving(false);
     }
-  }, [personValue, title, customTitle, isSigningAuthority, stillInOffice, appointmentDate, endDate, endReason, companyId, conflictOfficer, supabase, onSuccess, t, tCommon, locale]);
+  }, [personValue, title, customTitle, isSigningAuthority, stillInOffice, appointmentDate, endDate, endReason, companyId, conflictOfficer, supabase, onSuccess, t, tCommon, tCatalogue, locale]);
 
   // ---- Render ---------------------------------------------------------------
   return (
@@ -352,9 +361,9 @@ export default function AddOfficerModal({
               onChange={(e) => setTitle(e.target.value as OfficerTitle)}
               className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             >
-              {TITLE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {locale === 'fr' ? opt.fr : opt.en}
+              {TITLE_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {libelleTitre({ title: value, custom_title: null }, tCatalogue)}
                 </option>
               ))}
             </select>

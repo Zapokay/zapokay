@@ -6,6 +6,8 @@ import { useTranslations } from 'next-intl';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import type { OfficerWithPerson, OfficerEndReason } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
+import { libelleTitre } from '@/lib/officer-titles';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 // =============================================================================
 // End-reason options (labels resolved via t('endReasons.{value}'))
@@ -18,17 +20,6 @@ const END_REASON_VALUES: OfficerEndReason[] = [
   'death',
   'disqualification',
 ];
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-const TITLE_LABELS: Record<string, { fr: string; en: string }> = {
-  president: { fr: 'Président·e', en: 'President' },
-  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
-  secretary: { fr: 'Secrétaire', en: 'Secretary' },
-  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
-};
 
 // =============================================================================
 // Types
@@ -50,6 +41,7 @@ export default function RemoveOfficerModal({
   onSuccess,
 }: RemoveOfficerModalProps) {
   const t = useTranslations('officers');
+  const tCatalogue = useResolveurCatalogue();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -58,10 +50,13 @@ export default function RemoveOfficerModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const roleLabel =
-    officer.title === 'custom'
-      ? officer.custom_title || 'Custom'
-      : (TITLE_LABELS[officer.title]?.[locale] ?? officer.title);
+  /**
+   * ⭑ CE FICHIER SE CONTREDISAIT À L'ÉCRAN ET AU JOURNAL — mesuré : sa table
+   * locale disait « Trésorier·ière » ici pendant que `titleFrMap`, plus bas,
+   * écrivait « Trésorier·ère » dans l'Historique. L'écran dérive désormais du
+   * catalogue, qui dit « Trésorier·ère » : les deux s'accordent.
+   */
+  const roleLabel = libelleTitre(officer, tCatalogue);
 
   const handleConfirm = useCallback(async () => {
     if (!endReason) {

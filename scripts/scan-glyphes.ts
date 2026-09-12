@@ -245,6 +245,13 @@ const SOUS_ARBRES = [
   // dans un littéral de lib/minute-book/registers.ts, qui n'est pas une source
   // balayée : le glyphe partait au conteneur sans garde.
   'officers.titles',
+  // Les rôles de signataire d'une entité : les blocs de signature les
+  // impriment. Quatre d'entre eux SONT `officers.titles` (même clé, balayée
+  // deux fois — sans effet) ; `trustee` n'existe que là.
+  'shareholders.signatoryRoles',
+  // Le rôle d'administrateur : la liste des signataires d'une résolution du
+  // conseil l'imprime sous chaque nom.
+  'lifecycle.roleDirector',
 ];
 
 function descendre(noeud: unknown, chemin: string): unknown {
@@ -316,6 +323,17 @@ function autoTest(couverts: Set<number>): boolean {
   dire(couverts.size > 200, `${couverts.size} codepoints couverts (attendu : des centaines)`);
   dire(couverts.has(0x41), "'A' U+0041 PRÉSENT — une cmap vide dirait le contraire");
   dire(!couverts.has(0x2713), "✓ U+2713 ABSENT — une cmap trop permissive dirait le contraire");
+  /**
+   * ⛔ LE POINT MÉDIAN EST DÉSORMAIS UNE DÉPENDANCE DU PRODUIT, PAS UN DÉTAIL.
+   * Depuis 2026-09-12 il part dans des documents SIGNABLES par deux chemins :
+   * les titres de charge (`officers.titles` → résolutions, registre) et les
+   * libellés de rôle (`lifecycle.roleDirector` / `roleOfficer` → blocs de
+   * signature). Le jour où la police du conteneur cesserait de le couvrir, le
+   * balayage seul dirait « zéro » — il ne voit que ce que le DÉPÔT écrit, et
+   * ces valeurs-là viennent du catalogue, qu'il balaie. Cette assertion-ci
+   * fait ÉCHOUER l'outil au lieu de le laisser conclure.
+   */
+  dire(couverts.has(0x00b7), '· U+00B7 PRÉSENT — le produit en imprime dans des documents signables');
 
   console.log('  B. LE BALAYAGE');
   const vu: Muet[] = [];
@@ -361,6 +379,7 @@ function main(): void {
     [0x2009, 'ESPACE FINE ORDINAIRE'],
     [0x2014, '— TIRET CADRATIN (valeur vide des registres)'],
     [0x2019, '’ APOSTROPHE TYPOGRAPHIQUE'],
+    [0x00b7, '· POINT MÉDIAN (titres de charge ET libellés de rôle)'],
     [0x00e9, 'é E ACCENT AIGU'],
   ] as [number, string][]) {
     console.log(`  ${couverts.has(cp) ? 'PRÉSENT ' : 'ABSENT  '} ${U(cp)}  ${quoi}`);

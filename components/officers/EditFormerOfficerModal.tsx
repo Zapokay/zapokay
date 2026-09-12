@@ -10,6 +10,8 @@ import type {
   OfficerTitle,
 } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
+import { libelleTitre } from '@/lib/officer-titles';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 // =============================================================================
 // End-reason options — force-pick per Bundle 1 §8.36 (no silent default).
@@ -35,15 +37,6 @@ const TITLE_VALUES: OfficerTitle[] = [
   'custom',
 ];
 
-// Mirrors OfficerCard.tsx + OfficersClient.tsx TITLE_LABELS — kept local per
-// Bundle 1 brief (extraction to lib/officer-title-labels.ts deferred).
-const TITLE_LABELS: Record<string, { fr: string; en: string }> = {
-  president: { fr: 'Président·e', en: 'President' },
-  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
-  secretary: { fr: 'Secrétaire', en: 'Secretary' },
-  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
-};
-
 // =============================================================================
 // Types
 // =============================================================================
@@ -64,6 +57,7 @@ export default function EditFormerOfficerModal({
   onSuccess,
 }: EditFormerOfficerModalProps) {
   const t = useTranslations('officers');
+  const tCatalogue = useResolveurCatalogue();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -242,11 +236,13 @@ export default function EditFormerOfficerModal({
               disabled={enteredInError}
               className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             >
+              {/* `custom` n'a pas de titre à rendre verbatim ici : c'est une
+                  OPTION de liste, pas une charge. `libelleTitre` retombe alors
+                  sur `officers.titles.custom` — le même texte que
+                  `t('customTitle')` rendait, vérifié valeur par valeur. */}
               {TITLE_VALUES.map((value) => (
                 <option key={value} value={value}>
-                  {value === 'custom'
-                    ? t('customTitle')
-                    : TITLE_LABELS[value][locale]}
+                  {libelleTitre({ title: value, custom_title: null }, tCatalogue)}
                 </option>
               ))}
             </select>

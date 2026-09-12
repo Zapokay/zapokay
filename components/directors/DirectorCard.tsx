@@ -13,6 +13,8 @@ import type {
 } from '@/lib/supabase/people-types';
 import { adresseCourte } from '@/lib/address';
 import { formatDate } from '@/lib/utils';
+import { libelleTitre } from '@/lib/officer-titles';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 // =============================================================================
 // Types
@@ -47,13 +49,6 @@ interface DirectorCardProps {
 // Helpers
 // =============================================================================
 
-const OFFICER_TITLE_LABELS: Record<string, { fr: string; en: string }> = {
-  president: { fr: 'Président·e', en: 'President' },
-  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
-  secretary: { fr: 'Secrétaire', en: 'Secretary' },
-  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
-};
-
 function getInitials(name: string): string {
   return name
     .split(' ')
@@ -80,6 +75,7 @@ export default function DirectorCard({
   onGenerateAppointment,
 }: DirectorCardProps) {
   const t = useTranslations('directors');
+  const tCatalogue = useResolveurCatalogue();
   const router = useRouter();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const [historyExpanded, setHistoryExpanded] = useState<boolean>(() => false);
@@ -99,13 +95,10 @@ export default function DirectorCard({
   // Build "Aussi :" roles line
   const otherRoles: string[] = [];
 
+  // `libelleTitre` porte déjà les deux cas : le titre personnalisé rendu
+  // verbatim, et les quatre autres résolus au catalogue.
   officerAppointments.forEach((oa) => {
-    if (oa.title === 'custom') {
-      otherRoles.push(oa.custom_title || 'Custom');
-    } else {
-      const labels = OFFICER_TITLE_LABELS[oa.title];
-      otherRoles.push(labels ? labels[locale] : oa.title);
-    }
+    otherRoles.push(libelleTitre(oa, tCatalogue));
   });
 
   if (totalShares > 0) {

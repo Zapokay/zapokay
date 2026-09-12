@@ -24,17 +24,10 @@ import type {
   ShareholdingHolder,
   ShareClass,
 } from '@/lib/supabase/people-types';
+import { libelleTitre } from '@/lib/officer-titles';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 const ROLE_ORDER = ['president', 'vice_president', 'secretary', 'treasurer', 'custom'];
-
-// Mirrors OfficerCard.tsx:36-41 — kept local per Bundle 1 brief (extraction
-// to lib/officer-title-labels.ts deferred to a Tier-3 follow-up).
-const TITLE_LABELS: Record<string, { fr: string; en: string }> = {
-  president: { fr: 'Président·e', en: 'President' },
-  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
-  secretary: { fr: 'Secrétaire', en: 'Secretary' },
-  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
-};
 
 interface OfficersClientProps {
   /** users.preferred_language — document language for generated resolutions.
@@ -45,6 +38,7 @@ interface OfficersClientProps {
 export default function OfficersClient({ preferredLanguage }: OfficersClientProps) {
   const t = useTranslations('officers');
   const tDocs = useTranslations('documents');
+  const tCatalogue = useResolveurCatalogue();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -333,10 +327,7 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
                 <div className="font-medium text-[var(--text-body)]">{group.person.full_name}</div>
                 <div className="mt-1 space-y-0.5 text-xs">
                   {group.appointments.map((a) => {
-                    const titleLabel =
-                      a.title === 'custom'
-                        ? (a.custom_title && a.custom_title.length > 0 ? a.custom_title : t('customTitle'))
-                        : TITLE_LABELS[a.title][locale];
+                    const titleLabel = libelleTitre(a, tCatalogue);
                     return (
                       <div key={a.id} className="flex items-start justify-between gap-3 text-[var(--text-muted)]">
                         <div>
@@ -465,12 +456,7 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
         // Officers always route to officer_departure (board instrument) —
         // there is no shareholder-instrument removal for officers in the
         // #19d registry.
-        const titleLabel =
-          generatingFor.title === 'custom'
-            ? (generatingFor.custom_title && generatingFor.custom_title.length > 0
-                ? generatingFor.custom_title
-                : t('customTitle'))
-            : TITLE_LABELS[generatingFor.title]?.[locale] ?? generatingFor.title;
+        const titleLabel = libelleTitre(generatingFor, tCatalogue);
         const reasonLabel = generatingFor.end_reason
           ? t(`endReasons.${generatingFor.end_reason}`)
           : undefined;
@@ -491,12 +477,7 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
         );
       })()}
       {generatingAppointmentFor && companyId && (() => {
-        const titleLabel =
-          generatingAppointmentFor.title === 'custom'
-            ? (generatingAppointmentFor.custom_title && generatingAppointmentFor.custom_title.length > 0
-                ? generatingAppointmentFor.custom_title
-                : t('customTitle'))
-            : TITLE_LABELS[generatingAppointmentFor.title]?.[locale] ?? generatingAppointmentFor.title;
+        const titleLabel = libelleTitre(generatingAppointmentFor, tCatalogue);
         return (
           <GenerateLifecycleResolutionDialog
             companyId={companyId}

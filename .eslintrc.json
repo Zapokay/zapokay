@@ -1,3 +1,33 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Property[key.name=/^(president|vice_president|secretary|treasurer)$/] > ObjectExpression:has(Property[key.name='fr'])",
+        "message": "TABLE DE LIBELLES DE TITRES DE CHARGE. Une seule declaration existe : lib/officer-titles.ts (CLE_TITRE). Resous par libelleTitre() — getServerMessage au serveur, useResolveurCatalogue au client."
+      },
+      {
+        "selector": "ObjectExpression:has(Property[key.name='value'][value.value=/^(president|vice_president|secretary|treasurer)$/]):has(Property[key.name='fr'])",
+        "message": "LISTE D'OPTIONS PORTANT DES LIBELLES DE TITRES. Ne garde que les VALEURS et resous chaque texte par libelleTitre()."
+      },
+      {
+        "selector": "Property[key.name=/^(president|vice_president|secretary|treasurer|director_general)$/][value.type='Literal']",
+        "message": "LIBELLE DE TITRE EN DUR. Une seule declaration existe : lib/officer-titles.ts (CLE_TITRE). JSON n'admet pas de commentaire : les trois exemptions d'overrides sont motivees et DATEES dans scripts/check-titres.ts (constante TOLERES), qui recense les memes fichiers."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["lib/officer-titles.ts"],
+      "rules": { "no-restricted-syntax": "off" }
+    },
+    {
+      "files": [
+        "components/officers/AddOfficerModal.tsx",
+        "components/officers/RemoveOfficerModal.tsx"
+      ],
+      "rules": { "no-restricted-syntax": "off" }
+    }
+  ]
 }

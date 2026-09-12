@@ -11,6 +11,8 @@ import type {
   ShareholderEntity,
 } from '@/lib/supabase/people-types';
 import { formatDate } from '@/lib/utils';
+import { libelleTitre } from '@/lib/officer-titles';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 // =============================================================================
 // Types
@@ -69,13 +71,6 @@ interface ShareholderCardProps {
 // Helpers
 // =============================================================================
 
-const OFFICER_TITLE_LABELS: Record<string, { fr: string; en: string }> = {
-  president: { fr: 'Président·e', en: 'President' },
-  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
-  secretary: { fr: 'Secrétaire', en: 'Secretary' },
-  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
-};
-
 function getInitials(name: string): string {
   return name
     .split(' ')
@@ -103,6 +98,7 @@ export default function ShareholderCard({
   onTransfer,
 }: ShareholderCardProps) {
   const t = useTranslations('shareholders');
+  const tCatalogue = useResolveurCatalogue();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
 
   // Per-holding issuance affordance. Returns null for founding-cohort holdings
@@ -163,13 +159,10 @@ export default function ShareholderCard({
     otherRoles.push(locale === 'fr' ? 'Administrateur' : 'Director');
   }
 
+  // `libelleTitre` porte déjà les deux cas : le titre personnalisé rendu
+  // verbatim, et les quatre autres résolus au catalogue.
   officerAppointments.forEach((oa) => {
-    if (oa.title === 'custom') {
-      otherRoles.push(oa.custom_title || 'Custom');
-    } else {
-      const labels = OFFICER_TITLE_LABELS[oa.title];
-      otherRoles.push(labels ? labels[locale] : oa.title);
-    }
+    otherRoles.push(libelleTitre(oa, tCatalogue));
   });
 
   // Share class name(s)

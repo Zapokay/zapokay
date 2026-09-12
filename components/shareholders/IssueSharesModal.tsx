@@ -9,6 +9,7 @@ import PersonSelector, {
 } from '@/components/people/PersonSelector';
 import type { ShareClass, ShareholderEntity, ShareholderEntitySignatoryRole } from '@/lib/supabase/people-types';
 import { getSignatoryRoleLabel } from '@/lib/i18n/lifecycle-labels';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 import { logActivity } from '@/lib/activity-log';
 import {
   chargeEntite,
@@ -80,6 +81,7 @@ export default function IssueSharesModal({
   onSuccess,
 }: IssueSharesModalProps) {
   const t = useTranslations('shareholders');
+  const tCatalogue = useResolveurCatalogue();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -475,7 +477,7 @@ export default function IssueSharesModal({
                         >
                           <option value="">{t('rolePlaceholder')}</option>
                           {SIGNATORY_ROLES.map((rk) => (
-                            <option key={rk} value={rk}>{getSignatoryRoleLabel(rk, locale)}</option>
+                            <option key={rk} value={rk}>{getSignatoryRoleLabel(rk, tCatalogue)}</option>
                           ))}
                           <option value="custom">{t('customRoleOption')}</option>
                         </select>

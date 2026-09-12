@@ -36,20 +36,8 @@ import type {
   EventCompletenessResponse,
 } from '@/lib/minute-book/event-completeness';
 import { deriveDocKey, type DocKeyDerivation } from '@/lib/obligations/derive-dockey';
-
-/**
- * Moved verbatim from EventActRow.tsx:63-68. Mirrors OfficersClient.tsx
- * TITLE_LABELS — kept local per the same Tier-3 extraction follow-up.
- * lib/i18n/lifecycle-labels.ts has a server-side equivalent but it THROWS on an
- * unknown title; this prefers a soft fallback (display the raw title) to
- * silently degrade rather than crash a render.
- */
-const OFFICER_TITLE_LABELS: Record<string, { fr: string; en: string }> = {
-  president: { fr: 'Président·e', en: 'President' },
-  vice_president: { fr: 'Vice-président·e', en: 'Vice President' },
-  secretary: { fr: 'Secrétaire', en: 'Secretary' },
-  treasurer: { fr: 'Trésorier·ière', en: 'Treasurer' },
-};
+import { libelleTitre } from '@/lib/officer-titles';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 /** The act identity triple — the board's only handle on an event (A-3). */
 export interface EventLink {
@@ -97,19 +85,22 @@ export function useEventGenerate(ctx: EventGenerateContext): {
   openGenerate: (req: EventGenerateRequest) => Promise<void>;
   dialogElement: ReactNode;
 } {
-  const { companyId, locale, preferredLanguage, addToast } = ctx;
+  /**
+   * ⚪ `locale` RESTE AU CONTEXTE ET N'EST PLUS LU ICI. Il ne servait qu'à
+   * dériver `uiLang`, dont les six comparaisons choisissaient un libellé de
+   * rôle en dur ; le catalogue s'en charge, dans la locale courante. Le retirer
+   * de `EventGenerateContext` toucherait ses deux appelants (A3Item,
+   * EventActRow) — hors du périmètre mesuré de ce lot.
+   */
+  const { companyId, preferredLanguage, addToast } = ctx;
   // End-reason labels live under directors / officers (already shipped); the
   // namespace is picked by the act's event_type. `events` carries the
   // eventRef fetch-miss string.
   const tEvents = useTranslations('events');
   const tDirectors = useTranslations('directors');
   const tOfficers = useTranslations('officers');
+  const tCatalogue = useResolveurCatalogue();
   const [active, setActive] = useState<ActiveGenerate | null>(null);
-
-  // EventActRow typed its `locale` prop 'fr' | 'en'; the ctx widens it to string
-  // to match useRowUpload. Narrow once — for the only two values that ever
-  // arrive this is identical to the original `locale === 'fr' ? …` tests.
-  const uiLang: 'fr' | 'en' = locale === 'fr' ? 'fr' : 'en';
 
   // act → dialog inputs. Moved VERBATIM from EventActRow.tsx:121-198.
   // Returns null when the docKey can't be derived — the original guarded the
@@ -122,29 +113,34 @@ export function useEventGenerate(ctx: EventGenerateContext): {
 
       const personName = act.personName ?? '—';
 
-      // Role label resolution. Directors get the canonical role string; officers
-      // resolve through OFFICER_TITLE_LABELS (custom titles use the user-authored
-      // string verbatim, with a non-localized fallback when the custom value is
-      // blank). For non-officer events the dialog still receives a sensible value.
+      /**
+       * Le libellé de rôle du dialogue, ENTIÈREMENT au catalogue.
+       *
+       * ⛔ SIX COMPARAISONS DE LOCALE ONT DISPARU. Ce bloc choisissait ses
+       * textes en dur — « Administrateur », « Dirigeant·e », « Actionnaire » —
+       * alors que `lifecycle.roleDirector` / `roleOfficer` / `roleShareholder`
+       * existaient déjà dans LES DEUX catalogues. Le catalogue dit
+       * « Dirigeant » ; le code disait « Dirigeant·e ». C'était le treizième
+       * désaccord du dépôt, et il se tranche du même côté que les autres.
+       *
+       * ⚠️ LE REPLI DOUX SUR UN TITRE INCONNU EST PARTI, DÉLIBÉRÉMENT.
+       * `libelleTitre` LÈVE plutôt que d'afficher un code — la règle que le
+       * registre applique déjà. Le CHECK de `officer_appointments` borne la
+       * colonne aux cinq valeurs de l'union : un titre inconnu n'est pas un
+       * état que la base admet.
+       */
       let roleLabel = '';
       if (act.event_type === 'director_mandate') {
-        roleLabel = uiLang === 'fr' ? 'Administrateur' : 'Director';
+        roleLabel = tCatalogue('lifecycle.roleDirector');
       } else if (act.event_type === 'officer_appointment') {
-        const title = act.officerTitle;
-        if (title === 'custom') {
-          roleLabel =
-            act.officerCustomTitle && act.officerCustomTitle.trim().length > 0
-              ? act.officerCustomTitle
-              : uiLang === 'fr'
-                ? 'Dirigeant·e'
-                : 'Officer';
-        } else if (title && OFFICER_TITLE_LABELS[title]) {
-          roleLabel = OFFICER_TITLE_LABELS[title][uiLang];
-        } else {
-          roleLabel = title ?? (uiLang === 'fr' ? 'Dirigeant·e' : 'Officer');
-        }
+        roleLabel = act.officerTitle
+          ? libelleTitre(
+              { title: act.officerTitle, custom_title: act.officerCustomTitle ?? null },
+              tCatalogue,
+            )
+          : tCatalogue('lifecycle.roleOfficer');
       } else if (act.event_type === 'shareholding') {
-        roleLabel = uiLang === 'fr' ? 'Actionnaire' : 'Shareholder';
+        roleLabel = tCatalogue('lifecycle.roleShareholder');
       }
 
       // reasonLabel: only meaningful for departure phases AND only when the doc
@@ -168,7 +164,7 @@ export function useEventGenerate(ctx: EventGenerateContext): {
 
       return { act, derivation, personName, roleLabel, reasonLabel };
     },
-    [uiLang, tDirectors, tOfficers],
+    [tCatalogue, tDirectors, tOfficers],
   );
 
   const openGenerate = useCallback(

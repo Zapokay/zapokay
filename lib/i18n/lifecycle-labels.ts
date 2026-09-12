@@ -1,29 +1,32 @@
 /**
- * #19d Brief 2a — Server-side lifecycle label helpers.
+ * LES LIBELLÉS DE CYCLE DE VIE — ce fichier ne déclare PLUS AUCUN TITRE.
  *
- * Two pure functions used by the lifecycle-document orchestrator to resolve
- * localized values for resolution body tokens:
+ * ⛔ CE QUI EST PARTI, ET POURQUOI. Il portait `OFFICER_TITLE_LABELS`, la
+ * treizième table de libellés de titres du dépôt et la seule qui alimentait
+ * les RÉSOLUTIONS. Douze autres la contredisaient — « Trésorier » ici,
+ * « Trésorier·ière » dans huit fichiers d'écran, « Trésorier·ère » dans deux
+ * autres et au catalogue. La déclaration unique vit désormais dans
+ * `lib/officer-titles.ts` (des CLÉS), et les textes au catalogue.
  *
- *   getEndReasonLabel(reason, locale, scope)
- *     - 'director' scope reads messages/{fr,en}.json → directors.endReasons.*
- *     - 'officer'  scope reads messages/{fr,en}.json → officers.endReasons.*
- *     - Scoping matters: FR director "Révocation" vs FR officer "Destitution".
+ * ★ LA RÈGLE DE CE FICHIER : IL DÉCLARE DES CLÉS ET REÇOIT SON RÉSOLVEUR.
+ * Il ne peut PAS importer `getServerMessage` — `IssueSharesModal` est un
+ * composant CLIENT et importe ce module ; l'y faire entrer tirerait le
+ * catalogue serveur dans un paquet client, ce que `lib/i18n/server-messages.ts`
+ * interdit à sa deuxième ligne. Chaque appelant passe donc SON résolveur :
+ * `getServerMessage` au serveur, `useResolveurCatalogue` au client.
  *
- *   getOfficerTitleLabel(title, customTitle, locale)
- *     - Canonical {fr,en} map for {president, vice_president, secretary, treasurer}.
- *     - When title === 'custom', returns customTitle verbatim (no localization).
- *
- * Tier-4 follow-up: 5 React components currently duplicate the officer-title
- * label map (OfficerCard.tsx:36, RemoveOfficerModal.tsx:26,
- * ReplaceOfficerModal.tsx:29, EditFormerOfficerModal.tsx:40,
- * OfficersClient.tsx:28). Migrate them to consume getOfficerTitleLabel and
- * move officer-title labels into messages/{fr,en}.json. Out of scope for
- * Brief 2a — title map intentionally lives only here for now.
+ * ⚪ `getEndReasonLabel` GARDE SA FORME — il lit les catalogues importés, et
+ * son rangement est un lot à soi. Le distinguer ici serait le réécrire sans
+ * l'avoir mesuré.
+ *   - 'director' → directors.endReasons.* · 'officer' → officers.endReasons.*
+ *   - La portée compte : FR administrateur « Révocation » vs dirigeant
+ *     « Destitution ».
  */
 
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
 import type { ShareholderEntitySignatoryRole } from '@/lib/supabase/people-types';
+import { CLE_TITRE } from '@/lib/officer-titles';
 
 export type LifecycleLocale = 'fr' | 'en';
 export type EndReasonScope = 'director' | 'officer' | 'shareholder';
@@ -38,13 +41,6 @@ type EndReasonKey =
   | 'cancellation'
   | 'conversion'
   | 'transfer';
-
-type OfficerTitleKey =
-  | 'president'
-  | 'vice_president'
-  | 'secretary'
-  | 'treasurer'
-  | 'custom';
 
 interface MessagesShape {
   directors?: { endReasons?: Partial<Record<EndReasonKey, string>> };
@@ -93,88 +89,46 @@ export function getEndReasonLabel(
 }
 
 /**
- * Localized director-role label for the resolution-shell signatory roster
- * (board-instrument resolutions only). Narrow 2-key helper; widened
- * getSignatoryRoleLabel deliberately deferred (YAGNI — shareholder branch
- * does not consume a roster title today).
+ * Le rôle d'administrateur, pour la liste des signataires d'une résolution du
+ * conseil. La table de deux entrées qui vivait ici valait « Administrateur » /
+ * « Director » — EXACTEMENT `lifecycle.roleDirector` du catalogue, vérifié
+ * octet pour octet. Rien de rendu ne change ; la source, elle, devient unique.
  */
-const DIRECTOR_ROLE_LABELS: Record<LifecycleLocale, string> = {
-  fr: 'Administrateur',
-  en: 'Director',
-};
+export const CLE_ROLE_ADMINISTRATEUR = 'lifecycle.roleDirector' as const;
 
-export function getDirectorRoleLabel(locale: LifecycleLocale): string {
-  if (locale !== 'fr' && locale !== 'en') {
-    throw new Error(`getDirectorRoleLabel: invalid locale "${locale}"`);
-  }
-  return DIRECTOR_ROLE_LABELS[locale];
+export function getDirectorRoleLabel(resoudre: (cle: string) => string): string {
+  return resoudre(CLE_ROLE_ADMINISTRATEUR);
 }
 
 /**
- * Canonical officer-title map. Single source of truth (server-side) until the
- * 5 React duplicates are migrated under the Tier-4 follow-up noted above.
- */
-const OFFICER_TITLE_LABELS: Record<
-  Exclude<OfficerTitleKey, 'custom'>,
-  Record<LifecycleLocale, string>
-> = {
-  president:      { fr: 'Président',           en: 'President' },
-  vice_president: { fr: 'Vice-président',      en: 'Vice-President' },
-  secretary:      { fr: 'Secrétaire',          en: 'Secretary' },
-  treasurer:      { fr: 'Trésorier',           en: 'Treasurer' },
-};
-
-/**
- * Resolve the localized officer title.
+ * LES RÔLES DE SIGNATAIRE D'UNE ENTITÉ — quatre d'entre eux SONT des titres de
+ * charge, et ils pointent la déclaration unique plutôt que de la recopier.
  *
- * When `title === 'custom'`, `customTitle` is returned verbatim (no
- * localization — the user authored it). When customTitle is missing for a
- * custom title, throws (caller must surface a config error rather than ship
- * a resolution with a blank office name).
+ * ⛔ C'EST CE LIEN QUI A FORCÉ LE PÉRIMÈTRE. L'ancienne table prenait ses
+ * quatre libellés PAR RÉFÉRENCE à `OFFICER_TITLE_LABELS` ; retirer celle-ci
+ * cassait celle-là — prouvé au compilateur avant d'écrire une ligne : quatre
+ * `TS2552 Cannot find name 'OFFICER_TITLE_LABELS'`. Les signataires n'étaient
+ * donc pas un choix d'étendue, mais une conséquence.
+ *
+ * ⚪ `trustee` N'EST PAS UN TITRE DE CHARGE et ne peut pas venir de
+ * `CLE_TITRE` : le CHECK de `officer_appointments` ne l'admet pas. Il reçoit sa
+ * propre clé, sous le sous-arbre des signataires.
+ * ⚪ `custom` reste du contenu d'utilisateur : ni clé, ni traduction.
  */
-export function getOfficerTitleLabel(
-  title: string,
-  customTitle: string | null | undefined,
-  locale: LifecycleLocale,
-): string {
-  if (locale !== 'fr' && locale !== 'en') {
-    throw new Error(`getOfficerTitleLabel: invalid locale "${locale}"`);
-  }
-  if (title === 'custom') {
-    if (!customTitle || customTitle.trim() === '') {
-      throw new Error(
-        'getOfficerTitleLabel: title="custom" but customTitle is empty',
-      );
-    }
-    return customTitle;
-  }
-  const entry = OFFICER_TITLE_LABELS[title as Exclude<OfficerTitleKey, 'custom'>];
-  if (!entry) {
-    throw new Error(`getOfficerTitleLabel: unknown title "${title}"`);
-  }
-  return entry[locale];
-}
-
-/**
- * Signatory-role labels for entity signatories (Atom 3 Slice 2b-ii). Reuses the
- * canonical OFFICER_TITLE_LABELS for the 4 overlapping roles (single source per
- * §8.48 — reference, not copy) + 'trustee'. 'custom' is modal chrome: its select
- * option label + the free-text custom_role are i18n / user content, not this map.
- */
-const SIGNATORY_ROLE_LABELS: Record<
+export const CLE_ROLE_SIGNATAIRE: Record<
   Exclude<ShareholderEntitySignatoryRole, 'custom'>,
-  Record<LifecycleLocale, string>
+  string
 > = {
-  trustee:        { fr: 'Fiduciaire', en: 'Trustee' },
-  president:      OFFICER_TITLE_LABELS.president,
-  vice_president: OFFICER_TITLE_LABELS.vice_president,
-  secretary:      OFFICER_TITLE_LABELS.secretary,
-  treasurer:      OFFICER_TITLE_LABELS.treasurer,
+  trustee: 'shareholders.signatoryRoles.trustee',
+  president: CLE_TITRE.president,
+  vice_president: CLE_TITRE.vice_president,
+  secretary: CLE_TITRE.secretary,
+  treasurer: CLE_TITRE.treasurer,
 };
 
 export function getSignatoryRoleLabel(
   role: Exclude<ShareholderEntitySignatoryRole, 'custom'>,
-  locale: LifecycleLocale,
+  resoudre: (cle: string) => string,
 ): string {
-  return SIGNATORY_ROLE_LABELS[role][locale];
+  return resoudre(CLE_ROLE_SIGNATAIRE[role]);
 }

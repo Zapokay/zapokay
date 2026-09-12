@@ -12,6 +12,8 @@ import type {
   ShareClass,
 } from '@/lib/supabase/people-types';
 import { formatDate } from '@/lib/utils';
+import { libelleTitre } from '@/lib/officer-titles';
+import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 // =============================================================================
 // Types
@@ -40,13 +42,6 @@ interface OfficerCardProps {
 // Helpers
 // =============================================================================
 
-const TITLE_LABELS: Record<string, { fr: string; en: string }> = {
-  president: { fr: 'PRÉSIDENT·E', en: 'PRESIDENT' },
-  vice_president: { fr: 'VICE-PRÉSIDENT·E', en: 'VICE PRESIDENT' },
-  secretary: { fr: 'SECRÉTAIRE', en: 'SECRETARY' },
-  treasurer: { fr: 'TRÉSORIER·IÈRE', en: 'TREASURER' },
-};
-
 function getInitials(name: string): string {
   return name
     .split(' ')
@@ -73,6 +68,7 @@ export default function OfficerCard({
   onGenerateAppointment,
 }: OfficerCardProps) {
   const t = useTranslations('officers');
+  const tCatalogue = useResolveurCatalogue();
   const router = useRouter();
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const [historyExpanded, setHistoryExpanded] = useState<boolean>(() => false);
@@ -89,11 +85,14 @@ export default function OfficerCard({
     !!incorporationDate &&
     new Date(officer.appointment_date).getTime() > new Date(incorporationDate).getTime();
 
-  // Role header label
-  const titleLabel =
-    officer.title === 'custom'
-      ? (officer.custom_title || 'Custom').toUpperCase()
-      : (TITLE_LABELS[officer.title]?.[locale] ?? officer.title.toUpperCase());
+  /**
+   * ⛔ LA CASSE N'EST PLUS DANS LA DONNÉE. Cette carte portait ses libellés EN
+   * CAPITALES dans le littéral — « TRÉSORIER·IÈRE » — et ajoutait deux
+   * `.toUpperCase()` pour les cas qu'il ne couvrait pas. Une source unique ne
+   * peut pas porter une casse d'affichage : les capitales viennent du CSS de
+   * l'en-tête (`uppercase`), le texte vient du catalogue.
+   */
+  const titleLabel = libelleTitre(officer, tCatalogue);
 
   // Build "Aussi :" roles line
   const otherRoles: string[] = [];
@@ -113,7 +112,7 @@ export default function OfficerCard({
   return (
     <div className="group rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5 transition-shadow hover:shadow-md">
       {/* Role header */}
-      <div className="mb-3 text-[11px] font-bold tracking-widest text-[var(--warning-text)]">
+      <div className="mb-3 text-[11px] font-bold uppercase tracking-widest text-[var(--warning-text)]">
         {titleLabel}
       </div>
 

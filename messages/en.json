@@ -577,6 +577,9 @@
     "addSignatory": "Add a signatory",
     "removeSignatory": "Remove this signatory",
     "rolePlaceholder": "Select a role…",
+    "signatoryRoles": {
+      "trustee": "Trustee"
+    },
     "customRoleOption": "Other…",
     "customRoleLabel": "Specify the role",
     "signatoryStartDate": "Start date",

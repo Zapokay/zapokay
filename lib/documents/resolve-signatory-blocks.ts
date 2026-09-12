@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getDirectorRoleLabel, getSignatoryRoleLabel } from '@/lib/i18n/lifecycle-labels';
+import { getServerMessage } from '@/lib/i18n/server-messages';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 import type { ShareholderEntitySignatoryRole } from '@/lib/supabase/people-types';
 
@@ -64,7 +65,7 @@ export async function resolveSignatoryBlocks(
       .in('id', personIds);
     if (peopleError) throw new SignatoryResolutionError('directors_people', peopleError);
 
-    const directorRole = getDirectorRoleLabel(language);
+    const directorRole = getDirectorRoleLabel((cle) => getServerMessage(cle, language));
     const blocks: SignatoryBlock[] = (people ?? []).map((p) => ({
       type: 'individual',
       id: p.id as string,
@@ -109,7 +110,18 @@ export async function resolveSignatoryBlocks(
       .in('id', individualPersonIds);
     if (peopleError) throw new SignatoryResolutionError('shareholders_people', peopleError);
 
-    const shareholderRole = language === 'en' ? 'Shareholder' : 'Actionnaire';
+    /**
+     * ⛔ LA DERNIÈRE PAIRE EN DUR D'UN CHEMIN DE DOCUMENT, ET AUCUNE GARDE NE
+     * LA VOYAIT. Ce n'était pas une table : ni les trois sélecteurs d'ESLint ni
+     * le recensement de `check:titres` ne cherchent un ternaire de locale. La
+     * laisser, c'était laisser un point de départ invisible pour la prochaine.
+     *
+     * ⚪ SUBSTITUTION, PAS DÉCISION : `lifecycle.roleShareholder` vaut
+     * « Actionnaire » / « Shareholder » — comparé OCTET PAR OCTET aux deux
+     * chaînes qu'il remplace (416374696f6e6e61697265 / 5368617265686f6c646572).
+     * Le bloc rendu est identique à l'empreinte près.
+     */
+    const shareholderRole = getServerMessage('lifecycle.roleShareholder', language);
     for (const p of people ?? []) {
       signatories.push({
         type: 'individual',
@@ -147,7 +159,7 @@ export async function resolveSignatoryBlocks(
       const roleLabel =
         role === 'custom'
           ? (s.custom_role as string | null) ?? ''
-          : getSignatoryRoleLabel(role, language);
+          : getSignatoryRoleLabel(role, (cle) => getServerMessage(cle, language));
       const arr = buckets.get(entityId) ?? [];
       arr.push({ id: s.id as string, name: person?.full_name ?? '', roleLabel });
       buckets.set(entityId, arr);
