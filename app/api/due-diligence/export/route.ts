@@ -523,7 +523,7 @@ export async function GET(request: NextRequest) {
      * ★ trousDeLaSociete est APPELÉE, jamais recopiée : même source que
      * l'astérisque et que la liste du modal.
      */
-    const trous = await trousDeLaSociete(supabase, companyId, 'director');
+    const trous = await trousDeLaSociete(supabase, companyId);
     const donneesManquantes = trous.reduce((n, t) => n + t.champs.length, 0);
     const mentionIncomplet = getCoverIncompleteNotice(donneesManquantes, docLanguage);
 

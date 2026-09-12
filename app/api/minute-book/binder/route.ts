@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   // serait réécrite là-bas, et les deux divergeraient.
   // ⚪ Le modal appelle cette route deux fois ; recalculer deux fois est sans
   // conséquence — aucun cache n'est bâti pour ça.
-  const dataGaps = await trousDeLaSociete(supabase, company.id, 'director')
+  const dataGaps = await trousDeLaSociete(supabase, company.id)
 
   return NextResponse.json({ sections, totalDocuments, dataGaps })
 }

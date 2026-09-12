@@ -68,19 +68,27 @@ export type PorteeExigence =
 /**
  * LA DÉCLARATION.
  *
- * ⚠️ LES TROIS ENTRÉES VIDES SONT DÉLIBÉRÉES, PAS ABSENTES. `Record` sur
- * RoleAvecExigence force les quatre rôles à figurer : en ajouter un au type
- * sans l'inscrire ici échoue à la compilation. Une entrée vide dit « ce rôle
- * a été considéré et n'exige rien aujourd'hui » ; une entrée manquante dirait
- * « personne n'y a pensé ».
+ * ⚠️ L'ENTRÉE VIDE EST DÉLIBÉRÉE, PAS ABSENTE. `Record` sur RoleAvecExigence
+ * force les quatre rôles à figurer : en ajouter un au type sans l'inscrire ici
+ * échoue à la compilation. Une entrée vide dit « ce rôle a été considéré et
+ * n'exige rien aujourd'hui » ; une entrée manquante dirait « personne n'y a
+ * pensé ».
  *
- * ★ Le jour où l'on remplira `officer`, aucune surface ne changera : c'est
- * précisément ce que ce fichier existe pour prouver.
+ * ★ CE QUE CE FICHIER EXISTAIT POUR PROUVER EST MAINTENANT MESURÉ : remplir
+ * `officer` et `shareholder` n'a demandé AUCUN changement de mécanisme.
+ * L'astérisque de PersonSelector, la garde de bouton et la liste des trous
+ * dérivent tous les trois de ces deux lignes. Décision de Dom, 2026-09-11 :
+ * le domicile est imposé dans les modales de l'application.
+ *
+ * ⛔ `entity_signatory` RESTE VIDE, et ce n'est pas un oubli : aucun dépôt ne
+ * porte le domicile d'un signataire, et ce n'est pas ce qui a été décidé.
+ * ⛔ L'INSCRIPTION N'EST PAS CONCERNÉE : elle ne monte aucun formulaire de
+ * rôle et ses écritures restent libres.
  */
 export const CHAMPS_REQUIS: Record<RoleAvecExigence, readonly ChampPersonne[]> = {
   director: ['address_city', 'address_country'],
-  officer: [],
-  shareholder: [],
+  officer: ['address_city', 'address_country'],
+  shareholder: ['address_city', 'address_country'],
   entity_signatory: [],
 };
 
@@ -144,33 +152,42 @@ export interface TrouDePersonne {
 }
 
 /**
- * Les trous d'une société, pour un rôle.
+ * Les trous d'une société — LES TROIS FAMILLES DE RÔLES, UNE LIGNE PAR
+ * PERSONNE.
  *
- * ⚠️ LES PERSONNES ACTIVES DANS LE RÔLE, jamais toutes les personnes du
- * dossier. Un administrateur dont le mandat est clos n'a plus à porter un
- * domicile pour que le livre s'exporte.
+ * ⚠️ LES PERSONNES ACTIVES DANS UN RÔLE QUI EXIGE, jamais toutes les personnes
+ * du dossier. Un mandat clos, une charge terminée, une détention close : aucun
+ * des trois ne bloque l'export.
  *
- * ⛔ CE CALCUL VIT ICI ET NULLE PART AILLEURS. La route du binder l'APPELLE et
- * transporte son résultat ; la page Administrateurs voudra la même liste un
- * jour et n'appellera jamais cette route. Écrit dans la route, il serait
- * réécrit là-bas, et les deux divergeraient.
+ * ⭑ ET QUI CUMULE NE COMPTE QU'UNE FOIS. La même personne est souvent
+ * administratrice, dirigeante ET actionnaire — au parc, plusieurs le sont.
+ * Trois appels séparés auraient rendu trois lignes pour un seul domicile à
+ * saisir, et la liste du modal serait devenue un mur. La déduplication vit
+ * ici, pas chez les appelants.
+ *
+ * ⛔ CE CALCUL VIT ICI ET NULLE PART AILLEURS. Les deux routes l'APPELLENT et
+ * transportent son résultat ; écrit dans l'une, il serait réécrit dans
+ * l'autre, et les deux divergeraient.
  */
 export async function trousDeLaSociete(
   supabase: SupabaseClient,
   companyId: string,
-  role: RoleAvecExigence,
 ): Promise<TrouDePersonne[]> {
-  // Un rôle sans exigence n'a aucun trou possible : on ne lit pas la base pour
-  // le découvrir.
-  if (CHAMPS_REQUIS[role].length === 0) return [];
-
-  // Seul `director` porte une exigence aujourd'hui. Les autres rôles sortent
-  // ci-dessus ; quand l'un d'eux se remplira, sa requête viendra ici, à côté.
-  if (role !== 'director') return [];
+  /**
+   * Les rôles qui exigent quelque chose AUJOURD'HUI, dérivés de la
+   * déclaration. Un rôle dont l'entrée est vide ne peut pas produire de trou :
+   * il ne participe pas au filtre, et `entity_signatory` sort donc de lui-même.
+   */
+  const rolesQuiExigent = (['director', 'officer', 'shareholder'] as const).filter(
+    (r) => CHAMPS_REQUIS[r].length > 0,
+  );
+  if (rolesQuiExigent.length === 0) return [];
 
   const { data, error } = await supabase
     .from('company_people')
-    .select('*, director_mandates(deleted_at, is_active)')
+    .select(
+      '*, director_mandates(deleted_at, is_active), officer_appointments(deleted_at, is_active), shareholding_holders(shareholdings(end_date))',
+    )
     .eq('company_id', companyId);
 
   // ⚠️ UN ÉCHEC DE LECTURE N'EST PAS UNE ABSENCE DE TROU. Rendre `[]` sur une
@@ -179,12 +196,33 @@ export async function trousDeLaSociete(
 
   const personnes = (data ?? []) as unknown as (CompanyPerson & {
     director_mandates?: { deleted_at: string | null; is_active: boolean }[];
+    officer_appointments?: { deleted_at: string | null; is_active: boolean }[];
+    shareholding_holders?: { shareholdings?: { end_date: string | null } | null }[];
   })[];
 
+  type Personne = (typeof personnes)[number];
+  const actif: Record<(typeof rolesQuiExigent)[number], (p: Personne) => boolean> = {
+    director: (p) => (p.director_mandates ?? []).some((m) => !m.deleted_at && m.is_active),
+    officer: (p) => (p.officer_appointments ?? []).some((m) => !m.deleted_at && m.is_active),
+    /**
+     * ⚠️ NI `deleted_at` NI `is_active` SUR UNE DÉTENTION — mesuré : ces deux
+     * colonnes n'existent pas sur `shareholdings`. « En cours » se dérive
+     * d'`end_date`, la même source que la seconde ligne du registre des
+     * actionnaires.
+     */
+    shareholder: (p) =>
+      (p.shareholding_holders ?? []).some((h) => h.shareholdings && !h.shareholdings.end_date),
+  };
+
   return personnes
-    .filter((p) =>
-      (p.director_mandates ?? []).some((m) => !m.deleted_at && m.is_active),
-    )
-    .map((p) => ({ personId: p.id, nom: p.full_name, champs: champsManquants(role, p) }))
-    .filter((t) => t.champs.length > 0);
+    .map((p) => {
+      const roles = rolesQuiExigent.filter((r) => actif[r](p));
+      if (roles.length === 0) return null;
+      // L'UNION des champs exigés par les rôles actifs de cette personne : une
+      // seule ligne, qui nomme tout ce qui lui manque.
+      const requis = new Set<ChampPersonne>(roles.flatMap((r) => Array.from(CHAMPS_REQUIS[r])));
+      const champs = Array.from(requis).filter((champ) => estVide(p[champ]));
+      return champs.length > 0 ? { personId: p.id, nom: p.full_name, champs } : null;
+    })
+    .filter((t): t is TrouDePersonne => t !== null);
 }

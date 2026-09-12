@@ -9,6 +9,7 @@ import PersonSelector, {
 } from '@/components/people/PersonSelector';
 import { logActivity } from '@/lib/activity-log';
 import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
+import { chargePersonne, insererPersonne } from '@/lib/person-payload';
 import type { DirectorEndReason } from '@/lib/supabase/people-types';
 
 // =============================================================================
@@ -161,23 +162,14 @@ export default function AddDirectorModal({
       let personId: string;
 
       if (personValue.mode === 'new') {
-        // Create person first
-        const { data: newPerson, error: insertErr } = await supabase
-          .from('company_people')
-          .insert({
-            company_id: companyId,
-            full_name: personValue.fullName,
-            email: personValue.email || null,
-            phone: personValue.phone || null,
-            address_line1: personValue.addressLine1 || null,
-            address_city: personValue.addressCity || null,
-            address_province: personValue.addressProvince || null,
-            address_postal_code: personValue.addressPostalCode || null,
-            address_country: personValue.addressCountry,
-            is_canadian_resident: personValue.isCanadianResident,
-          })
-          .select('id')
-          .single();
+        // ★ UNE SEULE PORTE D'ÉCRITURE — lib/person-payload.ts. La charge est
+        //   construite là-bas, clé pour clé comme le littéral qu'elle remplace,
+        //   et `address_line2` — que le formulaire collecte depuis c0325f9 et
+        //   qu'aucune des six copies n'écrivait — part enfin avec les autres.
+        const { data: newPerson, error: insertErr } = await insererPersonne(
+          supabase,
+          chargePersonne(companyId, personValue),
+        );
 
         if (insertErr || !newPerson) {
           throw new Error(insertErr?.message || 'Failed to create person');

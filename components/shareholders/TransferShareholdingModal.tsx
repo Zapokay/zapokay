@@ -43,6 +43,8 @@ import PersonSelector, {
 } from '@/components/people/PersonSelector';
 import type { ShareholdingWithDetails } from '@/lib/supabase/people-types';
 import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
+import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
+import { chargePersonne, insererPersonne } from '@/lib/person-payload';
 
 // =============================================================================
 // Types
@@ -93,6 +95,25 @@ export default function TransferShareholdingModal({
   const transferorName =
     holderName(shareholding.holders as unknown as RawHolder[]) ??
     (locale === 'fr' ? '(détenteur inconnu)' : '(unknown holder)');
+
+  /**
+   * ★ CE TRANSFERT CRÉE UN ACTIONNAIRE, il ne fait pas que le rattacher : en
+   * mode « nouvelle personne » il écrit la fiche avant d'appeler la RPC. Il
+   * porte donc la même garde que l'émission.
+   */
+  const manquants: ChampPersonne[] =
+    personValue?.mode === 'new'
+      ? champsManquants('shareholder', {
+          address_city: personValue.addressCity,
+          address_country: personValue.addressCountry,
+        })
+      : [];
+  const domicileIncomplet = manquants.length > 0;
+  const messageDomicile = !domicileIncomplet
+    ? undefined
+    : manquants.length === 2 ? t('errorCityAndCountry')
+    : manquants[0] === 'address_city' ? t('errorCity')
+    : t('errorCountry');
 
   const handleConfirm = useCallback(async () => {
     setError(null);
@@ -146,22 +167,11 @@ export default function TransferShareholdingModal({
       // Mirrors IssueSharesModal.tsx:90-111 verbatim.
       let toPersonId: string;
       if (personValue.mode === 'new') {
-        const { data: newPerson, error: insertErr } = await supabase
-          .from('company_people')
-          .insert({
-            company_id: shareholding.company_id,
-            full_name: personValue.fullName,
-            email: personValue.email || null,
-            phone: personValue.phone || null,
-            address_line1: personValue.addressLine1 || null,
-            address_city: personValue.addressCity || null,
-            address_province: personValue.addressProvince || null,
-            address_postal_code: personValue.addressPostalCode || null,
-            address_country: personValue.addressCountry,
-            is_canadian_resident: personValue.isCanadianResident,
-          })
-          .select('id')
-          .single();
+        // ★ UNE SEULE PORTE D'ÉCRITURE — lib/person-payload.ts.
+        const { data: newPerson, error: insertErr } = await insererPersonne(
+          supabase,
+          chargePersonne(shareholding.company_id, personValue),
+        );
         if (insertErr || !newPerson) {
           throw new Error(insertErr?.message || 'Failed to create person');
         }
@@ -248,6 +258,7 @@ export default function TransferShareholdingModal({
             onChange={setPersonValue}
             excludePersonIds={currentHolderPersonId ? [currentHolderPersonId] : []}
             label={t('newHolder')}
+            error={messageDomicile}
           />
 
           {/* Transfer date */}
@@ -307,7 +318,7 @@ export default function TransferShareholdingModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={saving || !personValue}
+            disabled={saving || !personValue || domicileIncomplet}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

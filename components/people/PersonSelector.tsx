@@ -38,8 +38,9 @@ export type PersonSelectorValue =
       email: string;
       phone: string;
       addressLine1: string;
-      /** Suite / appartement. Ajoute le 2026-09-06 pour l'edition d'identite ;
-       *  les cinq appelants d'AJOUT ne le collectent pas (voir lockToNewMode). */
+      /** Suite / appartement. Ajoutee le 2026-09-06 pour l'edition d'identite,
+       *  et collectee par TOUS les montages depuis que les neuf chemins
+       *  d'ecriture l'ecrivent (lib/person-payload.ts). */
       addressLine2: string;
       addressCity: string;
       addressProvince: string;
@@ -652,25 +653,28 @@ export default function PersonSelector({
             />
           </div>
 
-          {/* Suite / appartement — ⚠️ AFFICHE SEULEMENT EN EDITION.
-              Les cinq formulaires d'AJOUT ne le montrent pas : leurs INSERT ne
-              passent pas address_line2, un champ visible la accepterait une
-              saisie pour la jeter. Le leur ouvrir demande de toucher leurs cinq
-              INSERT — un autre lot. */}
-          {lockToNewMode && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                {t('addressLine2')}
-              </label>
-              <input
-                type="text"
-                value={form.addressLine2}
-                onChange={(e) => maj('addressLine2', e.target.value)}
-                placeholder={t('addressLine2Placeholder')}
-                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              />
-            </div>
-          )}
+          {/* Suite / appartement — RENDUE PARTOUT DEPUIS CE LOT.
+              ⛔ LE COMMENTAIRE QUI VIVAIT ICI EST MORT AVEC SA CONDITION. Il
+              disait vrai le 2026-09-06 : les formulaires d'AJOUT ne passaient
+              pas `address_line2` dans leur INSERT, et un champ visible aurait
+              accepté une saisie pour la jeter. Les NEUF chemins d'écriture
+              passent désormais par lib/person-payload.ts, dont le type EXIGE la
+              clé : la saisie arrive en base, donc le champ se montre.
+              ⚪ `lockToNewMode` RESTE, avec ses deux autres emplois — forcer le
+              bloc « nouvelle personne » et masquer le chemin de sélection. Seule
+              cette condition-ci disparaît. */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              {t('addressLine2')}
+            </label>
+            <input
+              type="text"
+              value={form.addressLine2}
+              onChange={(e) => maj('addressLine2', e.target.value)}
+              placeholder={t('addressLine2Placeholder')}
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          </div>
 
           {/* City + Province + Postal */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

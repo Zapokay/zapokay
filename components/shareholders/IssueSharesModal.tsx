@@ -17,6 +17,8 @@ import {
   type ValeurEntite,
 } from '@/lib/entity-payload';
 import EntityForm from '@/components/shareholders/EntityForm';
+import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
+import { chargePersonne, insererPersonne } from '@/lib/person-payload';
 
 // =============================================================================
 // Types
@@ -114,6 +116,33 @@ export default function IssueSharesModal({
     }
   }, [shareClasses, shareClassId]);
 
+  /**
+   * ⚠️ LA GARDE NE FRAPPE QUE LE CHEMIN PERSONNE. Cette modale porte DEUX
+   * montages de PersonSelector et trois branches d'enregistrement :
+   *
+   *   · entité existante choisie → rien à saisir, rien à exiger ;
+   *   · nouvelle entité (`entityMode`) → c'est `EntityForm` qui saisit, et le
+   *     domicile d'une société est le LOT C, pas celui-ci ;
+   *   · signataires d'entité → `entity_signatory` reste vide PAR DÉCISION.
+   *
+   * `cheminPersonne` isole la seule branche concernée ; en mode entité,
+   * `manquants` est vide et le bouton retrouve exactement sa condition d'avant.
+   */
+  const cheminPersonne = !selectedExistingEntity && !entityMode;
+  const manquants: ChampPersonne[] =
+    cheminPersonne && personValue?.mode === 'new'
+      ? champsManquants('shareholder', {
+          address_city: personValue.addressCity,
+          address_country: personValue.addressCountry,
+        })
+      : [];
+  const domicileIncomplet = manquants.length > 0;
+  const messageDomicile = !domicileIncomplet
+    ? undefined
+    : manquants.length === 2 ? t('errorCityAndCountry')
+    : manquants[0] === 'address_city' ? t('errorCity')
+    : t('errorCountry');
+
   // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async () => {
     if (selectedExistingEntity) {
@@ -134,6 +163,20 @@ export default function IssueSharesModal({
     } else if (!personValue) {
       setError(t('errorSelectPerson'));
       return;
+    } else if (personValue.mode === 'new') {
+      // Ceinture du CHEMIN PERSONNE, recalculée depuis `personValue`.
+      const absents = champsManquants('shareholder', {
+        address_city: personValue.addressCity,
+        address_country: personValue.addressCountry,
+      });
+      if (absents.length > 0) {
+        setError(
+          absents.length === 2 ? t('errorCityAndCountry')
+          : absents[0] === 'address_city' ? t('errorCity')
+          : t('errorCountry'),
+        );
+        return;
+      }
     }
     if (!shareClassId) {
       setError(t('errorShareClass'));
@@ -180,22 +223,12 @@ export default function IssueSharesModal({
         for (const r of signatoryRows) {
           let sigPersonId: string;
           if (r.personValue!.mode === 'new') {
-            const { data: np, error: npErr } = await supabase
-              .from('company_people')
-              .insert({
-                company_id: companyId,
-                full_name: r.personValue!.fullName,
-                email: r.personValue!.email || null,
-                phone: r.personValue!.phone || null,
-                address_line1: r.personValue!.addressLine1 || null,
-                address_city: r.personValue!.addressCity || null,
-                address_province: r.personValue!.addressProvince || null,
-                address_postal_code: r.personValue!.addressPostalCode || null,
-                address_country: r.personValue!.addressCountry,
-                is_canadian_resident: r.personValue!.isCanadianResident,
-              })
-              .select('id')
-              .single();
+            // ★ MÊME PORTE que les huit autres écritures — le signataire n'a
+            //   aucune exigence, mais il n'a plus le droit de perdre un champ.
+            const { data: np, error: npErr } = await insererPersonne(
+              supabase,
+              chargePersonne(companyId, r.personValue!),
+            );
             if (npErr || !np) throw new Error(npErr?.message || 'Failed to create signatory person');
             sigPersonId = np.id;
           } else {
@@ -234,22 +267,11 @@ export default function IssueSharesModal({
       } else {
         let personId: string;
         if (personValue!.mode === 'new') {
-          const { data: newPerson, error: insertErr } = await supabase
-            .from('company_people')
-            .insert({
-              company_id: companyId,
-              full_name: personValue!.fullName,
-              email: personValue!.email || null,
-              phone: personValue!.phone || null,
-              address_line1: personValue!.addressLine1 || null,
-              address_city: personValue!.addressCity || null,
-              address_province: personValue!.addressProvince || null,
-              address_postal_code: personValue!.addressPostalCode || null,
-              address_country: personValue!.addressCountry,
-              is_canadian_resident: personValue!.isCanadianResident,
-            })
-            .select('id')
-            .single();
+          // ★ UNE SEULE PORTE D'ÉCRITURE — lib/person-payload.ts.
+          const { data: newPerson, error: insertErr } = await insererPersonne(
+            supabase,
+            chargePersonne(companyId, personValue!),
+          );
 
           if (insertErr || !newPerson) {
             throw new Error(insertErr?.message || 'Failed to create person');
@@ -365,6 +387,7 @@ export default function IssueSharesModal({
               value={personValue}
               onChange={setPersonValue}
               label={t('holderLabel')}
+              error={messageDomicile}
               placeholder={t('selectHolder')}
               includeEntities
               onSelectEntity={(entity) => {
@@ -637,7 +660,7 @@ export default function IssueSharesModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || shareClasses.length === 0 || !issueDate || (selectedExistingEntity ? false : entityMode ? (!valeurEntite.legalName.trim() || !signatoryRowsComplete(signatoryRows)) : !personValue)}
+            disabled={saving || shareClasses.length === 0 || !issueDate || (selectedExistingEntity ? false : entityMode ? (!valeurEntite.legalName.trim() || !signatoryRowsComplete(signatoryRows)) : (!personValue || domicileIncomplet))}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

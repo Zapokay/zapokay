@@ -8,6 +8,8 @@ import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
 import type { OfficerWithPerson, OfficerEndReason } from '@/lib/supabase/people-types';
+import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
+import { chargePersonne, insererPersonne } from '@/lib/person-payload';
 
 // =============================================================================
 // End-reason options (labels resolved via t('endReasons.{value}')). NO default
@@ -86,11 +88,45 @@ export default function ReplaceOfficerModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * ★ LE SECOND CHEMIN DE CRÉATION D'UN DIRIGEANT PORTE LA MÊME GARDE que le
+   * premier — c'est tout l'intérêt de la déclaration unique : deux formulaires,
+   * un seul `champsManquants`.
+   */
+  const manquants: ChampPersonne[] =
+    personValue?.mode === 'new'
+      ? champsManquants('officer', {
+          address_city: personValue.addressCity,
+          address_country: personValue.addressCountry,
+        })
+      : [];
+  const domicileIncomplet = manquants.length > 0;
+  const messageDomicile = !domicileIncomplet
+    ? undefined
+    : manquants.length === 2 ? t('errorCityAndCountry')
+    : manquants[0] === 'address_city' ? t('errorCity')
+    : t('errorCountry');
+
   // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async () => {
     if (!personValue) {
       setError(t('errorSelectPerson'));
       return;
+    }
+    // Ceinture, recalculée depuis `personValue`.
+    if (personValue.mode === 'new') {
+      const absents = champsManquants('officer', {
+        address_city: personValue.addressCity,
+        address_country: personValue.addressCountry,
+      });
+      if (absents.length > 0) {
+        setError(
+          absents.length === 2 ? t('errorCityAndCountry')
+          : absents[0] === 'address_city' ? t('errorCity')
+          : t('errorCountry'),
+        );
+        return;
+      }
     }
     if (!endReason) {
       setError(locale === 'fr' ? 'Le motif de fin est requis.' : 'A reason is required.');
@@ -105,22 +141,11 @@ export default function ReplaceOfficerModal({
       let incomingPersonId: string;
 
       if (personValue.mode === 'new') {
-        const { data: newPerson, error: insertErr } = await supabase
-          .from('company_people')
-          .insert({
-            company_id: companyId,
-            full_name: personValue.fullName,
-            email: personValue.email || null,
-            phone: personValue.phone || null,
-            address_line1: personValue.addressLine1 || null,
-            address_city: personValue.addressCity || null,
-            address_province: personValue.addressProvince || null,
-            address_postal_code: personValue.addressPostalCode || null,
-            address_country: personValue.addressCountry,
-            is_canadian_resident: personValue.isCanadianResident,
-          })
-          .select('id')
-          .single();
+        // ★ UNE SEULE PORTE D'ÉCRITURE — lib/person-payload.ts.
+        const { data: newPerson, error: insertErr } = await insererPersonne(
+          supabase,
+          chargePersonne(companyId, personValue),
+        );
 
         if (insertErr || !newPerson) {
           throw new Error(insertErr?.message || 'Failed to create person');
@@ -220,6 +245,7 @@ export default function ReplaceOfficerModal({
             onChange={setPersonValue}
             excludePersonIds={[officer.person_id]}
             label={locale === 'fr' ? 'Nouveau titulaire' : 'New appointee'}
+            error={messageDomicile}
           />
 
           {/* End reason (outgoing) — NO default; user must pick */}
@@ -305,7 +331,7 @@ export default function ReplaceOfficerModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !personValue || !endReason}
+            disabled={saving || !personValue || !endReason || domicileIncomplet}
             className="flex items-center gap-2 rounded-lg bg-[var(--amber-400)] px-5 py-2 text-sm font-semibold text-[var(--cta-text)] shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Language, OnboardingData, Province } from '@/lib/types';
 import { normalizeNeq, normalizeCorporationNumber } from '@/lib/identifiers';
 import { residencyApplies } from '@/lib/residency';
+import { insererPersonne, type ChargePersonne } from '@/lib/person-payload';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
 import { StepProvince } from './StepProvince';
@@ -292,19 +293,26 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
           if (existingPeople && existingPeople.length > 0) {
             personId = existingPeople[0].id;
           } else {
-            const { data: person, error: personErr } = await supabase
-              .from('company_people')
-              .insert({
-                company_id: companyId,
-                full_name: dir.fullName.trim(),
-                is_canadian_resident: dir.isCanadianResident,
-                // ⛔ PLUS DE LITTERAL 'CA'. Le pays vient de ce que
-                //    l'utilisateur a choisi ; vide -> null, comme partout.
-                address_city: dir.addressCity.trim() || null,
-                address_country: dir.addressCountry || null,
-              })
-              .select('id')
-              .single();
+            // ⛔ PLUS DE LITTERAL 'CA'. Le pays vient de ce que l'utilisateur a
+            //    choisi ; vide -> null, comme partout.
+            // ★ MÊME PORTE D'ÉCRITURE que les modales (lib/person-payload.ts),
+            //   et l'inscription reste LIBRE : le module est un chemin, pas une
+            //   règle. Les clés qui manquaient partent à `null` — la ligne
+            //   écrite est identique, aucune de ces colonnes n'ayant de DEFAULT.
+            const chargeAdministrateur: ChargePersonne = {
+              company_id: companyId,
+              full_name: dir.fullName.trim(),
+              email: null,
+              phone: null,
+              address_line1: null,
+              address_line2: null,
+              address_city: dir.addressCity.trim() || null,
+              address_province: null,
+              address_postal_code: null,
+              address_country: dir.addressCountry || null,
+              is_canadian_resident: dir.isCanadianResident,
+            };
+            const { data: person, error: personErr } = await insererPersonne(supabase, chargeAdministrateur);
             // Stop at the FIRST failure: do not advance, and never write a mandate
             // pointing at a person that was never created.
             if (personErr || !person) return false;
@@ -434,21 +442,27 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
               // `company_people` ne portent QUE leur clé primaire — aucune unicité.
               // Ce sont les deux pré-lectures qui rendent un second « Continuer »
               // inoffensif, en retrouvant ce que le premier passage a écrit.
-              const { data: newPerson, error: newPersonErr } = await supabase
-                .from('company_people')
-                // ⛔ NULL EXPLICITE, PAS 'CA'. Ce chemin ne demande que le NOM : poser
-        //    un pays ici, c'est declarer a la place de l'utilisateur.
-        // ⛔ ET is_canadian_resident S'ECRIT, IL NE S'OMET PAS. La regle du lot
-        //    residence : le code doit etre juste AVEC ou SANS defaut en base.
-        //    Celui-ci ne l'etait que parce que le defaut avait disparu.
-        .insert({
-          company_id: companyId,
-          full_name: sh.fullName.trim(),
-          address_country: null,
-          is_canadian_resident: null,
-        })
-                .select('id')
-                .single();
+              // ⛔ NULL EXPLICITE, PAS 'CA'. Ce chemin ne demande que le NOM : poser
+              //    un pays ici, c'est declarer a la place de l'utilisateur.
+              // ⛔ ET is_canadian_resident S'ECRIT, IL NE S'OMET PAS. La regle du lot
+              //    residence : le code doit etre juste AVEC ou SANS defaut en base.
+              //    Celui-ci ne l'etait que parce que le defaut avait disparu.
+              // ★ La MÊME porte que les modales : les clés qui manquaient sont
+              //   écrites à `null`, et la ligne insérée ne change pas.
+              const chargeActionnaire: ChargePersonne = {
+                company_id: companyId,
+                full_name: sh.fullName.trim(),
+                email: null,
+                phone: null,
+                address_line1: null,
+                address_line2: null,
+                address_city: null,
+                address_province: null,
+                address_postal_code: null,
+                address_country: null,
+                is_canadian_resident: null,
+              };
+              const { data: newPerson, error: newPersonErr } = await insererPersonne(supabase, chargeActionnaire);
               if (newPersonErr || !newPerson) return false;
               personId = newPerson.id;
             }
@@ -580,18 +594,23 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
           if (people && people.length > 0) {
             personId = people[0].id;
           } else {
-            const { data: newPerson, error: newPersonErr } = await supabase
-              .from('company_people')
-              // ⛔ Meme regle qu'au site actionnaire ci-dessus : null explicite
-          //    pour le pays, et la residence ecrite plutot qu'omise.
-          .insert({
-            company_id: companyId,
-            full_name: name.trim(),
-            address_country: null,
-            is_canadian_resident: null,
-          })
-              .select('id')
-              .single();
+            // ⛔ Meme regle qu'au site actionnaire ci-dessus : null explicite
+            //    pour le pays, et la residence ecrite plutot qu'omise.
+            // ★ Même porte d'écriture, même ligne insérée.
+            const chargeDirigeant: ChargePersonne = {
+              company_id: companyId,
+              full_name: name.trim(),
+              email: null,
+              phone: null,
+              address_line1: null,
+              address_line2: null,
+              address_city: null,
+              address_province: null,
+              address_postal_code: null,
+              address_country: null,
+              is_canadian_resident: null,
+            };
+            const { data: newPerson, error: newPersonErr } = await insererPersonne(supabase, chargeDirigeant);
             if (newPersonErr || !newPerson) return false;
             personId = newPerson.id;
           }

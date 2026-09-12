@@ -9,6 +9,8 @@ import PersonSelector, {
 } from '@/components/people/PersonSelector';
 import type { OfficerTitle, OfficerEndReason } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
+import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
+import { chargePersonne, insererPersonne } from '@/lib/person-payload';
 
 // =============================================================================
 // End-reason options (labels resolved via t('endReasons.{value}'))
@@ -95,11 +97,48 @@ export default function AddOfficerModal({
     }
   }, [defaultAppointmentDate]);
 
+  /**
+   * ★ LA MÊME DÉCLARATION QUE CHEZ LES ADMINISTRATEURS, ET LE MÊME APPEL.
+   * `champsManquants` décide ; le bouton et handleSave lisent la même liste.
+   * Rien n'est réécrit ici : remplir `officer` dans lib/data-gaps.ts suffit à
+   * faire apparaître l'astérisque, la garde et la ligne à l'export.
+   */
+  const manquants: ChampPersonne[] =
+    personValue?.mode === 'new'
+      ? champsManquants('officer', {
+          address_city: personValue.addressCity,
+          address_country: personValue.addressCountry,
+        })
+      : [];
+  const domicileIncomplet = manquants.length > 0;
+  // Le message NOMME ce qui manque, et il passe par la fente de PersonSelector.
+  const messageDomicile = !domicileIncomplet
+    ? undefined
+    : manquants.length === 2 ? t('errorCityAndCountry')
+    : manquants[0] === 'address_city' ? t('errorCity')
+    : t('errorCountry');
+
   // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async (replaceConflict = false) => {
     if (!personValue) {
       setError(t('errorSelectPerson'));
       return;
+    }
+    // Ceinture : le bouton est déjà désactivé. Recalculée depuis `personValue`
+    // — qui EST dans les dépendances — pour ne jamais lire une liste périmée.
+    if (personValue.mode === 'new') {
+      const absents = champsManquants('officer', {
+        address_city: personValue.addressCity,
+        address_country: personValue.addressCountry,
+      });
+      if (absents.length > 0) {
+        setError(
+          absents.length === 2 ? t('errorCityAndCountry')
+          : absents[0] === 'address_city' ? t('errorCity')
+          : t('errorCountry'),
+        );
+        return;
+      }
     }
     if (!appointmentDate) {
       setError(t('errorAppointmentDate'));
@@ -182,22 +221,12 @@ export default function AddOfficerModal({
       let personId: string;
 
       if (personValue.mode === 'new') {
-        const { data: newPerson, error: insertErr } = await supabase
-          .from('company_people')
-          .insert({
-            company_id: companyId,
-            full_name: personValue.fullName,
-            email: personValue.email || null,
-            phone: personValue.phone || null,
-            address_line1: personValue.addressLine1 || null,
-            address_city: personValue.addressCity || null,
-            address_province: personValue.addressProvince || null,
-            address_postal_code: personValue.addressPostalCode || null,
-            address_country: personValue.addressCountry,
-            is_canadian_resident: personValue.isCanadianResident,
-          })
-          .select('id')
-          .single();
+        // ★ UNE SEULE PORTE D'ÉCRITURE — lib/person-payload.ts, `address_line2`
+        //   comprise.
+        const { data: newPerson, error: insertErr } = await insererPersonne(
+          supabase,
+          chargePersonne(companyId, personValue),
+        );
 
         if (insertErr || !newPerson) {
           throw new Error(insertErr?.message || 'Failed to create person');
@@ -309,6 +338,7 @@ export default function AddOfficerModal({
             value={personValue}
             onChange={setPersonValue}
             label={t('person')}
+            error={messageDomicile}
             excludePersonIds={conflictOfficer ? [conflictOfficer.personId] : []}
           />
 
@@ -480,7 +510,7 @@ export default function AddOfficerModal({
           <button
             type="button"
             onClick={() => handleSave()}
-            disabled={saving || !personValue || (!stillInOffice && !endReason)}
+            disabled={saving || !personValue || (!stillInOffice && !endReason) || domicileIncomplet}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
