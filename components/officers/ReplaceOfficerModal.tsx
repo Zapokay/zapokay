@@ -59,14 +59,16 @@ export default function ReplaceOfficerModal({
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
-  const today = new Date().toISOString().split('T')[0];
   const roleLabel = libelleTitre(officer, tCatalogue);
 
   // ---- State ----------------------------------------------------------------
   const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);
-  const [endDate, setEndDate] = useState(today);
+  // ⛔ AUCUNE VALEUR DE DÉPART pour les deux dates — la fin du sortant et
+  // l'entrée en poste de l'entrant sont deux faits que seul l'utilisateur
+  // connaît (décision de Dom, 2026-09-12).
+  const [endDate, setEndDate] = useState('');
   const [endReason, setEndReason] = useState<OfficerEndReason | ''>('');
-  const [startDate, setStartDate] = useState(today);
+  const [startDate, setStartDate] = useState('');
   const [isSigningAuthority, setIsSigningAuthority] = useState(
     officer.is_primary_signing_authority
   );
@@ -117,6 +119,12 @@ export default function ReplaceOfficerModal({
       setError(locale === 'fr' ? 'Le motif de fin est requis.' : 'A reason is required.');
       return;
     }
+
+    // Ceinture : le bouton est déjà désactivé tant qu'une des deux dates manque.
+    // ⛔ ELLE DOIT PRÉCÉDER TOUTE ÉCRITURE : ce gestionnaire insère la personne
+    // entrante AVANT de clore le sortant, puis nomme l'entrant. Une date vide
+    // laisserait une personne orpheline, ou un dirigeant clos sans remplaçant.
+    if (!endDate || !startDate) return;
 
     setSaving(true);
     setError(null);
@@ -316,7 +324,7 @@ export default function ReplaceOfficerModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !personValue || !endReason || domicileIncomplet}
+            disabled={saving || !personValue || !endReason || !endDate || !startDate || domicileIncomplet}
             className="flex items-center gap-2 rounded-lg bg-[var(--amber-400)] px-5 py-2 text-sm font-semibold text-[var(--cta-text)] shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

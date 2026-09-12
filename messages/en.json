@@ -809,8 +809,7 @@
         },
         "yearGroup": {
           "title": "Fiscal Year {year}",
-          "missingCount": "{count, plural, =0 {No missing documents} =1 {1 missing document} other {# missing documents}}",
-          "dateLabel": "Resolution date:"
+          "missingCount": "{count, plural, =0 {No missing documents} =1 {1 missing document} other {# missing documents}}"
         },
         "confirmCheckbox": "I have verified that the listed signatories were in office on the date of each resolution.",
         "emptyState": {

@@ -194,11 +194,15 @@ export interface GeneratePdfDocumentParams {
   requirementKey: string;
   /** Fiscal year for annual requirements. Omit for foundational rows. */
   year?: number;
-  /** ISO date string (YYYY-MM-DD) to stamp on the document.
-   *  Defaults to today if omitted. Callers generating retroactive
-   *  documents SHOULD provide an appropriate date (typically the
-   *  fiscal-year-end date of the year parameter). */
-  resolutionDate?: string;
+  /**
+   * ⛔ PAS DE `resolutionDate` — RETIRÉ LE 2026-09-12. La date d'ADOPTION vient
+   * de la signature (décision de Dom) : chaque signataire individuel la porte à
+   * la main sur sa ligne « Date : ». Mesuré avant le retrait : le repli
+   * « aujourd'hui » était atteint à CHAQUE génération unitaire (le bouton
+   * n'envoie aucune date), et les deux gabarits le jetaient — HTML identique
+   * avec ou sans. La PROVENANCE reste : le pied de page imprime la vraie date de
+   * génération (generatePDF.ts, buildFooter). ⛔ Ne pas le ressusciter.
+   */
   /** Optional caller-provided signatory override. When present, replaces the
    *  current-state DB-resolved signature block in the rendered PDF. */
   signatories?: SignatoryBlock[];
@@ -233,7 +237,6 @@ export async function generatePdfDocument(
     companyId,
     requirementKey,
     year,
-    resolutionDate,
     signatories,
     language = 'fr',
   } = params;
@@ -328,10 +331,6 @@ export async function generatePdfDocument(
   const now = new Date();
   const hasYear = typeof year === 'number' && Number.isFinite(year);
   const effectiveYear = hasYear ? (year as number) : now.getFullYear();
-  const effectiveResolutionDate =
-    resolutionDate && /^\d{4}-\d{2}-\d{2}$/.test(resolutionDate)
-      ? resolutionDate
-      : now.toISOString().split('T')[0];
 
   // 6b. #175 confirmatory back-fill DETECTION (detection only — wording is a
   // separate build; the rendered output below is unchanged regardless of the
@@ -369,7 +368,6 @@ export async function generatePdfDocument(
     companyName,
     neq: company.neq,
     documentTitle,
-    resolutionDate: effectiveResolutionDate,
     fiscalYear: fiscalYearValue ?? null,
     language,
     framework: frameworkValue,

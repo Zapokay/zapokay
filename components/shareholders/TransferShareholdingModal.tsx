@@ -80,9 +80,13 @@ export default function TransferShareholdingModal({
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
+  // `today` n'est plus une valeur de départ : il ne sert qu'à la BORNE — la
+  // validation « pas dans le futur » et le `max=` du champ.
   const today = new Date().toISOString().split('T')[0];
   const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);
-  const [transferDate, setTransferDate] = useState(today);
+  // ⛔ AUCUNE VALEUR DE DÉPART — la date du transfert est un fait (décision de
+  // Dom, 2026-09-12). Vide, handleConfirm la refuse avant toute écriture.
+  const [transferDate, setTransferDate] = useState('');
   const [consideration, setConsideration] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

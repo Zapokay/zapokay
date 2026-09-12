@@ -144,7 +144,9 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
 
   // ★ THIS is what flips step 3 from INSERT to UPDATE on a resume.
   const [companyId, setCompanyId] = useState<string | null>(() => draft?.companyId ?? existingCompany?.id ?? null);
-  const [incorporationDate, setIncorporationDate] = useState(() => draft?.incorporationDate ?? existingCompany?.incorporation_date ?? today);
+  // ⛔ AUCUN REPLI SUR AUJOURD'HUI. Tant que l'étape 3 n'a pas écrit la société,
+  // il n'y a pas de date de constitution — et l'état le dit : vide.
+  const [incorporationDate, setIncorporationDate] = useState(() => draft?.incorporationDate ?? existingCompany?.incorporation_date ?? '');
 
   const [directors, setDirectors] = useState<OnboardingDirector[]>(() => draft?.directors ?? []);
   const [shareholders, setShareholders] = useState<OnboardingShareholder[]>(() => draft?.shareholders ?? []);
@@ -247,7 +249,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
       if (error) throw error;
 
       setCompanyId(company.id);
-      setIncorporationDate(company.incorporation_date || today);
+      setIncorporationDate(company.incorporation_date ?? '');
       setStep(4);
     } catch (err) {
       console.error('Company save error:', err);
@@ -546,7 +548,17 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
     async (offs: OnboardingOfficers): Promise<boolean> => {
       setOfficers(offs);
       if (companyId) {
-        const appointmentDate = incorporationDate || today;
+        // ⚖️ LES DIRIGEANTS DÉCLARÉS À L'INSCRIPTION SONT CEUX NOMMÉS À LA
+        // CONSTITUTION (décision de Dom, 2026-09-12) : leur date de nomination
+        // DÉRIVE de la date de constitution — exigée à l'étape 2 (StepCompany,
+        // validate) et relue de la ligne écrite à l'étape 3. Aucun champ ici.
+        // ⛔ AUCUN REPLI. Si elle manque, on n'invente pas : on n'écrit RIEN, et
+        // on refuse AVANT appointOfficer, qui crée une personne avant d'insérer
+        // le mandat. Même forme que la branche « pas de société » plus bas ;
+        // inatteignable par le parcours normal, puisque l'étape 2 l'exige.
+        const appointmentDate = incorporationDate;
+        const aNommer = [offs.presidentName, offs.secretaryName, offs.treasurerName].some((n) => n.trim());
+        if (aNommer && !appointmentDate) return false;
 
         // DUPLICATION ON A SECOND PASS — CLOSED BY PRE-READ, NOT BY A CONSTRAINT.
         // The person pre-read below already reused an existing company_people row.
@@ -781,8 +793,8 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             passer a une liste de refus `!== 'LSA'` serait FAUX, puisque 'LSAQ'
             la franchirait. C'est ici qu'on voudra « simplifier » : ne le faites
             pas. */}
-        {step === 4 && <StepDirectors locale={activeLocale} incorporationDate={incorporationDate} residencyApplies={residencyApplies(data.company.incorporationType)} initialDirectors={directors.length > 0 ? directors : undefined} onContinue={handleDirectorsContinue} onSkip={() => setStep(5)} />}
-        {step === 5 && <StepShareholders locale={activeLocale} directors={directors} incorporationDate={incorporationDate} initialShareholders={shareholders.length > 0 ? shareholders : undefined} onContinue={handleShareholdersContinue} onSkip={() => setStep(6)} />}
+        {step === 4 && <StepDirectors locale={activeLocale} residencyApplies={residencyApplies(data.company.incorporationType)} initialDirectors={directors.length > 0 ? directors : undefined} onContinue={handleDirectorsContinue} onSkip={() => setStep(5)} />}
+        {step === 5 && <StepShareholders locale={activeLocale} directors={directors} initialShareholders={shareholders.length > 0 ? shareholders : undefined} onContinue={handleShareholdersContinue} onSkip={() => setStep(6)} />}
         {step === 6 && <StepOfficers locale={activeLocale} directors={directors} shareholders={shareholders} incorporationDate={incorporationDate} initialOfficers={officers.presidentName ? officers : undefined} onContinue={handleOfficersContinue} onSkip={() => setStep(7)} />}
         {step === 7 && <StepCelebration locale={activeLocale} companyName={data.company.legalName} incorporationType={data.company.incorporationType} directors={directors} shareholders={shareholders} officers={officers} onContinue={handleCelebrationContinue} />}
       </main>

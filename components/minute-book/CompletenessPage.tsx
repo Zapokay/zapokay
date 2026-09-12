@@ -691,7 +691,6 @@ export default function CompletenessPage({
         }));
       if (items.length > 0) {
         bulkMissingByYear[fy.year] = {
-          resolutionDate: fy.endDate,
           items,
         };
         bulkMissingCount += items.length;

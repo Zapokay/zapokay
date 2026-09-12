@@ -809,8 +809,7 @@
         },
         "yearGroup": {
           "title": "Exercice {year}",
-          "missingCount": "{count, plural, =0 {Aucun document manquant} =1 {1 document manquant} other {# documents manquants}}",
-          "dateLabel": "Date résolution :"
+          "missingCount": "{count, plural, =0 {Aucun document manquant} =1 {1 document manquant} other {# documents manquants}}"
         },
         "confirmCheckbox": "J'ai vérifié que les signataires affichés étaient bien en poste à la date de chaque résolution.",
         "emptyState": {

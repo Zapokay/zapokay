@@ -112,10 +112,11 @@ export default function StepOfficers({
     // NO pre-write validation here, and that is DELIBERATE — not an oversight in
     // the copy from steps 4 and 5. Those guard a real precondition the user typed
     // and can empty (a price, an appointment date). This step has none: the
-    // appointment_date is filled by the parent from `incorporationDate || today`
-    // and is never empty, and the three names come from a fixed dropdown. A check
-    // here would protect nothing, and would falsely suggest a control exists
-    // where there is nothing to control.
+    // appointment_date is DERIVED by the parent from the incorporation date, which
+    // step 2 requires — and if it is ever missing, the parent writes nothing and
+    // returns false (no fallback to today since 2026-09-12). The three names come
+    // from a fixed dropdown. A check here would protect nothing, and would falsely
+    // suggest a control exists where there is nothing to control.
 
     setSaving(true);
     let ok = false;

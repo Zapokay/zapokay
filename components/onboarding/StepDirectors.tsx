@@ -30,7 +30,6 @@ export interface OnboardingDirector {
 interface StepDirectorsProps {
   locale: string;
   userFullName?: string;
-  incorporationDate?: string;
   initialDirectors?: OnboardingDirector[];
   /**
    * La residence canadienne s'applique-t-elle ? Cette etape porte son PROPRE
@@ -71,7 +70,6 @@ const fieldLabelStyle: React.CSSProperties = {
 export default function StepDirectors({
   locale,
   userFullName = '',
-  incorporationDate = '',
   initialDirectors,
   onContinue,
   onSkip,
@@ -92,7 +90,6 @@ export default function StepDirectors({
   //   emploie deja : une meme etiquette ne vit pas a deux endroits du catalogue.
   const tPeople = useTranslations('people');
   const paysOptions = useMemo(() => countryOptions(locale), [locale]);
-  const defaultDate = incorporationDate || new Date().toISOString().split('T')[0];
 
   const [directors, setDirectors] = useState<OnboardingDirector[]>(
     initialDirectors && initialDirectors.length > 0
@@ -100,7 +97,10 @@ export default function StepDirectors({
       : [
           {
             fullName: userFullName,
-            appointmentDate: defaultDate,
+            // ⛔ AUCUNE DATE DE DEPART — la meme regle que le pays, quelques lignes
+            //    plus bas. La nomination est un fait que seul l'utilisateur connait
+            //    (decision de Dom, 2026-09-12) ; handleContinue la refuse vide.
+            appointmentDate: '',
             addressCity: '',
             // ⛔ AUCUNE PRESELECTION. Un champ obligatoire dont le defaut est
             //    deja valide n'est pas obligatoire.
@@ -131,7 +131,7 @@ export default function StepDirectors({
       ...prev,
       {
         fullName: '',
-        appointmentDate: defaultDate,
+        appointmentDate: '',
         addressCity: '',
         addressCountry: '',
         isCanadianResident: null,

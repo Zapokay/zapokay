@@ -415,7 +415,6 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
         <AddOfficerModal
           residencyApplies={residencyApplicable}
           companyId={companyId}
-          incorporationDate={incorporationDate}
           onClose={() => setShowAddModal(false)}
           onSuccess={handleModalSuccess}
         />

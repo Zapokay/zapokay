@@ -32,7 +32,6 @@ const END_REASON_VALUES: OfficerEndReason[] = [
 
 interface AddOfficerModalProps {
   companyId: string;
-  incorporationDate: string | null;
   /**
    * La residence canadienne s'applique-t-elle a cette societe ? DECIDE en
    * amont par residencyApplies(), jamais recalcule ici : cette modale
@@ -66,7 +65,6 @@ const TITLE_VALUES: OfficerTitle[] = [
 
 export default function AddOfficerModal({
   companyId,
-  incorporationDate,
   residencyApplies,
   onClose,
   onSuccess,
@@ -77,33 +75,32 @@ export default function AddOfficerModal({
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
-  const defaultAppointmentDate = incorporationDate || new Date().toISOString().split('T')[0];
-
   // ---- State ----------------------------------------------------------------
   const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);
   const [title, setTitle] = useState<OfficerTitle>('president');
   const [customTitle, setCustomTitle] = useState('');
   const [isSigningAuthority, setIsSigningAuthority] = useState(false);
   const [stillInOffice, setStillInOffice] = useState(true);
-  const [appointmentDate, setAppointmentDate] = useState(defaultAppointmentDate);
+  // ⛔ AUCUNE VALEUR DE DÉPART — ni la date de constitution, ni aujourd'hui : la
+  // nomination est un fait que seul l'utilisateur connaît (décision de Dom,
+  // 2026-09-12). handleSave la refuse vide (errorAppointmentDate).
+  const [appointmentDate, setAppointmentDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [endReason, setEndReason] = useState<OfficerEndReason | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflictOfficer, setConflictOfficer] = useState<{ id: string; personId: string; name: string; titleLabel: string } | null>(null);
 
-  // Toggle handler — retroactive mode clears dates to force explicit entry;
-  // ON mode restores the appointment_date default.
+  // Toggle handler — both modes clear the dates to force explicit entry. The
+  // retroactive mode always did; the ON mode used to restore a default
+  // appointment_date, and since 2026-09-12 there is no default left to restore.
+  // ⛔ Do not bring one back here: check:dates mounts this modal, and a value
+  // re-injected by a handler is exactly what a mount cannot see (form 5).
   const handleStillInOfficeChange = useCallback((next: boolean) => {
     setStillInOffice(next);
-    if (next) {
-      setAppointmentDate(defaultAppointmentDate);
-      setEndDate('');
-    } else {
-      setAppointmentDate('');
-      setEndDate('');
-    }
-  }, [defaultAppointmentDate]);
+    setAppointmentDate('');
+    setEndDate('');
+  }, []);
 
   /**
    * ★ LA MÊME DÉCLARATION QUE CHEZ LES ADMINISTRATEURS, ET LE MÊME APPEL.

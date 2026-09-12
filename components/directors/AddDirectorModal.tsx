@@ -30,7 +30,6 @@ const END_REASON_VALUES: DirectorEndReason[] = [
 
 interface AddDirectorModalProps {
   companyId: string;
-  incorporationDate: string | null;
   /** Person IDs already serving as active directors (to exclude from selector) */
   existingDirectorPersonIds: string[];
   /**
@@ -49,7 +48,6 @@ interface AddDirectorModalProps {
 
 export default function AddDirectorModal({
   companyId,
-  incorporationDate,
   existingDirectorPersonIds,
   residencyApplies,
   onClose,
@@ -59,29 +57,28 @@ export default function AddDirectorModal({
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
-  const defaultAppointmentDate = incorporationDate || new Date().toISOString().split('T')[0];
-
   // ---- State ----------------------------------------------------------------
   const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);
   const [stillInOffice, setStillInOffice] = useState(true);
-  const [appointmentDate, setAppointmentDate] = useState(defaultAppointmentDate);
+  // ⛔ AUCUNE VALEUR DE DÉPART — ni la date de constitution, ni aujourd'hui : la
+  // nomination est un fait que seul l'utilisateur connaît (décision de Dom,
+  // 2026-09-12). handleSave la refuse vide (errorAppointmentDate).
+  const [appointmentDate, setAppointmentDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [endReason, setEndReason] = useState<DirectorEndReason | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Toggle handler — retroactive mode clears dates to force explicit entry;
-  // ON mode restores the appointment_date default.
+  // Toggle handler — both modes clear the dates to force explicit entry. The
+  // retroactive mode always did; the ON mode used to restore a default
+  // appointment_date, and since 2026-09-12 there is no default left to restore.
+  // ⛔ Do not bring one back here: check:dates mounts this modal, and a value
+  // re-injected by a handler is exactly what a mount cannot see (form 5).
   const handleStillInOfficeChange = useCallback((next: boolean) => {
     setStillInOffice(next);
-    if (next) {
-      setAppointmentDate(defaultAppointmentDate);
-      setEndDate('');
-    } else {
-      setAppointmentDate('');
-      setEndDate('');
-    }
-  }, [defaultAppointmentDate]);
+    setAppointmentDate('');
+    setEndDate('');
+  }, []);
 
   /**
    * ⛔ LE DOMICILE, EXIGE A LA CREATION SEULEMENT.

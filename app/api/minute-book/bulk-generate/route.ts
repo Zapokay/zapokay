@@ -4,7 +4,7 @@
  * Bulk-generate endpoint powering the Minute Book "Rattrapage groupé" modal.
  * Thin fan-out over the unified generatePdfDocument pipeline (Stream 1):
  *   - Auth once, resolve active company once.
- *   - Validate body shape (items[] length 1..10, per-item YYYY-MM-DD date).
+ *   - Validate body shape (items[] length 1..10).
  *   - Run up to 3 items in parallel; allSettled semantics (failures do not
  *     abort the batch).
  *   - Preserve request order in the results array.
@@ -35,7 +35,6 @@ import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 interface BulkItem {
   requirementKey: string;
   fiscalYear: number;
-  resolutionDate: string; // YYYY-MM-DD
 }
 
 export type BulkErrorCode =
@@ -63,7 +62,6 @@ export type BulkGenerateResult =
 
 const MAX_ITEMS = 10;
 const CONCURRENCY = 3;
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 /* ------------------------------------------------------------------ */
 /*  Body validation                                                    */
@@ -93,16 +91,9 @@ function validateItems(
     if (typeof it.fiscalYear !== 'number' || !Number.isInteger(it.fiscalYear)) {
       return { ok: false, error: 'fiscalYear doit être un entier.' };
     }
-    if (typeof it.resolutionDate !== 'string' || !DATE_REGEX.test(it.resolutionDate)) {
-      return {
-        ok: false,
-        error: 'resolutionDate doit être au format YYYY-MM-DD.',
-      };
-    }
     out.push({
       requirementKey: it.requirementKey,
       fiscalYear: it.fiscalYear,
-      resolutionDate: it.resolutionDate,
     });
   }
   return { ok: true, items: out };
@@ -255,7 +246,6 @@ export async function POST(request: NextRequest) {
             companyId: company.id,
             requirementKey: item.requirementKey,
             year: item.fiscalYear,
-            resolutionDate: item.resolutionDate,
             signatories,
             language: docLanguage,
           });

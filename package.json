@@ -11,6 +11,7 @@
     "check:glyphs": "tsx scripts/scan-glyphes.ts",
     "check:titres": "tsx scripts/check-titres.ts",
     "check:obligations": "tsx scripts/check-obligations.ts",
+    "check:dates": "tsx scripts/check-dates-vides.ts",
     "export:registry": "tsx scripts/export-registry.ts"
   },
   "dependencies": {

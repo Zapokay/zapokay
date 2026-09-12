@@ -8,15 +8,13 @@ import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 
 export async function POST(request: NextRequest) {
   try {
-    const { companyId, requirementKey, signatories, year, resolutionDate, language } =
+    const { companyId, requirementKey, signatories, year, language } =
       (await request.json()) as {
         companyId: string;
         requirementKey: string;
         signatories?: SignatoryBlock[];
         /** Optional — fiscal year for annual requirements. Omitted for foundational. */
         year?: number;
-        /** Optional — ISO date (YYYY-MM-DD) to stamp on the document. */
-        resolutionDate?: string;
         /** Optional — document language (Two-Layer model). Defaults to 'fr'. */
         language?: 'fr' | 'en';
       };
@@ -89,7 +87,6 @@ export async function POST(request: NextRequest) {
       companyId,
       requirementKey,
       year,
-      resolutionDate,
       signatories,
       language,
     });

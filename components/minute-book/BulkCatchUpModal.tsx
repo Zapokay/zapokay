@@ -25,15 +25,17 @@ export interface BulkMissingItem {
  * Scope of missing documents the user may regenerate, grouped by a fiscal-year
  * identifier (the Record key — the fiscal year's END year). The label is
  * derived from this key alone (universal `Exercice ${year}` / `Fiscal Year
- * ${year}` form, locked in Bundle E). Each group also carries a per-year
- * resolutionDate (the date stamped onto every generated document for that
- * year), supplied by the page component from the completeness API's
- * fiscal_years entries.
+ * ${year}` form, locked in Bundle E).
+ *
+ * ⛔ NO resolutionDate — REMOVED 2026-09-12. Each group used to carry an
+ * editable « Date résolution » that the route validated and generatePdfDocument
+ * then DISCARDED: neither resolution template prints it. The adoption date
+ * comes from the signatures (Dom's decision). The field lost no capability; it
+ * stopped lying.
  */
 export type BulkMissingByYear = Record<
   number,
   {
-    resolutionDate: string; // YYYY-MM-DD, per-year, editable in the modal
     items: BulkMissingItem[];
   }
 >;
@@ -58,7 +60,6 @@ interface YearItemState extends BulkMissingItem {
 type YearsState = Record<
   number,
   {
-    resolutionDate: string;
     items: YearItemState[];
   }
 >;
@@ -71,7 +72,6 @@ function initYearsState(src: BulkMissingByYear): YearsState {
   const out: YearsState = {};
   for (const [yearStr, group] of Object.entries(src)) {
     out[Number(yearStr)] = {
-      resolutionDate: group.resolutionDate,
       items: group.items.map((it) => ({
         ...it,
         selected: it.canGenerate,
@@ -83,8 +83,8 @@ function initYearsState(src: BulkMissingByYear): YearsState {
 
 /**
  * Structural deep-compare of two YearsState trees. Only compares fields that
- * are mutable via the modal's setYears write paths: group.resolutionDate and
- * item.selected. title/canGenerate/requirementKey are stable for the lifetime
+ * are mutable via the modal's setYears write paths: item.selected.
+ * title/canGenerate/requirementKey are stable for the lifetime
  * of a given missingByYear prop (the reset effect rebuilds state when the
  * prop changes).
  */
@@ -96,7 +96,6 @@ function yearsEqual(a: YearsState, b: YearsState): boolean {
     const av = a[Number(k)];
     const bv = b[Number(k)];
     if (!bv) return false;
-    if (av.resolutionDate !== bv.resolutionDate) return false;
     if (av.items.length !== bv.items.length) return false;
     for (let i = 0; i < av.items.length; i++) {
       if (
@@ -271,7 +270,6 @@ export default function BulkCatchUpModal({
         .map((it) => ({
           requirementKey: it.requirementKey,
           fiscalYear: Number(yearStr),
-          resolutionDate: group.resolutionDate,
         })),
     );
 
@@ -452,29 +450,6 @@ export default function BulkCatchUpModal({
                       <span className="text-xs text-[var(--text-muted)]">
                         {t('modal.yearGroup.missingCount', { count: selectedInYear })}
                       </span>
-                    </div>
-
-                    {/* Date input — reads + writes group.resolutionDate */}
-                    <div className="mb-3 flex items-center gap-2">
-                      <label
-                        htmlFor={`bulk-date-${year}`}
-                        className="text-sm text-[var(--text-body)]"
-                      >
-                        {t('modal.yearGroup.dateLabel')}
-                      </label>
-                      <input
-                        id={`bulk-date-${year}`}
-                        type="date"
-                        value={group.resolutionDate}
-                        onChange={(e) => {
-                          const newDate = e.target.value;
-                          setYears((prev) => ({
-                            ...prev,
-                            [year]: { ...prev[year], resolutionDate: newDate },
-                          }));
-                        }}
-                        className="rounded border border-[var(--card-border)] bg-transparent px-2 py-1 text-sm"
-                      />
                     </div>
 
                     {/* Doc checkboxes — only toggle `selected` on the item */}

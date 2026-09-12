@@ -45,7 +45,10 @@ export default function RemoveOfficerModal({
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  // ⛔ AUCUNE VALEUR DE DÉPART — la date de fin est un fait que seul
+  // l'utilisateur connaît (décision de Dom, 2026-09-12). Le bouton reste
+  // désactivé tant qu'elle manque, exactement comme pour le motif.
+  const [endDate, setEndDate] = useState('');
   const [endReason, setEndReason] = useState<OfficerEndReason | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +66,9 @@ export default function RemoveOfficerModal({
       setError(locale === 'fr' ? 'Le motif de fin est requis.' : 'A reason is required.');
       return;
     }
+    // Ceinture : le bouton est déjà désactivé sans date. Sans elle, `end_date: ''`
+    // partirait et Postgres le refuserait ; aucune date n'est inventée à sa place.
+    if (!endDate) return;
     setSaving(true);
     setError(null);
 
@@ -193,7 +199,7 @@ export default function RemoveOfficerModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={saving || !endReason}
+            disabled={saving || !endReason || !endDate}
             className="flex items-center gap-2 rounded-lg bg-red-500 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-600 disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

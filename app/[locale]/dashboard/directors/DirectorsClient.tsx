@@ -497,7 +497,6 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
         <AddDirectorModal
           residencyApplies={residencyApplicable}
           companyId={companyId}
-          incorporationDate={incorporationDate}
           existingDirectorPersonIds={existingDirectorPersonIds}
           onClose={() => { setShowAddModal(false); setEditingDirector(null); }}
           onSuccess={() => { setShowAddModal(false); fetchData(); }}

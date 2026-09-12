@@ -21,7 +21,6 @@ export interface OnboardingShareholder {
 interface StepShareholdersProps {
   locale: string;
   directors: OnboardingDirector[];
-  incorporationDate?: string;
   initialShareholders?: OnboardingShareholder[];
   /** Resolves true when every shareholding was written, false when the write
    *  failed. Step 5 stays put on false so the user can fix and retry. */
@@ -54,7 +53,6 @@ const fieldLabelStyle: React.CSSProperties = {
 export default function StepShareholders({
   locale,
   directors,
-  incorporationDate = '',
   initialShareholders,
   onContinue,
   onSkip,
@@ -63,8 +61,10 @@ export default function StepShareholders({
   const fr = locale === 'fr';
   const t = useTranslations('shareholders');
   const tCommon = useTranslations('common');
-  const defaultDate = incorporationDate || new Date().toISOString().split('T')[0];
 
+  // ⛔ THE ISSUE DATE STARTS EMPTY — no incorporation date, no today (Dom's
+  // decision, 2026-09-12): when shares were issued is a fact only the user
+  // knows. handleContinue refuses an empty one before any write.
   // Smart pre-fill: if only 1 director, pre-fill shareholder with same name + 100 shares
   const defaultShareholders: OnboardingShareholder[] =
     initialShareholders && initialShareholders.length > 0
@@ -75,7 +75,7 @@ export default function StepShareholders({
               fullName: directors[0].fullName,
               numberOfShares: 100,
               pricePerShare: '1',
-              issueDate: defaultDate,
+              issueDate: '',
             },
           ]
         : directors.length > 0
@@ -83,14 +83,14 @@ export default function StepShareholders({
               fullName: d.fullName,
               numberOfShares: 100,
               pricePerShare: '1',
-              issueDate: defaultDate,
+              issueDate: '',
             }))
           : [
               {
                 fullName: '',
                 numberOfShares: 100,
                 pricePerShare: '1',
-                issueDate: defaultDate,
+                issueDate: '',
               },
             ];
 
@@ -113,7 +113,7 @@ export default function StepShareholders({
   function addShareholder() {
     setShareholders((prev) => [
       ...prev,
-      { fullName: '', numberOfShares: 100, pricePerShare: '1', issueDate: defaultDate },
+      { fullName: '', numberOfShares: 100, pricePerShare: '1', issueDate: '' },
     ]);
   }
 
@@ -132,6 +132,19 @@ export default function StepShareholders({
     setError(null);
     const valid = shareholders.filter((s) => s.fullName.trim());
     const rows = valid.length > 0 ? valid : shareholders;
+
+    // Validate EVERY issue date before a single row is written.
+    // shareholdings.issue_date is NOT NULL, and since 2026-09-12 the field has no
+    // default: an empty date would reach the write loop and fail MID-LOOP, after
+    // the earlier shareholders were written. Same shape as StepDirectors'
+    // appointment-date check. The skipped-row condition mirrors the write loop's.
+    for (const s of rows) {
+      if (!s.fullName.trim() || s.numberOfShares <= 0) continue;
+      if (!s.issueDate.trim()) {
+        setError(t('errorIssueDate'));
+        return;
+      }
+    }
 
     // Validate EVERY price before a single row is written. The A-SC guard in
     // create_shareholding_with_holders rejects a direct issuance carrying no
