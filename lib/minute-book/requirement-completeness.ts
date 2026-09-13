@@ -16,7 +16,7 @@ import { requirementToDocType, type VaultDocType } from '@/lib/requirement-docty
 import { getDocumentState, STATE_WEIGHT } from '@/lib/minute-book/state';
 import { computeLiveness } from '@/lib/obligations/liveness';
 import type { ObligationLiveness } from '@/lib/obligations/obligation';
-import { fiscalYearSet } from '@/lib/active-years';
+import { declarationDesExercices } from '@/lib/active-years';
 // A4 plan §9a, phase 1 — cadence drives the fan-out. New module edge; no cycle:
 // obligation-registry imports only lib/utils and lib/active-years, neither of which
 // reaches lib/minute-book. Two lib/obligations imports already exist above.
@@ -251,30 +251,39 @@ export async function computeRequirementCompleteness(
     (b.document?.created_at ?? '').localeCompare(a.document?.created_at ?? ''),
   );
 
-  // 4. Compute endDate per fiscal year (resolution date stamped on PDFs
-  // generated via Bulk Catch-Up). Year labels are now derived from `year`
-  // alone — see getFiscalYearLabel in lib/fiscal-year-label.ts.
+  // 4. The year set, and each year's end date — the end is what the fiscal-year gate
+  // reads (lib/fiscal-year-open.ts). Year labels derive from `year` alone — see
+  // getFiscalYearLabel in lib/fiscal-year-label.ts.
   //
-  // The YEAR SET comes from `fiscalYearSet` (lib/active-years) — the stored ACTIVE
-  // rows UNIONED with the currently-computed window — so this engine and the
-  // deadline feeder can no longer drift apart. The stored list is written once at
-  // onboarding and never refreshed, while the feeder's year advances with the
-  // calendar; without the union they diverge on a schedule (Acme 2028-01-01, Wick
-  // 2029-01-01) and OVERLAP_MERGE silently un-pairs. See the helper's docblock.
+  // THE YEAR SET IS `declarationDesExercices(...).suivis` (lib/active-years) — the one
+  // declaration that step 8 and Settings display and this engine scores: the stored
+  // ACTIVE rows, extended forward over the company's declared years, plus the current
+  // fiscal year — or, when no active row is stored, the two LOCKED years alone (the last
+  // completed fiscal year and the current one). The forward extension keeps this engine
+  // and the deadline feeder from drifting apart: the stored list is written once at
+  // onboarding and never refreshed, while the feeder's year advances with the calendar
+  // (Acme 2028-01-01, Wick 2029-01-01). See the docblock of `fiscalYearSet` in that file.
   //
-  // ORDER PRESERVED: the query above returns DESCENDING; fiscalYearSet returns
+  // ORDER PRESERVED: the query above returns DESCENDING; the declaration returns
   // ascending, so it is re-sorted descending here. Only WHICH years are included
   // changes — never the shape of an entry, its endDate formula, or the order they
   // are emitted in (which drives checklist order downstream).
+  if (incorporationDate === null) {
+    throw new Error(
+      'computeRequirementCompleteness: incorporation_date is null — the column is NOT NULL since 20260913150000, and the fiscal years of a company cannot be declared without it.',
+    );
+  }
   const storedActiveYears = (fiscalYears ?? []).map((fy: { year: number }) => fy.year);
-  const fyFormatted = fiscalYearSet(
+  const fyFormatted = declarationDesExercices(
+    {
+      incorporation_date: incorporationDate,
+      fiscal_year_end_month: fiscalYearEndMonth,
+      fiscal_year_end_day: fiscalYearEndDay,
+    },
     storedActiveYears,
-    fiscalYearEndMonth,
-    fiscalYearEndDay,
-    incorporationDate,
     today,
   )
-    .sort((a, b) => b - a)
+    .suivis.sort((a, b) => b - a)
     .map((year) => ({
       year,
       endDate: `${year}-${pad2(fiscalYearEndMonth)}-${pad2(fiscalYearEndDay)}`,

@@ -3,22 +3,8 @@ import { getUserWithProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { SettingsClient } from '@/components/dashboard/SettingsClient'
-import { parseLocalDate } from '@/lib/utils'
+import { declarationDesExercices } from '@/lib/active-years'
 import { adresseEnSaisie } from '@/lib/address'
-
-function computeAllYears(
-  incorporationDate: string | null,
-  fiscalYearEndMonth: number,
-  fiscalYearEndDay: number
-): number[] {
-  const currentYear = new Date().getFullYear()
-  const incorpYear = incorporationDate
-    ? parseLocalDate(incorporationDate).getFullYear()
-    : currentYear - 7
-  const startYear = Math.max(incorpYear, currentYear - 7)
-  const length = currentYear - startYear + 1
-  return Array.from({ length }, (_, i) => startYear + i).reverse()
-}
 
 export default async function SettingsPage({
   params: { locale },
@@ -62,7 +48,15 @@ export default async function SettingsPage({
   const fyEndMonth = (companyAny.fiscal_year_end_month as number | null) ?? 12
   const fyEndDay = (companyAny.fiscal_year_end_day as number | null) ?? 31
 
-  const allYears = computeAllYears(company.incorporation_date, fyEndMonth, fyEndDay)
+  // ★ LA SEULE DÉCLARATION (lib/active-years.ts). Les Réglages calculaient leur propre
+  // liste — en ANNÉES CIVILES, avec une fin d'exercice reçue et jamais lue — et
+  // n'affichaient qu'elle : un exercice actif hors de cette liste était invisible, donc
+  // impossible à désactiver, et un exercice antérieur à la constitution y était offert.
+  const lignes = (fiscalYears ?? []) as { year: number; status: string }[]
+  const declaration = declarationDesExercices(
+    company,
+    lignes.filter((l) => l.status === 'active').map((l) => l.year),
+  )
 
   const rawTheme = (profile as Record<string, unknown>).preferred_theme as string | null
   const initialPreferredTheme: 'light' | 'dark' | null =
@@ -108,9 +102,11 @@ export default async function SettingsPage({
           incorporationDate={company.incorporation_date}
           initialFyMonth={fyEndMonth}
           initialFyDay={fyEndDay}
-          savedFiscalYears={(fiscalYears ?? []) as { year: number; status: string }[]}
           documentYears={documentYears}
-          allYears={allYears}
+          exercices={declaration.exercices.slice().reverse()}
+          exerciceEnCours={declaration.enCours}
+          exercicesVerrouilles={declaration.verrouilles}
+          suivis={declaration.suivis}
           initialPreferredTheme={initialPreferredTheme}
         />
       </div>

@@ -24,11 +24,6 @@ const MONTHS_EN = [
   'July','August','September','October','November','December',
 ]
 
-interface FiscalYearEntry {
-  year: number
-  status: string
-}
-
 interface SettingsClientProps {
   locale: string
   userId: string
@@ -48,10 +43,16 @@ interface SettingsClientProps {
   incorporationDate: string | null
   initialFyMonth: number
   initialFyDay: number
-  // Fiscal years
-  savedFiscalYears: FiscalYearEntry[]
+  // Fiscal years — LA DÉCLARATION (lib/active-years.ts), calculée par la page au serveur.
   documentYears: number[]
-  allYears: number[]
+  /** Tous les exercices de la société, décroissant. */
+  exercices: number[]
+  /** L'exercice en cours — celui qui porte la pastille. */
+  exerciceEnCours: number
+  /** Les exercices VERROUILLÉS — l'exercice en cours et le dernier terminé. */
+  exercicesVerrouilles: number[]
+  /** Les exercices que le score lit. */
+  suivis: number[]
   // Appearance
   initialPreferredTheme: 'light' | 'dark' | null
 }
@@ -72,9 +73,11 @@ export function SettingsClient({
   incorporationDate,
   initialFyMonth,
   initialFyDay,
-  savedFiscalYears,
   documentYears,
-  allYears,
+  exercices,
+  exerciceEnCours,
+  exercicesVerrouilles,
+  suivis,
   initialPreferredTheme,
 }: SettingsClientProps) {
   const supabase = createClient()
@@ -168,10 +171,10 @@ export function SettingsClient({
   const [savingTheme, setSavingTheme] = useState(false)
 
   // ── Fiscal years state ─────────────────────────────────────────────────────
-  const initialActive = new Set<number>(
-    savedFiscalYears.filter(fy => fy.status === 'active').map(fy => fy.year)
-  )
-  const [activeYears, setActiveYears] = useState<Set<number>>(initialActive)
+  // ★ CE QUI EST ALLUMÉ À L'OUVERTURE EST CE QUE LE SCORE LIT — `suivis`, pas les seules
+  // lignes actives. Un exercice que le calendrier a ouvert depuis l'inscription est suivi
+  // sans avoir de ligne ; l'afficher éteint mentirait sur le compte.
+  const [activeYears, setActiveYears] = useState<Set<number>>(() => new Set(suivis))
   const [togglingYear, setTogglingYear] = useState<number | null>(null)
   const [toggleError, setToggleError] = useState<string | null>(null)
 
@@ -476,6 +479,12 @@ export function SettingsClient({
 
   // ── Toggle fiscal year ──────────────────────────────────────────────────────
   async function toggleYear(year: number) {
+    // ⛔ UN EXERCICE VERROUILLÉ ET ALLUMÉ NE S'ÉTEINT PAS — l'exercice en cours et le dernier
+    // terminé (lib/active-years.ts) : le produit y réclame déjà quelque chose. Éteint, le
+    // premier reviendrait en silence ; le second laisserait au tableau de bord une mise à jour
+    // au REQ que rien ne peut clore. Le rendu ne leur donne pas de bascule ; cette ligne est la
+    // ceinture. Verrouillé mais éteint — une ligne archivée d'avant ce lot —, il se rallume.
+    if (exercicesVerrouilles.includes(year) && activeYears.has(year)) return
     setToggleError(null)
     const isActive = activeYears.has(year)
 
@@ -1167,22 +1176,31 @@ export function SettingsClient({
             {toggleError}
           </div>
         )}
-        <p className="text-xs text-[var(--text-muted)] mb-4">
+        <p className="text-xs text-[var(--text-muted)] mb-2">
           {fr
             ? 'Activez les exercices pour lesquels vous souhaitez suivre la conformité. Les années avec des documents ne peuvent pas être désactivées.'
             : 'Enable fiscal years for compliance tracking. Years with documents cannot be disabled.'}
         </p>
+        {/* ★ LE DÉNOMINATEUR (§324). Aucun plafond ne cache plus d'exercice : l'écran dit
+            combien la société en a, et combien le score en lit. */}
+        <p className="text-xs font-medium text-[var(--text-secondary)] mb-4">
+          {cm.fiscalYears.trackedCount
+            .replace('{tracked}', String(exercices.filter(y => activeYears.has(y)).length))
+            .replace('{total}', String(exercices.length))}
+        </p>
 
-        {allYears.length === 0 ? (
+        {exercices.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">
             {fr ? 'Aucun exercice disponible.' : 'No fiscal years available.'}
           </p>
         ) : (
           <div className="space-y-2">
-            {allYears.map(year => {
+            {exercices.map(year => {
               const isActive = activeYears.has(year)
               const isToggling = togglingYear === year
               const hasDoc = documentYears.includes(year)
+              const isCurrent = year === exerciceEnCours
+              const isLocked = isActive && exercicesVerrouilles.includes(year)
               return (
                 <div
                   key={year}
@@ -1199,6 +1217,20 @@ export function SettingsClient({
                     >
                       {getFiscalYearLabel(year, locale)}
                     </span>
+                    {isCurrent && (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        letterSpacing: '.06em',
+                        textTransform: 'uppercase',
+                        background: '#F5B91E',
+                        color: '#1C1A17',
+                        borderRadius: '20px',
+                        padding: '2px 8px',
+                      }}>
+                        {cm.fiscalYears.current}
+                      </span>
+                    )}
                     {hasDoc && (
                       <span style={{
                         fontSize: '10px',
@@ -1218,7 +1250,8 @@ export function SettingsClient({
                   {/* Toggle switch */}
                   <button
                     onClick={() => toggleYear(year)}
-                    disabled={isToggling}
+                    disabled={isToggling || isLocked}
+                    title={isLocked ? cm.fiscalYears.lockedAlwaysTracked : undefined}
                     className="relative flex items-center cursor-pointer disabled:cursor-not-allowed"
                     style={{ opacity: isToggling ? 0.5 : 1, background: 'none', border: 'none', padding: 0 }}
                   >

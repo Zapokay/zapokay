@@ -13,23 +13,6 @@ const REQUIRED_DOCS: Record<string, string[]> = {
   CBCA: ['resolution', 'pv', 'rapport', 'statuts'],
 };
 
-function getFiscalYears(
-  incorporationDate: string,
-  fiscalYearEndMonth: number,
-  fiscalYearEndDay: number
-): number[] {
-  const start = new Date(incorporationDate);
-  const today = new Date();
-  const years: number[] = [];
-
-  let year = start.getFullYear();
-  while (year <= today.getFullYear()) {
-    years.push(year);
-    year++;
-  }
-  return years;
-}
-
 export async function POST(req: NextRequest) {
   try {
     const { companyId, locale } = await req.json();

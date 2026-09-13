@@ -32,6 +32,11 @@
         "jurisdiction": "Federal",
         "law": "Canada Business Corporations Act"
       }
+    },
+    "fiscalYears": {
+      "current": "Current year",
+      "lockedAlwaysTracked": "This fiscal year already carries obligations, so it is always tracked.",
+      "trackedCount": "Fiscal Years tracked: {tracked} of {total}"
     }
   },
   "auth": {
@@ -131,7 +136,7 @@
     "incorporationDatePlaceholder": "YYYY-MM-DD",
     "incorporationDateRequired": "Incorporation date is required",
     "incorporationDateFuture": "Incorporation date cannot be in the future",
-    "fiscalYearsCatchUpHint": "You'll be able to generate missing resolutions for each selected fiscal year from the Minute Book.",
+    "fiscalYearsCatchUpHint": "You'll be able to generate the missing resolutions for each selected fiscal year from the Minute Book, once that fiscal year has ended.",
     "step2Title": "Your company",
     "step2Subtitle": "Tell us a few details about your company.",
     "step3Title": "First officer",

@@ -88,7 +88,7 @@
  *
  * PURE: no I/O, no imports, `today` injectable so it is table-testable with a
  * rolled-forward clock (same convention as `bookCurrencyCap`,
- * `completedFiscalYearEnd`, `fiscalYearSet`).
+ * `completedFiscalYearEnd`, `exercicesDeLaSociete`).
  *
  * @param year               the row's fiscal year; null = foundational
  * @param fiscalYearEndDate  that year's end, bare ISO `YYYY-MM-DD`

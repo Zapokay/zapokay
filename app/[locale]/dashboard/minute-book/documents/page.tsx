@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentsClient } from '@/app/[locale]/dashboard/minute-book/documents/DocumentsClient';
 import type { VaultDocument } from '@/components/documents/DocumentRow';
-import { computeFiscalYearRange } from '@/lib/active-years';
+import { exercicesDeLaSociete } from '@/lib/active-years';
 
 export default async function DocumentsPage({
   params: { locale },
@@ -68,16 +68,11 @@ export default async function DocumentsPage({
     : { data: [] };
   const fiscalYears = (fiscalYearsData ?? []).map((fy: { year: number }) => fy.year);
 
-  // Vault upload year picker: incorporation FY -> current FY (UNCAPPED), so
-  // out-of-window archive years are selectable (classified as hold on upload).
+  // Vault upload year picker: every fiscal year of the company — the one declaration
+  // (lib/active-years.ts), incorporation FY -> current FY. A year the company does not
+  // track stays selectable and is classified as hold on upload.
   // Modal-only; the banner + fiscalYearsConfigured stay on the active set.
-  const vaultYearRange = company
-    ? computeFiscalYearRange(
-        (company.incorporation_date as string | null) ?? null,
-        (company.fiscal_year_end_month as number | null) ?? 12,
-        (company.fiscal_year_end_day as number | null) ?? 31,
-      ).reverse()
-    : [];
+  const vaultYearRange = company ? exercicesDeLaSociete(company).exercices.slice().reverse() : [];
 
   // The requirement catalog for this company's framework — titles included.
   // Mirrors the framework filter used in /api/minute-book/completeness.

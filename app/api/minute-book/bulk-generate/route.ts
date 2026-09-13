@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import { generatePdfDocument } from '@/lib/pdf/generatePdfDocument';
+import { exercicesDeLaSociete } from '@/lib/active-years';
 import { getSignatoryType } from '@/lib/requirement-map';
 import { resolveSignatoryBlocks } from '@/lib/documents/resolve-signatory-blocks';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
     /* ---------- Resolve user's active company (same query as page.tsx) ---------- */
     const { data: company } = await supabase
       .from('companies')
-      .select('id')
+      .select('id, incorporation_date, fiscal_year_end_month, fiscal_year_end_day')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .single();
@@ -184,6 +185,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Aucune société trouvée.' },
         { status: 404 },
+      );
+    }
+
+    /* ---------- L'exercice appartient à la société ----------
+       Chaque `fiscalYear` doit figurer dans la déclaration (lib/active-years.ts), du
+       premier exercice à celui en cours. Le rattrapage n'envoie que des années de
+       Complétude ; cette garde ferme la requête directe et la page restée ouverte.
+       Toute la requête est refusée : un client légitime n'envoie jamais une année que
+       la société ne déclare pas.
+       ⛔ CE N'EST PAS LA CLÔTURE. Les « quatre gardes » du rattrapage
+       (CompletenessPage) vivent toutes dans le NAVIGATEUR : aucune route API n'importe
+       `mustBlockGeneration`. Ce trou-là reste ouvert. */
+    const { exercices } = exercicesDeLaSociete(company);
+    const horsDeclaration = Array.from(
+      new Set(items.map((it) => it.fiscalYear).filter((annee) => !exercices.includes(annee))),
+    );
+    if (horsDeclaration.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Exercice hors de la société : ${horsDeclaration.join(', ')}.`,
+        },
+        { status: 400 },
       );
     }
 

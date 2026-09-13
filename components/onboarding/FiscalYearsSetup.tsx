@@ -4,7 +4,6 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
-import { computeDefaultActiveYears } from '@/lib/active-years'
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
 import LanguageToggle from '@/components/ui/LanguageToggle'
 
@@ -13,9 +12,20 @@ interface FiscalYearsSetupProps {
   companyId: string
   savedFiscalYears: { year: number; status: string }[]
   documentYears: number[]
-  incorporationDate?: string | null
-  fyEndMonth: number
-  fyEndDay: number
+  /**
+   * LA DÉCLARATION DES EXERCICES (lib/active-years.ts), calculée par la page au
+   * serveur. `exercices` est décroissant, pour l'affichage.
+   */
+  exercices: number[]
+  /** L'exercice en cours — celui qui porte la pastille. */
+  exerciceEnCours: number
+  /**
+   * Les exercices VERROUILLÉS — l'exercice en cours et le dernier terminé. Cochés, ils ne se
+   * décochent pas : le produit y réclame déjà quelque chose.
+   */
+  exercicesVerrouilles: number[]
+  /** Les exercices que le score lit — ce qui est coché à l'ouverture. */
+  suivis: number[]
 }
 
 export function FiscalYearsSetup({
@@ -23,36 +33,33 @@ export function FiscalYearsSetup({
   companyId,
   savedFiscalYears,
   documentYears,
-  incorporationDate,
-  fyEndMonth,
-  fyEndDay,
+  exercices,
+  exerciceEnCours,
+  exercicesVerrouilles,
+  suivis,
 }: FiscalYearsSetupProps) {
   const router = useRouter()
   const supabase = createClient()
   const fr = locale === 'fr'
   const t = useTranslations('onboarding')
   // Même forme qu'à l'étape 5 (StepShareholders) : un second lecteur pour le
-  // namespace `common`, où vit la phrase d'échec déjà employée par le produit.
-  // Aucune chaîne neuve : `common.saveFailed` est réutilisée telle quelle.
+  // namespace `common`, où vivent la phrase d'échec déjà employée par le produit
+  // (`common.saveFailed`) et `common.fiscalYears` — le compte des exercices suivis et
+  // l'exercice en cours, partagés avec les Réglages.
   const tCommon = useTranslations('common')
 
-  // Current fiscal year = the year in which the current fiscal year ENDS
-  const now = new Date()
-  const fyEndDateThisYear = new Date(now.getFullYear(), fyEndMonth - 1, fyEndDay)
-  const currentFiscalYear = now <= fyEndDateThisYear ? now.getFullYear() : now.getFullYear() + 1
-
-  // Rendered list: up to 8 fiscal years capped at incorporation, descending for UI.
-  const years = computeDefaultActiveYears(incorporationDate ?? null, fyEndMonth, fyEndDay)
-    .slice()
-    .reverse()
-
-  const defaultSelected = new Set<number>(years)
-  const initialActive = new Set<number>(
-    savedFiscalYears.filter(fy => fy.status === 'active').map(fy => fy.year)
-  )
-  const [activeYears, setActiveYears] = useState<Set<number>>(
-    initialActive.size > 0 ? initialActive : defaultSelected
-  )
+  // ★ AUCUNE HORLOGE ICI. La liste, l'exercice en cours et les exercices suivis arrivent
+  // de la page, calculés au serveur par la seule déclaration (lib/active-years.ts). Cet
+  // écran calculait sa liste sur l'horloge du NAVIGATEUR, avec une date de constitution
+  // lue en UTC : son rendu serveur et son rendu navigateur divergeaient, et c'est le
+  // navigateur qui écrivait — un exercice antérieur à la constitution, coché d'office.
+  // Sa pastille, calculée à part, disparaissait le dernier jour d'un exercice.
+  // ★ SANS LIGNE ACTIVE, `suivis` VAUT LES EXERCICES VERROUILLÉS — le dernier terminé et
+  // l'en-cours. Tout ce qui est plus ancien est montré décoché, et le client choisit ce qu'il
+  // rattrape (décision de Dom, 2026-09-13). « Passer » mène donc exactement où mène
+  // « Terminer » sans rien toucher.
+  const years = exercices
+  const [activeYears, setActiveYears] = useState<Set<number>>(() => new Set(suivis))
   const [saving, setSaving] = useState(false)
   // ⚠️ CE FICHIER N'AVAIT AUCUN CANAL DE MESSAGE. Deux états seulement —
   // `activeYears` et `saving` — donc rien qui puisse porter un échec, et donc
@@ -63,7 +70,10 @@ export function FiscalYearsSetup({
   const allSelected = years.every(y => activeYears.has(y))
 
   async function toggleYear(year: number) {
-    if (docYearSet.has(year)) return
+    // ⛔ Un exercice verrouillé et coché ne se décoche pas (lib/active-years.ts) : le bouton est
+    // désactivé, cette ligne est la ceinture. Verrouillé mais décoché — une ligne archivée
+    // d'avant ce lot —, il peut être coché, et il est alors verrouillé.
+    if (docYearSet.has(year) || (exercicesVerrouilles.includes(year) && activeYears.has(year))) return
     const isActive = activeYears.has(year)
     const next = new Set(activeYears)
     if (isActive) {
@@ -119,7 +129,8 @@ export function FiscalYearsSetup({
       // « tout désélectionner » : elles restent cochées et marquées, comme le
       // rendu les montre déjà.
       // ⛔ Aucun message ici : désélectionner tout n'est pas une erreur.
-      setActiveYears(new Set(Array.from(activeYears).filter(y => docYearSet.has(y))))
+      // Les exercices verrouillés restent cochés, eux aussi : ils ne sont pas des interrupteurs.
+      setActiveYears(new Set(Array.from(activeYears).filter(y => docYearSet.has(y) || exercicesVerrouilles.includes(y))))
     } else {
       // ⚠️ UNION, PAS REMPLACEMENT. `new Set(years)` aurait écarté toute année
       // déjà active hors de la fenêtre rendue — un « tout sélectionner » qui
@@ -348,8 +359,15 @@ export function FiscalYearsSetup({
             padding: '24px',
             marginBottom: '20px',
           }}>
-            {/* Select all toggle */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+            {/* ★ LE DÉNOMINATEUR (§324) + Select all toggle. Aucun plafond ne cache plus
+                d'exercice : l'écran dit combien la société en a, et combien seront suivis. */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                {tCommon('fiscalYears.trackedCount', {
+                  tracked: years.filter(y => activeYears.has(y)).length,
+                  total: years.length,
+                })}
+              </span>
               <button
                 onClick={toggleAll}
                 style={{
@@ -369,16 +387,19 @@ export function FiscalYearsSetup({
               {years.map(year => {
                 const isActive = activeYears.has(year)
                 const hasDoc = docYearSet.has(year)
-                const isCurrent = year === currentFiscalYear
+                const isCurrent = year === exerciceEnCours
+                const isLocked = isActive && exercicesVerrouilles.includes(year)
                 return (
                   <button
                     key={year}
                     onClick={() => toggleYear(year)}
-                    disabled={hasDoc}
+                    disabled={hasDoc || isLocked}
                     title={
                       hasDoc
                         ? (fr ? 'Des documents existent pour cette année' : 'Documents exist for this year')
-                        : undefined
+                        : isLocked
+                          ? tCommon('fiscalYears.lockedAlwaysTracked')
+                          : undefined
                     }
                     style={{
                       width: '100%', textAlign: 'left',
@@ -386,7 +407,7 @@ export function FiscalYearsSetup({
                       border: `1px solid ${isActive ? 'var(--warning-border)' : 'var(--card-border)'}`,
                       backgroundColor: isActive ? 'var(--warning-bg)' : 'var(--page-bg)',
                       opacity: hasDoc ? 0.6 : 1,
-                      cursor: hasDoc ? 'not-allowed' : 'pointer',
+                      cursor: hasDoc ? 'not-allowed' : isLocked ? 'default' : 'pointer',
                       transition: 'border-color 150ms, background-color 150ms',
                     }}
                   >
@@ -415,7 +436,7 @@ export function FiscalYearsSetup({
                             letterSpacing: '.06em', textTransform: 'uppercase',
                             padding: '2px 8px', borderRadius: '20px',
                           }}>
-                            {fr ? 'Exercice en cours' : 'Current year'}
+                            {tCommon('fiscalYears.current')}
                           </span>
                         )}
                       </div>

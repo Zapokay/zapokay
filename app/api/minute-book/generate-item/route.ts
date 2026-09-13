@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import { generatePdfDocument } from '@/lib/pdf/generatePdfDocument';
+import { exercicesDeLaSociete } from '@/lib/active-years';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 
 export async function POST(request: NextRequest) {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     const { data: ownedCompany, error: ownErr } = await supabase
       .from('companies')
-      .select('id')
+      .select('id, incorporation_date, fiscal_year_end_month, fiscal_year_end_day')
       .eq('id', companyId)
       .eq('user_id', user.id)
       .maybeSingle();
@@ -65,6 +66,28 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'FORBIDDEN' },
         { status: 403 },
       );
+    }
+
+    /* ---------- L'exercice appartient à la société ----------
+       `year` arrive du corps : il doit figurer dans la déclaration de la société
+       (lib/active-years.ts), du premier exercice à celui en cours. Les appelants du
+       navigateur passent l'année d'une ligne que la déclaration a produite ; cette
+       garde ferme la requête directe et la page restée ouverte.
+       ⚠️ ELLE NE COUVRE PAS L'ANNÉE ABSENTE. Sans `year`, generatePdfDocument retombe
+       sur l'année CIVILE du serveur et l'écrit dans `document_year` si l'exigence est
+       annuelle. Les appelants du navigateur ne l'omettent que pour une exigence
+       fondatrice ; une requête directe peut l'omettre pour une annuelle. Le fermer
+       demande de refuser une exigence annuelle sans année : un geste de plus.
+       ⛔ ET CE N'EST PAS LA CLÔTURE. Savoir s'il est trop tôt pour générer relève de
+       `mustBlockGeneration`, qu'aucune route API n'importe. */
+    if (year !== undefined && year !== null) {
+      const { exercices } = exercicesDeLaSociete(ownedCompany);
+      if (typeof year !== 'number' || !exercices.includes(year)) {
+        return NextResponse.json(
+          { success: false, error: 'FISCAL_YEAR_NOT_DECLARED' },
+          { status: 400 },
+        );
+      }
     }
 
     /* ---------- Service-role admin client for storage + DB writes ---------- */

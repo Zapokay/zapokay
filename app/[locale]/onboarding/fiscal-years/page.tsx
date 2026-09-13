@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { FiscalYearsSetup } from '@/components/onboarding/FiscalYearsSetup'
+import { declarationDesExercices } from '@/lib/active-years'
 
 export default async function FiscalYearsPage({
   params: { locale },
@@ -37,19 +38,26 @@ export default async function FiscalYearsPage({
     .map((d: { document_year: number | null }) => d.document_year)
     .filter((y): y is number => y !== null)
 
-  const companyAny = company as Record<string, unknown>
-  const fyEndMonth = (companyAny.fiscal_year_end_month as number | null) ?? 12
-  const fyEndDay = (companyAny.fiscal_year_end_day as number | null) ?? 31
+  // ★ LA LISTE EST DÉCLARÉE ICI, AU SERVEUR, PAR LA SEULE RÈGLE (lib/active-years.ts).
+  // L'écran la reçoit faite et ne lit plus aucune horloge : son rendu serveur et son
+  // rendu navigateur ne peuvent plus diverger sur la liste. Ce qui reste — le jour UTC
+  // du serveur, le dernier soir d'un exercice — est écrit sur `exercicesDeLaSociete`.
+  const lignes = (fiscalYears ?? []) as { year: number; status: string }[]
+  const declaration = declarationDesExercices(
+    company,
+    lignes.filter((l) => l.status === 'active').map((l) => l.year),
+  )
 
   return (
     <FiscalYearsSetup
       locale={locale}
       companyId={company.id}
-      savedFiscalYears={(fiscalYears ?? []) as { year: number; status: string }[]}
+      savedFiscalYears={lignes}
       documentYears={documentYears}
-      incorporationDate={(company as { id: string; incorporation_date: string | null }).incorporation_date}
-      fyEndMonth={fyEndMonth}
-      fyEndDay={fyEndDay}
+      exercices={declaration.exercices.slice().reverse()}
+      exerciceEnCours={declaration.enCours}
+      exercicesVerrouilles={declaration.verrouilles}
+      suivis={declaration.suivis}
     />
   )
 }

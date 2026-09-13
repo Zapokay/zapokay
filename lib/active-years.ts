@@ -1,14 +1,22 @@
 import { parseLocalDate } from '@/lib/utils'
 
 /**
- * Map an arbitrary date to the integer label of the fiscal year that CONTAINS
- * that date, for a company with the given fiscal-year-end month/day.
+ * LA FRONTIÈRE D'EXERCICE — la seule du dépôt.
  *
- * A fiscal year is identified by the calendar year in which it ENDS. The FY
- * containing a date is the one whose end is on-or-after that date. Mirrors
- * the inline logic in `computeDefaultActiveYears` (lines 56-59) — extracted
- * as a separate export for the lifecycle-document orchestrator. Dedupe with
- * computeDefaultActiveYears is a Tier-4 follow-up.
+ * Rend l'étiquette de l'exercice qui CONTIENT une date, pour une société dont
+ * l'exercice se termine le (mois, jour) donné. Un exercice porte l'année civile où
+ * il SE TERMINE ; il contient une date si sa fin tombe ce jour-là ou après.
+ *
+ * ★ LA SEULE, ET PAR QUEL MÉCANISME. Ce fichier en a porté deux : celle-ci, et une
+ * copie privée, `fiscalYearOfDate`, qui servait la fenêtre de l'étape 8 et la plage
+ * du coffre. Celle-ci lit la date en LOCAL depuis 8176ad4 (2026-06-09) ; la copie,
+ * écrite dix-neuf jours plus tard, recevait une date de constitution lue en UTC — et
+ * se déclarait « SINGLE SOURCE OF TRUTH ». Pour un premier jour d'exercice, à l'ouest
+ * de Greenwich, les deux rendaient deux exercices différents. La copie est SUPPRIMÉE.
+ * `exercicesDeLaSociete`, plus bas, tire ses deux bornes d'ici, et
+ * `obligationFiscalYear` (obligation-registry.ts) aussi : deux APPELS d'une même
+ * définition, pas deux définitions qui s'accordent. Ce qui le déferait : réécrire le
+ * calcul de `fiscalEndPassed` ailleurs au lieu d'importer cette fonction.
  */
 export function fiscalYearForDate(
   dateISO: string,
@@ -26,61 +34,97 @@ export function fiscalYearForDate(
 }
 
 /**
- * Internal - map a Date to the integer label of the fiscal year that CONTAINS
- * it, given the company fiscal-year-end month/day. A fiscal year is labelled by
- * the calendar year in which it ENDS. SINGLE SOURCE OF TRUTH for the FY
- * boundary, shared by computeDefaultActiveYears (the compliance window used by
- * the upload classifier) and computeFiscalYearRange (the vault year picker) so
- * the two can never disagree on a boundary. Uses raw Date fields, matching the
- * historical computeDefaultActiveYears behavior; callers parse the incorporation
- * string the same way before passing the Date in.
+ * Le jour d'un instant, en AAAA-MM-JJ, lu dans les champs LOCAUX de l'horloge qui
+ * exécute — jamais `toISOString()`, qui rend le jour UTC (#159 / §8.54).
  */
-function fiscalYearOfDate(date: Date, fiscalYearEndMonth: number, fiscalYearEndDay: number): number {
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const fiscalEndPassed =
-    month > fiscalYearEndMonth ||
-    (month === fiscalYearEndMonth && day > fiscalYearEndDay)
-  return fiscalEndPassed ? date.getFullYear() + 1 : date.getFullYear()
-}
-
-export function computeDefaultActiveYears(
-  incorporationDate: string | Date | null,
-  fiscalYearEndMonth: number,
-  fiscalYearEndDay: number,
-  referenceDate?: Date
-): number[] {
-  const ref = referenceDate ?? new Date()
-  const currentFiscalYear = fiscalYearOfDate(ref, fiscalYearEndMonth, fiscalYearEndDay)
-
-  if (incorporationDate === null) {
-    return [currentFiscalYear]
-  }
-  const incDate =
-    incorporationDate instanceof Date ? incorporationDate : new Date(incorporationDate)
-  const incorporationFiscalYear = fiscalYearOfDate(incDate, fiscalYearEndMonth, fiscalYearEndDay)
-
-  // Current + previous 7 completed = 8 years max, capped at incorporation year.
-  const earliest = Math.max(incorporationFiscalYear, currentFiscalYear - 7)
-  const years: number[] = []
-  for (let y = earliest; y <= currentFiscalYear; y++) {
-    years.push(y)
-  }
-  return years
+function jourLocal(instant: Date): string {
+  const pad2 = (n: number) => String(n).padStart(2, '0')
+  return `${instant.getFullYear()}-${pad2(instant.getMonth() + 1)}-${pad2(instant.getDate())}`
 }
 
 /**
- * THE fiscal-year set for a company — the single source both engines read.
+ * Ce que la règle lit d'une société : trois colonnes, sous leurs noms de base, NOT
+ * NULL depuis la migration 20260913150000. Une ligne `companies` se passe telle quelle.
+ */
+export interface SocieteExercices {
+  incorporation_date: string
+  fiscal_year_end_month: number
+  fiscal_year_end_day: number
+}
+
+export interface ExercicesDeLaSociete {
+  /** Tous les exercices de la société, du premier à celui en cours. Croissant. */
+  exercices: number[]
+  /** L'exercice qui contient aujourd'hui. Toujours suivi — jamais un interrupteur. */
+  enCours: number
+  /**
+   * Le dernier exercice TERMINÉ : celui qui précède l'exercice en cours dans la liste, ou
+   * `null` quand la société n'en a encore terminé aucun (constituée dans l'exercice en cours).
+   */
+  dernierTermine: number | null
+}
+
+/**
+ * LA RÈGLE — LES EXERCICES D'UNE SOCIÉTÉ.
  *
- * = the STORED ACTIVE rows, EXTENDED FORWARD with any newer years the calendar has
- * since entered. Never backfills; never removes.
+ * Du premier, celui qui contient la date de constitution, jusqu'à celui qui contient
+ * aujourd'hui ; les deux bornes viennent de `fiscalYearForDate`. En dérivent : la liste
+ * de l'étape 8, celle des Réglages, la pastille « Exercice en cours », la plage du
+ * coffre, la garde d'appartenance des trois routes d'écriture (bulk-generate,
+ * generate-item, upload) et, par `declarationDesExercices`, le moteur de complétude
+ * que lisent Complétude et le tableau de bord. Calculée au SERVEUR : aucun écran ne
+ * la recalcule dans le navigateur.
+ *
+ * ★ AUCUN PLAFOND. L'ancienne fenêtre s'arrêtait à l'exercice en cours moins sept. Rien
+ * ne justifiait ce chiffre — huit années civiles fixes aux Réglages (b588c55), recopiées
+ * sans raison — et comme les lignes enregistrées ne font que croître, chaque janvier
+ * sortait de l'étape 8 l'exercice actif le plus ancien : actif, et invisible. Une
+ * société constituée en 2000 a vingt-sept exercices ; les écrans les montrent et disent
+ * combien sont suivis.
+ *
+ * ⚠️ « AUJOURD'HUI » EST LE JOUR DE L'HORLOGE QUI EXÉCUTE, ET LE LOT NE LE RÉPARE PAS.
+ * Au serveur (Vercel, UTC), du dernier jour d'un exercice à 19 h (heure normale) ou
+ * 20 h (heure avancée) jusqu'à minuit au Québec, le jour UTC a déjà changé : cette
+ * fonction déclare alors l'exercice SUIVANT « en cours », pour toutes les sociétés.
+ * Le corriger suppose de savoir dans quel fuseau vit l'« aujourd'hui » d'une société.
+ *
+ * ⛔ UNE DATE DE CONSTITUTION OU UNE FIN D'EXERCICE ABSENTE LÈVE. Les colonnes sont NOT
+ * NULL ; inventer une borne — l'exercice en cours seul, ou huit ans — serait mentir.
+ */
+export function exercicesDeLaSociete(
+  societe: SocieteExercices,
+  today: Date = new Date()
+): ExercicesDeLaSociete {
+  const { incorporation_date, fiscal_year_end_month: mois, fiscal_year_end_day: jour } = societe
+  if (!incorporation_date || !Number.isInteger(mois) || !Number.isInteger(jour)) {
+    throw new Error(
+      "exercicesDeLaSociete : date de constitution et fin d'exercice requises (NOT NULL depuis 20260913150000)."
+    )
+  }
+  const premier = fiscalYearForDate(incorporation_date, mois, jour)
+  const enCours = fiscalYearForDate(jourLocal(today), mois, jour)
+  const exercices: number[] = []
+  for (let y = premier; y <= enCours; y++) {
+    exercices.push(y)
+  }
+  // ⛔ LU DANS LA LISTE, PAS RECALCULÉ. Le dernier exercice terminé est celui qui précède
+  // l'exercice en cours dans la liste : aucune seconde façon de savoir ce qui est clos.
+  const dernierTermine = exercices.length >= 2 ? exercices[exercices.length - 2] : null
+  return { exercices, enCours, dernierTermine }
+}
+
+/**
+ * THE SCORED SET = the STORED ACTIVE rows, EXTENDED FORWARD over the company's
+ * declared years. Never backfills; never removes. Internal: `declarationDesExercices`
+ * is the only way in.
  *
  * WHY COMBINE AT ALL: the two inputs are authoritative about different things.
  *   - The STORED rows are authoritative for WHAT THE USER CHOSE. They can archive
  *     a year in Settings, and `hold` rows exist; the caller has already filtered to
  *     status='active', so whatever arrives here is a deliberate user keep. This
  *     function must never second-guess or drop one.
- *   - The COMPUTED window is authoritative for WHAT THE CALENDAR SAYS.
+ *   - The DECLARED years (`exercicesDeLaSociete`) are authoritative for WHAT THE
+ *     CALENDAR SAYS.
  * Forward-only extension respects both: it never removes a year the user kept, and
  * never misses a year the clock has entered SINCE the newest kept one.
  *
@@ -94,14 +138,14 @@ export function computeDefaultActiveYears(
  * return by a new route: the REQ annual update renders twice, the federal
  * clear-gate can never fire, and Complétude stops tracking the newest year.
  *
- * ★ WHY EXTEND BY THE WHOLE WINDOW AND NOT BY A SINGLE YEAR: by the time the gap
+ * ★ WHY EXTEND BY EVERY DECLARED YEAR AND NOT BY A SINGLE YEAR: by the time the gap
  * fires it is TWO years wide — the feeders need the CLOSED fiscal year while
  * Complétude needs the OPEN one. Adding only one closes one hole and leaves the
  * other (verified: Acme @2028-01-01, adding only the open 2028 misses the feeder's
- * 2027; adding only the feeder's 2027 misses the open 2028). Extending by
- * `computeDefaultActiveYears` — the same function onboarding uses to WRITE the
- * rows — closes a gap of any width, while the forward-only filter below keeps that
- * extension from reaching backwards.
+ * 2027; adding only the feeder's 2027 misses the open 2028). Extending by the
+ * declared years — the list step 8 offers and writes from — closes a gap of any
+ * width, while the forward-only filter below keeps that extension from reaching
+ * backwards.
  *
  * ★ RESIDUAL, ACCEPTED (Dom, 2026-07-26). Forward-only protects archived years
  * BELOW the newest kept year. It cannot distinguish "archived above the high-water
@@ -113,66 +157,104 @@ export function computeDefaultActiveYears(
  * to eliminate resurrection entirely is to extend by exactly one year (currentFY),
  * at the cost of Complétude lagging the open year. Dom weighed this and accepted
  * forward-only. If that trade is ever revisited, this is the paragraph to reread.
+ * ⚠️ Depuis que l'exercice en cours n'est plus un interrupteur, ce résidu ne peut plus
+ * le toucher. Il touche encore un exercice CLOS au-dessus de la plus haute ligne
+ * active : archiver 2026 en 2027, pour une société inscrite en 2026, est défait.
  *
- * PURE: the caller passes the stored rows; no DB read here, and `today` is
- * injectable, so this is table-testable with a rolled-forward clock.
+ * PURE: no clock, no DB read — the caller passes both lists.
  *
  * Returns ascending, de-duplicated.
  */
-export function fiscalYearSet(
+function fiscalYearSet(
   storedActiveYears: readonly number[],
-  fiscalYearEndMonth: number,
-  fiscalYearEndDay: number,
-  incorporationDate: string | Date | null,
-  today?: Date
+  exercices: readonly number[]
 ): number[] {
-  const computed = computeDefaultActiveYears(
-    incorporationDate,
-    fiscalYearEndMonth,
-    fiscalYearEndDay,
-    today
-  )
-  // ★ FORWARD-ONLY. Add only computed years NEWER than the newest stored one. A
-  // plain union would BACKFILL — re-adding any archived year that still falls in
-  // the computed window, silently undoing a removal the user made in Settings.
-  // That is the same unrequested-action-on-the-user's-behalf this fix exists to
-  // avoid; staleness only ever occurs at the TOP end, so only the top end is
-  // repaired. Nothing the user archived below the high-water mark comes back.
-  const highWaterMark = storedActiveYears.length ? Math.max(...storedActiveYears) : -Infinity
-  const extensions = computed.filter((y) => y > highWaterMark)
+  // ★ FORWARD-ONLY. Add only declared years NEWER than the newest stored one. A
+  // plain union would BACKFILL — re-adding any archived year the company declares,
+  // silently undoing a removal the user made in Settings. That is the same
+  // unrequested-action-on-the-user's-behalf this fix exists to avoid; staleness only
+  // ever occurs at the TOP end, so only the top end is repaired. Nothing the user
+  // archived below the high-water mark comes back.
+  // ★ UNE LISTE VIDE NE S'ÉTEND PAS. L'extension répare le HAUT d'une liste existante ; elle
+  // n'en invente pas une à partir de rien. `-Infinity` en faisait tous les exercices déclarés,
+  // et « Passer », qui n'écrit rien, imposait alors plus que « Terminer ». Sans ligne active,
+  // `declarationDesExercices` rend les exercices verrouillés.
+  if (storedActiveYears.length === 0) return []
+  const highWaterMark = Math.max(...storedActiveYears)
+  const extensions = exercices.filter((y) => y > highWaterMark)
   // Array.from, not [...set] — tsconfig sets no `target`, so spreading a Set would
   // demand --downlevelIteration. Array-literal spread of the two arrays is fine.
   return Array.from(new Set([...storedActiveYears, ...extensions])).sort((a, b) => a - b)
 }
 
+export interface DeclarationExercices extends ExercicesDeLaSociete {
+  /**
+   * Les exercices VERROUILLÉS : le dernier terminé, s'il existe, et l'exercice en cours.
+   * Allumés, ils ne s'éteignent pas. Croissant.
+   */
+  verrouilles: number[]
+  /**
+   * Les exercices que le score lit. Croissant. Un exercice déclaré qui n'y figure pas est
+   * NON SUIVI, et reste hors du score.
+   */
+  suivis: number[]
+}
+
 /**
- * The FULL fiscal-year range a company can file or import for: incorporation FY
- * through the current FY, UNCAPPED (computeDefaultActiveYears caps at current-7
- * for the compliance window). Populates the vault upload year picker so
- * out-of-window archive years are selectable - they classify as hold on upload.
- * Ascending. Shares fiscalYearOfDate AND identical incorporation-date parsing
- * with computeDefaultActiveYears, so a given date maps to the SAME fiscal year
- * in both - no offerable-but-misclassified year.
+ * LA DÉCLARATION COMPLÈTE : la règle, plus ce que le score en lit.
+ *
+ * L'étape 8 et les Réglages l'affichent ; le moteur de complétude
+ * (requirement-completeness.ts) en tire son ensemble d'exercices. Une seule fonction,
+ * donc un seul « N suivis sur M » : ce qu'un écran montre allumé est ce que le score lit.
+ *
+ * ⚖️ LE COCHAGE — décision de Dom, 2026-09-13 : « les exercices dont le produit réclame déjà
+ * quelque chose ne sont pas des interrupteurs ; les plus anciens sont à vous. » L'exercice
+ * en cours et le dernier terminé naissent cochés et ne se décochent pas ; tout ce qui est
+ * plus ancien est montré décoché, et le client choisit ce qu'il rattrape. Une société
+ * constituée en 2000 ouvre sur deux exercices cochés sur vingt-sept.
+ *
+ * ★ POURQUOI LE DERNIER TERMINÉ. Le générateur d'échéances réclame la mise à jour annuelle
+ * au REQ de l'exercice clos, qu'on le suive ou non. Non suivi, cette ligne restait au tableau
+ * de bord sans jumeau de complétude, sans bouton de téléversement, hors du verdict, et rien
+ * ne pouvait la clore — mesuré le 2026-09-13 sur une société sans ligne d'exercice : 2025,
+ * en retard depuis le 2026-06-30.
+ *
+ * ★ L'EXERCICE EN COURS EST TOUJOURS SUIVI : archivé, la prolongation le rendrait en silence,
+ * et un acte d'aujourd'hui a besoin de lui pour tomber dans un exercice.
+ *
+ * ★ UNE LISTE SANS LIGNE ACTIVE VAUT LES EXERCICES VERROUILLÉS — jamais tous les exercices
+ * déclarés. « Passer », qui n'écrit rien, mène exactement où mène « Terminer » sans rien
+ * toucher.
+ *
+ * ⚠️ LE VERROU NE RAMÈNE PAS DE FORCE LE DERNIER TERMINÉ. Quand des lignes actives existent,
+ * il est suivi s'il y figure ou si la prolongation le couvre. Une ligne d'avant ce lot qui
+ * l'a archivé — ou une inscription qui l'a laissé sans ligne — est respectée : l'écran le
+ * montre décoché, le client peut le rallumer, et il est alors verrouillé. Le forcer
+ * défairait en silence un choix d'utilisateur. Le prix est écrit : pour cette société, la
+ * ligne du REQ impossible à clore demeure. Le produit ne peut plus produire cet état — les
+ * deux écrans refusent d'éteindre un exercice verrouillé. Deux retours existent sans venir
+ * du verrou : le résidu de `fiscalYearSet` (un exercice archivé au-dessus de la plus haute
+ * ligne active revient) et une liste sans ligne active, qui rend les deux exercices
+ * verrouillés — là où elle rendait, avant ce lot, tous les exercices.
+ *
+ * ⛔ AUCUN FILTRE DES LIGNES HORS DE LA RÈGLE — décision de Dom, 2026-09-13. Une ligne
+ * active enregistrée pour une année que la société ne déclare pas reste lue. La règle
+ * empêche qu'il en naisse ; celles qui existent se suppriment à la main.
  */
-export function computeFiscalYearRange(
-  incorporationDate: string | Date | null,
-  fiscalYearEndMonth: number,
-  fiscalYearEndDay: number,
-  referenceDate?: Date
-): number[] {
-  const ref = referenceDate ?? new Date()
-  const currentFiscalYear = fiscalYearOfDate(ref, fiscalYearEndMonth, fiscalYearEndDay)
-
-  if (incorporationDate === null) {
-    return [currentFiscalYear]
+export function declarationDesExercices(
+  societe: SocieteExercices,
+  actifsEnregistres: readonly number[],
+  today: Date = new Date()
+): DeclarationExercices {
+  const { exercices, enCours, dernierTermine } = exercicesDeLaSociete(societe, today)
+  const verrouilles = [dernierTermine, enCours].filter(
+    (annee): annee is number => annee !== null && exercices.includes(annee)
+  )
+  const suivis =
+    actifsEnregistres.length === 0 ? verrouilles.slice() : fiscalYearSet(actifsEnregistres, exercices)
+  if (exercices.includes(enCours) && !suivis.includes(enCours)) {
+    suivis.push(enCours)
+    suivis.sort((a, b) => a - b)
   }
-  const incDate =
-    incorporationDate instanceof Date ? incorporationDate : new Date(incorporationDate)
-  const incorporationFiscalYear = fiscalYearOfDate(incDate, fiscalYearEndMonth, fiscalYearEndDay)
-
-  const years: number[] = []
-  for (let y = incorporationFiscalYear; y <= currentFiscalYear; y++) {
-    years.push(y)
-  }
-  return years
+  return { exercices, enCours, dernierTermine, verrouilles, suivis }
 }

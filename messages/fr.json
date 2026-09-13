@@ -32,6 +32,11 @@
         "jurisdiction": "Fédéral",
         "law": "Loi canadienne sur les sociétés par actions"
       }
+    },
+    "fiscalYears": {
+      "current": "Exercice en cours",
+      "lockedAlwaysTracked": "Cet exercice porte déjà des obligations : il est toujours suivi.",
+      "trackedCount": "Exercices suivis : {tracked} sur {total}"
     }
   },
   "auth": {
@@ -131,7 +136,7 @@
     "incorporationDatePlaceholder": "AAAA-MM-JJ",
     "incorporationDateRequired": "La date de constitution est requise",
     "incorporationDateFuture": "La date de constitution ne peut pas être dans le futur",
-    "fiscalYearsCatchUpHint": "Vous pourrez générer les résolutions manquantes pour chaque exercice sélectionné depuis le Livre de minutes.",
+    "fiscalYearsCatchUpHint": "Vous pourrez générer les résolutions manquantes de chaque exercice sélectionné depuis le Livre de minutes, une fois cet exercice terminé.",
     "step2Title": "Votre entreprise",
     "step2Subtitle": "Dites-nous quelques détails sur votre société.",
     "step3Title": "Premier dirigeant",

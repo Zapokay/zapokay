@@ -227,14 +227,23 @@ export function bookCurrencyCap(
  * federal return's receipt remains the clearest EXAMPLE, and it is the one the
  * clear-gate below describes.
  *
- * The open-year fallback delegates to `fiscalYearForDate` — the declared single
- * source of truth for the FY boundary, and the same function
- * `computeDefaultActiveYears` uses to build the `company_fiscal_years` rows the
- * completeness checklist fans out over. That is what makes "the year returned
- * here HAS a checklist row" true BY CONSTRUCTION rather than by coincidence: the
- * federal clear-gate matches on (requirement_key, year), so a year with no row
- * is a receipt that can never satisfy anything and a row that never leaves the
- * board.
+ * The open-year fallback delegates to `fiscalYearForDate` — the ONLY fiscal-year
+ * boundary function in the repo: `exercicesDeLaSociete` (lib/active-years.ts) draws
+ * both ends of a company's year list from it too. Two calls of one definition, not
+ * two definitions that agree.
+ *
+ * ⚠️ WHAT THAT DOES NOT GIVE — this paragraph used to claim it. It does NOT make the
+ * year returned here a year the checklist fans out over: the annual rows follow
+ * `declarationDesExercices(...).suivis`, which the user can narrow and which this
+ * function never reads. The one row that must land on this year is the anniversary
+ * row — its clear-gate matches on (requirement_key, year), so a year with no row is a
+ * receipt that can never satisfy anything and a row that never leaves the board — and
+ * it gets there by another mechanism: the completeness engine places it by calling
+ * THIS function with the same arguments (see the note on `fed_annual_return` below).
+ * The former wording — "the same function `computeDefaultActiveYears` uses … true BY
+ * CONSTRUCTION" (0f7deee, 2026-07-25) — was false when written: that function never
+ * called `fiscalYearForDate`, and it received the incorporation date read in UTC where
+ * `fiscalYearForDate` reads it locally (8176ad4, 2026-06-09).
  */
 export function obligationFiscalYear(
   month: number,
@@ -873,11 +882,15 @@ export const OBLIGATION_REGISTRY: readonly ObligationRule[] = [
     // rule's attach-key is THE SAME FUNCTION WITH THE SAME ARGUMENTS. Not two derivations
     // that agree; one call made twice.
     //
-    // ⚠️ THE OLDER EXPLANATION IS OBSOLETE AND IS RECORDED SO IT IS NOT REINSTATED: it said
-    // the year "has a checklist row by construction because `obligationFiscalYear`
-    // delegates to `fiscalYearForDate`, the same function `computeDefaultActiveYears` uses."
-    // That was true when anniversary requirements were FANNED OUT per fiscal year. Since
-    // phase 1 they are not, and this row is never drawn from the year set at all.
+    // ⚠️ THE OLDER EXPLANATION IS RECORDED SO IT IS NOT REINSTATED: it said the year "has a
+    // checklist row by construction because `obligationFiscalYear` delegates to
+    // `fiscalYearForDate`, the same function `computeDefaultActiveYears` uses." It was never
+    // true — `computeDefaultActiveYears` did not call `fiscalYearForDate`, and received the
+    // incorporation date read in UTC where `fiscalYearForDate` reads it locally — and since
+    // phase 1 this row is not drawn from the year set at all. The function it named is gone:
+    // `exercicesDeLaSociete` replaced it and does call `fiscalYearForDate`. The mechanism
+    // that holds is the one stated above; the docblock of `obligationFiscalYear` now says
+    // the same.
     //
     // WHY IT MATTERS: the clear-gate matches on (requirement_key, year), so a
     // pre-incorporation attach-key was a receipt that could never satisfy anything and a

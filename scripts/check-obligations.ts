@@ -380,7 +380,7 @@ const skip = (fact: string, why: string) => {
 
   // Keep BOTH shapes: the array is what we iterate, the Set is what we probe. tsconfig
   // sets no `target`, so `for (const k of someSet)` demands --downlevelIteration and
-  // fails tsc — the same trap recorded at active-years.ts:143. Iterate the array.
+  // fails tsc — the same trap recorded in `fiscalYearSet` (lib/active-years.ts). Iterate the array.
   const mergedKeys = Object.keys(OVERLAP_MERGE);
   const merged = new Set(mergedKeys);
   // Every requirement key the registry knows about. 'event' rules declare none (acts

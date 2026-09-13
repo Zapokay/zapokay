@@ -24,7 +24,7 @@ export interface Company {
   legal_name_en: string | null;
   incorporation_type: IncorporationType;
   incorporation_number: string | null;
-  incorporation_date: string | null;
+  incorporation_date: string;
   // ⚠️ LE SIÈGE SOCIAL, depuis 20260913120000 — six colonnes nullables, aux noms des
   // personnes et des entités. `province` n'existe plus : l'adresse l'a absorbée.
   address_line1: string | null;

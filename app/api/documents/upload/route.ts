@@ -6,28 +6,38 @@ import { createClient } from '@/lib/supabase/server';
 import { uploadDocument, type UploadDocumentParams } from '@/lib/upload-document';
 import { isPdfBytes } from '@/lib/pdf-magic';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
-import { computeDefaultActiveYears } from '@/lib/active-years';
+import { declarationDesExercices, exercicesDeLaSociete, type SocieteExercices } from '@/lib/active-years';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const MAX_SIZE = 20971520; // 20 MB — mirrors the `documents` bucket file_size_limit
 
-async function ensureHoldYearIfOutOfWindow(
+/**
+ * UN DOCUMENT D'UN EXERCICE NON SUIVI VA À L'ARCHIVE — ligne `hold`, hors du score.
+ *
+ * ★ LE CRITÈRE ÉTAIT LA FENÊTRE ; IL EST DEVENU LE SUIVI. La fenêtre plafonnée (l'exercice
+ * en cours moins sept) approchait « ce que le score lit ». Le plafond retiré, tout
+ * exercice proposable tombait dans la fenêtre et plus rien n'allait à l'archive : un
+ * document de 2005 aurait quitté Complétude sans rejoindre la boîte d'archive. La
+ * déclaration connaît les exercices suivis exactement ; c'est elle qu'on lit.
+ */
+async function ensureHoldYearIfNotTracked(
   supabaseAdmin: SupabaseClient,
-  company: {
-    incorporation_date: string | null;
-    fiscal_year_end_month: number | null;
-    fiscal_year_end_day: number | null;
-  },
+  company: SocieteExercices,
   companyId: string,
   docYear: number,
 ): Promise<void> {
   try {
-    const activeWindow = computeDefaultActiveYears(
-      company.incorporation_date,
-      company.fiscal_year_end_month ?? 12,
-      company.fiscal_year_end_day ?? 31,
+    const { data: actives, error: activesErr } = await supabaseAdmin
+      .from('company_fiscal_years')
+      .select('year')
+      .eq('company_id', companyId)
+      .eq('status', 'active');
+    if (activesErr) throw activesErr;
+    const { suivis } = declarationDesExercices(
+      company,
+      (actives ?? []).map((r: { year: number }) => r.year),
     );
-    if (activeWindow.includes(docYear)) return;
+    if (suivis.includes(docYear)) return;
 
     const { data: existing } = await supabaseAdmin
       .from('company_fiscal_years')
@@ -226,6 +236,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'TITLE_REQUIRED' }, { status: 400 });
     }
 
+    // Guard 3 — L'EXERCICE APPARTIENT À LA SOCIÉTÉ. Toute année que ce téléversement
+    // écrit — `docYear`, `requirementYear`, et celle de chaque lien — doit figurer dans
+    // la déclaration (lib/active-years.ts), du premier exercice à celui en cours. Le
+    // coffre ne propose que celles-là ; cette garde ferme la requête directe et l'onglet
+    // resté ouvert. Code structuré, sans copie : lib/upload-error-message.ts le rend par
+    // son repli générique.
+    // ⛔ CE N'EST PAS LA CLÔTURE. Un exercice ouvert appartient à la société ; savoir s'il
+    // est trop tôt pour y déposer relève de `mustBlockGeneration`, qu'aucune route n'importe.
+    const { exercices } = exercicesDeLaSociete(ownedCompany);
+    const anneesEcrites = [
+      docYear,
+      requirementYear,
+      ...(requirementLinks ?? []).map((l) => l.requirement_year),
+    ];
+    if (anneesEcrites.some((annee) => annee !== null && !exercices.includes(annee))) {
+      return NextResponse.json({ ok: false, error: 'FISCAL_YEAR_NOT_DECLARED' }, { status: 400 });
+    }
+
     /* ---------- Service-role admin client (mirror generate-item) ---------- */
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -267,18 +295,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: result.error }, { status });
     }
 
-    // Hold-only vault import - out-of-window year gets a lazy hold row (non-fatal).
+    // Hold-only vault import — a year the company does not track gets a lazy hold row (non-fatal).
     if (docYear !== null) {
-      await ensureHoldYearIfOutOfWindow(
-        supabaseAdmin,
-        {
-          incorporation_date: ownedCompany.incorporation_date as string | null,
-          fiscal_year_end_month: ownedCompany.fiscal_year_end_month as number | null,
-          fiscal_year_end_day: ownedCompany.fiscal_year_end_day as number | null,
-        },
-        ownedCompany.id,
-        docYear,
-      );
+      await ensureHoldYearIfNotTracked(supabaseAdmin, ownedCompany, ownedCompany.id, docYear);
     }
 
     return NextResponse.json({ ok: true, documentId: result.documentId });
