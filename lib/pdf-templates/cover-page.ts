@@ -3,6 +3,20 @@ import { escapeHtml } from './base-layout';
 export interface CoverPageData {
   companyName: string;
   neq?: string;
+  /**
+   * La ligne du siège social, DÉJÀ COMPOSÉE ET ÉTIQUETÉE par l'appelant — « Siège
+   * social : 1250, boulevard…, Montréal, QC, H3B 4W8, CA ». Ce gabarit ne connaît ni
+   * catalogue ni composition : la composition est `adresseRegistre` (lib/address.ts).
+   * Absente quand la société n'a pas de siège : la page rend alors EXACTEMENT ce
+   * qu'elle rendait avant, à l'octet — d'où le style EN LIGNE sur la seule ligne du
+   * siège : une règle dans <style> s'imprimerait aussi sans siège (mesuré : la
+   * première version différait de l'avant à la ligne 46).
+   *
+   * ⛔ LA PAGE DE GARDE SEULEMENT, JAMAIS L'EN-TÊTE COURANT. Elle est datée du jour et
+   * décrit la société au jour : son siège y est vrai. Une résolution de 2019 régénérée
+   * porterait l'adresse d'aujourd'hui — bceadbd, à l'envers.
+   */
+  siege?: string;
   title: string;
   subtitle?: string;
   preparedFor?: string;
@@ -110,7 +124,9 @@ export function coverPageHTML(data: CoverPageData): string {
     <div class="logo-sub">${generatedLabel}</div>
     <div class="sep"></div>
     <div class="company">${escapeHtml(data.companyName)}</div>
-    ${data.neq ? `<div class="neq">NEQ ${escapeHtml(data.neq)}</div>` : '<div style="margin-bottom:2em"></div>'}
+    ${data.siege
+      ? `${data.neq ? `<div class="neq" style="margin-bottom:0.3em">NEQ ${escapeHtml(data.neq)}</div>` : ''}<div style="font-size:12px;color:#6B6560;margin-bottom:2em">${escapeHtml(data.siege)}</div>`
+      : data.neq ? `<div class="neq">NEQ ${escapeHtml(data.neq)}</div>` : '<div style="margin-bottom:2em"></div>'}
     <div class="title">${escapeHtml(data.title)}</div>
     ${data.subtitle ? `<div class="subtitle">${escapeHtml(data.subtitle)}</div>` : '<div style="margin-bottom:2.5em"></div>'}
     <div class="meta">

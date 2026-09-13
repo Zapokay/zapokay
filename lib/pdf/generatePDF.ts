@@ -175,6 +175,8 @@ export interface CoverPageInput {
   title: string;
   subtitle?: string;
   preparedDate: string;
+  /** La ligne du siège, déjà composée et étiquetée — voir CoverPageData.siege. */
+  siege?: string;
   language?: 'fr' | 'en' | 'bilingual';
 }
 
@@ -308,6 +310,7 @@ export async function generatePDF({ type, data }: GeneratePDFInput): Promise<Buf
         title: d.title,
         subtitle: d.subtitle,
         preparedDate: d.preparedDate,
+        siege: d.siege,
         language: d.language ?? 'fr',
         confidentialLabel: confidentialLabel(d.language),
       };

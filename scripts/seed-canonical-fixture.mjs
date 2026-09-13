@@ -74,7 +74,6 @@ const UUID = {
 const COMPANY_NEQ          = '1234567890';
 const COMPANY_LEGAL_NAME   = 'Acme Test inc.';
 const COMPANY_INC_DATE     = '2018-04-17';
-const COMPANY_PROVINCE     = 'QC';
 const COMPANY_INC_TYPE     = 'LSA';     // UI label "LSAQ" → DB "LSA"
 const COMPANY_FYE_MONTH    = 12;
 const COMPANY_FYE_DAY      = 31;
@@ -253,7 +252,6 @@ async function main() {
     corporation_number:    null,
     neq:                   COMPANY_NEQ,
     incorporation_date:    COMPANY_INC_DATE,
-    province:              COMPANY_PROVINCE,
     fiscal_year_end_month: COMPANY_FYE_MONTH,
     fiscal_year_end_day:   COMPANY_FYE_DAY,
     status:                'active',

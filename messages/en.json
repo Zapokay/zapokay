@@ -9,6 +9,14 @@
     "neqRequired": "The NEQ is required",
     "neqInvalid": "The NEQ is exactly 10 digits",
     "corporationNumberRequired": "The federal corporation number is required",
+    "siege": {
+      "title": "Head office",
+      "line1": "Address",
+      "line2": "Suite / apartment",
+      "incomplete": "The full head office address is required.",
+      "unlocked": "Field unlocked",
+      "clickToUnlock": "Click to unlock"
+    },
     "corporationNumberShort": "Corporation nº",
     "corporationNumberTooltip": "Number assigned by Corporations Canada when the corporation was incorporated — seven digits followed by a check digit. It appears with a hyphen on your certificate of incorporation (e.g. 1234567-8) and without one in online registries (e.g. 12345678): it is the same number, and both forms are accepted. ⚠️ Not to be confused with the Canada Revenue Agency Business Number (BN), a nine-digit tax identifier used for income tax and sales taxes.",
     "required": "Required field",
@@ -99,7 +107,7 @@
     "stepLabels": {
       "step1": "Language",
       "step2": "Company",
-      "step3": "Province",
+      "step3": "Head office",
       "step4": "Directors",
       "step5": "Shareholders",
       "step6": "Officers",
@@ -141,7 +149,11 @@
     "neqTakenByAnotherAccount": "This NEQ is already linked to another ZapOkay account. Please check the number you entered — a company can only be registered once.",
     "corporationNumberTakenByAnotherAccount": "This federal corporation number is already linked to another ZapOkay account. Please check the number you entered — a company can only be registered once.",
     "incorporationDate": "Incorporation date",
-    "province": "Province",
+    "siege": {
+      "stepLabel": "STEP 3 — HEAD OFFICE",
+      "title": "Where is the head office?",
+      "hint": "The full head office address will be required in the app. You can enter or complete it later, in Settings."
+    },
     "officerName": "Full name",
     "officerRole": "Role",
     "director": "Director",
@@ -734,6 +746,15 @@
       "gapCountry": "home address country",
       "gapCityAndCountry": "home address city and country",
       "gapsFixLink": "Fix in Directors",
+      "gapSiege": "Head office",
+      "siegeChamps": {
+        "address_line1": "address",
+        "address_city": "city",
+        "address_province": "province",
+        "address_postal_code": "postal code",
+        "address_country": "country"
+      },
+      "gapsFixSettingsLink": "Fix in Settings",
       "exportAnyway": "Export anyway",
       "cta": {
         "cancel": "Cancel",
@@ -754,6 +775,7 @@
       "cover": {
         "title": "Minute Book",
         "fileName": "00_Cover_page.pdf",
+        "siegeLabel": "Head office:",
         "incompleteNotice": "{count, plural, =0 {} =1 {Incomplete minute book — 1 missing data point} other {Incomplete minute book — # missing data points}}"
       },
       "errors": {

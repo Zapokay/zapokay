@@ -9,6 +9,14 @@
     "neqRequired": "Le NEQ est requis",
     "neqInvalid": "Le NEQ compte exactement 10 chiffres",
     "corporationNumberRequired": "Le numéro de société fédéral est requis",
+    "siege": {
+      "title": "Siège social",
+      "line1": "Adresse",
+      "line2": "Suite / appartement",
+      "incomplete": "L'adresse complète du siège social est requise.",
+      "unlocked": "Champ déverrouillé",
+      "clickToUnlock": "Cliquer pour déverrouiller"
+    },
     "corporationNumberShort": "Nº de société",
     "corporationNumberTooltip": "Numéro attribué par Corporations Canada à la constitution de la société — sept chiffres suivis d'un chiffre vérificateur. Il s'écrit avec un trait d'union sur votre certificat de constitution (ex. 1234567-8) et sans trait d'union dans les registres en ligne (ex. 12345678) : c'est le même numéro, les deux formes sont acceptées. ⚠️ À ne pas confondre avec le numéro d'entreprise (NE) de l'Agence du revenu du Canada, un identifiant fiscal à neuf chiffres qui sert à l'impôt et aux taxes.",
     "required": "Champ requis",
@@ -99,7 +107,7 @@
     "stepLabels": {
       "step1": "Langue",
       "step2": "Société",
-      "step3": "Province",
+      "step3": "Siège social",
       "step4": "Administrateurs",
       "step5": "Actionnaires",
       "step6": "Dirigeants",
@@ -141,7 +149,11 @@
     "neqTakenByAnotherAccount": "Ce NEQ est déjà rattaché à un autre compte ZapOkay. Vérifiez le numéro saisi — une société ne peut être inscrite qu'une seule fois.",
     "corporationNumberTakenByAnotherAccount": "Ce numéro de société fédéral est déjà rattaché à un autre compte ZapOkay. Vérifiez le numéro saisi — une société ne peut être inscrite qu'une seule fois.",
     "incorporationDate": "Date de constitution",
-    "province": "Province",
+    "siege": {
+      "stepLabel": "ÉTAPE 3 — SIÈGE SOCIAL",
+      "title": "Où se trouve le siège social ?",
+      "hint": "L'adresse complète du siège sera exigée dans l'application. Vous pourrez la saisir ou la compléter plus tard, dans Paramètres."
+    },
     "officerName": "Nom complet",
     "officerRole": "Rôle",
     "director": "Administrateur",
@@ -734,6 +746,15 @@
       "gapCountry": "pays du domicile",
       "gapCityAndCountry": "ville et pays du domicile",
       "gapsFixLink": "Corriger dans Administrateurs",
+      "gapSiege": "Siège social",
+      "siegeChamps": {
+        "address_line1": "adresse",
+        "address_city": "ville",
+        "address_province": "province",
+        "address_postal_code": "code postal",
+        "address_country": "pays"
+      },
+      "gapsFixSettingsLink": "Corriger dans Paramètres",
       "exportAnyway": "Exporter quand même",
       "cta": {
         "cancel": "Annuler",
@@ -754,6 +775,7 @@
       "cover": {
         "title": "Livre de minutes",
         "fileName": "00_Page_de_garde.pdf",
+        "siegeLabel": "Siège social :",
         "incompleteNotice": "{count, plural, =0 {} =1 {Livre incomplet — 1 donnée manquante} other {Livre incomplet — # données manquantes}}"
       },
       "errors": {

@@ -1,0 +1,23 @@
+-- =============================================================================
+-- companies.province disparaît — absorbée par l'adresse du siège
+-- =============================================================================
+--
+-- ⛔⛔ APRÈS LE DÉPLOIEMENT DU CODE DU LOT, JAMAIS AVANT.
+-- L'ancien code écrit `province` à l'étape 3 de l'inscription et la passe aux
+-- Paramètres : appliquée avant son remplacement, cette migration casse
+-- l'inscription. Le code du lot ne lit ni n'écrit plus la colonne.
+-- Prérequis : 20260913120000 appliquée.
+--
+-- Emporte avec elle companies_province_check (treize provinces et territoires).
+-- La province d'un siège vit désormais dans `address_province`, sans CHECK,
+-- comme celle des personnes et des entités.
+--
+-- ⚠️ IRRÉVERSIBLE SUR LA DONNÉE, ET C'EST LA DÉCISION. Les 17 valeurs sont
+-- perdues : elles n'étaient pas une source (voir 20260913120000). La seule qui
+-- compte — Art et Technologie DePictura Inc., 'QC' — sera saisie à la main
+-- avec l'adresse de son siège.
+--
+-- ⚠️ NON EXÉCUTÉE PAR L'AUTEUR DU LOT. À appliquer par Dom, après le déploiement.
+-- =============================================================================
+
+alter table public.companies drop column province;

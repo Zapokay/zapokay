@@ -14,12 +14,13 @@ import {
 } from '@/lib/minute-book/registers';
 import { normalizePdfSpaces } from '@/lib/pdf/pdf-safe-text';
 import { trousDeLaSociete } from '@/lib/data-gaps';
+import { adresseRegistre } from '@/lib/address';
 import { toStorageSafeName } from '@/lib/storage-key';
 import {
   getCoverTitle, getCoverSubtitle, getCoverFileName, getCoverDate,
   getIndexTitle, getIndexFileName, getIndexColumns,
   getRegistersFileName, getRegisterLabels, getRegistersAsAtLabel, getArchiveBaseName,
-  getCoverIncompleteNotice, getColumnLabeller,
+  getCoverIncompleteNotice, getCoverSiegeLabel, getColumnLabeller,
 } from '@/lib/i18n/export-labels';
 import {
   colonnesAdministrateurs, COLONNES_DIRIGEANTS, COLONNES_ACTIONNAIRES,
@@ -90,6 +91,8 @@ const PARTIE_LISIBLE_MAX = 120;
 interface CoverPageData {
   companyName: string;
   neq: string;
+  /** La ligne du siège, déjà composée et étiquetée — absente sans siège. */
+  siege?: string;
   documentCount: number;
   locale: 'fr' | 'en';
   /**
@@ -108,6 +111,7 @@ async function generateCoverPage(data: CoverPageData): Promise<Buffer> {
   return generateCoverPagePDF({
     companyName: data.companyName,
     neq: data.neq,
+    siege: data.siege,
     title: getCoverTitle(data.locale),
     // ★ LA MENTION S'AJOUTE AU COMPTE, elle ne le remplace pas : le lecteur doit
     //   garder ce que le livre CONTIENT en plus de ce qui lui manque.
@@ -192,7 +196,7 @@ export async function GET(request: NextRequest) {
 
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('id, legal_name_fr, legal_name_en, neq, incorporation_type')
+      .select('id, legal_name_fr, legal_name_en, neq, incorporation_type, address_line1, address_line2, address_city, address_province, address_postal_code, address_country')
       .eq('id', companyId)
       .single();
 
@@ -527,9 +531,14 @@ export async function GET(request: NextRequest) {
     const donneesManquantes = trous.reduce((n, t) => n + t.champs.length, 0);
     const mentionIncomplet = getCoverIncompleteNotice(donneesManquantes, docLanguage);
 
+    // ★ LE SIÈGE, SUR LA PAGE DE GARDE SEULEMENT (décision du 2026-09-13) : datée du
+    //   jour, elle décrit la société au jour. Composé par adresseRegistre — la même
+    //   fonction que les registres — et absent quand la société n'en a pas.
+    const adresseSiege = adresseRegistre(company);
     const coverPageBuffer = await generateCoverPage({
       companyName,
       neq: company.neq,
+      siege: adresseSiege ? `${getCoverSiegeLabel(docLanguage)} ${adresseSiege}` : undefined,
       documentCount: allDocuments.length,
       locale: docLanguage,
       incompleteNotice: mentionIncomplet || undefined,

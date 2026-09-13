@@ -1,6 +1,7 @@
+import type { AdresseSaisie } from '@/lib/address';
+
 export type Language = "fr" | "en";
 export type IncorporationType = "LSAQ" | "LSA" | "CBCA";
-export type Province = "QC" | "ON" | "BC" | "AB" | "MB" | "SK" | "NS" | "NB" | "NL" | "PE" | "YT" | "NT" | "NU";
 export type OfficerRole = "director" | "officer" | "shareholder";
 export type DocumentType = "resolution" | "bylaw" | "register" | "certificate" | "other";
 export type ComplianceStatus = "pending" | "complete" | "overdue" | "not_applicable";
@@ -24,7 +25,14 @@ export interface Company {
   incorporation_type: IncorporationType;
   incorporation_number: string | null;
   incorporation_date: string | null;
-  province: Province;
+  // ⚠️ LE SIÈGE SOCIAL, depuis 20260913120000 — six colonnes nullables, aux noms des
+  // personnes et des entités. `province` n'existe plus : l'adresse l'a absorbée.
+  address_line1: string | null;
+  address_line2: string | null;
+  address_city: string | null;
+  address_province: string | null;
+  address_postal_code: string | null;
+  address_country: string | null;
   status: CompanyStatus;
   neq: string | null;
   // Le second identifiant, déclaré ici pour que CompanySwitcher le lise TYPÉ. Il
@@ -55,7 +63,8 @@ export interface OnboardingData {
     incorporationNumber: string;
     corporationNumber: string;
     incorporationDate: string;
-    province: Province;
+    /** L'adresse du siège, sous les noms de colonne (lib/address.ts). Facultative ici. */
+    siege: AdresseSaisie;
     fiscalYearEndMonth: number;
     fiscalYearEndDay: number;
   };

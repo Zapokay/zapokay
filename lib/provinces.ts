@@ -25,3 +25,26 @@ export const PROVINCE_CODES = [
 ] as const;
 
 export type ProvinceCode = (typeof PROVINCE_CODES)[number];
+
+/**
+ * Les options d'un menu de provinces : le CODE en valeur, le nom traduit en libellé,
+ * dans l'ordre alphabétique DE LA LOCALE.
+ *
+ * ⚠️ `localeCompare`, PAS UN sort() NU. En ordre de points de code le « Î »
+ * d'« Île-du-Prince-Édouard » passe APRÈS le Z : la province tombe en dernier de la
+ * liste française. Mesuré dans les Paramètres, d'où ce tri vient — l'anglais rend le
+ * même ordre dans les deux cas, c'est le français seul que le tri naïf trahit.
+ *
+ * ★ UNE SEULE SOURCE POUR LE SIÈGE, À L'INSCRIPTION ET DANS LES PARAMÈTRES. Le tri
+ * vivait dans SettingsClient ; recopié à l'étape 3, il aurait divergé.
+ *
+ * Repli sur le code si un libellé manquait : mieux vaut afficher un code qu'un vide.
+ */
+export function optionsProvinces(
+  locale: string,
+  libelles: Record<string, string | undefined>,
+): { code: ProvinceCode; label: string }[] {
+  return PROVINCE_CODES
+    .map((code) => ({ code, label: libelles[code] ?? code }))
+    .sort((a, b) => a.label.localeCompare(b.label, locale));
+}

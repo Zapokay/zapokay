@@ -8,6 +8,10 @@ import { logActivity } from '@/lib/activity-log'
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
 import { formatDate } from '@/lib/utils'
 import { normalizeNeq, isValidNeq, normalizeCorporationNumber } from '@/lib/identifiers'
+import { adresseRegistre, chargeAdresse, type AdresseSaisie, type ChampAdresse } from '@/lib/address'
+import { CHAMPS_REQUIS_SIEGE, champsManquantsSiege } from '@/lib/data-gaps'
+import { countryOptions } from '@/lib/countries'
+import { PROVINCE_CODES, optionsProvinces } from '@/lib/provinces'
 import frMessages from '@/messages/fr.json'
 import enMessages from '@/messages/en.json'
 
@@ -39,7 +43,8 @@ interface SettingsClientProps {
   initialLegalNameEn: string
   initialNeq: string
   initialCorporationNumber: string
-  province: string
+  // Le siège social, sous les noms de colonne (lib/address.ts). A absorbé `province`.
+  initialSiege: AdresseSaisie
   incorporationDate: string | null
   initialFyMonth: number
   initialFyDay: number
@@ -63,7 +68,7 @@ export function SettingsClient({
   initialLegalNameEn,
   initialNeq,
   initialCorporationNumber,
-  province,
+  initialSiege,
   incorporationDate,
   initialFyMonth,
   initialFyDay,
@@ -80,6 +85,10 @@ export function SettingsClient({
   // everywhere. Reuses the two keys the onboarding rule added: zero new strings.
   const cm = (fr ? frMessages : enMessages).common
   const pv = (fr ? frMessages : enMessages).provinces
+  // Same static form as `cm`: the incorporation-date rule reuses onboarding's two keys,
+  // and the head office reuses the address labels `people` already carries.
+  const ob = (fr ? frMessages : enMessages).onboarding
+  const pp = (fr ? frMessages : enMessages).people
 
   // ── Profile state ──────────────────────────────────────────────────────────
   const [fullName, setFullName] = useState(initialFullName)
@@ -106,30 +115,41 @@ export function SettingsClient({
 
   // ── Locked fields state ────────────────────────────────────────────────────
   const [editIncorpType, setEditIncorpType] = useState(incorporationType)
-  const [editProvince, setEditProvince] = useState(province)
+  const [siege, setSiege] = useState<AdresseSaisie>(initialSiege)
   const [editIncorpDate, setEditIncorpDate] = useState(incorporationDate ?? '')
+  // The incorporation date's upper bound — computed exactly as StepCompany computes it,
+  // so the two surfaces refuse the same dates.
+  const todayStr = new Date().toISOString().split('T')[0]
   const [unlockedFields, setUnlockedFields] = useState<Set<string>>(new Set())
   const [pendingUnlock, setPendingUnlock] = useState<string | null>(null)
 
   // ── THE PADLOCK HAS TWO FUNCTIONS, AND THEY MUST NOT BE CONFLATED. ──
   //
-  // On a value that GOVERNS CALCULATIONS (incorporation type, province,
-  // incorporation date, fiscal year end) the warning modal tells the truth:
-  // compliance IS recomputed and already-generated documents CAN become wrong.
+  // On a value that GOVERNS CALCULATIONS (incorporation type, incorporation date,
+  // fiscal year end) the warning modal tells the truth: compliance IS recomputed and
+  // already-generated documents CAN become wrong.
   //
   // On an IDENTIFIER (NEQ, federal corporation number) it is FALSE — nothing is
   // recomputed, no document is invalidated. Here the padlock serves only to
   // prevent an ACCIDENTAL edit to a value we will read later.
+  //
+  // ⚠️ `province` WAS LISTED AMONG THE CALCULATION FIELDS, AND THE MODAL LIED ABOUT IT —
+  // measured 2026-09-12: nothing read companies.province outside onboarding and this
+  // screen. It is gone, absorbed by the head office address (2026-09-13), and its
+  // warning went with it. The head office joins the set below: an address governs no
+  // calculation, so the warning would be false for it too.
   //
   // ★ A warning that is true every time keeps its weight; one that shouts about an
   // identifier wears it out.
   //
   // ⚠️ AN INLINE `if` ON THE BUTTON WOULD HAVE WRITTEN THE RULE TWICE (NEQ +
   // federal number), and a third identifier would have forgotten it. One list, one
-  // decision site. The four calculation fields do NOT pass through here: their
+  // decision site. The three calculation fields do NOT pass through here: their
   // buttons still call `setPendingUnlock` directly, and the modal remains their
   // only unlock path.
-  const IDENTIFIER_FIELDS = new Set(['neq', 'corporationNumber'])
+  // No longer identifiers only: every field whose unlock must NOT promise a
+  // recomputation. The head office is not an identifier, and recomputes nothing either.
+  const IDENTIFIER_FIELDS = new Set(['neq', 'corporationNumber', 'siege'])
   function requestUnlock(field: string) {
     if (unlockedFields.has(field)) return
     if (IDENTIFIER_FIELDS.has(field)) {
@@ -176,22 +196,27 @@ export function SettingsClient({
     return r ? `${r.jurisdiction} (${r.acronym})` : v
   }
 
-  // ⚠️ PREMIER LECTEUR DE `messages.provinces`, treize noms traduits restés sans usage.
-  // Le code d'énumération brut — « QC » — est une fuite du modèle de données sur une
-  // carte rédigée en prose, même famille que « LSA » fermée en da1b4f6. Repli sur le
-  // code si la valeur stockée sortait un jour de la contrainte : mieux vaut afficher un
-  // code qu'un vide.
-  const provinceLabel = (v: string) =>
-    (pv as Record<string, string | undefined>)[v] ?? v
-
-  // ⚠️ TRI CONSCIENT DE LA LOCALE, PAS UN sort() NU. En ordre de points de code le « Î »
-  // d'« Île-du-Prince-Édouard » passe APRÈS le Z : la province tombe en DERNIER de la
-  // liste française. `localeCompare` la remet entre Colombie-Britannique et Manitoba.
-  // Mesuré : l'anglais rend le même ordre dans les deux cas — c'est le français seul que
-  // le tri naïf trahit, et c'est exactement le genre d'écart qu'on ne voit pas sans
-  // regarder la fin de la liste.
-  const provincesTriees = Object.keys(pv)
-    .sort((a, b) => provinceLabel(a).localeCompare(provinceLabel(b), locale))
+  // ── Siège social ─────────────────────────────────────────────────────────────
+  // Les options de province : noms traduits, triés par la locale. Le tri et sa raison
+  // (« Île-du-Prince-Édouard ») vivent dans lib/provinces.ts depuis que l'inscription en
+  // a besoin aussi : deux copies du même tri auraient divergé.
+  const provincesTriees = optionsProvinces(locale, pv as Record<string, string | undefined>)
+  const paysOptions = countryOptions(locale)
+  // Pays canadien OU non déclaré → la liste fermée ; sinon un champ libre. Même prédicat
+  // que PersonSelector, EntityForm et l'étape 3.
+  const subdivisionCanadienne = siege.address_country === 'CA' || siege.address_country === ''
+  const provinceHorsListe =
+    subdivisionCanadienne &&
+    siege.address_province !== '' &&
+    !PROVINCE_CODES.some(code => code === siege.address_province)
+  // ★ L'ASTÉRISQUE DÉRIVE DE LA DÉCLARATION (CHAMPS_REQUIS_SIEGE), il ne s'écrit pas à
+  //   la main : la garde de saveCompany et la liste des trous lisent la même liste.
+  const marqueSiege = (champ: ChampAdresse) =>
+    (CHAMPS_REQUIS_SIEGE as readonly ChampAdresse[]).includes(champ)
+      ? <span className="text-red-500"> *</span>
+      : null
+  const majSiege = (champ: ChampAdresse, valeur: string) =>
+    setSiege(prev => ({ ...prev, [champ]: valeur }))
   // Reads `editIncorpType`, the LOCAL state the unlocked <select> writes to — NOT the
   // `incorporationType` prop, which is frozen at page load. That is what makes the
   // federal-number field ungrey the instant the user picks CBCA, with no save and no
@@ -297,11 +322,37 @@ export function SettingsClient({
     if (unlockedFields.has('incorporationType')) {
       updates.incorporation_type = editIncorpType
     }
-    if (unlockedFields.has('province')) {
-      updates.province = editProvince
-    }
+    // ⛔ THE INCORPORATION DATE IS GUARDED, WITH ONBOARDING STEP 2'S TWO RULES AND ITS
+    // TWO KEYS. It used to write `editIncorpDate || null` — empty accepted, a future
+    // date accepted — while since 2026-09-12 the officers declared at onboarding DERIVE
+    // their appointment date from it. Paramètres was the way around the rule that
+    // onboarding enforces; same shape as the NEQ below.
     if (unlockedFields.has('incorporationDate')) {
-      updates.incorporation_date = editIncorpDate || null
+      if (!editIncorpDate) {
+        setSavingCompany(false)
+        flash(setCompanyMsg, false, ob.incorporationDateRequired)
+        return
+      }
+      if (editIncorpDate > todayStr) {
+        setSavingCompany(false)
+        flash(setCompanyMsg, false, ob.incorporationDateFuture)
+        return
+      }
+      updates.incorporation_date = editIncorpDate
+    }
+    // ★ THE HEAD OFFICE — written only when its padlock is open, like the NEQ, and
+    // REFUSED when incomplete. The required fields are CHAMPS_REQUIS_SIEGE
+    // (lib/data-gaps.ts), the declaration that also draws the asterisks below and names
+    // the gap at export.
+    // ⛔ NOT BLOCKING WHILE CLOSED. A company without a head office still saves its other
+    // fields; the missing address is named in the export's gap list, not here.
+    if (unlockedFields.has('siege')) {
+      if (champsManquantsSiege(siege).length > 0) {
+        setSavingCompany(false)
+        flash(setCompanyMsg, false, cm.siege.incomplete)
+        return
+      }
+      Object.assign(updates, chargeAdresse(siege))
     }
     // The NEQ, gated like the four fields above. It used to ship on EVERY save of
     // this form, touched or not — the only one of the five padlocked fields that was
@@ -640,13 +691,14 @@ export function SettingsClient({
           <p className="text-xs text-[var(--text-muted)] -mt-2">
             {fr ? 'Au moins une des deux versions est requise.' : 'At least one version is required.'}
           </p>
-          {/* ── Protected fields — Type, Province.
+          {/* ── Protected field — Type. (The Province beside it was absorbed by the head
+              office address on 2026-09-13, and left with its false warning.)
               ★ THE REGIME IS READ BEFORE THE IDENTIFIERS, AND THE ORDER SAYS
               SOMETHING. The user sees "CBCA" first and only then meets the federal
               corporation number, so the field being live is already explained by the
               time they reach it. Moved above the NEQ / federal rows for that reason,
               not for looks. ── */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <div className="flex items-center gap-1.5 mb-1">
                 <label className="block text-xs font-medium text-[var(--text-muted)]">
@@ -685,53 +737,6 @@ export function SettingsClient({
                   }}
                 >
                   {incorpTypeLabel(editIncorpType)}
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 mb-1">
-                <label className="block text-xs font-medium text-[var(--text-muted)]">
-                  {fr ? 'Province' : 'Province'}
-                </label>
-                <button
-                  onClick={() => !unlockedFields.has('province') && setPendingUnlock('province')}
-                  style={{ background: 'none', border: 'none', cursor: unlockedFields.has('province') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
-                  title={unlockedFields.has('province')
-                    ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
-                    : (fr ? 'Cliquer pour déverrouiller' : 'Click to unlock')}
-                >
-                  <Lock size={12} style={{ color: unlockedFields.has('province') ? '#2E5425' : 'var(--text-muted)' }} />
-                </button>
-              </div>
-              {unlockedFields.has('province') ? (
-                /* ⚠️ UNE LISTE, PLUS UNE SAISIE LIBRE. Le champ acceptait n'importe quoi ;
-                   rien ne validait à l'écran et c'était `companies_province_check` qui
-                   refusait, avec le message générique de sauvegarde — qui ne dit pas ce
-                   qui ne va pas. Les treize valeurs sont connues, elles sont au catalogue
-                   dans les deux langues : une liste rend la faute impossible au lieu de
-                   la rattraper.
-                   ⚠️ La valeur reste le CODE (`QC`), jamais le nom — seul l'affichage est
-                   traduit. Même règle que la liste du type de constitution au-dessus. */
-                <select
-                  value={editProvince}
-                  onChange={e => setEditProvince(e.target.value)}
-                  className={selectClass}
-                >
-                  {provincesTriees.map(code => (
-                    <option key={code} value={code}>{provinceLabel(code)}</option>
-                  ))}
-                </select>
-              ) : (
-                <div
-                  className="px-3 py-2 rounded-lg text-sm border"
-                  style={{
-                    borderColor: 'var(--card-border)',
-                    backgroundColor: 'var(--page-bg)',
-                    color: 'var(--text-body)',
-                    opacity: 0.7,
-                  }}
-                >
-                  {provinceLabel(editProvince)}
                 </div>
               )}
             </div>
@@ -784,7 +789,7 @@ export function SettingsClient({
           {/* ── Numéro de société fédéral — FULL WIDTH, directly under the NEQ.
               The side-by-side pairing sketched for LOT 2 was DROPPED: both identifiers
               stay full width, one under the other. What LOT 2 moved is the
-              Type|Province grid, now above them — see its comment. ── */}
+              Type row (then Type|Province), now above them — see its comment. ── */}
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <label className="block text-xs font-medium text-[var(--text-muted)]">
@@ -852,6 +857,95 @@ export function SettingsClient({
               </div>
             )}
           </div>
+          {/* ── Siège social. ⚖️ Décision de Dom, 2026-09-13 : l'adresse COMPLÈTE est exigée
+              dans l'application. Cadenas « identifiant » (IDENTIFIER_FIELDS) : aucune
+              modale de recalcul, qui mentirait pour une adresse. Fermé, le bloc rend la
+              composition du registre (adresseRegistre) — aucune composition de plus ici. ── */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-muted)]">
+                {cm.siege.title}
+              </label>
+              <button
+                onClick={() => requestUnlock('siege')}
+                style={{ background: 'none', border: 'none', cursor: unlockedFields.has('siege') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
+                title={unlockedFields.has('siege') ? cm.siege.unlocked : cm.siege.clickToUnlock}
+              >
+                <Lock size={12} style={{ color: unlockedFields.has('siege') ? '#2E5425' : 'var(--text-muted)' }} />
+              </button>
+            </div>
+            {unlockedFields.has('siege') ? (
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="siege-address_line1" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                    {cm.siege.line1}{marqueSiege('address_line1')}
+                  </label>
+                  <input id="siege-address_line1" value={siege.address_line1} onChange={e => majSiege('address_line1', e.target.value)} placeholder={pp.addressLine1Placeholder} className={inputClass} />
+                </div>
+                <div>
+                  <label htmlFor="siege-address_line2" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                    {cm.siege.line2}{marqueSiege('address_line2')}
+                  </label>
+                  <input id="siege-address_line2" value={siege.address_line2} onChange={e => majSiege('address_line2', e.target.value)} placeholder={pp.addressLine2Placeholder} className={inputClass} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="siege-address_city" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                      {pp.city}{marqueSiege('address_city')}
+                    </label>
+                    <input id="siege-address_city" value={siege.address_city} onChange={e => majSiege('address_city', e.target.value)} className={inputClass} />
+                  </div>
+                  <div>
+                    <label htmlFor="siege-address_postal_code" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                      {pp.postalCode}{marqueSiege('address_postal_code')}
+                    </label>
+                    <input id="siege-address_postal_code" value={siege.address_postal_code} onChange={e => majSiege('address_postal_code', e.target.value)} className={inputClass} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="siege-address_province" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                      {subdivisionCanadienne ? pp.province : pp.stateRegion}{marqueSiege('address_province')}
+                    </label>
+                    {subdivisionCanadienne ? (
+                      <select id="siege-address_province" value={siege.address_province} onChange={e => majSiege('address_province', e.target.value)} className={selectClass}>
+                        <option value="">{pp.provinceNotDeclared}</option>
+                        {provinceHorsListe && <option value={siege.address_province}>{siege.address_province}</option>}
+                        {provincesTriees.map(p => (
+                          <option key={p.code} value={p.code}>{p.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input id="siege-address_province" value={siege.address_province} onChange={e => majSiege('address_province', e.target.value)} className={inputClass} />
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="siege-address_country" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                      {pp.country}{marqueSiege('address_country')}
+                    </label>
+                    <select id="siege-address_country" value={siege.address_country} onChange={e => majSiege('address_country', e.target.value)} className={selectClass}>
+                      <option value="">{pp.countryNotDeclared}</option>
+                      {paysOptions.map(pays => (
+                        <option key={pays.code} value={pays.code}>{pays.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="px-3 py-2 rounded-lg text-sm border"
+                style={{
+                  borderColor: 'var(--card-border)',
+                  backgroundColor: 'var(--page-bg)',
+                  color: 'var(--text-body)',
+                  opacity: 0.7,
+                }}
+              >
+                {adresseRegistre(siege) || '—'}
+              </div>
+            )}
+          </div>
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <label className="block text-xs font-medium text-[var(--text-muted)]">
@@ -872,6 +966,7 @@ export function SettingsClient({
                 type="date"
                 value={editIncorpDate}
                 onChange={e => setEditIncorpDate(e.target.value)}
+                max={todayStr}
                 className={inputClass}
               />
             ) : (

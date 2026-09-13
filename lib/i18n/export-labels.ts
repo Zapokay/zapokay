@@ -64,6 +64,15 @@ export function getCoverIncompleteNotice(count: number, locale: ServerLocale): s
   return getServerMessage('minuteBook.binderExport.cover.incompleteNotice', locale, { count });
 }
 
+/**
+ * L'étiquette de la ligne du siège sur la page de garde — « Siège social : ». La
+ * valeur vient d'`adresseRegistre` (lib/address.ts) : des CODES, jamais des noms,
+ * pour la même raison qu'au registre.
+ */
+export function getCoverSiegeLabel(locale: ServerLocale): string {
+  return getServerMessage('minuteBook.binderExport.cover.siegeLabel', locale);
+}
+
 /** Le titre de la page index. */
 export function getIndexTitle(locale: ServerLocale): string {
   return getServerMessage('minuteBook.binderExport.index.indexTitle', locale);

@@ -2,13 +2,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Language, OnboardingData, Province } from '@/lib/types';
+import type { Language, OnboardingData } from '@/lib/types';
+import { ADRESSE_VIERGE, adresseEnSaisie, chargeAdresse } from '@/lib/address';
 import { normalizeNeq, normalizeCorporationNumber } from '@/lib/identifiers';
 import { residencyApplies } from '@/lib/residency';
 import { insererPersonne, type ChargePersonne } from '@/lib/person-payload';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
-import { StepProvince } from './StepProvince';
+import { StepSiege } from './StepSiege';
 import StepDirectors, { type OnboardingDirector } from './StepDirectors';
 import StepShareholders, { type OnboardingShareholder } from './StepShareholders';
 import StepOfficers, { type OnboardingOfficers } from './StepOfficers';
@@ -28,7 +29,12 @@ export interface OnboardingExistingCompany {
   neq: string | null;
   corporation_number: string | null;
   incorporation_date: string | null;
-  province: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  address_city: string | null;
+  address_province: string | null;
+  address_postal_code: string | null;
+  address_country: string | null;
   fiscal_year_end_month: number | null;
   fiscal_year_end_day: number | null;
 }
@@ -61,7 +67,10 @@ const today = new Date().toISOString().split('T')[0];
 // addressCountry, REQUIS. Un brouillon en v4 porte des administrateurs sans
 // ces champs ; `d.addressCity.trim()` y leverait. La porte de version est,
 // comme le dit le commentaire ci-dessus, la SEULE chose qui puisse le rejeter.
-const DRAFT_VERSION = 5;
+// ⚠️ 6 DEPUIS LE LOT SIÈGE : OnboardingData.company perd `province` et gagne `siege`,
+// REQUIS. Un brouillon en v5 porte une société sans siège, et l'étape 3 lirait
+// `data.company.siege.address_line1` sur `undefined`. Même raison, même porte.
+const DRAFT_VERSION = 6;
 
 interface OnboardingDraft {
   v: number;
@@ -121,7 +130,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
       incorporationNumber: existingCompany.neq ?? '',
       corporationNumber: existingCompany.corporation_number ?? '',
       incorporationDate: existingCompany.incorporation_date ?? '',
-      province: (existingCompany.province ?? 'QC') as Province,
+      siege: adresseEnSaisie(existingCompany),
       fiscalYearEndMonth: existingCompany.fiscal_year_end_month ?? 12,
       fiscalYearEndDay: existingCompany.fiscal_year_end_day ?? 31,
     },
@@ -135,7 +144,9 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
       incorporationNumber: '',
       corporationNumber: '',
       incorporationDate: '',
-      province: 'QC',
+      // ⛔ AUCUNE PRÉSÉLECTION. La province n'est plus une question séparée : elle vit
+      //    dans l'adresse du siège, et un défaut y serait une adresse fabriquée.
+      siege: { ...ADRESSE_VIERGE },
       fiscalYearEndMonth: 12,
       fiscalYearEndDay: 31,
     },
@@ -175,8 +186,8 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
     }
   }, [userId, step, data, companyId, incorporationDate, directors, shareholders, officers]);
 
-  // ── Step 3 → 4: save company + province to DB ────────────────────────────
-  async function handleProvinceContinue() {
+  // ── Step 3 → 4: save company + head office address to DB ─────────────────
+  async function handleSiegeContinue() {
     if (saving) return;
     setSaving(true);
     setSaveError(null);
@@ -233,7 +244,10 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             ? corporationNumberCanonical || null
             : null,
         incorporation_date: data.company.incorporationDate || null,
-        province: data.company.province,
+        // ★ LE SIÈGE, PAR LA MÊME CONVERSION QUE LES PARAMÈTRES (lib/address.ts) : un
+        //   champ laissé vide s'écrit null, jamais un défaut. Rien n'est exigé ici —
+        //   l'adresse complète l'est dans l'application (décision du 2026-09-09).
+        ...chargeAdresse(data.company.siege),
         fiscal_year_end_month: data.company.fiscalYearEndMonth,
         fiscal_year_end_day: data.company.fiscalYearEndDay,
         status: 'active',
@@ -785,7 +799,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
       <main style={{ maxWidth: '560px', margin: '0 auto', padding: '32px 24px 40px' }}>
         {step === 1 && <StepLanguage data={data} setData={setData} onNext={() => setStep(2)} onBack={() => {}} locale={activeLocale} />}
         {step === 2 && <StepCompany data={data} setData={setData} onNext={() => setStep(3)} onBack={() => setStep(1)} locale={activeLocale} />}
-        {step === 3 && <StepProvince data={data} setData={setData} onNext={handleProvinceContinue} onBack={() => setStep(2)} locale={activeLocale} saving={saving} saveError={saveError} />}
+        {step === 3 && <StepSiege data={data} setData={setData} onNext={handleSiegeContinue} onBack={() => setStep(2)} locale={activeLocale} saving={saving} saveError={saveError} />}
         {/* ⚠️ AUCUNE CONVERSION, ET C'EST DELIBERE. Ce flux manipule
             'LSAQ' | 'CBCA' quand la base porte 'LSA' | 'CBCA' — mais 'CBCA'
             est IDENTIQUE dans les deux vocabulaires, et c'est precisement ce

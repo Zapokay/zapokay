@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { TrouDePersonne } from '@/lib/data-gaps';
+import type { ChampSiege, Trou } from '@/lib/data-gaps';
 import { useTranslations, useLocale } from 'next-intl';
 import Button from '@/components/ui/Button';
 
@@ -26,7 +26,7 @@ interface BinderData {
   sections: BinderSection[];
   totalDocuments: number;
   /** Transporté par la route, calculé par lib/data-gaps.ts. Jamais recalculé ici. */
-  dataGaps: TrouDePersonne[];
+  dataGaps: Trou[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -240,11 +240,24 @@ export default function BinderExportModal({
   const livreIncomplet = trous.length > 0;
   // ★ CHAQUE LIGNE NOMME QUI ET QUOI. « des données manquent » recréerait la
   //   garde muette d'hier, à l'échelle du produit.
-  const libelleChamps = (champs: TrouDePersonne['champs']): string => {
+  const libelleChampsPersonne = (champs: Extract<Trou, { sujet: 'personne' }>['champs']): string => {
     const ville = champs.includes('address_city');
     const pays = champs.includes('address_country');
     return ville && pays ? t('gapCityAndCountry') : ville ? t('gapCity') : t('gapCountry');
   };
+  // ★ LE SIÈGE NOMME CHAQUE CHAMP QUI MANQUE : cinq sont exigés, et « adresse
+  //   incomplète » ne dirait pas lequel saisir.
+  const CLE_CHAMP_SIEGE = {
+    address_line1: 'siegeChamps.address_line1',
+    address_city: 'siegeChamps.address_city',
+    address_province: 'siegeChamps.address_province',
+    address_postal_code: 'siegeChamps.address_postal_code',
+    address_country: 'siegeChamps.address_country',
+  } as const satisfies Record<ChampSiege, string>;
+  const libelleChampsSiege = (champs: ChampSiege[]): string =>
+    champs.map((c) => t(CLE_CHAMP_SIEGE[c])).join(', ');
+  const manqueSiege = trous.some((x) => x.sujet === 'societe');
+  const manquePersonne = trous.some((x) => x.sujet === 'personne');
 
   const modal = (
     <div
@@ -331,20 +344,33 @@ export default function BinderExportModal({
                 </p>
                 <ul className="mt-2 space-y-1">
                   {trous.map((trou) => (
-                    <li key={trou.personId} className="text-sm text-[var(--error-text)]">
-                      {trou.nom} — {libelleChamps(trou.champs)}
+                    <li key={`${trou.sujet}:${trou.id}`} className="text-sm text-[var(--error-text)]">
+                      {trou.sujet === 'societe'
+                        ? `${t('gapSiege')} — ${libelleChampsSiege(trou.champs)}`
+                        : `${trou.nom} — ${libelleChampsPersonne(trou.champs)}`}
                     </li>
                   ))}
                 </ul>
                 {/* ⛔ VERS LES ADMINISTRATEURS, PAS VERS COMPLÉTUDE. Mesuré : le bouton
                     « Voir dans Complétude » pousse vers la page entière, sans ancre ni
                     filtre, et ne montre rien sur la personne d'où l'on vient. */}
-                <a
-                  href={`/${locale}/dashboard/directors`}
-                  className="mt-3 inline-block text-sm font-medium underline text-[var(--error-text)]"
-                >
-                  {t('gapsFixLink')}
-                </a>
+                {manquePersonne && (
+                  <a
+                    href={`/${locale}/dashboard/directors`}
+                    className="mt-3 mr-4 inline-block text-sm font-medium underline text-[var(--error-text)]"
+                  >
+                    {t('gapsFixLink')}
+                  </a>
+                )}
+                {/* Le siège se corrige là où il se saisit : les Paramètres. */}
+                {manqueSiege && (
+                  <a
+                    href={`/${locale}/dashboard/settings`}
+                    className="mt-3 inline-block text-sm font-medium underline text-[var(--error-text)]"
+                  >
+                    {t('gapsFixSettingsLink')}
+                  </a>
+                )}
               </div>
             )}
 

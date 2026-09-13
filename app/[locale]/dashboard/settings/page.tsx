@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { SettingsClient } from '@/components/dashboard/SettingsClient'
 import { parseLocalDate } from '@/lib/utils'
+import { adresseEnSaisie } from '@/lib/address'
 
 function computeAllYears(
   incorporationDate: string | null,
@@ -103,7 +104,7 @@ export default async function SettingsPage({
           initialLegalNameEn={company.legal_name_en ?? ''}
           initialNeq={(companyAny.neq as string | null) ?? ''}
           initialCorporationNumber={(companyAny.corporation_number as string | null) ?? ''}
-          province={company.province}
+          initialSiege={adresseEnSaisie(company)}
           incorporationDate={company.incorporation_date}
           initialFyMonth={fyEndMonth}
           initialFyDay={fyEndDay}

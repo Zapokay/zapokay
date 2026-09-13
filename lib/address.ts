@@ -23,6 +23,9 @@ import { estVide } from '@/lib/data-gaps';
  * avec aed7f5c. Une ligne de l'une ou de l'autre se compose donc ici SANS
  * VARIANTE : le registre des administrateurs y passe ses personnes, celui des
  * actionnaires ses personnes et ses sociétés.
+ *
+ * ★ `companies` LES PORTE AUSSI depuis 20260913120000 — le siège social — et
+ * entre ici SANS VARIANTE, pour la même raison : ce sont les mêmes noms.
  */
 export type ChampAdresse =
   | 'address_line1'
@@ -95,4 +98,56 @@ export function adresseRegistre(p: PersonneAdressable): string {
     p.address_postal_code,
     p.address_country,
   ]);
+}
+
+/**
+ * UNE ADRESSE EN SAISIE — les six champs, en chaînes, jamais `null`.
+ *
+ * ★ LES NOMS DE COLONNE, PAS UNE TRADUCTION EN camelCase. Le formulaire du siège
+ * (inscription, Paramètres) tient son état sous les clés de la base :
+ * `champsManquantsSiege` le lit tel quel, `chargeAdresse` l'écrit tel quel. Une
+ * seconde nomenclature serait une seconde source à tenir d'accord.
+ */
+export type AdresseSaisie = Record<ChampAdresse, string>;
+
+/** L'état de départ d'une saisie : RIEN n'est présélectionné — ni pays, ni province. */
+export const ADRESSE_VIERGE: AdresseSaisie = {
+  address_line1: '',
+  address_line2: '',
+  address_city: '',
+  address_province: '',
+  address_postal_code: '',
+  address_country: '',
+};
+
+/** Une ligne de base ramenée à une saisie : `null` devient `''`, rien d'autre. */
+export function adresseEnSaisie(p: PersonneAdressable): AdresseSaisie {
+  return {
+    address_line1: p.address_line1 ?? '',
+    address_line2: p.address_line2 ?? '',
+    address_city: p.address_city ?? '',
+    address_province: p.address_province ?? '',
+    address_postal_code: p.address_postal_code ?? '',
+    address_country: p.address_country ?? '',
+  };
+}
+
+/**
+ * Une saisie ramenée à ce qui s'écrit : vide APRÈS trim → `null`.
+ *
+ * ⛔ AUCUN DÉFAUT. Un champ laissé vide s'écrit `null`, jamais « QC » ni « CA ».
+ * ★ UNE SEULE CONVERSION POUR LES DEUX SURFACES DU SIÈGE : l'étape 3 et les
+ * Paramètres l'appellent — l'une ne peut pas écrire « '' » pendant que l'autre
+ * écrit `null`.
+ */
+export function chargeAdresse(a: AdresseSaisie): Record<ChampAdresse, string | null> {
+  const nul = (v: string) => (estVide(v) ? null : v.trim());
+  return {
+    address_line1: nul(a.address_line1),
+    address_line2: nul(a.address_line2),
+    address_city: nul(a.address_city),
+    address_province: nul(a.address_province),
+    address_postal_code: nul(a.address_postal_code),
+    address_country: nul(a.address_country),
+  };
 }

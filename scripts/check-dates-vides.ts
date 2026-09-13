@@ -181,7 +181,8 @@ const DONNEES_INSCRIPTION = {
   language: 'fr',
   company: {
     legalName: '', legalNameEn: '', incorporationType: 'LSAQ', incorporationNumber: '',
-    corporationNumber: '', incorporationDate: '', province: 'QC', fiscalYearEndMonth: 12, fiscalYearEndDay: 31,
+    corporationNumber: '', incorporationDate: '', fiscalYearEndMonth: 12, fiscalYearEndDay: 31,
+    siege: { address_line1: '', address_line2: '', address_city: '', address_province: '', address_postal_code: '', address_country: '' },
   },
   officer: { fullName: '', role: 'director', startDate: '' },
 };

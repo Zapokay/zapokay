@@ -26,6 +26,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CompanyPerson } from '@/lib/supabase/people-types';
+// ⚠️ IMPORT DE TYPE SEULEMENT, ET C'EST LA CONDITION. lib/address.ts importe
+// `estVide` d'ici à l'exécution ; un import de valeur dans l'autre sens ferait un
+// cycle. Les types s'effacent à la compilation.
+import type { ChampAdresse, PersonneAdressable } from '@/lib/address';
 
 /**
  * ★ LE TYPE EST LA GARDE. `keyof CompanyPerson` rend impossible de nommer un
@@ -112,6 +116,40 @@ export const CHAMPS_REQUIS: Record<RoleAvecExigence, readonly ChampPersonne[]> =
 export const REQUIS_PAR_LE_COMPOSANT: readonly ChampPersonne[] = ['full_name'];
 
 /**
+ * LA DÉCLARATION DU SIÈGE SOCIAL — ce qu'une adresse de société doit porter.
+ *
+ * ⚖️ DÉCISION DE DOM, 2026-09-13 : l'adresse COMPLÈTE est exigée — « un siège est
+ * une adresse où l'on signifie des documents, un domicile identifie une
+ * personne ». D'où CINQ champs ici, contre deux pour un domicile.
+ *
+ * ⛔ `address_line2` N'Y EST PAS, et ce n'est pas un oubli. Ce champ est « Suite /
+ * appartement » — le libellé des personnes et des entités : une maison n'en a pas,
+ * un appartement en a un, et c'est le même champ. Il est constitutif pour un
+ * appartement, inexistant pour une maison, et le produit ne peut pas savoir lequel
+ * des deux il a sous les yeux. L'exiger forcerait un « s/o » inventé dans un
+ * registre.
+ * ⚠️ LA LIMITE, DÉCIDÉE PAR DOM EN LE SACHANT : un siège en appartement peut être
+ * enregistré sans son numéro, et le produit ne le signalera pas. Une limite décidée
+ * n'est pas une limite oubliée.
+ *
+ * ★ EXIGÉE DANS L'APPLICATION, JAMAIS À L'INSCRIPTION — la décision du 2026-09-09,
+ * appliquée telle quelle : l'étape 3 la propose sans astérisque ni garde ; les
+ * Paramètres la marquent et la gardent ; la liste des trous la nomme. Trois
+ * lecteurs, cette seule liste.
+ *
+ * `as const` : `ChampSiege` ne peut nommer que ces cinq-là.
+ */
+export const CHAMPS_REQUIS_SIEGE = [
+  'address_line1',
+  'address_city',
+  'address_province',
+  'address_postal_code',
+  'address_country',
+] as const satisfies readonly ChampAdresse[];
+
+export type ChampSiege = (typeof CHAMPS_REQUIS_SIEGE)[number];
+
+/**
  * ⛔ UNE SEULE DÉFINITION DU VIDE, ET ELLE NE SE RECOPIE PAS. « Absent » vaut
  * `null`, `undefined`, ou une chaîne vide APRÈS trim — trois états qu'une
  * comparaison naïve `!== null` laisserait passer, alors qu'une ville faite de
@@ -144,16 +182,38 @@ export function champsManquants(
   return CHAMPS_REQUIS[portee].filter((champ) => estVide(personne[champ]));
 }
 
-/** Un trou, pour une personne nommée. */
-export interface TrouDePersonne {
-  personId: string;
-  nom: string;
-  champs: ChampPersonne[];
+/** Les champs du siège ABSENTS. Même définition du vide que partout : `estVide`. */
+export function champsManquantsSiege(societe: PersonneAdressable): ChampSiege[] {
+  return CHAMPS_REQUIS_SIEGE.filter((champ) => estVide(societe[champ]));
 }
 
 /**
- * Les trous d'une société — LES TROIS FAMILLES DE RÔLES, UNE LIGNE PAR
- * PERSONNE.
+ * Un trou — et CE QUI le porte.
+ *
+ * ⛔ PLUS SEULEMENT UNE PERSONNE. Ce type s'appelait `TrouDePersonne` et portait un
+ * `personId` : une société n'en a pas plus qu'une entité. Le discriminant `sujet`
+ * dit à qui appartient le manque, et chaque consommateur le lit pour nommer QUI et
+ * QUOI, et pour renvoyer au bon écran.
+ *
+ * ★ LES ENTITÉS ENTRENT DANS CETTE FORME SANS LA CHANGER : un troisième membre,
+ * `{ sujet: 'entite'; id; nom; champs }`, sur les mêmes noms de colonnes. C'est le
+ * lot C, et ce type ne le construit pas.
+ *
+ * ⚪ LA SOCIÉTÉ N'A PAS DE `nom`. Ce module ne connaît pas la langue du lecteur :
+ * choisir ici entre les deux dénominations serait décider à la place de l'écran,
+ * qui dit « Siège social ».
+ */
+export type Trou =
+  | { sujet: 'societe'; id: string; champs: ChampSiege[] }
+  | { sujet: 'personne'; id: string; nom: string; champs: ChampPersonne[] };
+
+/**
+ * Les trous d'une société — SON SIÈGE, PUIS LES TROIS FAMILLES DE RÔLES, UNE
+ * LIGNE PAR PERSONNE.
+ *
+ * ★ LE SIÈGE PASSE EN TÊTE, ET IL NE DÉPEND D'AUCUN RÔLE : c'est le sujet du livre
+ * qui manque d'adresse, pas une personne. Sa ligne existe dès qu'un des cinq champs
+ * de CHAMPS_REQUIS_SIEGE est vide.
  *
  * ⚠️ LES PERSONNES ACTIVES DANS UN RÔLE QUI EXIGE, jamais toutes les personnes
  * du dossier. Un mandat clos, une charge terminée, une détention close : aucun
@@ -172,7 +232,19 @@ export interface TrouDePersonne {
 export async function trousDeLaSociete(
   supabase: SupabaseClient,
   companyId: string,
-): Promise<TrouDePersonne[]> {
+): Promise<Trou[]> {
+  const { data: societe, error: erreurSociete } = await supabase
+    .from('companies')
+    .select('address_line1, address_line2, address_city, address_province, address_postal_code, address_country')
+    .eq('id', companyId)
+    .single();
+  // ⚠️ MÊME RÈGLE QUE POUR LES PERSONNES : un échec de lecture n'est pas un siège
+  // complet.
+  if (erreurSociete) throw new Error(`trousDeLaSociete: company read failed: ${erreurSociete.message}`);
+  const manquantsSiege = champsManquantsSiege((societe ?? {}) as PersonneAdressable);
+  const trouSiege: Trou[] =
+    manquantsSiege.length > 0 ? [{ sujet: 'societe', id: companyId, champs: manquantsSiege }] : [];
+
   /**
    * Les rôles qui exigent quelque chose AUJOURD'HUI, dérivés de la
    * déclaration. Un rôle dont l'entrée est vide ne peut pas produire de trou :
@@ -181,7 +253,7 @@ export async function trousDeLaSociete(
   const rolesQuiExigent = (['director', 'officer', 'shareholder'] as const).filter(
     (r) => CHAMPS_REQUIS[r].length > 0,
   );
-  if (rolesQuiExigent.length === 0) return [];
+  if (rolesQuiExigent.length === 0) return trouSiege;
 
   const { data, error } = await supabase
     .from('company_people')
@@ -214,7 +286,7 @@ export async function trousDeLaSociete(
       (p.shareholding_holders ?? []).some((h) => h.shareholdings && !h.shareholdings.end_date),
   };
 
-  return personnes
+  const trousPersonnes = personnes
     .map((p) => {
       const roles = rolesQuiExigent.filter((r) => actif[r](p));
       if (roles.length === 0) return null;
@@ -222,7 +294,9 @@ export async function trousDeLaSociete(
       // seule ligne, qui nomme tout ce qui lui manque.
       const requis = new Set<ChampPersonne>(roles.flatMap((r) => Array.from(CHAMPS_REQUIS[r])));
       const champs = Array.from(requis).filter((champ) => estVide(p[champ]));
-      return champs.length > 0 ? { personId: p.id, nom: p.full_name, champs } : null;
+      return champs.length > 0 ? { sujet: 'personne' as const, id: p.id, nom: p.full_name, champs } : null;
     })
-    .filter((t): t is TrouDePersonne => t !== null);
+    .filter((t): t is Extract<Trou, { sujet: 'personne' }> => t !== null);
+
+  return [...trouSiege, ...trousPersonnes];
 }
