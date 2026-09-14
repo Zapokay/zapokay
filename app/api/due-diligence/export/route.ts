@@ -577,9 +577,16 @@ export async function GET(request: NextRequest) {
           // emploie depuis b595546 — « 4 registres », pas « 1 document ». Les
           // registres ne sont pas des documents, et le compte total n'en tient
           // pas compte non plus.
+          // ⛔ LE COMPTE EST CELUI DES LECTURES, JAMAIS UN LITTÉRAL. `registerCount(4)` était
+          //    écrit ici en toutes lettres : un chiffre figé qui ne comptait rien. L'écran
+          //    compte ses cartes (BinderView, `registerCards.length`) ; l'export compte ses
+          //    lectures — celles qui ont réussi, puisqu'un échec a déjà refusé l'export plus haut.
+          // ⚠️ LA LISTE NOMMÉE PLUS BAS ET LE TUPLE DE DÉSTRUCTURATION (:255-262) ÉNUMÈRENT
+          //    ENCORE LES QUATRE À LA MAIN : une cinquième lecture ajoutée à `lectures` sans
+          //    eux serait comptée, et pas nommée.
           return {
             heading: `${rang + 1} - ${getSectionLabel(cle, docLanguage)}`,
-            count: getRegisterLabels(docLanguage).registerCount(4),
+            count: getRegisterLabels(docLanguage).registerCount(lectures.length),
             // ⚠️ LES QUATRE SONT NOMMÉS, ET C'EST CE QUI REND LE COMPTE LISIBLE.
             // La section annonçait « 4 registres » au-dessus d'une seule ligne :
             // exact — les quatre tiennent dans un PDF — mais illisible. Chacun
