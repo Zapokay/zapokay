@@ -280,7 +280,7 @@ async function main() {
     address_city:         null,
     address_province:     null,
     address_postal_code:  null,
-    address_country:      'CA',
+    address_country:      null, // comme les autres : un pays sans ville est le défaut que d1746da a retiré
     is_canadian_resident: true,
   }));
   const { error: peopleErr } = await supabase.from('company_people').insert(peopleRows);

@@ -431,6 +431,10 @@
     "editPerson": "Modifier la personne",
     "editPersonSharedNote": "Ces coordonnées sont celles de la personne, pas de son mandat. Une correction faite ici se voit partout où elle figure — administrateurs, dirigeants, actionnaires.",
     "errorNameRequired": "Le nom complet est requis.",
+    "errorCity": "La ville du domicile est requise.",
+    "errorCountry": "Le pays du domicile est requis.",
+    "errorCityAndCountry": "La ville et le pays du domicile sont requis.",
+    "editPersonRolesUnreadable": "Les rôles de cette personne n'ont pas pu être lus : la correction ne peut pas être enregistrée. Fermez et réessayez.",
     "canadianResident": "Résident canadien",
     "residencyNotApplicable": "Ne s'applique pas à ce régime"
   },
@@ -799,7 +803,8 @@
         "registersUnavailable": "{count, plural, =1 {1 registre n'a pas pu être lu. L'export est annulé plutôt que de vous livrer un livre incomplet.} other {# registres n'ont pas pu être lus. L'export est annulé plutôt que de vous livrer un livre incomplet.}}",
         "retry": "Réessayer"
       },
-      "gapsFixShareholdersLink": "Corriger dans Actionnaires"
+      "gapsFixShareholdersLink": "Corriger dans Actionnaires",
+      "gapNoActiveRole": "Cette personne n'a plus de rôle actif."
     },
     "registers": {
       "directors": "Registre des administrateurs",

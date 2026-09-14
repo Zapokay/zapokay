@@ -6,12 +6,12 @@ import { useTranslations, useLocale } from 'next-intl';
 import { countryOptions } from '@/lib/countries';
 import { PROVINCE_CODES } from '@/lib/provinces';
 import {
-  CHAMPS_REQUIS,
-  HORS_ROLE_AUCUNE_EXIGENCE,
   REQUIS_PAR_LE_COMPOSANT,
+  champsRequisDeLaPortee,
   type ChampPersonne,
   type PorteeExigence,
 } from '@/lib/data-gaps';
+import { adresseCourte } from '@/lib/address';
 import {
   UserPlus,
   Building2,
@@ -113,6 +113,8 @@ interface PersonSelectorProps {
    * doivent se prononcer, et tsc refuse celui qui omet.
    *
    * `HORS_ROLE_AUCUNE_EXIGENCE` est une décision lisible, pas un trou.
+   * ★ UNE PORTÉE PEUT NOMMER PLUSIEURS RÔLES : la correction d'identité passe
+   * l'union des rôles ACTIFS de la personne (EditPersonModal).
    */
   exigences: PorteeExigence;
   /** When provided, renders a second footer link signalling the parent to switch
@@ -182,7 +184,7 @@ export default function PersonSelector({
 }: PersonSelectorProps) {
   const t = useTranslations('people');
   const locale = useLocale();
-  // 252 pays triés à chaque frappe du formulaire sans ce memo.
+  // 251 pays triés à chaque frappe du formulaire sans ce memo.
   const paysOptions = useMemo(() => countryOptions(locale), [locale]);
   /**
    * ⚠️ UN SECOND ESPACE DE NOMS, ET C'EST DELIBERE. Les trois libelles du
@@ -238,7 +240,7 @@ export default function PersonSelector({
    */
   const champsRequis = new Set<ChampPersonne>([
     ...REQUIS_PAR_LE_COMPOSANT,
-    ...(exigences === HORS_ROLE_AUCUNE_EXIGENCE ? [] : CHAMPS_REQUIS[exigences]),
+    ...champsRequisDeLaPortee(exigences),
   ]);
   const marque = (champ: ChampPersonne) =>
     champsRequis.has(champ) ? <span className="text-red-500">*</span> : null;
@@ -504,10 +506,11 @@ export default function PersonSelector({
                         <p className="truncate text-sm text-zinc-900 dark:text-zinc-100">
                           {person.full_name}
                         </p>
-                        {person.address_city && (
+                        {/* ★ COMPOSÉE PAR lib/address.ts, comme la carte administrateur :
+                            ville et province, vides omis, aucune virgule orpheline. */}
+                        {adresseCourte(person) && (
                           <p className="truncate text-xs text-zinc-400">
-                            {person.address_city}
-                            {person.address_province ? `, ${person.address_province}` : ''}
+                            {adresseCourte(person)}
                           </p>
                         )}
                       </div>

@@ -266,7 +266,12 @@ export default function BinderExportModal({
   const libelleChampsEntite = (champs: ChampEntite[]): string =>
     champs.map((c) => t(CLE_CHAMP_ENTITE[c])).join(', ');
   const manqueSiege = trous.some((x) => x.sujet === 'societe');
-  const manquePersonne = trous.some((x) => x.sujet === 'personne');
+  // ⚖️ DÉCISION DE DOM, 2026-09-13 — PAS DE LIEN MORT. Le lien des personnes n'existe que si
+  //   une ligne porte une personne à RÔLE ACTIF : une personne aux seuls rôles clos ne se
+  //   corrige depuis aucun écran. Sa ligne reste, avec sa phrase.
+  //   ⚪ L'ENTITÉ GARDE SON LIEN MÊME QUAND ELLE NE DÉTIENT PLUS : la section des anciennes
+  //   détentions ouvre sa correction — ce lien-là n'est pas mort.
+  const personneCorrigeable = trous.some((x) => x.sujet === 'personne' && x.roleActif);
   const manqueEntite = trous.some((x) => x.sujet === 'entite');
 
   const modal = (
@@ -360,13 +365,16 @@ export default function BinderExportModal({
                         : trou.sujet === 'entite'
                           ? `${trou.nom} — ${libelleChampsEntite(trou.champs)}`
                           : `${trou.nom} — ${libelleChampsPersonne(trou.champs)}`}
+                      {trou.sujet === 'personne' && !trou.roleActif && (
+                        <span className="block text-xs text-[var(--text-muted)]">{t('gapNoActiveRole')}</span>
+                      )}
                     </li>
                   ))}
                 </ul>
                 {/* ⛔ VERS LES ADMINISTRATEURS, PAS VERS COMPLÉTUDE. Mesuré : le bouton
                     « Voir dans Complétude » pousse vers la page entière, sans ancre ni
                     filtre, et ne montre rien sur la personne d'où l'on vient. */}
-                {manquePersonne && (
+                {personneCorrigeable && (
                   <a
                     href={`/${locale}/dashboard/directors`}
                     className="mt-3 mr-4 inline-block text-sm font-medium underline text-[var(--error-text)]"

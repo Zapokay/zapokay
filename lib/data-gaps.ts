@@ -47,15 +47,18 @@ export type RoleAvecExigence =
   | 'entity_signatory';
 
 /**
- * ⛔ UNE DÉCISION, PAS UN TROU. Cette valeur dit « édition d'identité, hors
- * rôle, aucune exigence PAR DÉCISION » — et elle doit se lire ainsi. Un `null`
- * nu se lirait comme un oubli, et le prochain lecteur chercherait le rôle
- * manquant.
+ * ⛔ UNE DÉCISION, PAS UN TROU. Cette valeur dit « hors rôle, aucune exigence
+ * PAR DÉCISION » — et elle doit se lire ainsi. Un `null` nu se lirait comme un
+ * oubli, et le prochain lecteur chercherait le rôle manquant.
  *
- * Elle existe parce qu'EditPersonModal corrige l'identité d'une personne déjà
- * au dossier, sans la nommer à un rôle : LA PLUPART DES FICHES EXISTANTES
- * N'ONT PAS DE DOMICILE, et les rendre non enregistrables punirait
- * l'utilisateur d'une donnée que le produit ne lui a jamais demandée.
+ * ⚖️ ELLE NE VAUT PLUS QUE POUR UNE PERSONNE SANS RÔLE ACTIF. Décision de Dom,
+ * 2026-09-13 : une correction ne peut pas vider ce qu'un rôle ACTIF exige.
+ * EditPersonModal lit les rôles de la personne et passe l'union de ses rôles
+ * actifs (`porteeDeLaPersonne`) ; cette valeur ne revient que lorsqu'elle n'en
+ * tient aucun. La raison d'origine tient pour ce cas-là : beaucoup de fiches
+ * existantes n'ont pas de domicile, et bloquer la correction d'une personne
+ * qu'aucun rôle actif n'oblige punirait l'utilisateur d'une donnée que le
+ * produit ne lui a jamais demandée.
  *
  * ⛔ AUCUN COMPTE ICI, ET C'EST DÉLIBÉRÉ. Un décompte du parc dans un
  * commentaire pourrit par construction : il est juste le jour où on l'écrit
@@ -64,9 +67,17 @@ export type RoleAvecExigence =
  */
 export const HORS_ROLE_AUCUNE_EXIGENCE = 'hors_role_aucune_exigence';
 
+/**
+ * PLUSIEURS RÔLES À LA FOIS — une personne est souvent administratrice ET
+ * actionnaire. ⛔ LE TUPLE EST NON VIDE, ET C'EST LA GARDE : « aucun rôle »
+ * s'écrit HORS_ROLE_AUCUNE_EXIGENCE, jamais `[]`, qui se lirait comme un oubli.
+ */
+export type RolesExigeants = readonly [RoleAvecExigence, ...RoleAvecExigence[]];
+
 /** Ce qu'un appelant de PersonSelector doit déclarer. Requis, sans défaut. */
 export type PorteeExigence =
   | RoleAvecExigence
+  | RolesExigeants
   | typeof HORS_ROLE_AUCUNE_EXIGENCE;
 
 /**
@@ -189,6 +200,18 @@ export function estVide(valeur: unknown): boolean {
 }
 
 /**
+ * Les champs qu'une portée EXIGE — l'UNION des rôles qu'elle nomme, sans
+ * doublon. ⛔ UNE SEULE DÉFINITION : l'astérisque de PersonSelector,
+ * `champsManquants` et la liste des trous la lisent, et aucun ne refait l'union
+ * à la main.
+ */
+export function champsRequisDeLaPortee(portee: PorteeExigence): ChampPersonne[] {
+  if (portee === HORS_ROLE_AUCUNE_EXIGENCE) return [];
+  const roles: readonly RoleAvecExigence[] = typeof portee === 'string' ? [portee] : portee;
+  return Array.from(new Set(roles.flatMap((r) => CHAMPS_REQUIS[r])));
+}
+
+/**
  * Les champs requis ABSENTS, pour une portée et une personne.
  * Rend `[]` pour un rôle sans exigence comme pour l'édition hors rôle.
  */
@@ -205,8 +228,7 @@ export function champsManquants(
    */
   personne: { [K in ChampPersonne]?: CompanyPerson[K] | null },
 ): ChampPersonne[] {
-  if (portee === HORS_ROLE_AUCUNE_EXIGENCE) return [];
-  return CHAMPS_REQUIS[portee].filter((champ) => estVide(personne[champ]));
+  return champsRequisDeLaPortee(portee).filter((champ) => estVide(personne[champ]));
 }
 
 /** Les champs du siège ABSENTS. Même définition du vide que partout : `estVide`. */
@@ -217,6 +239,91 @@ export function champsManquantsSiege(societe: PersonneAdressable): ChampSiege[] 
 /** Les champs requis ABSENTS d'une actionnaire-société. Même définition du vide : `estVide`. */
 export function champsManquantsEntite(entite: PersonneAdressable): ChampEntite[] {
   return CHAMPS_REQUIS_ENTITE.filter((champ) => estVide(entite[champ]));
+}
+
+/**
+ * CE QU'UNE CORRECTION VIDE — les champs exigés qui portaient une valeur ENREGISTRÉE et
+ * que la saisie laisse vides.
+ *
+ * ⚖️ DÉCISION DE DOM, 2026-09-13 : « empêcher de vider, pas imposer de remplir ». Une
+ * correction n'est refusée que si elle vide un champ exigé qui portait une valeur ; un
+ * champ DÉJÀ vide reste vide, et l'enregistrement passe. La création, elle, exige
+ * toujours de remplir (`champsManquants`, `champsManquantsEntite`).
+ * ⛔ LA COMPARAISON SE FAIT CONTRE LA FICHE ENREGISTRÉE, jamais contre la déclaration
+ * seule : la déclaration dit ce qui est exigé, la fiche dit ce qu'il y avait.
+ * ★ UNE FONCTION POUR LES DEUX CORRECTIONS, EditPersonModal et EditEntityModal : deux
+ * règles écrites séparément recréeraient l'asymétrie que le lot C a fermée. Même
+ * définition du vide : `estVide`.
+ */
+export function champsVidesParLaCorrection<C extends string>(
+  exiges: readonly C[],
+  enregistree: { [K in NoInfer<C>]?: unknown },
+  saisie: { [K in NoInfer<C>]?: unknown },
+): C[] {
+  return exiges.filter((champ) => !estVide(enregistree[champ]) && estVide(saisie[champ]));
+}
+
+/**
+ * LES RÔLES D'UNE PERSONNE, TELS QU'UNE LECTURE LES REND — et deux questions
+ * posées sur les mêmes lignes.
+ *
+ * ★ LA REQUÊTE ET LES PRÉDICATS VIVENT ICI, UNE FOIS. La liste des trous les
+ * applique à toutes les personnes d'une société ; la correction d'identité
+ * (EditPersonModal) à une seule. Aucune des deux ne réécrit la requête, ni le
+ * sens d'« actif » ou d'« imprimé ».
+ */
+export const SELECT_ROLES_PERSONNE =
+  'director_mandates(deleted_at, is_active), officer_appointments(deleted_at, is_active), shareholding_holders(shareholdings(end_date))';
+
+/** Ce que `SELECT_ROLES_PERSONNE` rend, embarqué sur une ligne de company_people. */
+export interface PersonneAvecRoles {
+  director_mandates?: { deleted_at: string | null; is_active: boolean }[];
+  officer_appointments?: { deleted_at: string | null; is_active: boolean }[];
+  shareholding_holders?: { shareholdings?: { end_date: string | null } | null }[];
+}
+
+/**
+ * DEUX QUESTIONS — ET ELLES NE SE CONFONDENT PAS.
+ *
+ *   · `imprime` — la fiche PARAÎT DANS UN REGISTRE. C'est ce que
+ *     lib/minute-book/registers.ts garde : un mandat ou une charge NON
+ *     SUPPRIMÉS, actifs ou clos ; toute détention, en cours ou terminée (la
+ *     section « Anciennes détentions »). ⚖️ Décision de Dom, 2026-09-13 : la
+ *     liste des trous signale tout ce qui s'imprime, sans corriger le passé.
+ *   · `actif` — le rôle est EN VIGUEUR. ⚖️ Décision de Dom, 2026-09-13 : une
+ *     correction ne peut pas vider ce qu'un rôle actif exige.
+ *
+ * ⛔ SIGNALER N'EST PAS EXIGER. Un rôle clos se signale et n'oblige personne :
+ * l'exigence ne mord qu'à la création, et à la correction qui VIDE ce qu'un rôle
+ * actif exige (`champsVidesParLaCorrection`) ; aucune fiche close n'est remplie.
+ * ⚠️ RIEN NE LIE `imprime` AUX FILTRES DES REGISTRES, SAUF check:adresses (A3) :
+ * il lance les trois lecteurs et la liste des trous sur les mêmes fiches, et
+ * refuse qu'une fiche imprimée sans ville ou sans pays manque à la liste.
+ * ⚠️ NI `deleted_at` NI `is_active` SUR UNE DÉTENTION — mesuré : ces deux
+ * colonnes n'existent pas sur `shareholdings`. « En cours » se dérive
+ * d'`end_date`, la même source que le registre des actionnaires.
+ */
+export type EtatDuRole = 'imprime' | 'actif';
+
+/** Les rôles qu'une lecture de company_people rend. `entity_signatory` ne s'y lit pas. */
+const ROLES_LUS = ['director', 'officer', 'shareholder'] as const;
+
+const TIENT_LE_ROLE: Record<(typeof ROLES_LUS)[number], (p: PersonneAvecRoles, etat: EtatDuRole) => boolean> = {
+  director: (p, etat) => (p.director_mandates ?? []).some((m) => !m.deleted_at && (etat === 'imprime' || m.is_active)),
+  officer: (p, etat) => (p.officer_appointments ?? []).some((m) => !m.deleted_at && (etat === 'imprime' || m.is_active)),
+  shareholder: (p, etat) =>
+    (p.shareholding_holders ?? []).some((h) => !!h.shareholdings && (etat === 'imprime' || !h.shareholdings.end_date)),
+};
+
+/**
+ * La portée d'une personne dans l'état demandé : ses rôles QUI EXIGENT QUELQUE
+ * CHOSE, en tuple non vide — ou HORS_ROLE_AUCUNE_EXIGENCE quand elle n'en tient
+ * aucun. Un rôle dont l'entrée de CHAMPS_REQUIS est vide ne compte pas : il ne
+ * peut rien exiger.
+ */
+export function porteeDeLaPersonne(p: PersonneAvecRoles, etat: EtatDuRole): PorteeExigence {
+  const [premier, ...autres] = ROLES_LUS.filter((r) => CHAMPS_REQUIS[r].length > 0 && TIENT_LE_ROLE[r](p, etat));
+  return premier ? [premier, ...autres] : HORS_ROLE_AUCUNE_EXIGENCE;
 }
 
 /**
@@ -239,7 +346,19 @@ export function champsManquantsEntite(entite: PersonneAdressable): ChampEntite[]
  */
 export type Trou =
   | { sujet: 'societe'; id: string; champs: ChampSiege[] }
-  | { sujet: 'personne'; id: string; nom: string; champs: ChampPersonne[] }
+  | {
+      sujet: 'personne';
+      id: string;
+      nom: string;
+      champs: ChampPersonne[];
+      /**
+       * ⚖️ Décision de Dom, 2026-09-13 : la ligne d'une personne SANS rôle actif reste —
+       * le registre l'imprime — mais ne porte pas de lien, parce qu'aucun écran ne corrige
+       * son identité. Dérivé par `porteeDeLaPersonne(…, 'actif')`, la portée même de la
+       * correction.
+       */
+      roleActif: boolean;
+    }
   | { sujet: 'entite'; id: string; nom: string; champs: ChampEntite[] };
 
 /**
@@ -250,10 +369,19 @@ export type Trou =
  * qui manque d'adresse, pas une personne. Sa ligne existe dès qu'un des cinq champs
  * de CHAMPS_REQUIS_SIEGE est vide.
  *
- * ⚠️ LES PERSONNES ACTIVES DANS UN RÔLE QUI EXIGE, jamais toutes les personnes
- * du dossier. Un mandat clos, une charge terminée, une détention close : aucun
- * des trois ne bloque l'export. Les entités suivent la même règle : listées si elles
- * détiennent encore (`trousDesEntites`).
+ * ⚖️ LES FICHES QUI S'IMPRIMENT, jamais toutes les personnes du dossier.
+ * Décision de Dom, 2026-09-13 : « signaler tout ce qui s'imprime, sans corriger
+ * le passé ». Un mandat clos, une charge terminée, une détention close paraissent
+ * au registre : leur personne paraît ici (`porteeDeLaPersonne(…, 'imprime')`).
+ * Une personne sans rôle, ou dont le seul mandat est supprimé, ne s'imprime pas
+ * et n'est pas listée. Les entités suivent la même règle (`trousDesEntites`).
+ * ⛔ SIGNALER N'EST PAS BLOQUER. Le classeur désactive son bouton principal et en
+ * offre un second (`exportAnyway`) que la liste ne désactive jamais
+ * (BinderExportModal) ; l'export porte le compte sur sa page de garde.
+ * ⚠️ UNE PERSONNE AUX SEULS RÔLES CLOS NE SE CORRIGE PAS À L'ÉCRAN — mesuré le
+ * 2026-09-13 : aucune section « anciens » n'ouvre EditPersonModal. Sa ligne porte
+ * donc `roleActif: false` : le classeur lui ajoute une phrase, et elle ne suffit pas
+ * à faire paraître le lien des personnes (décision de Dom).
  *
  * ⭑ ET QUI CUMULE NE COMPTE QU'UNE FOIS. La même personne est souvent
  * administratrice, dirigeante ET actionnaire — au parc, plusieurs le sont.
@@ -281,59 +409,34 @@ export async function trousDeLaSociete(
   const trouSiege: Trou[] =
     manquantsSiege.length > 0 ? [{ sujet: 'societe', id: companyId, champs: manquantsSiege }] : [];
 
-  /**
-   * Les rôles qui exigent quelque chose AUJOURD'HUI, dérivés de la
-   * déclaration. Un rôle dont l'entrée est vide ne peut pas produire de trou :
-   * il ne participe pas au filtre, et `entity_signatory` sort donc de lui-même.
-   */
-  const rolesQuiExigent = (['director', 'officer', 'shareholder'] as const).filter(
-    (r) => CHAMPS_REQUIS[r].length > 0,
-  );
   // ⚠️ LES ENTITÉS AVANT LE RETOUR ANTICIPÉ : elles ont leur propre déclaration, et une
   // société sans rôle exigeant peut encore avoir une actionnaire-société sans adresse.
   const trousEntites = await trousDesEntites(supabase, companyId);
-  if (rolesQuiExigent.length === 0) return [...trouSiege, ...trousEntites];
+  // Aucun rôle n'exige rien : aucune personne ne peut produire de trou, et
+  // `entity_signatory` n'y participe jamais — son entrée est vide.
+  if (!ROLES_LUS.some((r) => CHAMPS_REQUIS[r].length > 0)) return [...trouSiege, ...trousEntites];
 
   const { data, error } = await supabase
     .from('company_people')
-    .select(
-      '*, director_mandates(deleted_at, is_active), officer_appointments(deleted_at, is_active), shareholding_holders(shareholdings(end_date))',
-    )
+    .select(`*, ${SELECT_ROLES_PERSONNE}`)
     .eq('company_id', companyId);
 
   // ⚠️ UN ÉCHEC DE LECTURE N'EST PAS UNE ABSENCE DE TROU. Rendre `[]` sur une
   // erreur ferait dire au modal « rien ne manque » alors qu'il ne sait rien.
   if (error) throw new Error(`trousDeLaSociete: read failed: ${error.message}`);
 
-  const personnes = (data ?? []) as unknown as (CompanyPerson & {
-    director_mandates?: { deleted_at: string | null; is_active: boolean }[];
-    officer_appointments?: { deleted_at: string | null; is_active: boolean }[];
-    shareholding_holders?: { shareholdings?: { end_date: string | null } | null }[];
-  })[];
-
-  type Personne = (typeof personnes)[number];
-  const actif: Record<(typeof rolesQuiExigent)[number], (p: Personne) => boolean> = {
-    director: (p) => (p.director_mandates ?? []).some((m) => !m.deleted_at && m.is_active),
-    officer: (p) => (p.officer_appointments ?? []).some((m) => !m.deleted_at && m.is_active),
-    /**
-     * ⚠️ NI `deleted_at` NI `is_active` SUR UNE DÉTENTION — mesuré : ces deux
-     * colonnes n'existent pas sur `shareholdings`. « En cours » se dérive
-     * d'`end_date`, la même source que la seconde ligne du registre des
-     * actionnaires.
-     */
-    shareholder: (p) =>
-      (p.shareholding_holders ?? []).some((h) => h.shareholdings && !h.shareholdings.end_date),
-  };
+  const personnes = (data ?? []) as unknown as (CompanyPerson & PersonneAvecRoles)[];
 
   const trousPersonnes = personnes
     .map((p) => {
-      const roles = rolesQuiExigent.filter((r) => actif[r](p));
-      if (roles.length === 0) return null;
-      // L'UNION des champs exigés par les rôles actifs de cette personne : une
+      const portee = porteeDeLaPersonne(p, 'imprime');
+      if (portee === HORS_ROLE_AUCUNE_EXIGENCE) return null;
+      // L'UNION des champs exigés par les rôles imprimés de cette personne : une
       // seule ligne, qui nomme tout ce qui lui manque.
-      const requis = new Set<ChampPersonne>(roles.flatMap((r) => Array.from(CHAMPS_REQUIS[r])));
-      const champs = Array.from(requis).filter((champ) => estVide(p[champ]));
-      return champs.length > 0 ? { sujet: 'personne' as const, id: p.id, nom: p.full_name, champs } : null;
+      const champs = champsManquants(portee, p);
+      if (champs.length === 0) return null;
+      const roleActif = porteeDeLaPersonne(p, 'actif') !== HORS_ROLE_AUCUNE_EXIGENCE;
+      return { sujet: 'personne' as const, id: p.id, nom: p.full_name, champs, roleActif };
     })
     .filter((t): t is Extract<Trou, { sujet: 'personne' }> => t !== null);
 
@@ -341,13 +444,12 @@ export async function trousDeLaSociete(
 }
 
 /**
- * Les actionnaires-sociétés QUI DÉTIENNENT ENCORE et à qui manque ce que
+ * Les actionnaires-sociétés QUI S'IMPRIMENT et à qui manque ce que
  * CHAMPS_REQUIS_ENTITE exige — une ligne par entité.
  *
- * ★ « DÉTIENT ENCORE » SE DÉRIVE D'`end_date`, exactement comme pour l'actionnaire personne
- * ci-dessus : ni `deleted_at` ni `is_active` n'existent sur une détention. Une entité dont
- * toutes les détentions sont closes ne produit pas de ligne — la règle des rôles clos, que
- * le lot suivant revisite pour tous les sujets à la fois.
+ * ★ UNE DÉTENTION, EN COURS OU TERMINÉE, SUFFIT : le registre des actionnaires imprime les
+ * deux, la seconde sous « Anciennes détentions ». Même règle que l'actionnaire personne
+ * (`porteeDeLaPersonne(…, 'imprime')`), décision de Dom du 2026-09-13.
  * ⚠️ UN ÉCHEC DE LECTURE LÈVE, pour la même raison que les personnes : ce n'est pas une
  * absence de trou.
  */
@@ -368,7 +470,7 @@ async function trousDesEntites(
     shareholding_holders?: { shareholdings?: { end_date: string | null } | null }[];
   })[];
   return entites
-    .filter((e) => (e.shareholding_holders ?? []).some((h) => h.shareholdings && !h.shareholdings.end_date))
+    .filter((e) => (e.shareholding_holders ?? []).some((h) => !!h.shareholdings))
     .map((e) => ({ sujet: 'entite' as const, id: e.id, nom: e.legal_name, champs: champsManquantsEntite(e) }))
     .filter((t) => t.champs.length > 0);
 }

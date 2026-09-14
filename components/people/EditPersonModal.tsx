@@ -12,23 +12,44 @@
  * ★ L'UPDATE VIT ICI, PAS DANS PersonSelector. Le sélecteur reste un composant
  * pur : deux `.select`, zéro écriture, un contrat `value`/`onChange` stable sur
  * six montages. Lui donner un chemin de sauvegarde interne ferait dépendre son
- * comportement d'un mode caché. Le mapping camelCase → snake_case est donc
- * écrit ici à la main, exactement comme les cinq appelants existants le font
- * pour leur propre INSERT (AddDirectorModal:115-130 et ses quatre voisins).
+ * comportement d'un mode caché. Le mapping camelCase → snake_case de la
+ * CORRECTION est donc écrit ici à la main ; celui des INSERT vit dans
+ * lib/person-payload.ts (`chargePersonne`), qui ne connaît pas l'UPDATE.
  *
  * ⚠️ PREMIER UPDATE DE L'HISTOIRE DE CETTE TABLE. Mesuré la veille : sur
  * `company_people`, le produit ne faisait que des `.select` et des `.insert` —
  * zéro update, zéro upsert. Une personne créée était définitive. C'est attendu,
  * pas un signal d'alarme.
+ *
+ * ⚖️ L'EXIGENCE — DÉCISIONS DE DOM, 2026-09-13 : une correction ne peut pas VIDER
+ * ce qu'un rôle ACTIF exige, et elle n'est pas tenue de REMPLIR ce qui était déjà
+ * vide. La modale LIT les rôles de la personne et en DÉRIVE la portée, avec les
+ * deux pièces de la liste des trous (lib/data-gaps.ts) :
+ *   · un rôle actif ou plus → l'union de leurs champs porte l'astérisque, et le
+ *     bouton refuse une saisie qui VIDE l'un d'eux, comparée à la fiche
+ *     enregistrée (`champsVidesParLaCorrection`) ;
+ *   · aucun rôle actif → HORS_ROLE_AUCUNE_EXIGENCE, comme avant ;
+ *   · rôles pas encore lus, ou lecture échouée → rien ne s'enregistre.
+ * ★ UNE FICHE DÉJÀ INCOMPLÈTE S'ENREGISTRE : un champ vide qui reste vide n'est pas
+ * un refus. Même règle, même fonction, que la correction d'une entité
+ * (EditEntityModal).
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X, Pencil, Loader2 } from 'lucide-react';
 import PersonSelector, { type PersonSelectorValue } from '@/components/people/PersonSelector';
 import type { CompanyPerson } from '@/lib/supabase/people-types';
-import { HORS_ROLE_AUCUNE_EXIGENCE } from '@/lib/data-gaps';
+import {
+  SELECT_ROLES_PERSONNE,
+  champsRequisDeLaPortee,
+  champsVidesParLaCorrection,
+  porteeDeLaPersonne,
+  type ChampPersonne,
+  type PersonneAvecRoles,
+  type PorteeExigence,
+} from '@/lib/data-gaps';
 import { logActivity } from '@/lib/activity-log';
 
 interface EditPersonModalProps {
@@ -45,13 +66,76 @@ interface EditPersonModalProps {
   onSuccess: () => void;
 }
 
-export default function EditPersonModal({
+/**
+ * CE QU'UNE CORRECTION EXIGE, TEL QU'IL EST CONNU À L'INSTANT.
+ *   · 'lecture' — les rôles de la personne ne sont pas encore lus ;
+ *   · 'echec'   — la lecture a échoué ;
+ *   · une portée — l'union de ses rôles ACTIFS, ou HORS_ROLE_AUCUNE_EXIGENCE.
+ *
+ * ⛔ « JE NE SAIS PAS » N'EST PAS « AUCUN RÔLE ». Tant que l'exigence n'est pas
+ * une portée, le formulaire n'est pas monté et rien ne s'enregistre : lire un
+ * échec comme HORS_ROLE laisserait vider la ville d'un administrateur actif au
+ * premier hoquet du réseau — le défaut même que cette lecture ferme.
+ */
+export type ExigenceDeCorrection = 'lecture' | 'echec' | PorteeExigence;
+
+/**
+ * LA LECTURE — les rôles de la personne, puis le formulaire.
+ *
+ * ★ « NE RECALCULE PAS : DÉRIVE ». La requête est `SELECT_ROLES_PERSONNE` et la
+ * portée `porteeDeLaPersonne(…, 'actif')` : les pièces mêmes de la liste des
+ * trous. Cette modale ne réécrit ni la requête ni le sens d'« actif ».
+ */
+export default function EditPersonModal(props: EditPersonModalProps) {
+  const personId = props.person.id;
+  const [exigence, setExigence] = useState<ExigenceDeCorrection>('lecture');
+
+  useEffect(() => {
+    let abandon = false;
+    async function lireRoles() {
+      try {
+        const { data, error } = await createClient()
+          .from('company_people')
+          .select(SELECT_ROLES_PERSONNE)
+          .eq('id', personId)
+          .single();
+        if (abandon) return;
+        if (error || !data) {
+          console.error('[EditPersonModal] rôles illisibles :', error);
+          setExigence('echec');
+          return;
+        }
+        setExigence(porteeDeLaPersonne(data as unknown as PersonneAvecRoles, 'actif'));
+      } catch (err) {
+        if (abandon) return;
+        console.error('[EditPersonModal] lecture des rôles levée :', err);
+        setExigence('echec');
+      }
+    }
+    lireRoles();
+    return () => {
+      abandon = true;
+    };
+  }, [personId]);
+
+  return <CorrectionIdentite {...props} exigence={exigence} />;
+}
+
+/**
+ * LE FORMULAIRE ET L'ENREGISTREMENT, pour une exigence DONNÉE.
+ *
+ * ★ SÉPARÉ DE LA LECTURE POUR SE MONTER SANS RÉSEAU : check:adresses le rend avec
+ * une portée écrite en dur, dans les deux sens. L'application ne le monte que par
+ * EditPersonModal.
+ */
+export function CorrectionIdentite({
   person,
   companyId,
   residencyApplies,
   onClose,
   onSuccess,
-}: EditPersonModalProps) {
+  exigence,
+}: EditPersonModalProps & { exigence: ExigenceDeCorrection }) {
   const t = useTranslations('people');
   const tCommon = useTranslations('common');
   const supabase = createClient();
@@ -61,8 +145,8 @@ export default function EditPersonModal({
    * cette valeur dans ses initialiseurs `useState`, qui ne sont évalués qu'au
    * PREMIER rendu. Une valeur qui arriverait après ne remplirait rien.
    *
-   * Le mapping est le sens inverse de celui que font les cinq appelants
-   * existants pour leur INSERT — snake_case de la base vers camelCase du
+   * Le mapping est le sens inverse de celui de l'INSERT (`chargePersonne`,
+   * lib/person-payload.ts) — snake_case de la base vers camelCase du
    * sélecteur. `?? ''` partout : une colonne NULL doit produire un champ VIDE,
    * jamais la chaîne « null ».
    */
@@ -91,11 +175,47 @@ export default function EditPersonModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * ★ CE QUE LA SAISIE VIDE, PARMI CE QU'UN RÔLE ACTIF EXIGE — comparé à la fiche
+   * ENREGISTRÉE (`person`), jamais à la déclaration seule. La portée dit quels champs
+   * comptent, la fiche dit s'ils portaient une valeur ; la saisie est lue sur ses six
+   * champs d'adresse, sous leurs noms de colonne.
+   * ⚠️ TROIS MESSAGES POUR LES DEUX CHAMPS QUE LA DÉCLARATION EXIGE AUJOURD'HUI —
+   * les mêmes que les modales de rôle.
+   */
+  const portee = exigence === 'lecture' || exigence === 'echec' ? null : exigence;
+  const vides: ChampPersonne[] =
+    portee !== null && valeur?.mode === 'new'
+      ? champsVidesParLaCorrection(champsRequisDeLaPortee(portee), person, {
+          address_line1: valeur.addressLine1,
+          address_line2: valeur.addressLine2,
+          address_city: valeur.addressCity,
+          address_province: valeur.addressProvince,
+          address_postal_code: valeur.addressPostalCode,
+          address_country: valeur.addressCountry,
+        })
+      : [];
+  const messageDomicile =
+    vides.length === 0 ? undefined
+    : vides.length === 2 ? t('errorCityAndCountry')
+    : vides[0] === 'address_city' ? t('errorCity')
+    : t('errorCountry');
+
   const handleSave = useCallback(async () => {
     // Le sélecteur ne remonte une valeur que si le nom est non vide ; on ne
     // s'en remet pas à lui pour autant — full_name est NOT NULL en base.
     if (!valeur || valeur.mode !== 'new' || !valeur.fullName.trim()) {
       setError(t('errorNameRequired'));
+      return;
+    }
+    // Ceintures : le bouton refuse déjà ces deux cas. Gardées pour le jour où une
+    // touche Entrée contournerait le bouton, comme dans les modales de rôle.
+    if (portee === null) {
+      if (exigence === 'echec') setError(t('editPersonRolesUnreadable'));
+      return;
+    }
+    if (messageDomicile) {
+      setError(messageDomicile);
       return;
     }
 
@@ -167,7 +287,7 @@ export default function EditPersonModal({
       setError(err instanceof Error ? err.message : tCommon('saveFailed'));
       setSaving(false);
     }
-  }, [valeur, person, companyId, supabase, onSuccess, t, tCommon, residencyApplies]);
+  }, [valeur, person, companyId, supabase, onSuccess, t, tCommon, residencyApplies, portee, exigence, messageDomicile]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -198,14 +318,23 @@ export default function EditPersonModal({
             {t('editPersonSharedNote')}
           </p>
 
-          <PersonSelector
-            exigences={HORS_ROLE_AUCUNE_EXIGENCE}
-            residencyApplies={residencyApplies}
-            companyId={companyId}
-            value={valeur}
-            onChange={setValeur}
-            lockToNewMode
-          />
+          {/* ⛔ LE FORMULAIRE N'EST MONTÉ QU'UNE FOIS L'EXIGENCE CONNUE. Monté pendant la
+              lecture, il afficherait des astérisques faux puis les corrigerait. */}
+          {exigence === 'lecture' ? (
+            <p className="text-sm text-[var(--text-muted)]">{t('loading')}</p>
+          ) : exigence === 'echec' ? (
+            <p role="alert" className="text-sm text-[var(--error-text)]">{t('editPersonRolesUnreadable')}</p>
+          ) : (
+            <PersonSelector
+              exigences={exigence}
+              residencyApplies={residencyApplies}
+              companyId={companyId}
+              value={valeur}
+              onChange={setValeur}
+              error={messageDomicile}
+              lockToNewMode
+            />
+          )}
 
           {error && (
             <p className="text-sm text-[var(--error-text)]">{error}</p>
@@ -225,7 +354,7 @@ export default function EditPersonModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || portee === null || vides.length > 0}
             className="flex items-center gap-2 rounded-lg bg-[var(--amber-400)] px-5 py-2 text-sm font-semibold text-[var(--on-amber)] transition-opacity disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

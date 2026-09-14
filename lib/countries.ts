@@ -2,20 +2,15 @@
  * Les codes de pays ISO-3166-1 alpha-2, et rien d'autre.
  *
  * ⛔ AUCUN NOM DE PAYS N'EST ÉCRIT ICI, ET C'EST DÉLIBÉRÉ. Les libellés
- * viennent d'`Intl.DisplayNames`, natif au runtime — donc 252 pays × 2 locales
- * = 504 chaînes que personne n'a à traduire, à relire ni à maintenir. Aucune
+ * viennent d'`Intl.DisplayNames`, natif au runtime — donc 251 pays × 2 locales
+ * = 502 chaînes que personne n'a à traduire, à relire ni à maintenir. Aucune
  * dépendance n'est ajoutée : la capacité est déjà là, elle n'était pas employée.
  *
  * COMMENT CETTE LISTE A ÉTÉ OBTENUE, pour qui voudra la régénérer :
  * on énumère AA..ZZ contre `Intl.DisplayNames(['en'], { fallback: 'none' })`
- * — 280 régions connues d'ICU — puis on retire trois familles, nommées dans
- * EXCLUS ci-dessous. Reste 252, sans aucun doublon de nom (test mécanique :
+ * — 280 régions connues d'ICU — puis on retire REGIONS_EXCLUES, ci-dessous,
+ * famille par famille. Reste 251, sans aucun doublon de nom (test mécanique :
  * deux codes qui rendent le même libellé sont un alias déprécié).
- *
- *   EXCLUS = groupements et pseudo-locales  EU EZ UN QO XA XB
- *            réservations exceptionnelles   AC CP DG EA IC TA
- *            codes dépréciés et alias       SU DD FX YU ZR AN BU CS TP YD
- *                                           HV DY UK NH RH VD
  *
  * ★ XK (Kosovo) EST CONSERVÉ bien qu'il ne soit pas assigné par l'ISO : c'est
  * une destination postale réelle, et une adresse qu'on ne peut pas écrire est
@@ -42,18 +37,33 @@ export const COUNTRY_CODES = [
   'SM', 'SN', 'SO', 'SR', 'SS', 'ST', 'SV', 'SX', 'SY', 'SZ', 'TC', 'TD',
   'TF', 'TG', 'TH', 'TJ', 'TK', 'TL', 'TM', 'TN', 'TO', 'TR', 'TT', 'TV',
   'TW', 'TZ', 'UA', 'UG', 'UM', 'US', 'UY', 'UZ', 'VA', 'VC', 'VE', 'VG',
-  'VI', 'VN', 'VU', 'WF', 'WS', 'XK', 'YE', 'YT', 'ZA', 'ZM', 'ZW', 'ZZ',
+  'VI', 'VN', 'VU', 'WF', 'WS', 'XK', 'YE', 'YT', 'ZA', 'ZM', 'ZW',
 ] as const;
 
 export type CountryCode = (typeof COUNTRY_CODES)[number];
+
+/**
+ * CE QUI N'EST PAS UN PAYS — les régions qu'ICU connaît et que le menu n'offre pas.
+ *
+ * ⛔ ÉCRITES EN CODE, PLUS EN COMMENTAIRE. La liste vivait dans l'en-tête, où rien
+ * ne la vérifiait : `ZZ` n'y figurait pas, et le menu proposait « région
+ * inconnue » comme un pays. check:adresses (A6) exige désormais que chaque région
+ * connue d'ICU soit dans COUNTRY_CODES OU ici — jamais dans les deux, jamais nulle
+ * part.
+ */
+export const REGIONS_EXCLUES = {
+  'groupements, pseudo-locales et région inconnue': ['EU', 'EZ', 'UN', 'QO', 'XA', 'XB', 'ZZ'],
+  'réservations exceptionnelles': ['AC', 'CP', 'DG', 'EA', 'IC', 'TA'],
+  'codes dépréciés et alias': ['SU', 'DD', 'FX', 'YU', 'ZR', 'AN', 'BU', 'CS', 'TP', 'YD', 'HV', 'DY', 'UK', 'NH', 'RH', 'VD'],
+} as const;
 
 /**
  * Les options du menu : le Canada en tête, puis l'ordre alphabétique DE LA
  * LOCALE.
  *
  * ⚠️ `localeCompare` N'EST PAS UN RAFFINEMENT ICI, C'EST LA CONDITION POUR QUE
- * LA LISTE SOIT UTILISABLE. Mesuré sur ces 252 noms : 26 commencent par une
- * lettre accentuée, et un `sort()` nu envoie « Île Bouvet » en position 233 —
+ * LA LISTE SOIT UTILISABLE. Mesuré sur ces 251 noms : 26 commencent par une
+ * lettre accentuée, et un `sort()` nu envoie « Île Bouvet » en position 232 —
  * après « Éthiopie », à la fin de la liste. Avec localeCompare elle est en 90,
  * après « Hongrie », là où un lecteur francophone la cherche.
  *

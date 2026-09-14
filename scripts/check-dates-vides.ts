@@ -152,8 +152,10 @@ function el(composant: unknown, props: Record<string, unknown>): React.ReactElem
 
 const PERSONNE = {
   id: 'p1', company_id: 'c1', full_name: 'Ana Martin', email: null, phone: null,
-  address_line1: null, address_line2: null, address_city: 'Montréal', address_province: 'QC',
-  address_postal_code: null, address_country: 'CA', is_canadian_resident: true,
+  // ⚪ AUCUNE ADRESSE : cette garde ne lit que des dates, et check:adresses (A2)
+  //    refuse tout littéral affecté à un champ d'adresse, fixtures comprises.
+  address_line1: null, address_line2: null, address_city: null, address_province: null,
+  address_postal_code: null, address_country: null, is_canadian_resident: true,
   created_at: '', updated_at: '',
 };
 const CLASSE = {

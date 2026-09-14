@@ -431,6 +431,10 @@
     "editPerson": "Edit person",
     "editPersonSharedNote": "These details belong to the person, not to any one role. A correction made here appears everywhere they are listed — directors, officers, shareholders.",
     "errorNameRequired": "Full name is required.",
+    "errorCity": "Home address city is required.",
+    "errorCountry": "Home address country is required.",
+    "errorCityAndCountry": "Home address city and country are required.",
+    "editPersonRolesUnreadable": "This person's roles could not be read, so the correction cannot be saved. Close and try again.",
     "canadianResident": "Canadian resident",
     "residencyNotApplicable": "Not applicable under this regime"
   },
@@ -799,7 +803,8 @@
         "registersUnavailable": "{count, plural, =1 {1 register could not be read. The export was cancelled rather than hand you an incomplete book.} other {# registers could not be read. The export was cancelled rather than hand you an incomplete book.}}",
         "retry": "Retry"
       },
-      "gapsFixShareholdersLink": "Fix in Shareholders"
+      "gapsFixShareholdersLink": "Fix in Shareholders",
+      "gapNoActiveRole": "This person no longer holds an active role."
     },
     "registers": {
       "directors": "Director Register",

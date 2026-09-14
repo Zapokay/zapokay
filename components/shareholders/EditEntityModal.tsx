@@ -38,7 +38,7 @@ import {
   type CorrectifEntite,
   type ValeurEntite,
 } from '@/lib/entity-payload';
-import { champsManquantsEntite } from '@/lib/data-gaps';
+import { CHAMPS_REQUIS_ENTITE, champsVidesParLaCorrection } from '@/lib/data-gaps';
 import { verdictMiseAJour } from '@/lib/verdict-mise-a-jour';
 import { logActivity } from '@/lib/activity-log';
 import { CLE_CHAMP_ADRESSE_ENTITE, CLE_CORRIGER_ENTITE } from '@/lib/entity-labels';
@@ -67,20 +67,23 @@ export default function EditEntityModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ★ LOT C — la troisième garde de la création, reprise comme les deux autres : une
-  //   correction ne peut ni vider ni laisser vide ce que CHAMPS_REQUIS_ENTITE exige. Même
-  //   liste que les astérisques et que la liste des trous.
-  //   ⚠️ UNE ENTITÉ ENREGISTRÉE SANS VILLE NI PAYS ne s'enregistre donc qu'une fois
-  //   complétée — et cet écran est le seul qui peut la compléter.
-  const manquants = champsManquantsEntite(adresseDeLaValeur(valeur));
+  // ⚖️ DÉCISION DE DOM, 2026-09-13 — EMPÊCHER DE VIDER, PAS IMPOSER DE REMPLIR. Une
+  //   correction est refusée si elle VIDE un champ de CHAMPS_REQUIS_ENTITE qui portait une
+  //   valeur ENREGISTRÉE ; une entité déjà sans ville ou sans pays s'enregistre, et son nom
+  //   se corrige sans que l'adresse absente le bloque. Même fonction que la correction d'une
+  //   personne (EditPersonModal) : deux règles écrites séparément recréeraient l'asymétrie
+  //   que le lot C a fermée. L'astérisque d'EntityForm reste : il dit ce qui est exigé.
+  //   ⚠️ CETTE MODALE NE LIT PAS SI L'ENTITÉ DÉTIENT ENCORE : la règle vaut pour toute
+  //   entité, là où la personne n'est tenue que par un rôle actif.
+  const vides = champsVidesParLaCorrection(CHAMPS_REQUIS_ENTITE, entity, adresseDeLaValeur(valeur));
   const messageAdresse =
-    manquants.length > 0
-      ? t('errorEntityAddress', { champs: manquants.map((c) => t(CLE_CHAMP_ADRESSE_ENTITE[c])).join(', ') })
+    vides.length > 0
+      ? t('errorEntityAddress', { champs: vides.map((c) => t(CLE_CHAMP_ADRESSE_ENTITE[c])).join(', ') })
       : undefined;
 
   const handleSave = useCallback(async () => {
-    // Les trois gardes de la CRÉATION, reprises telles quelles : une correction
-    // ne doit pas pouvoir vider ce que la création exige.
+    // Les deux gardes d'identité de la CRÉATION, reprises telles quelles ; celle de
+    // l'adresse ne refuse que ce que la saisie VIDE (voir `vides`).
     if (!valeur.legalName.trim()) {
       setError(t('errorEntityName'));
       return;
@@ -89,9 +92,9 @@ export default function EditEntityModal({
       setError(t('errorNeq'));
       return;
     }
-    const absents = champsManquantsEntite(adresseDeLaValeur(valeur));
-    if (absents.length > 0) {
-      setError(t('errorEntityAddress', { champs: absents.map((c) => t(CLE_CHAMP_ADRESSE_ENTITE[c])).join(', ') }));
+    const videes = champsVidesParLaCorrection(CHAMPS_REQUIS_ENTITE, entity, adresseDeLaValeur(valeur));
+    if (videes.length > 0) {
+      setError(t('errorEntityAddress', { champs: videes.map((c) => t(CLE_CHAMP_ADRESSE_ENTITE[c])).join(', ') }));
       return;
     }
 
@@ -216,7 +219,7 @@ export default function EditEntityModal({
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving || manquants.length > 0}
+              disabled={saving || vides.length > 0}
               className="flex items-center gap-2 rounded-lg bg-[var(--amber-400)] px-5 py-2 text-sm font-semibold text-[var(--on-amber)] transition-opacity disabled:opacity-50"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
