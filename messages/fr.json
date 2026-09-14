@@ -763,7 +763,6 @@
       "gapCity": "ville du domicile",
       "gapCountry": "pays du domicile",
       "gapCityAndCountry": "ville et pays du domicile",
-      "gapsFixLink": "Corriger dans Administrateurs",
       "gapSiege": "Siège social",
       "siegeChamps": {
         "address_line1": "adresse",

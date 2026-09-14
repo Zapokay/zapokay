@@ -266,12 +266,17 @@ export default function BinderExportModal({
   const libelleChampsEntite = (champs: ChampEntite[]): string =>
     champs.map((c) => t(CLE_CHAMP_ENTITE[c])).join(', ');
   const manqueSiege = trous.some((x) => x.sujet === 'societe');
-  // ⚖️ DÉCISION DE DOM, 2026-09-13 — PAS DE LIEN MORT. Le lien des personnes n'existe que si
-  //   une ligne porte une personne à RÔLE ACTIF : une personne aux seuls rôles clos ne se
-  //   corrige depuis aucun écran. Sa ligne reste, avec sa phrase.
+  // ⚖️ DÉCISION DE DOM, 2026-09-14 — LES LIGNES DE PERSONNE N'ONT PLUS DE LIEN DE CORRECTION.
+  //   « Corriger dans Administrateurs » n'était juste que pour un administrateur. Il trompait
+  //   pour une personne qui n'est qu'actionnaire ou que dirigeante : la page Administrateurs
+  //   ne l'affiche pas, et elle se corrige ailleurs. Mesuré le 2026-09-14 : 4 des 16 personnes
+  //   actives sans ville ou sans pays, dont les deux d'Acme, où il ne servait aucune ligne.
+  //   ⛔ UN LIEN COMMUN À TOUTES LES PERSONNES NE REVIENT PAS : il mène juste pour les unes et
+  //   faux pour les autres. Décision de Dom : à terme, chaque ligne portera SON lien.
+  //   La LIGNE reste — elle nomme la personne et ce qui lui manque : on retire un chemin
+  //   trompeur, pas une information.
   //   ⚪ L'ENTITÉ GARDE SON LIEN MÊME QUAND ELLE NE DÉTIENT PLUS : la section des anciennes
-  //   détentions ouvre sa correction — ce lien-là n'est pas mort.
-  const personneCorrigeable = trous.some((x) => x.sujet === 'personne' && x.roleActif);
+  //   détentions ouvre sa correction. Le siège garde le sien : il se saisit dans Paramètres.
   const manqueEntite = trous.some((x) => x.sujet === 'entite');
 
   const modal = (
@@ -371,17 +376,6 @@ export default function BinderExportModal({
                     </li>
                   ))}
                 </ul>
-                {/* ⛔ VERS LES ADMINISTRATEURS, PAS VERS COMPLÉTUDE. Mesuré : le bouton
-                    « Voir dans Complétude » pousse vers la page entière, sans ancre ni
-                    filtre, et ne montre rien sur la personne d'où l'on vient. */}
-                {personneCorrigeable && (
-                  <a
-                    href={`/${locale}/dashboard/directors`}
-                    className="mt-3 mr-4 inline-block text-sm font-medium underline text-[var(--error-text)]"
-                  >
-                    {t('gapsFixLink')}
-                  </a>
-                )}
                 {/* L'actionnaire-société se corrige là où elle se corrige : les Actionnaires. */}
                 {manqueEntite && (
                   <a

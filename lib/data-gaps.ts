@@ -353,9 +353,9 @@ export type Trou =
       champs: ChampPersonne[];
       /**
        * ⚖️ Décision de Dom, 2026-09-13 : la ligne d'une personne SANS rôle actif reste —
-       * le registre l'imprime — mais ne porte pas de lien, parce qu'aucun écran ne corrige
-       * son identité. Dérivé par `porteeDeLaPersonne(…, 'actif')`, la portée même de la
-       * correction.
+       * le registre l'imprime — et le classeur y ajoute une phrase, parce qu'aucun écran ne
+       * corrige son identité. Dérivé par `porteeDeLaPersonne(…, 'actif')`, la portée même
+       * de la correction.
        */
       roleActif: boolean;
     }
@@ -380,8 +380,7 @@ export type Trou =
  * (BinderExportModal) ; l'export porte le compte sur sa page de garde.
  * ⚠️ UNE PERSONNE AUX SEULS RÔLES CLOS NE SE CORRIGE PAS À L'ÉCRAN — mesuré le
  * 2026-09-13 : aucune section « anciens » n'ouvre EditPersonModal. Sa ligne porte
- * donc `roleActif: false` : le classeur lui ajoute une phrase, et elle ne suffit pas
- * à faire paraître le lien des personnes (décision de Dom).
+ * donc `roleActif: false`, et le classeur lui ajoute une phrase (décision de Dom).
  *
  * ⭑ ET QUI CUMULE NE COMPTE QU'UNE FOIS. La même personne est souvent
  * administratrice, dirigeante ET actionnaire — au parc, plusieurs le sont.

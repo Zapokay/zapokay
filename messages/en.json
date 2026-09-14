@@ -763,7 +763,6 @@
       "gapCity": "home address city",
       "gapCountry": "home address country",
       "gapCityAndCountry": "home address city and country",
-      "gapsFixLink": "Fix in Directors",
       "gapSiege": "Head office",
       "siegeChamps": {
         "address_line1": "address",
