@@ -638,7 +638,16 @@
     "transferDate": "Date du transfert",
     "considerationOptional": "Contrepartie (optionnel)",
     "considerationPlaceholder": "ex. 1,00 $ par action, à titre gratuit, en échange de services rendus…",
-    "confirmTransfer": "Confirmer le transfert"
+    "confirmTransfer": "Confirmer le transfert",
+    "errorEntityAddress": "Adresse de l'entité incomplète : {champs}.",
+    "entityAddressFields": {
+      "address_line1": "adresse",
+      "address_line2": "suite / appartement",
+      "address_city": "ville",
+      "address_province": "état / région / province",
+      "address_postal_code": "code postal",
+      "address_country": "pays"
+    }
   },
   "nav": {
     "group": {
@@ -789,7 +798,8 @@
         "exportIncomplete": "{count, plural, =1 {1 document n'a pas pu être récupéré. L'export est annulé plutôt que de vous livrer un livre incomplet.} other {# documents n'ont pas pu être récupérés. L'export est annulé plutôt que de vous livrer un livre incomplet.}}",
         "registersUnavailable": "{count, plural, =1 {1 registre n'a pas pu être lu. L'export est annulé plutôt que de vous livrer un livre incomplet.} other {# registres n'ont pas pu être lus. L'export est annulé plutôt que de vous livrer un livre incomplet.}}",
         "retry": "Réessayer"
-      }
+      },
+      "gapsFixShareholdersLink": "Corriger dans Actionnaires"
     },
     "registers": {
       "directors": "Registre des administrateurs",

@@ -3,6 +3,7 @@ import type {
   ShareholderEntity,
   ShareholderEntityType,
 } from '@/lib/supabase/people-types';
+import type { ChampAdresse } from '@/lib/address';
 
 /**
  * LE CONTRAT DE `p_entity` — la charge de `create_entity_with_signatories`.
@@ -68,7 +69,7 @@ export function nullSiVide(valeur: string): string | null {
 }
 
 // =============================================================================
-// LA VALEUR DU FORMULAIRE D'ENTITÉ — et ses trois traductions
+// LA VALEUR DU FORMULAIRE D'ENTITÉ — et ses quatre traductions
 // =============================================================================
 
 /**
@@ -177,6 +178,26 @@ export function valeurDepuisEntite(e: ShareholderEntity): ValeurEntite {
     addressProvince: e.address_province ?? '',
     addressPostalCode: e.address_postal_code ?? '',
     addressCountry: e.address_country ?? '',
+  };
+}
+
+/**
+ * ④ EXIGENCE — l'adresse de la valeur, sous les NOMS DE COLONNES.
+ *
+ * ★ La déclaration d'exigence (CHAMPS_REQUIS_ENTITE, lib/data-gaps.ts) parle en colonnes, le
+ * formulaire en camelCase. La correspondance vit ici, avec les trois autres traductions : la
+ * création et la correction l'appellent, et aucune des deux ne la réécrit champ par champ.
+ * ⛔ AUCUN `trim`, AUCUN `null` : la question posée est celle du vide, et `estVide` y répond
+ * déjà — une chaîne faite d'espaces n'est pas une ville.
+ */
+export function adresseDeLaValeur(v: ValeurEntite): Record<ChampAdresse, string> {
+  return {
+    address_line1: v.addressLine1,
+    address_line2: v.addressLine2,
+    address_city: v.addressCity,
+    address_province: v.addressProvince,
+    address_postal_code: v.addressPostalCode,
+    address_country: v.addressCountry,
   };
 }
 

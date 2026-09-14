@@ -150,6 +150,33 @@ export const CHAMPS_REQUIS_SIEGE = [
 export type ChampSiege = (typeof CHAMPS_REQUIS_SIEGE)[number];
 
 /**
+ * LA DÉCLARATION DE L'ACTIONNAIRE-SOCIÉTÉ — ce qu'une entité qui détient des actions doit
+ * porter.
+ *
+ * ⚖️ DÉCISION DE DOM, 2026-09-11 : « n'importe qui administre une entreprise ne sera pas
+ * repoussé par l'imposition de l'adresse ». Elle vaut pour les actionnaires, et un
+ * actionnaire peut être une société ou une fiducie : VILLE ET PAYS, comme pour une personne.
+ *
+ * ⛔ PAS L'ADRESSE COMPLÈTE DU SIÈGE. Les cinq champs de CHAMPS_REQUIS_SIEGE ont leur raison
+ * propre — « un siège est une adresse où l'on signifie des documents ». Une entité
+ * actionnaire est un DÉTENTEUR, pas un siège.
+ *
+ * ★ UNE DÉCLARATION PAR SUJET, PAS UN RÔLE. `RoleAvecExigence` nomme ce qu'une PERSONNE fait
+ * dans la société, sur les champs d'une personne (`keyof CompanyPerson`). Une entité n'y
+ * exerce qu'une chose, détenir, et ne porte pas ces champs. Elle se déclare comme le siège :
+ * sur les noms de colonnes d'adresse, que `shareholder_entities` porte aux mêmes noms.
+ *
+ * ⚠️ RIEN NE LIE CETTE LIGNE À `CHAMPS_REQUIS.shareholder`. Les deux disent aujourd'hui ville
+ * et pays ; changer l'une ne change pas l'autre.
+ *
+ * Quatre lecteurs, cette seule liste : les astérisques d'EntityForm, la garde de la création
+ * (IssueSharesModal), celle de la correction (EditEntityModal), la liste des trous.
+ */
+export const CHAMPS_REQUIS_ENTITE = ['address_city', 'address_country'] as const satisfies readonly ChampAdresse[];
+
+export type ChampEntite = (typeof CHAMPS_REQUIS_ENTITE)[number];
+
+/**
  * ⛔ UNE SEULE DÉFINITION DU VIDE, ET ELLE NE SE RECOPIE PAS. « Absent » vaut
  * `null`, `undefined`, ou une chaîne vide APRÈS trim — trois états qu'une
  * comparaison naïve `!== null` laisserait passer, alors qu'une ville faite de
@@ -187,6 +214,11 @@ export function champsManquantsSiege(societe: PersonneAdressable): ChampSiege[] 
   return CHAMPS_REQUIS_SIEGE.filter((champ) => estVide(societe[champ]));
 }
 
+/** Les champs requis ABSENTS d'une actionnaire-société. Même définition du vide : `estVide`. */
+export function champsManquantsEntite(entite: PersonneAdressable): ChampEntite[] {
+  return CHAMPS_REQUIS_ENTITE.filter((champ) => estVide(entite[champ]));
+}
+
 /**
  * Un trou — et CE QUI le porte.
  *
@@ -195,9 +227,11 @@ export function champsManquantsSiege(societe: PersonneAdressable): ChampSiege[] 
  * dit à qui appartient le manque, et chaque consommateur le lit pour nommer QUI et
  * QUOI, et pour renvoyer au bon écran.
  *
- * ★ LES ENTITÉS ENTRENT DANS CETTE FORME SANS LA CHANGER : un troisième membre,
- * `{ sujet: 'entite'; id; nom; champs }`, sur les mêmes noms de colonnes. C'est le
- * lot C, et ce type ne le construit pas.
+ * ★ LES ENTITÉS SONT ENTRÉES DANS CETTE FORME SANS LA CHANGER (lot C) : un troisième membre,
+ * `{ sujet: 'entite'; id; nom; champs }`, sur les mêmes noms de colonnes d'adresse.
+ * ⚠️ UN CONSOMMATEUR QUI TESTE `sujet === 'societe'` PUIS « SINON » TRAITE L'ENTITÉ EN
+ * PERSONNE — la renvoie aux Administrateurs et nomme son « domicile ». Chaque consommateur
+ * qui distingue les sujets nomme ses trois branches.
  *
  * ⚪ LA SOCIÉTÉ N'A PAS DE `nom`. Ce module ne connaît pas la langue du lecteur :
  * choisir ici entre les deux dénominations serait décider à la place de l'écran,
@@ -205,11 +239,12 @@ export function champsManquantsSiege(societe: PersonneAdressable): ChampSiege[] 
  */
 export type Trou =
   | { sujet: 'societe'; id: string; champs: ChampSiege[] }
-  | { sujet: 'personne'; id: string; nom: string; champs: ChampPersonne[] };
+  | { sujet: 'personne'; id: string; nom: string; champs: ChampPersonne[] }
+  | { sujet: 'entite'; id: string; nom: string; champs: ChampEntite[] };
 
 /**
  * Les trous d'une société — SON SIÈGE, PUIS LES TROIS FAMILLES DE RÔLES, UNE
- * LIGNE PAR PERSONNE.
+ * LIGNE PAR PERSONNE, PUIS SES ACTIONNAIRES-SOCIÉTÉS, UNE LIGNE PAR ENTITÉ.
  *
  * ★ LE SIÈGE PASSE EN TÊTE, ET IL NE DÉPEND D'AUCUN RÔLE : c'est le sujet du livre
  * qui manque d'adresse, pas une personne. Sa ligne existe dès qu'un des cinq champs
@@ -217,7 +252,8 @@ export type Trou =
  *
  * ⚠️ LES PERSONNES ACTIVES DANS UN RÔLE QUI EXIGE, jamais toutes les personnes
  * du dossier. Un mandat clos, une charge terminée, une détention close : aucun
- * des trois ne bloque l'export.
+ * des trois ne bloque l'export. Les entités suivent la même règle : listées si elles
+ * détiennent encore (`trousDesEntites`).
  *
  * ⭑ ET QUI CUMULE NE COMPTE QU'UNE FOIS. La même personne est souvent
  * administratrice, dirigeante ET actionnaire — au parc, plusieurs le sont.
@@ -253,7 +289,10 @@ export async function trousDeLaSociete(
   const rolesQuiExigent = (['director', 'officer', 'shareholder'] as const).filter(
     (r) => CHAMPS_REQUIS[r].length > 0,
   );
-  if (rolesQuiExigent.length === 0) return trouSiege;
+  // ⚠️ LES ENTITÉS AVANT LE RETOUR ANTICIPÉ : elles ont leur propre déclaration, et une
+  // société sans rôle exigeant peut encore avoir une actionnaire-société sans adresse.
+  const trousEntites = await trousDesEntites(supabase, companyId);
+  if (rolesQuiExigent.length === 0) return [...trouSiege, ...trousEntites];
 
   const { data, error } = await supabase
     .from('company_people')
@@ -298,5 +337,38 @@ export async function trousDeLaSociete(
     })
     .filter((t): t is Extract<Trou, { sujet: 'personne' }> => t !== null);
 
-  return [...trouSiege, ...trousPersonnes];
+  return [...trouSiege, ...trousPersonnes, ...trousEntites];
+}
+
+/**
+ * Les actionnaires-sociétés QUI DÉTIENNENT ENCORE et à qui manque ce que
+ * CHAMPS_REQUIS_ENTITE exige — une ligne par entité.
+ *
+ * ★ « DÉTIENT ENCORE » SE DÉRIVE D'`end_date`, exactement comme pour l'actionnaire personne
+ * ci-dessus : ni `deleted_at` ni `is_active` n'existent sur une détention. Une entité dont
+ * toutes les détentions sont closes ne produit pas de ligne — la règle des rôles clos, que
+ * le lot suivant revisite pour tous les sujets à la fois.
+ * ⚠️ UN ÉCHEC DE LECTURE LÈVE, pour la même raison que les personnes : ce n'est pas une
+ * absence de trou.
+ */
+async function trousDesEntites(
+  supabase: SupabaseClient,
+  companyId: string,
+): Promise<Extract<Trou, { sujet: 'entite' }>[]> {
+  const { data, error } = await supabase
+    .from('shareholder_entities')
+    .select(
+      'id, legal_name, address_line1, address_line2, address_city, address_province, address_postal_code, address_country, shareholding_holders(shareholdings(end_date))',
+    )
+    .eq('company_id', companyId);
+  if (error) throw new Error(`trousDeLaSociete: entities read failed: ${error.message}`);
+  const entites = (data ?? []) as unknown as (PersonneAdressable & {
+    id: string;
+    legal_name: string;
+    shareholding_holders?: { shareholdings?: { end_date: string | null } | null }[];
+  })[];
+  return entites
+    .filter((e) => (e.shareholding_holders ?? []).some((h) => h.shareholdings && !h.shareholdings.end_date))
+    .map((e) => ({ sujet: 'entite' as const, id: e.id, nom: e.legal_name, champs: champsManquantsEntite(e) }))
+    .filter((t) => t.champs.length > 0);
 }

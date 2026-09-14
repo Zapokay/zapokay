@@ -32,14 +32,16 @@ import { useTranslations } from 'next-intl';
 import { X, Pencil, Loader2 } from 'lucide-react';
 import type { ShareholderEntity } from '@/lib/supabase/people-types';
 import {
+  adresseDeLaValeur,
   correctifEntite,
   valeurDepuisEntite,
   type CorrectifEntite,
   type ValeurEntite,
 } from '@/lib/entity-payload';
+import { champsManquantsEntite } from '@/lib/data-gaps';
 import { verdictMiseAJour } from '@/lib/verdict-mise-a-jour';
 import { logActivity } from '@/lib/activity-log';
-import { CLE_CORRIGER_ENTITE } from '@/lib/entity-labels';
+import { CLE_CHAMP_ADRESSE_ENTITE, CLE_CORRIGER_ENTITE } from '@/lib/entity-labels';
 import EntityForm from '@/components/shareholders/EntityForm';
 
 interface EditEntityModalProps {
@@ -65,8 +67,19 @@ export default function EditEntityModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ★ LOT C — la troisième garde de la création, reprise comme les deux autres : une
+  //   correction ne peut ni vider ni laisser vide ce que CHAMPS_REQUIS_ENTITE exige. Même
+  //   liste que les astérisques et que la liste des trous.
+  //   ⚠️ UNE ENTITÉ ENREGISTRÉE SANS VILLE NI PAYS ne s'enregistre donc qu'une fois
+  //   complétée — et cet écran est le seul qui peut la compléter.
+  const manquants = champsManquantsEntite(adresseDeLaValeur(valeur));
+  const messageAdresse =
+    manquants.length > 0
+      ? t('errorEntityAddress', { champs: manquants.map((c) => t(CLE_CHAMP_ADRESSE_ENTITE[c])).join(', ') })
+      : undefined;
+
   const handleSave = useCallback(async () => {
-    // Les deux gardes de la CRÉATION, reprises telles quelles : une correction
+    // Les trois gardes de la CRÉATION, reprises telles quelles : une correction
     // ne doit pas pouvoir vider ce que la création exige.
     if (!valeur.legalName.trim()) {
       setError(t('errorEntityName'));
@@ -74,6 +87,11 @@ export default function EditEntityModal({
     }
     if (valeur.entityType === 'corporation' && !valeur.entityNumber.trim()) {
       setError(t('errorNeq'));
+      return;
+    }
+    const absents = champsManquantsEntite(adresseDeLaValeur(valeur));
+    if (absents.length > 0) {
+      setError(t('errorEntityAddress', { champs: absents.map((c) => t(CLE_CHAMP_ADRESSE_ENTITE[c])).join(', ') }));
       return;
     }
 
@@ -159,16 +177,20 @@ export default function EditEntityModal({
         {/* Corps */}
         <div className="space-y-5 px-6 py-5">
           {/* ⛔ L'AVERTISSEMENT NE PARLE QUE DE LA DÉNOMINATION, en deux phrases.
-              Mesuré : elle est le SEUL champ de cet écran qui se propage — le
-              NEQ n'est lu par aucun écran ni aucun document, le type et le
-              descripteur par presque rien, et l'adresse pas encore par le
-              registre. Dire « partout » serait vrai d'un champ sur six. */}
+              Mesuré à son écriture : elle était le SEUL champ de cet écran qui se
+              propageait — le NEQ n'est lu par aucun écran ni aucun document, le
+              type et le descripteur par presque rien.
+              ⚠️ CE N'EST PLUS VRAI DE L'ADRESSE. Mesuré le 2026-09-13 sur ZZ Top :
+              le registre des actionnaires l'imprime sous le nom du détenteur, pour
+              une société comme pour une personne (COLONNES_ACTIONNAIRES,
+              lib/minute-book/register-columns.ts). Le texte de l'avertissement n'a
+              pas changé : c'est une décision de texte, hors de ce lot. */}
           <p className="rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-2.5 text-xs text-[var(--text-muted)]">
             {t('editEntityNameNote')}
           </p>
 
           <div className="space-y-3">
-            <EntityForm value={valeur} onChange={setValeur} />
+            <EntityForm value={valeur} onChange={setValeur} error={messageAdresse} />
           </div>
         </div>
 
@@ -194,7 +216,7 @@ export default function EditEntityModal({
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || manquants.length > 0}
               className="flex items-center gap-2 rounded-lg bg-[var(--amber-400)] px-5 py-2 text-sm font-semibold text-[var(--on-amber)] transition-opacity disabled:opacity-50"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}

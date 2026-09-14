@@ -12,13 +12,15 @@ import { getSignatoryRoleLabel } from '@/lib/i18n/lifecycle-labels';
 import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 import { logActivity } from '@/lib/activity-log';
 import {
+  adresseDeLaValeur,
   chargeEntite,
   VALEUR_ENTITE_VIDE,
   type ChargeEntite,
   type ValeurEntite,
 } from '@/lib/entity-payload';
 import EntityForm from '@/components/shareholders/EntityForm';
-import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
+import { CLE_CHAMP_ADRESSE_ENTITE } from '@/lib/entity-labels';
+import { champsManquants, champsManquantsEntite, type ChampEntite, type ChampPersonne } from '@/lib/data-gaps';
 import { chargePersonne, insererPersonne } from '@/lib/person-payload';
 
 // =============================================================================
@@ -119,16 +121,17 @@ export default function IssueSharesModal({
   }, [shareClasses, shareClassId]);
 
   /**
-   * ⚠️ LA GARDE NE FRAPPE QUE LE CHEMIN PERSONNE. Cette modale porte DEUX
-   * montages de PersonSelector et trois branches d'enregistrement :
+   * ⚠️ DEUX GARDES, UNE PAR CHEMIN QUI SAISIT. Cette modale porte DEUX montages de
+   * PersonSelector et trois branches d'enregistrement :
    *
-   *   · entité existante choisie → rien à saisir, rien à exiger ;
-   *   · nouvelle entité (`entityMode`) → c'est `EntityForm` qui saisit, et le
-   *     domicile d'une société est le LOT C, pas celui-ci ;
+   *   · entité existante choisie → rien à saisir, rien à exiger — comme une personne
+   *     existante, que le chemin personne n'exige pas non plus ;
+   *   · nouvelle entité (`entityMode`) → c'est `EntityForm` qui saisit, et
+   *     CHAMPS_REQUIS_ENTITE qui exige (lot C, plus bas) ;
    *   · signataires d'entité → `entity_signatory` reste vide PAR DÉCISION.
    *
-   * `cheminPersonne` isole la seule branche concernée ; en mode entité,
-   * `manquants` est vide et le bouton retrouve exactement sa condition d'avant.
+   * `cheminPersonne` et `cheminNouvelleEntite` isolent chacun leur branche ; hors de la
+   * sienne, chaque liste de manquants est vide.
    */
   const cheminPersonne = !selectedExistingEntity && !entityMode;
   const manquants: ChampPersonne[] =
@@ -145,6 +148,18 @@ export default function IssueSharesModal({
     : manquants[0] === 'address_city' ? t('errorCity')
     : t('errorCountry');
 
+  // ── Lot C : la nouvelle entité ───────────────────────────────────────────────
+  // ★ MÊME LISTE QUE LES ASTÉRISQUES D'EntityForm ET QUE LA LISTE DES TROUS. Le message nomme
+  //   les champs qui manquent, depuis la liste : « du domicile » serait faux pour une société.
+  const cheminNouvelleEntite = !selectedExistingEntity && entityMode;
+  const manquantsEntite: ChampEntite[] = cheminNouvelleEntite
+    ? champsManquantsEntite(adresseDeLaValeur(valeurEntite))
+    : [];
+  const adresseEntiteIncomplete = manquantsEntite.length > 0;
+  const messageAdresseEntite = adresseEntiteIncomplete
+    ? t('errorEntityAddress', { champs: manquantsEntite.map((c) => t(CLE_CHAMP_ADRESSE_ENTITE[c])).join(', ') })
+    : undefined;
+
   // ---- Save -----------------------------------------------------------------
   const handleSave = useCallback(async () => {
     if (selectedExistingEntity) {
@@ -156,6 +171,12 @@ export default function IssueSharesModal({
       }
       if (valeurEntite.entityType === 'corporation' && !valeurEntite.entityNumber.trim()) {
         setError(t('errorNeq'));
+        return;
+      }
+      // Ceinture de la NOUVELLE ENTITÉ, recalculée depuis la valeur — même liste que le bouton.
+      const absentsEntite = champsManquantsEntite(adresseDeLaValeur(valeurEntite));
+      if (absentsEntite.length > 0) {
+        setError(t('errorEntityAddress', { champs: absentsEntite.map((c) => t(CLE_CHAMP_ADRESSE_ENTITE[c])).join(', ') }));
         return;
       }
       if (!signatoryRowsComplete(signatoryRows)) {
@@ -427,7 +448,7 @@ export default function IssueSharesModal({
                   identique a l'octet (preuve au message de commit). L'enveloppe,
                   l'en-tete « Nouvelle entite » et les signataires restent ici :
                   ce sont des soucis de CREATION, pas des proprietes de l'entite. */}
-              <EntityForm value={valeurEntite} onChange={setValeurEntite} />
+              <EntityForm value={valeurEntite} onChange={setValeurEntite} error={messageAdresseEntite} />
 
               {/* Signatories (Slice 2b-ii) — 0 allowed; additive, force-pick per row */}
               <div className="space-y-3 border-t border-amber-200/60 pt-3 dark:border-amber-800/40">
@@ -662,7 +683,7 @@ export default function IssueSharesModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || shareClasses.length === 0 || !issueDate || (selectedExistingEntity ? false : entityMode ? (!valeurEntite.legalName.trim() || !signatoryRowsComplete(signatoryRows)) : (!personValue || domicileIncomplet))}
+            disabled={saving || shareClasses.length === 0 || !issueDate || (selectedExistingEntity ? false : entityMode ? (!valeurEntite.legalName.trim() || adresseEntiteIncomplete || !signatoryRowsComplete(signatoryRows)) : (!personValue || domicileIncomplet))}
             className="flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}

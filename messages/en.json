@@ -638,7 +638,16 @@
     "transferDate": "Transfer date",
     "considerationOptional": "Consideration (optional)",
     "considerationPlaceholder": "e.g. $1.00 per share, no consideration, in exchange for services rendered…",
-    "confirmTransfer": "Confirm transfer"
+    "confirmTransfer": "Confirm transfer",
+    "errorEntityAddress": "The entity's address is incomplete: {champs}.",
+    "entityAddressFields": {
+      "address_line1": "address",
+      "address_line2": "suite / apartment",
+      "address_city": "city",
+      "address_province": "state / region / province",
+      "address_postal_code": "postal code",
+      "address_country": "country"
+    }
   },
   "nav": {
     "group": {
@@ -789,7 +798,8 @@
         "exportIncomplete": "{count, plural, =1 {1 document could not be retrieved. The export was cancelled rather than hand you an incomplete book.} other {# documents could not be retrieved. The export was cancelled rather than hand you an incomplete book.}}",
         "registersUnavailable": "{count, plural, =1 {1 register could not be read. The export was cancelled rather than hand you an incomplete book.} other {# registers could not be read. The export was cancelled rather than hand you an incomplete book.}}",
         "retry": "Retry"
-      }
+      },
+      "gapsFixShareholdersLink": "Fix in Shareholders"
     },
     "registers": {
       "directors": "Director Register",

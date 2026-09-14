@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ChampSiege, Trou } from '@/lib/data-gaps';
+import type { ChampEntite, ChampSiege, Trou } from '@/lib/data-gaps';
 import { useTranslations, useLocale } from 'next-intl';
 import Button from '@/components/ui/Button';
 
@@ -256,8 +256,18 @@ export default function BinderExportModal({
   } as const satisfies Record<ChampSiege, string>;
   const libelleChampsSiege = (champs: ChampSiege[]): string =>
     champs.map((c) => t(CLE_CHAMP_SIEGE[c])).join(', ');
+  // ★ L'ACTIONNAIRE-SOCIÉTÉ NOMME SES CHAMPS AVEC LES LIBELLÉS NEUTRES DU SIÈGE (« ville »,
+  //   « pays ») : ceux des personnes disent « du domicile », ce qu'une société n'a pas.
+  //   `Record<ChampEntite, …>` refuse à la compilation un champ exigé sans libellé.
+  const CLE_CHAMP_ENTITE = {
+    address_city: 'siegeChamps.address_city',
+    address_country: 'siegeChamps.address_country',
+  } as const satisfies Record<ChampEntite, string>;
+  const libelleChampsEntite = (champs: ChampEntite[]): string =>
+    champs.map((c) => t(CLE_CHAMP_ENTITE[c])).join(', ');
   const manqueSiege = trous.some((x) => x.sujet === 'societe');
   const manquePersonne = trous.some((x) => x.sujet === 'personne');
+  const manqueEntite = trous.some((x) => x.sujet === 'entite');
 
   const modal = (
     <div
@@ -347,7 +357,9 @@ export default function BinderExportModal({
                     <li key={`${trou.sujet}:${trou.id}`} className="text-sm text-[var(--error-text)]">
                       {trou.sujet === 'societe'
                         ? `${t('gapSiege')} — ${libelleChampsSiege(trou.champs)}`
-                        : `${trou.nom} — ${libelleChampsPersonne(trou.champs)}`}
+                        : trou.sujet === 'entite'
+                          ? `${trou.nom} — ${libelleChampsEntite(trou.champs)}`
+                          : `${trou.nom} — ${libelleChampsPersonne(trou.champs)}`}
                     </li>
                   ))}
                 </ul>
@@ -360,6 +372,15 @@ export default function BinderExportModal({
                     className="mt-3 mr-4 inline-block text-sm font-medium underline text-[var(--error-text)]"
                   >
                     {t('gapsFixLink')}
+                  </a>
+                )}
+                {/* L'actionnaire-société se corrige là où elle se corrige : les Actionnaires. */}
+                {manqueEntite && (
+                  <a
+                    href={`/${locale}/dashboard/shareholders`}
+                    className="mt-3 mr-4 inline-block text-sm font-medium underline text-[var(--error-text)]"
+                  >
+                    {t('gapsFixShareholdersLink')}
                   </a>
                 )}
                 {/* Le siège se corrige là où il se saisit : les Paramètres. */}

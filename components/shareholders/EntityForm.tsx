@@ -28,13 +28,20 @@ import type { EntityDescriptor, ShareholderEntityType } from '@/lib/supabase/peo
 import { countryOptions } from '@/lib/countries';
 import { PROVINCE_CODES } from '@/lib/provinces';
 import type { ValeurEntite } from '@/lib/entity-payload';
+import { CHAMPS_REQUIS_ENTITE } from '@/lib/data-gaps';
+import type { ChampAdresse } from '@/lib/address';
 
 interface EntityFormProps {
   value: ValeurEntite;
   onChange: (value: ValeurEntite) => void;
+  /**
+   * Le message d'une exigence non remplie, rendu sous le formulaire — le contrat de
+   * PersonSelector. La modale le compose ; ce composant ne décide pas ce qui manque.
+   */
+  error?: string;
 }
 
-export default function EntityForm({ value, onChange }: EntityFormProps) {
+export default function EntityForm({ value, onChange, error }: EntityFormProps) {
   const t = useTranslations('shareholders');
   // Meme derivation que la modale d'emission le faisait : le catalogue porte
   // la locale sous `_locale`.
@@ -66,6 +73,24 @@ export default function EntityForm({ value, onChange }: EntityFormProps) {
 
   function maj<K extends keyof ValeurEntite>(champ: K, v: ValeurEntite[K]) {
     onChange({ ...value, [champ]: v });
+  }
+
+  /**
+   * ★ LES ASTÉRISQUES D'ADRESSE DÉRIVENT DE LA DÉCLARATION — CHAMPS_REQUIS_ENTITE,
+   * lib/data-gaps.ts. Chacun des six champs demande à la liste s'il est exigé : changer la
+   * liste déplace les astérisques sans toucher ce fichier. La même liste arme les gardes des
+   * deux modales et nomme la ligne de la liste des trous.
+   * ⚪ Ceux du nom, du type et du NEQ restent écrits à la main : ce sont des exigences
+   * d'identité, gardées par les deux modales, que ce lot ne déplace pas.
+   */
+  function marque(champ: ChampAdresse) {
+    if (!(CHAMPS_REQUIS_ENTITE as readonly ChampAdresse[]).includes(champ)) return null;
+    return (
+      <>
+        {' '}
+        <span className="text-red-500">*</span>
+      </>
+    );
   }
 
   return (
@@ -158,7 +183,7 @@ export default function EntityForm({ value, onChange }: EntityFormProps) {
       {/* Address */}
       <div>
         <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-          {t('address')}
+          {t('address')}{marque('address_line1')}
         </label>
         <input
           type="text"
@@ -169,7 +194,7 @@ export default function EntityForm({ value, onChange }: EntityFormProps) {
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-          {tAdresse('addressLine2')}
+          {tAdresse('addressLine2')}{marque('address_line2')}
         </label>
         <input
           type="text"
@@ -181,7 +206,7 @@ export default function EntityForm({ value, onChange }: EntityFormProps) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            {t('city')}
+            {t('city')}{marque('address_city')}
           </label>
           <input
             type="text"
@@ -194,7 +219,7 @@ export default function EntityForm({ value, onChange }: EntityFormProps) {
           {/* ★ L'ETIQUETTE COMMUTE, comme chez la personne : une
               subdivision etrangere n'est pas une « province ». */}
           <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            {subdivisionCanadienne ? t('province') : tAdresse('stateRegion')}
+            {subdivisionCanadienne ? t('province') : tAdresse('stateRegion')}{marque('address_province')}
           </label>
           {subdivisionCanadienne ? (
             <select
@@ -224,7 +249,7 @@ export default function EntityForm({ value, onChange }: EntityFormProps) {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            {t('postalCode')}
+            {t('postalCode')}{marque('address_postal_code')}
           </label>
           <input
             type="text"
@@ -241,7 +266,7 @@ export default function EntityForm({ value, onChange }: EntityFormProps) {
             ne partait jamais a la fonction — qui posait 'CA'.
             ★ Meme source que la personne : countryOptions(locale). */}
         <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-          {tAdresse('country')}
+          {tAdresse('country')}{marque('address_country')}
         </label>
         <select
           value={value.addressCountry}
@@ -256,6 +281,9 @@ export default function EntityForm({ value, onChange }: EntityFormProps) {
           ))}
         </select>
       </div>
+      {error && (
+        <p className="text-xs text-red-500">{error}</p>
+      )}
     </>
   );
 }
