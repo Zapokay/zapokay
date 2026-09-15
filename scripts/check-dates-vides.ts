@@ -63,6 +63,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import messages from '@/messages/fr.json';
+import { ADRESSE_VIERGE } from '@/lib/address';
 import { VALEUR_ENTITE_VIDE } from '@/lib/entity-payload';
 import EndShareholdingModal from '@/components/shareholders/EndShareholdingModal';
 import RemoveOfficerModal from '@/components/officers/RemoveOfficerModal';
@@ -248,7 +249,7 @@ const RECENSEMENT = new Map<string, Entree>([
       locale: 'fr',
       // Hostile : la pré-saisie « un administrateur → un actionnaire » recopie
       // la personne ; une date recopiée de sa nomination naîtrait remplie.
-      directors: [{ fullName: 'Ana Martin', appointmentDate: DATE_HOSTILE, addressCity: '', addressCountry: '', isCanadianResident: null }],
+      directors: [{ fullName: 'Ana Martin', appointmentDate: DATE_HOSTILE, adresse: { ...ADRESSE_VIERGE }, isCanadianResident: null }],
       onContinue: accepte, onSkip: rien,
     }),
   }],

@@ -70,7 +70,14 @@ const today = new Date().toISOString().split('T')[0];
 // ⚠️ 6 DEPUIS LE LOT SIÈGE : OnboardingData.company perd `province` et gagne `siege`,
 // REQUIS. Un brouillon en v5 porte une société sans siège, et l'étape 3 lirait
 // `data.company.siege.address_line1` sur `undefined`. Même raison, même porte.
-const DRAFT_VERSION = 6;
+// ⚠️ 7 DEPUIS LE LOT « BLOC D'ADRESSE » (2026-09-15) : OnboardingDirector perd
+// `addressCity` et `addressCountry` et gagne `adresse: AdresseSaisie` ;
+// OnboardingShareholder gagne le même champ, REQUIS. Un brouillon en v6 porte donc
+// des administrateurs et des actionnaires sans `adresse`, et `chargeAdresse` lirait
+// `a.address_line1` sur `undefined` — une LEVÉE au premier « Continuer » de l'étape 4.
+// La porte de version est, comme le dit le commentaire ci-dessus, la SEULE chose qui
+// puisse le rejeter : tsc croit le champ présent, la session JSON ne le porte pas.
+const DRAFT_VERSION = 7;
 
 interface OnboardingDraft {
   v: number;
@@ -315,17 +322,18 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             //   et l'inscription reste LIBRE : le module est un chemin, pas une
             //   règle. Les clés qui manquaient partent à `null` — la ligne
             //   écrite est identique, aucune de ces colonnes n'ayant de DEFAULT.
+            // ★ LES SIX COLONNES, PAR `chargeAdresse` (2026-09-15) — quatre `null`
+            //   en dur sont parties. C'est la MÊME conversion que le siège emploie
+            //   à l'étape 3 et que les Paramètres emploient : un champ laissé vide
+            //   s'écrit `null` APRÈS trim, jamais une chaîne vide, jamais un défaut.
+            //   `ChargePersonne` exige les six clés, donc l'étalement les fournit
+            //   toutes ou rien ne compile.
             const chargeAdministrateur: ChargePersonne = {
               company_id: companyId,
               full_name: dir.fullName.trim(),
               email: null,
               phone: null,
-              address_line1: null,
-              address_line2: null,
-              address_city: dir.addressCity.trim() || null,
-              address_province: null,
-              address_postal_code: null,
-              address_country: dir.addressCountry || null,
+              ...chargeAdresse(dir.adresse),
               is_canadian_resident: dir.isCanadianResident,
             };
             const { data: person, error: personErr } = await insererPersonne(supabase, chargeAdministrateur);
@@ -458,11 +466,17 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
               // `company_people` ne portent QUE leur clé primaire — aucune unicité.
               // Ce sont les deux pré-lectures qui rendent un second « Continuer »
               // inoffensif, en retrouvant ce que le premier passage a écrit.
-              // ⛔ NULL EXPLICITE, PAS 'CA'. Ce chemin ne demande que le NOM : poser
-              //    un pays ici, c'est declarer a la place de l'utilisateur.
+              // ⛔ « CE CHEMIN NE DEMANDE QUE LE NOM » N'EST PLUS VRAI — et la phrase
+              //    qui le disait est partie avec les six `null` (2026-09-15). L'étape
+              //    5 offre désormais le bloc d'adresse complet, et ce qu'elle saisit
+              //    s'écrit ici, par la MÊME conversion que l'étape 4 et que le siège.
+              //    Ce qui tient toujours : un champ vide s'écrit `null`, jamais 'CA'.
               // ⛔ ET is_canadian_resident S'ECRIT, IL NE S'OMET PAS. La regle du lot
               //    residence : le code doit etre juste AVEC ou SANS defaut en base.
               //    Celui-ci ne l'etait que parce que le defaut avait disparu.
+              //    ⚪ Il reste `null` ICI, et ce n'est pas un oubli : l'étape 5 ne pose
+              //    pas la question de la résidence — seule l'étape 4 la pose, et
+              //    seulement sous le régime fédéral (lib/residency.ts).
               // ★ La MÊME porte que les modales : les clés qui manquaient sont
               //   écrites à `null`, et la ligne insérée ne change pas.
               const chargeActionnaire: ChargePersonne = {
@@ -470,12 +484,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
                 full_name: sh.fullName.trim(),
                 email: null,
                 phone: null,
-                address_line1: null,
-                address_line2: null,
-                address_city: null,
-                address_province: null,
-                address_postal_code: null,
-                address_country: null,
+                ...chargeAdresse(sh.adresse),
                 is_canadian_resident: null,
               };
               const { data: newPerson, error: newPersonErr } = await insererPersonne(supabase, chargeActionnaire);
@@ -620,6 +629,15 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
           if (people && people.length > 0) {
             personId = people[0].id;
           } else {
+            // ⛔ LE SEUL SITE QUI ÉCRIT ENCORE SIX `null`, ET C'EST LA DÉCISION.
+            //    L'étape 6 ne SAISIT personne : ses trois listes n'offrent que les
+            //    noms déjà nommés aux étapes 4 et 5 (`knownPeople`), et la
+            //    pré-lecture `ilike` ci-dessus retrouve alors leur fiche — avec
+            //    l'adresse que ces étapes-là ont écrite. Cet insert n'est atteint
+            //    que pour un nom qu'aucune des deux n'a créé, et il n'existe aucun
+            //    champ à l'écran d'où une adresse pourrait venir. Y poser un bloc
+            //    demanderait le domicile d'une personne que l'utilisateur vient de
+            //    CHOISIR, pas de saisir.
             // ⛔ Meme regle qu'au site actionnaire ci-dessus : null explicite
             //    pour le pays, et la residence ecrite plutot qu'omise.
             // ★ Même porte d'écriture, même ligne insérée.

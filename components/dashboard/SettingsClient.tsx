@@ -10,8 +10,7 @@ import { formatDate } from '@/lib/utils'
 import { normalizeNeq, isValidNeq, normalizeCorporationNumber } from '@/lib/identifiers'
 import { adresseRegistre, chargeAdresse, type AdresseSaisie, type ChampAdresse } from '@/lib/address'
 import { CHAMPS_REQUIS_SIEGE, champsManquantsSiege } from '@/lib/data-gaps'
-import { countryOptions } from '@/lib/countries'
-import { PROVINCE_CODES, optionsProvinces } from '@/lib/provinces'
+import BlocAdresse from '@/components/ui/BlocAdresse'
 import frMessages from '@/messages/fr.json'
 import enMessages from '@/messages/en.json'
 
@@ -87,11 +86,11 @@ export function SettingsClient({
   // URL locale and would diverge from the `fr` boolean this file already uses
   // everywhere. Reuses the two keys the onboarding rule added: zero new strings.
   const cm = (fr ? frMessages : enMessages).common
-  const pv = (fr ? frMessages : enMessages).provinces
-  // Same static form as `cm`: the incorporation-date rule reuses onboarding's two keys,
-  // and the head office reuses the address labels `people` already carries.
+  // Same static form as `cm`: the incorporation-date rule reuses onboarding's two keys.
+  // ⚪ `pv` (provinces) et `pp` (people) sont PARTIS avec le formulaire du siège : les
+  //    étiquettes d'adresse et les noms de provinces vivent désormais dans BlocAdresse,
+  //    qui les lit par la même forme statique. Cet écran n'en garde aucune copie.
   const ob = (fr ? frMessages : enMessages).onboarding
-  const pp = (fr ? frMessages : enMessages).people
 
   // ── Profile state ──────────────────────────────────────────────────────────
   const [fullName, setFullName] = useState(initialFullName)
@@ -200,26 +199,17 @@ export function SettingsClient({
   }
 
   // ── Siège social ─────────────────────────────────────────────────────────────
-  // Les options de province : noms traduits, triés par la locale. Le tri et sa raison
-  // (« Île-du-Prince-Édouard ») vivent dans lib/provinces.ts depuis que l'inscription en
-  // a besoin aussi : deux copies du même tri auraient divergé.
-  const provincesTriees = optionsProvinces(locale, pv as Record<string, string | undefined>)
-  const paysOptions = countryOptions(locale)
-  // Pays canadien OU non déclaré → la liste fermée ; sinon un champ libre. Même prédicat
-  // que PersonSelector, EntityForm et l'étape 3.
-  const subdivisionCanadienne = siege.address_country === 'CA' || siege.address_country === ''
-  const provinceHorsListe =
-    subdivisionCanadienne &&
-    siege.address_province !== '' &&
-    !PROVINCE_CODES.some(code => code === siege.address_province)
+  // ★ LE FORMULAIRE N'EST PLUS ÉCRIT ICI (lot C-2, 2026-09-15) : c'est
+  //   components/ui/BlocAdresse.tsx, le même que l'étape 3 de l'inscription. Ce qui
+  //   vivait ici — le tri des provinces, la liste des pays, le prédicat canadien et la
+  //   garde de la valeur hors liste — y est parti en un seul exemplaire. Cet écran ne
+  //   garde que ce qui lui appartient : SON astérisque et SA peau (inputClass).
   // ★ L'ASTÉRISQUE DÉRIVE DE LA DÉCLARATION (CHAMPS_REQUIS_SIEGE), il ne s'écrit pas à
   //   la main : la garde de saveCompany et la liste des trous lisent la même liste.
   const marqueSiege = (champ: ChampAdresse) =>
     (CHAMPS_REQUIS_SIEGE as readonly ChampAdresse[]).includes(champ)
       ? <span className="text-red-500"> *</span>
       : null
-  const majSiege = (champ: ChampAdresse, valeur: string) =>
-    setSiege(prev => ({ ...prev, [champ]: valeur }))
   // Reads `editIncorpType`, the LOCAL state the unlocked <select> writes to — NOT the
   // `incorporationType` prop, which is frozen at page load. That is what makes the
   // federal-number field ungrey the instant the user picks CBCA, with no save and no
@@ -884,63 +874,17 @@ export function SettingsClient({
               </button>
             </div>
             {unlockedFields.has('siege') ? (
-              <div className="space-y-3">
-                <div>
-                  <label htmlFor="siege-address_line1" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                    {cm.siege.line1}{marqueSiege('address_line1')}
-                  </label>
-                  <input id="siege-address_line1" value={siege.address_line1} onChange={e => majSiege('address_line1', e.target.value)} placeholder={pp.addressLine1Placeholder} className={inputClass} />
-                </div>
-                <div>
-                  <label htmlFor="siege-address_line2" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                    {cm.siege.line2}{marqueSiege('address_line2')}
-                  </label>
-                  <input id="siege-address_line2" value={siege.address_line2} onChange={e => majSiege('address_line2', e.target.value)} placeholder={pp.addressLine2Placeholder} className={inputClass} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="siege-address_city" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                      {pp.city}{marqueSiege('address_city')}
-                    </label>
-                    <input id="siege-address_city" value={siege.address_city} onChange={e => majSiege('address_city', e.target.value)} className={inputClass} />
-                  </div>
-                  <div>
-                    <label htmlFor="siege-address_postal_code" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                      {pp.postalCode}{marqueSiege('address_postal_code')}
-                    </label>
-                    <input id="siege-address_postal_code" value={siege.address_postal_code} onChange={e => majSiege('address_postal_code', e.target.value)} className={inputClass} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="siege-address_province" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                      {subdivisionCanadienne ? pp.province : pp.stateRegion}{marqueSiege('address_province')}
-                    </label>
-                    {subdivisionCanadienne ? (
-                      <select id="siege-address_province" value={siege.address_province} onChange={e => majSiege('address_province', e.target.value)} className={selectClass}>
-                        <option value="">{pp.provinceNotDeclared}</option>
-                        {provinceHorsListe && <option value={siege.address_province}>{siege.address_province}</option>}
-                        {provincesTriees.map(p => (
-                          <option key={p.code} value={p.code}>{p.label}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input id="siege-address_province" value={siege.address_province} onChange={e => majSiege('address_province', e.target.value)} className={inputClass} />
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="siege-address_country" className="block text-xs font-medium text-[var(--text-muted)] mb-1">
-                      {pp.country}{marqueSiege('address_country')}
-                    </label>
-                    <select id="siege-address_country" value={siege.address_country} onChange={e => majSiege('address_country', e.target.value)} className={selectClass}>
-                      <option value="">{pp.countryNotDeclared}</option>
-                      {paysOptions.map(pays => (
-                        <option key={pays.code} value={pays.code}>{pays.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
+              <BlocAdresse
+                valeur={siege}
+                onChange={setSiege}
+                locale={locale}
+                libelleLigne1={cm.siege.line1}
+                libelleLigne2={cm.siege.line2}
+                marque={marqueSiege}
+                idPrefixe="siege"
+                classeChamp={inputClass}
+                classeEtiquette="block text-xs font-medium text-[var(--text-muted)] mb-1"
+              />
             ) : (
               <div
                 className="px-3 py-2 rounded-lg text-sm border"

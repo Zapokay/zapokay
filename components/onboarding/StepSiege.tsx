@@ -1,9 +1,7 @@
 'use client';
-import { useMemo } from 'react';
 import type { OnboardingData } from '@/lib/types';
-import type { ChampAdresse } from '@/lib/address';
-import { countryOptions } from '@/lib/countries';
-import { PROVINCE_CODES, optionsProvinces } from '@/lib/provinces';
+import type { AdresseSaisie } from '@/lib/address';
+import BlocAdresse from '@/components/ui/BlocAdresse';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
@@ -17,9 +15,17 @@ import enMessages from '@/messages/en.json';
  * Même forme que le domicile des administrateurs à l'étape 4. L'exigence vit dans
  * lib/data-gaps.ts (CHAMPS_REQUIS_SIEGE) : les Paramètres la marquent et la gardent,
  * la liste des trous la nomme.
+ * ★ D'où l'absence de prop `marque` sur le bloc ci-dessous : ce n'est pas un oubli,
+ *   c'est la décision. Ce qui n'exige rien ne marque rien.
  *
  * ⛔ AUCUNE PRÉSÉLECTION. L'ancienne étape arrivait sur « QC » déjà choisi, et 17
  * sociétés sur 17 portaient QC sans qu'on sache qui l'avait dit.
+ *
+ * ★ LES SIX CHAMPS NE SONT PLUS ÉCRITS ICI (lot C-2, 2026-09-15). Ils étaient l'une
+ * des QUATRE copies du même bloc ; ils viennent de components/ui/BlocAdresse.tsx,
+ * qui porte aussi l'ordre pays→province et la liste fermée réservée à `CA`. Cet
+ * écran garde sa peau — `inputStyle`, `fieldLabelStyle` — et n'a rien changé de son
+ * apparence, sauf les deux cellules de la dernière rangée, qui ont permuté.
  */
 
 interface StepSiegeProps {
@@ -49,26 +55,11 @@ const fieldLabelStyle: React.CSSProperties = {
 export function StepSiege({ data, setData, onNext, onBack, locale, saving, saveError }: StepSiegeProps) {
   const fr = locale === 'fr';
   const m = fr ? frMessages : enMessages;
-  const paysOptions = useMemo(() => countryOptions(locale), [locale]);
-  const provinces = useMemo(
-    () => optionsProvinces(locale, m.provinces as Record<string, string | undefined>),
-    [locale, m],
-  );
   const siege = data.company.siege;
 
-  function maj(champ: ChampAdresse, valeur: string) {
-    setData((d) => ({ ...d, company: { ...d.company, siege: { ...d.company.siege, [champ]: valeur } } }));
+  function majSiege(valeur: AdresseSaisie) {
+    setData((d) => ({ ...d, company: { ...d.company, siege: valeur } }));
   }
-
-  // Pays canadien OU non déclaré → la liste fermée ; sinon un champ libre. Même
-  // prédicat que PersonSelector, EntityForm et les Paramètres.
-  const subdivisionCanadienne = siege.address_country === 'CA' || siege.address_country === '';
-  // La valeur détenue gagne son option quand elle sort de la liste : le menu ne doit
-  // pas afficher une chose et en sauver une autre (PersonSelector, même raison).
-  const provinceHorsListe =
-    subdivisionCanadienne &&
-    siege.address_province !== '' &&
-    !PROVINCE_CODES.some((code) => code === siege.address_province);
 
   const mapPinIcon = (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -92,60 +83,16 @@ export function StepSiege({ data, setData, onNext, onBack, locale, saving, saveE
       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
         {m.onboarding.siege.hint}
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div>
-          <label htmlFor="siege-address_line1" style={fieldLabelStyle}>{m.common.siege.line1}</label>
-          <input id="siege-address_line1" type="text" value={siege.address_line1}
-            onChange={(e) => maj('address_line1', e.target.value)} placeholder={m.people.addressLine1Placeholder} style={inputStyle} />
-        </div>
-        <div>
-          <label htmlFor="siege-address_line2" style={fieldLabelStyle}>{m.common.siege.line2}</label>
-          <input id="siege-address_line2" type="text" value={siege.address_line2}
-            onChange={(e) => maj('address_line2', e.target.value)} placeholder={m.people.addressLine2Placeholder} style={inputStyle} />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div>
-            <label htmlFor="siege-address_city" style={fieldLabelStyle}>{m.people.city}</label>
-            <input id="siege-address_city" type="text" value={siege.address_city}
-              onChange={(e) => maj('address_city', e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label htmlFor="siege-address_postal_code" style={fieldLabelStyle}>{m.people.postalCode}</label>
-            <input id="siege-address_postal_code" type="text" value={siege.address_postal_code}
-              onChange={(e) => maj('address_postal_code', e.target.value)} style={inputStyle} />
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div>
-            <label htmlFor="siege-address_province" style={fieldLabelStyle}>
-              {subdivisionCanadienne ? m.people.province : m.people.stateRegion}
-            </label>
-            {subdivisionCanadienne ? (
-              <select id="siege-address_province" value={siege.address_province}
-                onChange={(e) => maj('address_province', e.target.value)} style={inputStyle}>
-                <option value="">{m.people.provinceNotDeclared}</option>
-                {provinceHorsListe && <option value={siege.address_province}>{siege.address_province}</option>}
-                {provinces.map((p) => (
-                  <option key={p.code} value={p.code}>{p.label}</option>
-                ))}
-              </select>
-            ) : (
-              <input id="siege-address_province" type="text" value={siege.address_province}
-                onChange={(e) => maj('address_province', e.target.value)} style={inputStyle} />
-            )}
-          </div>
-          <div>
-            <label htmlFor="siege-address_country" style={fieldLabelStyle}>{m.people.country}</label>
-            <select id="siege-address_country" value={siege.address_country}
-              onChange={(e) => maj('address_country', e.target.value)} style={inputStyle}>
-              <option value="">{m.people.countryNotDeclared}</option>
-              {paysOptions.map((pays) => (
-                <option key={pays.code} value={pays.code}>{pays.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
+      <BlocAdresse
+        valeur={siege}
+        onChange={majSiege}
+        locale={locale}
+        libelleLigne1={m.common.siege.line1}
+        libelleLigne2={m.common.siege.line2}
+        idPrefixe="siege"
+        styleChamp={inputStyle}
+        styleEtiquette={fieldLabelStyle}
+      />
 
       {saveError && (
         <p style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#ef4444' }}>{saveError}</p>

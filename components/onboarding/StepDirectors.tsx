@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { countryOptions } from '@/lib/countries';
+import { ADRESSE_VIERGE, type AdresseSaisie } from '@/lib/address';
+import BlocAdresse from '@/components/ui/BlocAdresse';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 
 // =============================================================================
@@ -13,12 +14,24 @@ export interface OnboardingDirector {
   fullName: string;
   appointmentDate: string;
   /**
-   * Le domicile, exige a la CREATION. `''` = non declare — jamais une
-   * valeur fabriquee. Requis et sans defaut : les deux litteraux qui
-   * construisent un administrateur echouent a compiler s'ils l'omettent.
+   * LE DOMICILE, LES SIX CHAMPS — il n'en portait que DEUX jusqu'au 2026-09-15.
+   *
+   * ⚖️ DÉCISION DE DOM, 2026-09-15 — elle corrige celle du 2026-09-09. « On n'a pas
+   * besoin d'imposer tous les champs, mais ça ne nous empêche pas de les OFFRIR. »
+   * ⛔ ET L'EXIGENCE N'A PAS BOUGÉ : `CHAMPS_REQUIS.director` dit toujours ville et
+   * pays, et rien ici ne marque ni ne bloque. OFFRIR ≠ IMPOSER.
+   *
+   * ⛔ LE DÉFAUT QUE LES DEUX CHAMPS FABRIQUAIENT. L'étape n'offrait QUE ville et
+   * pays — exactement les deux exigés. Une personne saisie « Montréal, CA » passait
+   * donc la complétude, `trousDeLaSociete` ne la listait jamais, et « Montréal, CA »
+   * s'imprimait au registre des administrateurs comme une adresse. Offrir les six ne
+   * rend pas la demi-adresse impossible ; ça ferme la FABRIQUE qui la produisait par
+   * construction.
+   *
+   * `AdresseSaisie` et non six champs plats : c'est la nomenclature de lib/address.ts,
+   * celle que `chargeAdresse` écrit. `''` = non déclaré, jamais une valeur fabriquée.
    */
-  addressCity: string;
-  addressCountry: string;
+  adresse: AdresseSaisie;
   /**
    * ⚠️ TROIS ETATS : declare oui · declare non · JAMAIS DECLARE (`null`).
    * `null` quand la residence ne s'applique pas au regime — jamais `false`,
@@ -88,8 +101,9 @@ export default function StepDirectors({
   const tCommon = useTranslations('common');
   // ★ Les etiquettes d'adresse viennent de `people`, celles que PersonSelector
   //   emploie deja : une meme etiquette ne vit pas a deux endroits du catalogue.
+  //   Seule la ligne 1 reste ici — c'est la seule qui differe d'une surface a
+  //   l'autre (« Adresse du domicile » pour une personne, « Adresse » pour un siege).
   const tPeople = useTranslations('people');
-  const paysOptions = useMemo(() => countryOptions(locale), [locale]);
 
   const [directors, setDirectors] = useState<OnboardingDirector[]>(
     initialDirectors && initialDirectors.length > 0
@@ -101,10 +115,10 @@ export default function StepDirectors({
             //    plus bas. La nomination est un fait que seul l'utilisateur connait
             //    (decision de Dom, 2026-09-12) ; handleContinue la refuse vide.
             appointmentDate: '',
-            addressCity: '',
-            // ⛔ AUCUNE PRESELECTION. Un champ obligatoire dont le defaut est
-            //    deja valide n'est pas obligatoire.
-            addressCountry: '',
+            // ⛔ AUCUNE PRESELECTION — ni pays, ni province. `ADRESSE_VIERGE` porte
+            //    les six champs a vide, et c'est la SEULE facon d'en construire une :
+            //    un litteral 'CA' ou 'QC' ici serait vu par A2 de check:adresses.
+            adresse: { ...ADRESSE_VIERGE },
             // ② `null`, PAS une omission ni un `false` : la colonne porte encore
             //    son DEFAULT TRUE (retire seulement a l'etape 7a), donc omettre
             //    refabriquerait un « Oui ». Ecrire null vaut avant et apres.
@@ -132,8 +146,7 @@ export default function StepDirectors({
       {
         fullName: '',
         appointmentDate: '',
-        addressCity: '',
-        addressCountry: '',
+        adresse: { ...ADRESSE_VIERGE },
         isCanadianResident: null,
       },
     ]);
@@ -332,36 +345,21 @@ export default function StepDirectors({
               )}
             </div>
 
-            {/* Domicile — ville + pays, exiges a la creation */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-              <div>
-                <label style={fieldLabelStyle}>
-                  {tPeople('city')}
-                </label>
-                <input
-                  type="text"
-                  value={director.addressCity}
-                  onChange={(e) => updateDirector(index, 'addressCity', e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={fieldLabelStyle}>
-                  {tPeople('country')}
-                </label>
-                <select
-                  value={director.addressCountry}
-                  onChange={(e) => updateDirector(index, 'addressCountry', e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">{tPeople('countryNotDeclared')}</option>
-                  {paysOptions.map((pays) => (
-                    <option key={pays.code} value={pays.code}>
-                      {pays.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* ★ LE DOMICILE, LES SIX CHAMPS — deux jusqu'au 2026-09-15.
+                ⛔ AUCUNE PROP `marque` : cette etape n'exige rien, donc elle ne
+                marque rien. Voir l'en-tete d'OnboardingDirector.
+                ★ `idPrefixe` porte l'index : plusieurs administrateurs montent
+                plusieurs blocs, et deux `id` identiques casseraient les `htmlFor`. */}
+            <div style={{ marginTop: '12px' }}>
+              <BlocAdresse
+                valeur={director.adresse}
+                onChange={(adresse) => updateDirector(index, 'adresse', adresse)}
+                locale={locale}
+                libelleLigne1={tPeople('address')}
+                idPrefixe={`administrateur-${index}`}
+                styleChamp={inputStyle}
+                styleEtiquette={fieldLabelStyle}
+              />
             </div>
 
             {/* ⛔ NI ASTERISQUE NI GARDE ICI, ET C'EST LE POINT. Un asterisque qui

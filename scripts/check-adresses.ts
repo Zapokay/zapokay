@@ -15,7 +15,8 @@
  *   A3  tout ce qu'un registre imprime sans ville ou sans pays est listé par
  *       trousDeLaSociete ;
  *   A4a tout formulaire qui CRÉE un porteur de rôle, personne ET entité, refuse sans
- *       ville ou pays et affiche un astérisque dérivé de la déclaration ;
+ *       ville ou pays et affiche un astérisque dérivé de la déclaration ; et tout
+ *       formulaire qui se contente d'OFFRIR une adresse n'exige ni ne marque rien ;
  *   A4b toute CORRECTION d'un porteur de rôle, personne ET entité, refuse de VIDER un
  *       champ exigé qui portait une valeur enregistrée, laisse passer une fiche déjà
  *       incomplète, et garde l'astérisque dérivé ;
@@ -61,8 +62,13 @@
  *      personne n'est saisie : son refus y est invisible. Il est vérifié par LECTURE —
  *      le `disabled` d'un bouton remonte-t-il à `champsManquants` ? — et une garde
  *      contournée par un gestionnaire (Entrée, `onSubmit`) échappe aux deux.
- *    · le recensement lit `<PersonSelector` et `<EntityForm` : un formulaire d'adresse
- *      écrit à côté de ces deux composants lui échappe — même limite que check:dates.
+ *    · le recensement lit `<PersonSelector`, `<EntityForm` et — depuis le 2026-09-15 —
+ *      `<BlocAdresse` : un formulaire d'adresse écrit à la main à côté de ces TROIS
+ *      composants lui échappe encore. Même limite que check:dates, et elle s'est
+ *      RÉDUITE : les deux surfaces du siège et les deux étapes d'inscription y sont
+ *      entrées. Un genre `offre` ne prouve pas qu'un formulaire ne refuse RIEN, mais
+ *      qu'il ne refuse rien PAR SES `disabled` et n'exige rien sur un PersonSelector ;
+ *      pour les deux étapes montées, il prouve en plus l'absence d'astérisque.
  * A4b · ⛔ UN MONTAGE NE VIDE RIEN. Monté, un formulaire de correction montre la fiche
  *      telle qu'elle est enregistrée : on y voit qu'une fiche incomplète PASSE, jamais
  *      qu'une saisie vidée TOMBE. Ce second sens est vérifié sur la fonction
@@ -108,6 +114,8 @@ import { VALEUR_ENTITE_VIDE } from '@/lib/entity-payload';
 import PersonSelector from '@/components/people/PersonSelector';
 import { CorrectionIdentite, type ExigenceDeCorrection } from '@/components/people/EditPersonModal';
 import EntityForm from '@/components/shareholders/EntityForm';
+import StepDirectors from '@/components/onboarding/StepDirectors';
+import StepShareholders from '@/components/onboarding/StepShareholders';
 import EditEntityModal from '@/components/shareholders/EditEntityModal';
 
 const RACINE = process.cwd();
@@ -668,8 +676,22 @@ interface Formulaire {
   /**
    * ⚖️ DEUX RÈGLES DEPUIS LE 2026-09-13 (décision de Dom) : une CRÉATION exige de remplir,
    * une CORRECTION refuse seulement de vider.
+   *
+   * ⚖️ ET UN TROISIÈME GENRE DEPUIS LE 2026-09-15 : `offre`. « Un utilisateur va
+   * s'attendre à faire l'entrée avec précision […] On n'a pas besoin d'imposer tous les
+   * champs, mais ça ne nous empêche pas de les OFFRIR. » Un formulaire de ce genre MONTRE
+   * les six champs et n'exige RIEN de neuf.
+   * ★ CE QU'`offre` AFFIRME : aucune exigence déclarée sur un `<PersonSelector>`, aucun
+   *   `disabled` remontant à l'une des trois fonctions de refus, et — pour les deux qu'on
+   *   monte — AUCUN ASTÉRISQUE sur les six libellés d'adresse. C'est la forme machine de
+   *   la décision : « si une inscription devient plus difficile à terminer, le lot a
+   *   échoué. »
+   * ⛔ CE QU'`offre` N'AFFIRME PAS : que le formulaire ne refuse rien du tout. Les
+   *   Paramètres refusent un siège incomplet — mais dans `saveCompany`, pas sur un
+   *   `disabled`, et par `champsManquantsSiege`, qui n'est pas un `Refus`. C'est A5 qui
+   *   lit cette écriture-là, et elle la lit toujours.
    */
-  genre: 'création' | 'correction';
+  genre: 'création' | 'correction' | 'offre';
   raison: string;
   /** Les `exigences` attendues sur ses <PersonSelector>, dans l'ordre ; `(dérivée)` pour la correction d'identité. */
   exigences: string[];
@@ -694,6 +716,28 @@ const FORMULAIRES = new Map<string, Formulaire>([
   ['components/people/EditPersonModal.tsx', {
     genre: 'correction', raison: "corrige l'identité — portée DÉRIVÉE des rôles actifs (décision de Dom, 2026-09-13)",
     exigences: ['(dérivée)'], refus: ['champsVidesParLaCorrection'], fiche: 'person',
+  }],
+  // ── LES QUATRE PORTEURS DE <BlocAdresse>, entrés au recensement le 2026-09-15 ──
+  // Ils lui échappaient tous : le filtre ne lisait que <PersonSelector et <EntityForm,
+  // et l'en-tête l'avouait — « un formulaire d'adresse écrit à côté de ces deux
+  // composants lui échappe ». Deux d'entre eux montaient déjà leur bloc à la main ;
+  // les deux autres le montent depuis ce lot. Aucun n'exige quoi que ce soit.
+  ['components/onboarding/StepDirectors.tsx', {
+    genre: 'offre', raison: "offre le domicile à l'étape 4 — six champs, aucun exigé (décision de Dom, 2026-09-15)",
+    exigences: [], refus: [],
+  }],
+  ['components/onboarding/StepShareholders.tsx', {
+    genre: 'offre', raison: "offre le domicile à l'étape 5 — le bloc n'y existait pas du tout avant le 2026-09-15",
+    exigences: [], refus: [],
+  }],
+  ['components/onboarding/StepSiege.tsx', {
+    genre: 'offre', raison: "offre le siège à l'étape 3 — exigé dans l'application, pas ici (décision de Dom, 2026-09-09)",
+    exigences: [], refus: [],
+  }],
+  ['components/dashboard/SettingsClient.tsx', {
+    genre: 'offre',
+    raison: "corrige le siège — son refus vit dans saveCompany (champsManquantsSiege), PAS sur un disabled : c'est A5 qui le lit",
+    exigences: [], refus: [],
   }],
 ]);
 
@@ -763,11 +807,22 @@ function lireFormulaire(sf: ts.SourceFile): { exigences: string[]; refus: Set<st
   return { exigences, refus, fiches };
 }
 
-/** Tout fichier de app/ ou components/ qui monte un formulaire d'adresse de rôle. */
+/**
+ * Tout fichier de app/ ou components/ qui monte un formulaire d'adresse.
+ *
+ * ★ `BlocAdresse` ENTRE ICI LE 2026-09-15, et c'est la moitié du lot. Le recensement
+ * ne connaissait que les deux composants de rôle ; les deux surfaces du siège lui
+ * échappaient, et les deux étapes d'inscription allaient lui échapper aussi. Un
+ * formulaire d'adresse ne peut désormais plus apparaître dans app/ ou components/
+ * sans DÉCLARER son genre ci-dessus — c'est ce que la ligne `NON RECENSÉ` d'A4a
+ * impose.
+ * ⛔ L'ANGLE MORT SE DÉPLACE, IL NE DISPARAÎT PAS : un bloc d'adresse écrit à la main
+ * à côté de ces TROIS composants échappe toujours. Même limite que check:dates.
+ */
 function recenser(): string[] {
   return ['app', 'components']
     .flatMap((a) => fichiers(join(RACINE, a)))
-    .filter((p) => /<(PersonSelector|EntityForm)\b/.test(readFileSync(p, 'utf8')))
+    .filter((p) => /<(PersonSelector|EntityForm|BlocAdresse)\b/.test(readFileSync(p, 'utf8')))
     .map((p) => relative(RACINE, p))
     .sort();
 }
@@ -794,10 +849,22 @@ function texteDe(html: string): string {
     .trim();
 }
 
-/** Les libellés rendus AVEC un astérisque. */
+/**
+ * Les libellés rendus AVEC un astérisque.
+ *
+ * ⚠️ DEUX MARQUES, PAS UNE — et la seconde manquait. Ce filtre ne lisait que
+ * `text-red-500`, la classe Tailwind du tableau de bord ; l'inscription marque en
+ * STYLE EN LIGNE (`color: '#ef4444'` — StepDirectors, StepShareholders,
+ * StepCompany). Un astérisque posé à l'inscription était donc INVISIBLE pour cette
+ * garde, ce qui aurait rendu vide — donc vraie sans rien vérifier — l'assertion
+ * « aucun astérisque neuf » du genre `offre`. Une assertion vide est une fausse
+ * assurance, et l'en-tête de ce fichier interdit d'en poser.
+ * ★ L'ajout ne fait que RENFORCER les assertions existantes : il ne retire aucune
+ * détection, il en ajoute une.
+ */
 function libellesMarques(html: string): string[] {
   return Array.from(html.matchAll(/<label\b[^>]*>([\s\S]*?)<\/label>/g))
-    .filter((m) => /text-red-500/.test(m[1]))
+    .filter((m) => /text-red-500/.test(m[1]) || /#ef4444/i.test(m[1]))
     .map((m) => texteDe(m[1]))
     .sort();
 }
@@ -846,6 +913,8 @@ const ENTITE_SANS_ADRESSE = {
   created_at: '', updated_at: '', ...SANS_ADRESSE,
 };
 const rien = () => {};
+/** `onContinue` des étapes d'inscription : Promise<boolean>, jamais appelée au montage. */
+const accepte = async () => true;
 const memes = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 /** Les libellés qu'une portée doit marquer : le nom, plus l'union de ses rôles. */
 const marquesDeclarees = (portee: PorteeExigence): string[] =>
@@ -869,7 +938,13 @@ function lireLesFormulaires(genre: Formulaire['genre'], porteurs: string[]): boo
       : ficheJuste ? ` · comparé à la fiche enregistrée (${attendu.fiche})`
       : ` · comparé à [${fiches.join(', ')}] AU LIEU DE LA FICHE ENREGISTRÉE (${attendu.fiche})`;
     const juste = exigencesJustes && refusManquants.length === 0 && ficheJuste;
-    vrai = dire(juste, `${chemin} — ${attendu.raison} · exigences [${lu.exigences.join(', ')}]${exigencesJustes ? '' : ` ≠ attendues [${attendu.exigences.join(', ')}]`} · refus ${refusManquants.length === 0 ? `par ${attendu.refus.join(' + ')}` : `MANQUANT : aucun disabled n'atteint ${refusManquants.join(', ')}`}${texteFiche}`) && vrai;
+    // ⚪ `refus: []` se LIT — un genre `offre` n'attend aucun refus, et « refus par »
+    //    suivi de rien ne dit pas cela, il a l'air tronqué.
+    const texteRefus =
+      refusManquants.length > 0 ? `MANQUANT : aucun disabled n'atteint ${refusManquants.join(', ')}`
+      : attendu.refus.length === 0 ? 'aucun attendu'
+      : `par ${attendu.refus.join(' + ')}`;
+    vrai = dire(juste, `${chemin} — ${attendu.raison} · exigences [${lu.exigences.join(', ')}]${exigencesJustes ? '' : ` ≠ attendues [${attendu.exigences.join(', ')}]`} · refus ${texteRefus}${texteFiche}`) && vrai;
   }
   return vrai;
 }
@@ -878,9 +953,37 @@ function verifierA4a(): boolean {
   console.log('\n━━ A4a — CRÉER UN PORTEUR DE RÔLE EXIGE VILLE ET PAYS, ET LE MARQUE ━━');
   let vrai = true;
   const porteurs = recenser();
-  console.log(`  RECENSEMENT — ${porteurs.length} fichiers montent PersonSelector ou EntityForm`);
+  console.log(`  RECENSEMENT — ${porteurs.length} fichiers montent PersonSelector, EntityForm ou BlocAdresse`);
   for (const f of porteurs.filter((p) => !FORMULAIRES.has(p))) vrai = dire(false, `NON RECENSÉ : ${f} — déclare son genre, ses exigences et son refus ici`) && vrai;
   vrai = lireLesFormulaires('création', porteurs) && vrai;
+
+  // ── LE GENRE `offre` — OFFRIR N'EST PAS IMPOSER (décision de Dom, 2026-09-15) ──
+  console.log('  OFFRE — les formulaires qui montrent les six champs sans rien exiger');
+  vrai = lireLesFormulaires('offre', porteurs) && vrai;
+  try {
+    // ⛔ LES SIX LIBELLÉS D'ADRESSE, ET LA PROVINCE SOUS SES DEUX NOMS. BlocAdresse
+    //    rend `stateRegion` tant que le pays n'est pas 'CA' — et une fixture vierge
+    //    n'a pas de pays. Ne filtrer que sur `province` laisserait passer un
+    //    astérisque posé sur la branche étrangère.
+    const adressePersonne = new Set<string>([
+      ...CHAMPS.map((c) => libelle(LIBELLE_PERSONNE, c)),
+      messages.people.stateRegion,
+    ]);
+    const offres: [string, React.ReactElement][] = [
+      ['StepDirectors (étape 4)', el(StepDirectors, {
+        locale: 'fr', userFullName: 'Ana Martin', residencyApplies: true, onContinue: accepte, onSkip: rien,
+      })],
+      ['StepShareholders (étape 5)', el(StepShareholders, {
+        locale: 'fr', directors: [], onContinue: accepte, onSkip: rien,
+      })],
+    ];
+    for (const [quoi, element] of offres) {
+      const marques = libellesMarques(rendre(element)).filter((l) => adressePersonne.has(l));
+      vrai = dire(marques.length === 0, `${quoi} — aucun astérisque sur les six champs d'adresse${marques.length ? ` : [${marques.join(', ')}] EN PORTENT UN` : ''}`) && vrai;
+    }
+  } catch (err) {
+    vrai = dire(false, `MONTAGE IMPOSSIBLE — la garde ne peut pas conclure : ${(err as Error).message}`);
+  }
 
   console.log('  MONTAGES — astérisques rendus contre la déclaration');
   const portees: PorteeExigence[] = ['director', 'officer', 'shareholder', 'entity_signatory', HORS_ROLE_AUCUNE_EXIGENCE, ['director', 'shareholder']];

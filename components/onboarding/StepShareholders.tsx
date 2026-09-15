@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { ADRESSE_VIERGE, type AdresseSaisie } from '@/lib/address';
+import BlocAdresse from '@/components/ui/BlocAdresse';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
 
@@ -16,6 +18,19 @@ export interface OnboardingShareholder {
    *  as IssueSharesModal does. Validated before any write in OnboardingFlow. */
   pricePerShare: string;
   issueDate: string;
+  /**
+   * LE DOMICILE — ET IL N'EXISTAIT PAS DU TOUT AVANT LE 2026-09-15.
+   *
+   * ⛔ CE N'EST PAS « QUATRE CHAMPS DE PLUS », C'EST LE BLOC ENTIER. Cette étape
+   * n'offrait AUCUN champ d'adresse, et OnboardingFlow écrivait les six colonnes à
+   * `null` en dur (le site d'écriture, mesuré le 2026-09-15). Un actionnaire créé
+   * ici naissait donc sans domicile — et `CHAMPS_REQUIS.shareholder` exige ville et
+   * pays, donc sa fiche arrivait dans la liste des trous le jour de sa création.
+   *
+   * ⚖️ DÉCISION DE DOM, 2026-09-15 : OFFRIR ≠ IMPOSER. L'exigence ne bouge pas, rien
+   * n'est marqué, rien ne bloque.
+   */
+  adresse: AdresseSaisie;
 }
 
 interface StepShareholdersProps {
@@ -61,11 +76,23 @@ export default function StepShareholders({
   const fr = locale === 'fr';
   const t = useTranslations('shareholders');
   const tCommon = useTranslations('common');
+  // ★ La seule etiquette que ce fichier passe au bloc d'adresse : la ligne 1, qui
+  //   differe d'une surface a l'autre. Les cinq autres vivent dans BlocAdresse.
+  const tPeople = useTranslations('people');
 
   // ⛔ THE ISSUE DATE STARTS EMPTY — no incorporation date, no today (Dom's
   // decision, 2026-09-12): when shares were issued is a fact only the user
   // knows. handleContinue refuses an empty one before any write.
   // Smart pre-fill: if only 1 director, pre-fill shareholder with same name + 100 shares
+  //
+  // ⛔ L'ADRESSE, ELLE, NE SE RECOPIE PAS DE L'ADMINISTRATEUR — et c'est délibéré,
+  // à la différence du NOM juste au-dessus. Deux raisons, et la seconde suffirait :
+  //   · si le nom reste celui de l'administrateur, la pré-lecture `ilike` de
+  //     OnboardingFlow RÉUTILISE la fiche déjà créée à l'étape 4 — l'adresse saisie
+  //     ici ne serait écrite nulle part. Une copie invisible ;
+  //   · si l'utilisateur CHANGE le nom, la copie devient l'adresse d'une personne
+  //     pour une autre. C'est une adresse fabriquée, exactement ce qu'A2 interdit.
+  // Même raison et même forme que la date d'émission, qui n'hérite pas non plus.
   const defaultShareholders: OnboardingShareholder[] =
     initialShareholders && initialShareholders.length > 0
       ? initialShareholders
@@ -76,6 +103,7 @@ export default function StepShareholders({
               numberOfShares: 100,
               pricePerShare: '1',
               issueDate: '',
+              adresse: { ...ADRESSE_VIERGE },
             },
           ]
         : directors.length > 0
@@ -84,6 +112,7 @@ export default function StepShareholders({
               numberOfShares: 100,
               pricePerShare: '1',
               issueDate: '',
+              adresse: { ...ADRESSE_VIERGE },
             }))
           : [
               {
@@ -91,6 +120,7 @@ export default function StepShareholders({
                 numberOfShares: 100,
                 pricePerShare: '1',
                 issueDate: '',
+                adresse: { ...ADRESSE_VIERGE },
               },
             ];
 
@@ -113,7 +143,7 @@ export default function StepShareholders({
   function addShareholder() {
     setShareholders((prev) => [
       ...prev,
-      { fullName: '', numberOfShares: 100, pricePerShare: '1', issueDate: '' },
+      { fullName: '', numberOfShares: 100, pricePerShare: '1', issueDate: '', adresse: { ...ADRESSE_VIERGE } },
     ]);
   }
 
@@ -338,6 +368,20 @@ export default function StepShareholders({
                   style={inputStyle}
                 />
               </div>
+            </div>
+
+            {/* ★ LE DOMICILE — le bloc entier, qui n'existait pas.
+                ⛔ AUCUNE PROP `marque` : cette étape n'exige rien de neuf. */}
+            <div style={{ marginTop: '12px' }}>
+              <BlocAdresse
+                valeur={shareholder.adresse}
+                onChange={(adresse) => updateShareholder(index, 'adresse', adresse)}
+                locale={locale}
+                libelleLigne1={tPeople('address')}
+                idPrefixe={`actionnaire-${index}`}
+                styleChamp={inputStyle}
+                styleEtiquette={fieldLabelStyle}
+              />
             </div>
           </div>
         ))}
