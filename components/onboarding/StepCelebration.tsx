@@ -181,26 +181,26 @@ export default function StepCelebration({
   }
 
   // Officers — one line per assigned role; omit lines for unassigned roles.
-  if (officers.presidentName.trim()) {
+  if (officers.president.nom.trim()) {
     lines.push({
       text: formatMsg(locale, 'onboarding.summary.officerPresident', {
-        name: officers.presidentName.trim(),
+        name: officers.president.nom.trim(),
       }),
       done: true,
     });
   }
-  if (officers.secretaryName.trim()) {
+  if (officers.secretary.nom.trim()) {
     lines.push({
       text: formatMsg(locale, 'onboarding.summary.officerSecretary', {
-        name: officers.secretaryName.trim(),
+        name: officers.secretary.nom.trim(),
       }),
       done: true,
     });
   }
-  if (officers.treasurerName.trim()) {
+  if (officers.treasurer.nom.trim()) {
     lines.push({
       text: formatMsg(locale, 'onboarding.summary.officerTreasurer', {
-        name: officers.treasurerName.trim(),
+        name: officers.treasurer.nom.trim(),
       }),
       done: true,
     });

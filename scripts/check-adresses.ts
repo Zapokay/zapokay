@@ -116,6 +116,7 @@ import { CorrectionIdentite, type ExigenceDeCorrection } from '@/components/peop
 import EntityForm from '@/components/shareholders/EntityForm';
 import StepDirectors from '@/components/onboarding/StepDirectors';
 import StepShareholders from '@/components/onboarding/StepShareholders';
+import StepOfficers, { DIRIGEANT_VIDE } from '@/components/onboarding/StepOfficers';
 import EditEntityModal from '@/components/shareholders/EditEntityModal';
 
 const RACINE = process.cwd();
@@ -730,6 +731,10 @@ const FORMULAIRES = new Map<string, Formulaire>([
     genre: 'offre', raison: "offre le domicile à l'étape 5, SUR SES DEUX BRANCHES — personne et société (la nature du détenteur, 2026-09-15)",
     exigences: [], refus: [],
   }],
+  ['components/onboarding/StepOfficers.tsx', {
+    genre: 'offre', raison: "offre le domicile d'un dirigeant SAISI à l'étape 6 — « Une autre personne… », 2026-09-15",
+    exigences: [], refus: [],
+  }],
   ['components/onboarding/StepSiege.tsx', {
     genre: 'offre', raison: "offre le siège à l'étape 3 — exigé dans l'application, pas ici (décision de Dom, 2026-09-09)",
     exigences: [], refus: [],
@@ -999,6 +1004,19 @@ function verifierA4a(): boolean {
       })],
       ['StepShareholders (étape 5, branche société)', el(StepShareholders, {
         locale: 'fr', directors: [], initialShareholders: [ligneEntite], onContinue: accepte, onSkip: rien,
+      })],
+      // ⚠️ MÊME RAISON QU'À L'ÉTAPE 5 : « une autre personne » est un état interne, et
+      //    un montage ne clique pas. `initialOfficers` est la seule porte qui ouvre la
+      //    branche de SAISIE ; sans elle la garde ne verrait que les trois listes et se
+      //    croirait complète.
+      ['StepOfficers (étape 6, dirigeant saisi)', el(StepOfficers, {
+        locale: 'fr', directors: [], shareholders: [], incorporationDate: '2024-05-06',
+        initialOfficers: {
+          president: { nom: 'Chantal Nadeau', nouvelle: true, adresse: { ...ADRESSE_VIERGE } },
+          secretary: { ...DIRIGEANT_VIDE },
+          treasurer: { ...DIRIGEANT_VIDE },
+        },
+        onContinue: accepte, onSkip: rien,
       })],
     ];
     for (const [quoi, element] of offres) {

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Language, OnboardingData } from '@/lib/types';
-import { ADRESSE_VIERGE, adresseEnSaisie, chargeAdresse } from '@/lib/address';
+import { ADRESSE_VIERGE, adresseEnSaisie, chargeAdresse, type AdresseSaisie } from '@/lib/address';
 import { normalizeNeq, normalizeCorporationNumber } from '@/lib/identifiers';
 import { residencyApplies } from '@/lib/residency';
 import { insererPersonne, type ChargePersonne } from '@/lib/person-payload';
@@ -13,7 +13,7 @@ import { StepCompany } from './StepCompany';
 import { StepSiege } from './StepSiege';
 import StepDirectors, { type OnboardingDirector } from './StepDirectors';
 import StepShareholders, { nomActionnaire, type OnboardingShareholder } from './StepShareholders';
-import StepOfficers, { type OnboardingOfficers } from './StepOfficers';
+import StepOfficers, { DIRIGEANT_VIDE, POSTES, type OnboardingOfficers } from './StepOfficers';
 import StepCelebration from './StepCelebration';
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
@@ -83,7 +83,14 @@ const today = new Date().toISOString().split('T')[0];
 // sans nature — `nomActionnaire` y lirait `s.entite.legalName` sur `undefined` dès que
 // la comparaison tombe du mauvais côté, et la carte rendrait un bloc société sur une
 // valeur absente. Même porte, même raison : rien d'autre ne peut rejeter ce brouillon.
-const DRAFT_VERSION = 8;
+// ⚠️ 9 DEPUIS LE LOT « DIRIGEANT NEUF » (2026-09-15) : OnboardingOfficers cesse de
+// porter trois CHAÎNES (`presidentName`…) pour porter trois SaisieDirigeant
+// (`president: { nom, nouvelle, adresse }`…). Un brouillon en v8 porte donc
+// `presidentName` là où le code lit `president.nom` : la lecture rendrait `undefined`,
+// `.trim()` y LÈVERAIT au premier rendu de l'étape 6, et le sommaire de l'étape 7
+// avec lui. C'est le changement de forme le plus large des quatre : la porte de
+// version reste la seule chose capable de rejeter un tel brouillon.
+const DRAFT_VERSION = 9;
 
 interface OnboardingDraft {
   v: number;
@@ -175,9 +182,9 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
   const [directors, setDirectors] = useState<OnboardingDirector[]>(() => draft?.directors ?? []);
   const [shareholders, setShareholders] = useState<OnboardingShareholder[]>(() => draft?.shareholders ?? []);
   const [officers, setOfficers] = useState<OnboardingOfficers>(() => draft?.officers ?? {
-    presidentName: '',
-    secretaryName: '',
-    treasurerName: '',
+    president: { ...DIRIGEANT_VIDE },
+    secretary: { ...DIRIGEANT_VIDE },
+    treasurer: { ...DIRIGEANT_VIDE },
   });
 
   // #146 (option iii): onboarding CONTENT follows the URL locale. data.language is
@@ -645,7 +652,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
         // le mandat. Même forme que la branche « pas de société » plus bas ;
         // inatteignable par le parcours normal, puisque l'étape 2 l'exige.
         const appointmentDate = incorporationDate;
-        const aNommer = [offs.presidentName, offs.secretaryName, offs.treasurerName].some((n) => n.trim());
+        const aNommer = POSTES.some((poste) => offs[poste].nom.trim());
         if (aNommer && !appointmentDate) return false;
 
         // DUPLICATION ON A SECOND PASS — CLOSED BY PRE-READ, NOT BY A CONSTRAINT.
@@ -654,12 +661,32 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
         // UNIQUE (MEASURED 2026-08-28 — and none can be added). The title check
         // at the top of the helper closes it.
         //
+        // ★★ LA TABLE LOCALE — UN NOM RÉSOLU UNE FOIS PAR « CONTINUER ».
+        // ⚖️ Décision de Dom, 2026-09-15. Les trois titres se résolvaient chacun par
+        // une pré-lecture ; nommer la MÊME personne neuve présidente puis secrétaire
+        // faisait donc dépendre la seconde d'un read-after-write — et aucune des deux
+        // tables ne porte d'unicité, donc un raté aurait créé le doublon EN SILENCE.
+        // ⛔ ET LE PARC NE POUVAIT PAS TRANCHER LA QUESTION. Mesuré le 2026-09-15 :
+        // dix sociétés portent une personne à deux titres, zéro doublon — mais les dix
+        // sur dix avaient leur fiche créée AVANT l'étape 6, à l'étape 4 ou 5. Le cas
+        // DANS la boucle n'a jamais tourné, puisque ce chemin n'était pas atteignable.
+        // Une garde qu'on ne peut pas mesurer ne se suppose pas : on s'en passe.
+        // ★ Cette table RETIRE la question. Le second titre ne relit rien : il lit ce
+        // que la boucle a déjà en main. Elle sert aussi, du même geste, la règle
+        // « même nom, une seule adresse » de l'écran.
+        // ⚠️ La clé est le nom en MINUSCULES et sans espaces de bord, parce que la
+        // pré-lecture emploie `ilike`, qui ignore la casse. Une clé sensible à la casse
+        // ferait diverger la table de la lecture qu'elle remplace.
+        const fichesDuPassage = new Map<string, string>();
+
         // Returns true on success, false on the first failed write.
         const appointOfficer = async (
-          name: string,
+          saisie: { nom: string; nouvelle: boolean; adresse: AdresseSaisie },
           title: 'president' | 'secretary' | 'treasurer'
         ): Promise<boolean> => {
+          const name = saisie.nom;
           if (!name.trim()) return true;
+          const cle = name.trim().toLowerCase();
           // Skip if this TITLE is already actively held. Form copied from
           // SAFEGUARD 1 (AddOfficerModal): same table, same company_id + title +
           // is_active filter, and it READS ITS ERROR before concluding.
@@ -681,6 +708,14 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             .limit(1);
           if (heldTitleErr) return false;
           if (heldTitle && heldTitle.length > 0) return true;
+
+          // ① CE PASSAGE A-T-IL DÉJÀ RÉSOLU CE NOM ? Si oui : aucune lecture, aucune
+          //    écriture. C'est la même personne, elle a déjà sa fiche.
+          let personId: string;
+          const dejaResolue = fichesDuPassage.get(cle);
+          if (dejaResolue) {
+            personId = dejaResolue;
+          } else {
           const { data: people, error: peopleErr } = await supabase
             .from('company_people')
             .select('id')
@@ -690,39 +725,39 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
           // insert on an error would create a SECOND row for someone who already
           // exists — the pre-read's whole purpose, inverted. Stop instead.
           if (peopleErr) return false;
-          let personId: string;
           if (people && people.length > 0) {
             personId = people[0].id;
           } else {
-            // ⛔ LE SEUL SITE QUI ÉCRIT ENCORE SIX `null`, ET C'EST LA DÉCISION.
-            //    L'étape 6 ne SAISIT personne : ses trois listes n'offrent que les
-            //    noms déjà nommés aux étapes 4 et 5 (`knownPeople`), et la
-            //    pré-lecture `ilike` ci-dessus retrouve alors leur fiche — avec
-            //    l'adresse que ces étapes-là ont écrite. Cet insert n'est atteint
-            //    que pour un nom qu'aucune des deux n'a créé, et il n'existe aucun
-            //    champ à l'écran d'où une adresse pourrait venir. Y poser un bloc
-            //    demanderait le domicile d'une personne que l'utilisateur vient de
-            //    CHOISIR, pas de saisir.
-            // ⛔ Meme regle qu'au site actionnaire ci-dessus : null explicite
-            //    pour le pays, et la residence ecrite plutot qu'omise.
-            // ★ Même porte d'écriture, même ligne insérée.
+            // ⛔ LE COMMENTAIRE QUI VIVAIT ICI EST MORT AVEC SA CONDITION, ET SES
+            //    TROIS AFFIRMATIONS SONT TOMBÉES LE MÊME JOUR. Il disait : « l'étape 6
+            //    ne SAISIT personne » · « ses trois listes n'offrent que les noms des
+            //    étapes 4 et 5 » · « il n'existe aucun champ à l'écran d'où une adresse
+            //    pourrait venir ». Depuis le 2026-09-15 l'étape offre « Une autre
+            //    personne… », un champ de nom et le bloc d'adresse — et sa dernière
+            //    phrase se RETOURNE : on demande bien le domicile de quelqu'un qu'on
+            //    SAISIT, pas qu'on choisit.
+            // ⛔ CE QUI SURVIT, ET QUI DOIT RESTER : `is_canadian_resident` s'écrit
+            //    `null`, il ne s'omet pas. L'étape 6 ne pose pas la question de la
+            //    résidence — seule l'étape 4 la pose, et seulement sous le régime
+            //    fédéral (lib/residency.ts).
+            // ★ L'ADRESSE PASSE PAR `chargeAdresse`, comme aux étapes 3, 4 et 5 : un
+            //   champ vide s'écrit `null` APRÈS trim, jamais une chaîne vide, jamais un
+            //   défaut. Un dirigeant CHOISI dans la liste porte une adresse vierge —
+            //   mais il n'atteint jamais cet insert, puisque sa fiche existe déjà.
             const chargeDirigeant: ChargePersonne = {
               company_id: companyId,
               full_name: name.trim(),
               email: null,
               phone: null,
-              address_line1: null,
-              address_line2: null,
-              address_city: null,
-              address_province: null,
-              address_postal_code: null,
-              address_country: null,
+              ...chargeAdresse(saisie.adresse),
               is_canadian_resident: null,
             };
             const { data: newPerson, error: newPersonErr } = await insererPersonne(supabase, chargeDirigeant);
             if (newPersonErr || !newPerson) return false;
             personId = newPerson.id;
           }
+          }
+          fichesDuPassage.set(cle, personId);
           const { error: apptErr } = await supabase.from('officer_appointments').insert({
             company_id: companyId,
             person_id: personId,
@@ -736,9 +771,9 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
         };
         // Sequential and short-circuiting: stop at the first officer that fails,
         // so a later title is never appointed over a broken earlier one.
-        if (!(await appointOfficer(offs.presidentName, 'president'))) return false;
-        if (!(await appointOfficer(offs.secretaryName, 'secretary'))) return false;
-        if (!(await appointOfficer(offs.treasurerName, 'treasurer'))) return false;
+        if (!(await appointOfficer(offs.president, 'president'))) return false;
+        if (!(await appointOfficer(offs.secretary, 'secretary'))) return false;
+        if (!(await appointOfficer(offs.treasurer, 'treasurer'))) return false;
       } else {
         // Same false-success shape as steps 4 and 5: no company means nothing can
         // be written, so advancing to step 7 would report a success that never
@@ -892,7 +927,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             pas. */}
         {step === 4 && <StepDirectors locale={activeLocale} residencyApplies={residencyApplies(data.company.incorporationType)} initialDirectors={directors.length > 0 ? directors : undefined} onContinue={handleDirectorsContinue} onSkip={() => setStep(5)} />}
         {step === 5 && <StepShareholders locale={activeLocale} directors={directors} initialShareholders={shareholders.length > 0 ? shareholders : undefined} onContinue={handleShareholdersContinue} onSkip={() => setStep(6)} />}
-        {step === 6 && <StepOfficers locale={activeLocale} directors={directors} shareholders={shareholders} incorporationDate={incorporationDate} initialOfficers={officers.presidentName ? officers : undefined} onContinue={handleOfficersContinue} onSkip={() => setStep(7)} />}
+        {step === 6 && <StepOfficers locale={activeLocale} directors={directors} shareholders={shareholders} incorporationDate={incorporationDate} initialOfficers={POSTES.some((p) => officers[p].nom) ? officers : undefined} onContinue={handleOfficersContinue} onSkip={() => setStep(7)} />}
         {step === 7 && <StepCelebration locale={activeLocale} companyName={data.company.legalName} incorporationType={data.company.incorporationType} directors={directors} shareholders={shareholders} officers={officers} onContinue={handleCelebrationContinue} />}
       </main>
     </div>
