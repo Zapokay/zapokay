@@ -24,13 +24,15 @@
     "regimes": {
       "LSA": {
         "acronym": "QBCA",
+        "choix": "Corporation incorporated in Québec",
         "jurisdiction": "Provincial — Québec",
-        "law": "Quebec Business Corporations Act"
+        "law": "Business Corporations Act (Québec) (QBCA)"
       },
       "CBCA": {
         "acronym": "CBCA",
+        "choix": "Corporation incorporated federally",
         "jurisdiction": "Federal",
-        "law": "Canada Business Corporations Act"
+        "law": "Canada Business Corporations Act (CBCA)"
       }
     },
     "fiscalYears": {
@@ -134,6 +136,7 @@
     "step1Title": "Choose your language",
     "step1Subtitle": "You can change this at any time.",
     "languageNote": "This is the language of the documents ZapOkay generates for you — resolutions, certificates, and more — which you can change later in Settings. Your interface language is separate: switch it anytime with the toggle at the top right.",
+    "regimeChoiceHint": "What matters is not where your business operates, but the authority under which it was incorporated. Your file in the Québec enterprise register states the Act under which your corporation was incorporated. Consultation is free.",
     "incorporationDatePlaceholder": "YYYY-MM-DD",
     "incorporationDateRequired": "Incorporation date is required",
     "incorporationDateFuture": "Incorporation date cannot be in the future",

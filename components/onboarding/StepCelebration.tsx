@@ -6,6 +6,7 @@ import type { OnboardingDirector } from './StepDirectors';
 import { nomActionnaire, type OnboardingShareholder } from './StepShareholders';
 import type { OnboardingOfficers } from './StepOfficers';
 import type { IncorporationType } from '@/lib/types';
+import { regimeEnBase } from '@/lib/regimes';
 import IntlMessageFormat from 'intl-messageformat';
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
@@ -130,10 +131,24 @@ export default function StepCelebration({
   const lines: { text: string; done: boolean }[] = [];
 
   // Company line — always rendered (company is saved at Step 3).
+  //
+  // ⛔ LA VALEUR BRUTE NE SORT PLUS ICI, ET C'ÉTAIT LE SEUL ENDROIT DU PARCOURS OÙ
+  //    ELLE SORTAIT. Cette ligne passait `incorporationType` — le vocabulaire du
+  //    FLUX, 'LSAQ' ou 'CBCA' — directement dans le gabarit ICU. L'écran affichait
+  //    donc « Ma société inc. (CBCA) », littéralement, IDENTIQUE en français et en
+  //    anglais, sans passer par aucun catalogue. Les quatre autres surfaces qui
+  //    nomment un régime lisaient déjà `common.regimes` ; celle-ci, non.
+  // ★ C'EST L'ÉCRAN OÙ L'UTILISATEUR RELIT SON CHOIX JUSTE AVANT DE LE SCELLER.
+  // ⚠️ `regimeEnBase` ET NON UNE COMPARAISON ÉCRITE ICI : le catalogue est indexé
+  //    par la valeur de la BASE ('LSA'), le flux porte 'LSAQ'. La conversion vivait
+  //    déjà à deux endroits, et cette ligne aurait été le troisième.
+  // ⚪ `acronym`, PAS `choix` : un sommaire ÉTIQUETTE ce qui a été choisi, il ne
+  //    propose plus rien. Voir lib/regimes.ts.
+  const messagesRegime = locale === 'fr' ? frMessages : enMessages;
   lines.push({
     text: formatMsg(locale, 'onboarding.summary.company', {
       companyName,
-      incorporationType,
+      incorporationType: messagesRegime.common.regimes[regimeEnBase(incorporationType)].acronym,
     }),
     done: true,
   });

@@ -24,13 +24,15 @@
     "regimes": {
       "LSA": {
         "acronym": "LSAQ",
+        "choix": "Société constituée au Québec",
         "jurisdiction": "Provincial — Québec",
-        "law": "Loi sur les sociétés par actions du Québec"
+        "law": "Loi sur les sociétés par actions (LSAQ)"
       },
       "CBCA": {
         "acronym": "LCSA",
+        "choix": "Société constituée au fédéral",
         "jurisdiction": "Fédéral",
-        "law": "Loi canadienne sur les sociétés par actions"
+        "law": "Loi canadienne sur les sociétés par actions (LCSA)"
       }
     },
     "fiscalYears": {
@@ -134,6 +136,7 @@
     "step1Title": "Choisissez votre langue",
     "step1Subtitle": "Vous pourrez changer cela à tout moment.",
     "languageNote": "C'est la langue des documents que ZapOkay génère pour vous — résolutions, certificats, etc. — que vous pourrez modifier plus tard dans les Paramètres. La langue de l'interface est indépendante : changez-la à tout moment avec le sélecteur en haut à droite.",
+    "regimeChoiceHint": "Ce qui compte n'est pas l'endroit où votre entreprise exerce ses activités, mais l'autorité auprès de laquelle elle a été constituée. Votre fiche au registre des entreprises du Québec indique la loi en vertu de laquelle votre société a été constituée. La consultation est gratuite.",
     "incorporationDatePlaceholder": "AAAA-MM-JJ",
     "incorporationDateRequired": "La date de constitution est requise",
     "incorporationDateFuture": "La date de constitution ne peut pas être dans le futur",

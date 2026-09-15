@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import type { OnboardingData, IncorporationType } from '@/lib/types';
 import { normalizeNeq, isValidNeq, normalizeCorporationNumber } from '@/lib/identifiers';
+import { REGIMES } from '@/lib/regimes';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
@@ -14,25 +15,13 @@ interface StepProps {
   locale: string;
 }
 
-// ⚠️ THE ACRONYM IS NO LONGER HERE. It differs by LOCALE — FR says LSAQ/LCSA, EN says
-// QBCA/CBCA — and three surfaces were each carrying their own copy, which is how one of
-// them came to ship "LSAC", the letters transposed, for as long as it existed. That
-// surface was dead code and has since been deleted; the lesson stands. It now comes from
-// common.regimes, keyed by `dbValue` because that is what the database stores and
-// what the two dashboard surfaces already index by.
-// ★ THE SUBTITLES HAVE LEFT THIS ARRAY TOO. They used to be literals, and they were
-// ASYMMETRIC: a CATEGORY under LSAQ, the NAME OF THE STATUTE under CBCA. The catalogue
-// now carries both levels for both regimes — `jurisdiction` and `law` — so the two
-// cards finally say the same KINDS of thing. The four law names are the exact heads of
-// lib/legal-definitions.ts, minus their explanatory tails: one spelling of a statute
-// title in the codebase, not two.
-// What remains here is what the catalogue cannot hold: the flow's own vocabulary
-// ('LSAQ') and the database's ('LSA').
-const incorporationTypes = [
-  { value: 'LSAQ' as IncorporationType, dbValue: 'LSA' as const },
-  { value: 'CBCA' as IncorporationType, dbValue: 'CBCA' as const },
-];
-
+// ⚠️ LA TABLE DES DEUX RÉGIMES A QUITTÉ CE FICHIER. Elle portait la
+// correspondance des deux vocabulaires — 'LSAQ' pour le flux, 'LSA' pour la base —
+// et le sommaire de l'étape 7 allait en écrire une TROISIÈME copie. Elle vit
+// maintenant dans lib/regimes.ts, avec la déclaration de ce que chaque clé du
+// catalogue sert à faire : `choix` et `law` pour CHOISIR, ici ; `acronym` et
+// `jurisdiction` pour ÉTIQUETER, ailleurs. Lis cet en-tête avant d'« unifier »
+// quoi que ce soit.
 const MONTHS_FR = [
   'janvier','février','mars','avril','mai','juin',
   'juillet','août','septembre','octobre','novembre','décembre',
@@ -259,13 +248,13 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
               ③ auto-fit + minmax remplace '1fr 1fr' : un style en ligne ne peut pas porter
               de media query, et sans ça les cartes se compressaient sans jamais s'empiler. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-            {incorporationTypes.map(type => {
-              const isSelected = data.company.incorporationType === type.value;
+            {REGIMES.map(regime => {
+              const isSelected = data.company.incorporationType === regime.flux;
               return (
                 <button
-                  key={type.value}
+                  key={regime.flux}
                   type="button"
-                  onClick={() => update('incorporationType', type.value)}
+                  onClick={() => update('incorporationType', regime.flux)}
                   style={{
                     position: 'relative', padding: '14px', borderRadius: '10px', textAlign: 'left',
                     border: `2px solid ${isSelected ? '#F5B91E' : 'var(--card-border)'}`,
@@ -285,45 +274,46 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
                       </svg>
                     </span>
                   )}
-                  {/* NIVEAU 1 — la pastille. Fond TRANSPARENT et bordure sémantique, et ce
-                      n'est pas un repli esthétique : le bouton non sélectionné porte
-                      opacity: 0.7 (ci-dessus), qui compose AUSSI son contenu. Un écart de
-                      fond n'y survit pas — mesuré à 1.062 en thème clair contre --card-bg.
-                      Un contour, lui, reste lisible sous la transparence — et il ne dépend
-                      d'aucun écart de fond, ce qui reste vrai maintenant que l'opacité est
-                      partie. DM Mono est chargée par l'@import de globals.css:1. */}
-                  <div style={{
-                    display: 'inline-block',
-                    fontFamily: "'DM Mono', ui-monospace, monospace",
-                    fontSize: '12px', fontWeight: 500, letterSpacing: '.03em',
-                    padding: '3px 9px', borderRadius: '6px',
-                    background: isSelected ? 'rgba(245,185,30,0.14)' : 'transparent',
-                    border: `1px solid ${isSelected ? 'transparent' : 'var(--card-border)'}`,
-                    color: isSelected ? 'var(--amber-800)' : 'var(--text-body)',
-                  }}>
-                    {cm.regimes[type.dbValue].acronym}
-                  </div>
-                  {/* NIVEAU 2 — la juridiction. Le marginTop de 8px est la seule valeur que la
-                      spec ne fixait pas : sans elle le titre colle à la pastille. */}
+                  {/* ⚖️ NIVEAU 1 — LA PHRASE, PAS LE SIGLE. Décision de Dom,
+                      2026-09-15 : la carte menait par un acronyme dans une pastille,
+                      et « Provincial — Québec » n'est pas du langage clair. Un
+                      propriétaire de PME ne choisit pas une loi ; il décrit sa
+                      situation. La pastille est partie avec elle.
+                      ⛔ `choix`, PAS `jurisdiction` — voir lib/regimes.ts : la
+                      seconde étiquette ce qu'on A, la première propose ce qu'on
+                      CHOISIT, et ce ne sont pas deux noms d'une même chose. */}
                   <div style={{
                     fontFamily: 'Sora, sans-serif', fontSize: '16px', fontWeight: 600,
-                    color: 'var(--text-heading)', lineHeight: 1.2, marginTop: '8px',
+                    color: 'var(--text-heading)', lineHeight: 1.25, paddingRight: '26px',
                   }}>
-                    {cm.regimes[type.dbValue].jurisdiction}
+                    {cm.regimes[regime.base].choix}
                   </div>
-                  {/* NIVEAU 3 — le nom de loi. IL S'ENROULE. Aucun overflow, aucun
-                      textOverflow, aucun whiteSpace nowrap, aucune infobulle : un titre de loi
-                      tronqué est FAUX, pas abrégé. */}
+                  {/* NIVEAU 2 — le nom de loi, avec son sigle. IL S'ENROULE : aucun
+                      overflow, aucun textOverflow, aucun nowrap, aucune infobulle —
+                      un titre de loi tronqué est FAUX, pas abrégé. */}
                   <div style={{
                     fontFamily: 'DM Sans, sans-serif', fontSize: '12px', fontWeight: 400,
-                    color: 'var(--text-body)', lineHeight: 1.4, marginTop: '3px',
+                    color: 'var(--text-body)', lineHeight: 1.4, marginTop: '5px',
                   }}>
-                    {cm.regimes[type.dbValue].law}
+                    {cm.regimes[regime.base].law}
                   </div>
                 </button>
               );
             })}
           </div>
+          {/* ⚖️ SOUS LES DEUX CARTES, UNE SEULE FOIS — c'est une explication DU CHOIX,
+              pas une propriété d'une option. La poser sur chaque carte la ferait lire
+              comme un argument en faveur de celle-ci.
+              ★ ELLE NE DONNE AUCUN AVIS : elle pointe vers un FAIT PUBLIC et gratuit.
+              C'est la règle qu'on s'est donnée sur le domicile — aucune définition
+              juridique à l'écran. Texte d'Harvey, 2026-09-15, vérifié contre la LSAQ
+              (RLRQ c. S-31.1), sa version anglaise officielle et la LCSA. */}
+          <p style={{
+            fontSize: '12px', color: 'var(--text-secondary)',
+            lineHeight: 1.5, marginTop: '10px', marginBottom: 0,
+          }}>
+            {ob.regimeChoiceHint}
+          </p>
         </div>
 
         {/* NEQ */}
