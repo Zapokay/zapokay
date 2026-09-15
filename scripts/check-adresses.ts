@@ -727,7 +727,7 @@ const FORMULAIRES = new Map<string, Formulaire>([
     exigences: [], refus: [],
   }],
   ['components/onboarding/StepShareholders.tsx', {
-    genre: 'offre', raison: "offre le domicile à l'étape 5 — le bloc n'y existait pas du tout avant le 2026-09-15",
+    genre: 'offre', raison: "offre le domicile à l'étape 5, SUR SES DEUX BRANCHES — personne et société (la nature du détenteur, 2026-09-15)",
     exigences: [], refus: [],
   }],
   ['components/onboarding/StepSiege.tsx', {
@@ -965,16 +965,40 @@ function verifierA4a(): boolean {
     //    rend `stateRegion` tant que le pays n'est pas 'CA' — et une fixture vierge
     //    n'a pas de pays. Ne filtrer que sur `province` laisserait passer un
     //    astérisque posé sur la branche étrangère.
+    // ⛔ LES SIX LIBELLÉS, ET CHACUN SOUS TOUTES SES FORMES. La province se rend
+    //    `stateRegion` tant que le pays n'est pas 'CA' — et une fixture vierge n'a
+    //    pas de pays. La ligne 1 est une PROP de BlocAdresse : l'étape 5 lui passe
+    //    « Adresse du domicile » sur sa branche personne et « Adresse » sur sa
+    //    branche société. Ne filtrer que sur une forme laisserait passer un
+    //    astérisque posé sur l'autre.
     const adressePersonne = new Set<string>([
       ...CHAMPS.map((c) => libelle(LIBELLE_PERSONNE, c)),
       messages.people.stateRegion,
+      messages.shareholders.address,
     ]);
+    // ⚠️ LA NATURE DU DÉTENTEUR EST UN ÉTAT INTERNE, ET UN MONTAGE NE CLIQUE PAS.
+    //    `initialShareholders` est la seule porte qui permette de monter la branche
+    //    SOCIÉTÉ — sans elle, cette garde ne verrait jamais que la branche personne
+    //    et se croirait complète. Même angle mort que la forme 5 de check:dates,
+    //    contourné ici parce que la prop existe.
+    const ligneEntite = {
+      nature: 'entity' as const,
+      fullName: '',
+      numberOfShares: 100,
+      pricePerShare: '1',
+      issueDate: '',
+      adresse: { ...ADRESSE_VIERGE },
+      entite: { ...VALEUR_ENTITE_VIDE },
+    };
     const offres: [string, React.ReactElement][] = [
       ['StepDirectors (étape 4)', el(StepDirectors, {
         locale: 'fr', userFullName: 'Ana Martin', residencyApplies: true, onContinue: accepte, onSkip: rien,
       })],
-      ['StepShareholders (étape 5)', el(StepShareholders, {
+      ['StepShareholders (étape 5, branche personne)', el(StepShareholders, {
         locale: 'fr', directors: [], onContinue: accepte, onSkip: rien,
+      })],
+      ['StepShareholders (étape 5, branche société)', el(StepShareholders, {
+        locale: 'fr', directors: [], initialShareholders: [ligneEntite], onContinue: accepte, onSkip: rien,
       })],
     ];
     for (const [quoi, element] of offres) {

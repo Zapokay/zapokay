@@ -202,6 +202,39 @@ export function adresseDeLaValeur(v: ValeurEntite): Record<ChampAdresse, string>
 }
 
 /**
+ * ⑤ SAISIE D'ADRESSE — le sens RETOUR, de `AdresseSaisie` vers `ValeurEntite`.
+ *
+ * ★ LA QUATRIÈME TRADUCTION AVAIT UN SENS UNIQUE. `adresseDeLaValeur` ci-dessus
+ * rend déjà l'adresse sous les noms de colonnes — c'est exactement la forme
+ * qu'attend `components/ui/BlocAdresse.tsx`. Mais le bloc ÉMET une adresse
+ * entière à chaque frappe, et rien ne savait la refondre dans la valeur. Cette
+ * fonction ferme la boucle : lire par `adresseDeLaValeur`, réécrire par ici.
+ *
+ * ⛔ ELLE NE TOUCHE QUE LES SIX. Les cinq champs d'identité — type,
+ * dénomination, numéro, descripteur, date — passent inchangés. Un bloc
+ * d'adresse n'a aucune autorité sur l'identité de l'entité.
+ *
+ * ⚪ POURQUOI ELLE ARRIVE MAINTENANT. L'étape 5 de l'inscription monte
+ * `BlocAdresse` sur une entité ; `EntityForm`, lui, garde son propre balisage
+ * jusqu'à sa migration (déclarée en file avec `PersonSelector`). Les deux
+ * surfaces liront donc la même valeur, écrite par les mêmes traductions.
+ */
+export function valeurAvecAdresse(
+  v: ValeurEntite,
+  a: Record<ChampAdresse, string>,
+): ValeurEntite {
+  return {
+    ...v,
+    addressLine1: a.address_line1,
+    addressLine2: a.address_line2,
+    addressCity: a.address_city,
+    addressProvince: a.address_province,
+    addressPostalCode: a.address_postal_code,
+    addressCountry: a.address_country,
+  };
+}
+
+/**
  * Le correctif d'une entité, tel qu'il part à l'UPDATE.
  *
  * ★ TOUTES LES CLÉS SONT REQUISES, même règle que `ChargeEntite` : « écris

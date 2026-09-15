@@ -74,13 +74,26 @@ export default function StepOfficers({
   const tCommon = useTranslations('common');
 
   // Build list of known people names (deduped)
+  //
+  // ⚖️ UNE PERSONNE MORALE N'EST PAS DIRIGEANTE, ET C'EST DÉSORMAIS ÉCRIT.
+  // Depuis que l'étape 5 demande la nature du détenteur (2026-09-15), elle peut
+  // rendre des actionnaires-SOCIÉTÉS. Aucun ne doit entrer dans ces trois listes :
+  // une charge de président ou de secrétaire se tient par un être humain.
+  //
+  // ⛔ CE FILTRE ÉTAIT DÉJÀ JUSTE — PAR ACCIDENT. Une ligne d'entité laisse
+  // `fullName` vide, donc `s.fullName.trim()` l'écartait toute seule. Le
+  // comportement était bon et sa raison n'était écrite nulle part : quelqu'un
+  // l'aurait « réparé » un jour en croyant combler un oubli, et aurait fait entrer
+  // une société dans la liste des dirigeants.
+  // ★ Le test porte donc sur `nature`, pas sur le vide d'un champ : l'intention
+  // vit dans le code, pas dans une absence.
   const knownPeople = useMemo(() => {
     const names = new Set<string>();
     directors.forEach((d) => {
       if (d.fullName.trim()) names.add(d.fullName.trim());
     });
     shareholders.forEach((s) => {
-      if (s.fullName.trim()) names.add(s.fullName.trim());
+      if (s.nature === 'individual' && s.fullName.trim()) names.add(s.fullName.trim());
     });
     return Array.from(names);
   }, [directors, shareholders]);

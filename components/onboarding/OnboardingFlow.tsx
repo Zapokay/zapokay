@@ -7,11 +7,12 @@ import { ADRESSE_VIERGE, adresseEnSaisie, chargeAdresse } from '@/lib/address';
 import { normalizeNeq, normalizeCorporationNumber } from '@/lib/identifiers';
 import { residencyApplies } from '@/lib/residency';
 import { insererPersonne, type ChargePersonne } from '@/lib/person-payload';
+import { chargeEntite, type ChargeEntite } from '@/lib/entity-payload';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
 import { StepSiege } from './StepSiege';
 import StepDirectors, { type OnboardingDirector } from './StepDirectors';
-import StepShareholders, { type OnboardingShareholder } from './StepShareholders';
+import StepShareholders, { nomActionnaire, type OnboardingShareholder } from './StepShareholders';
 import StepOfficers, { type OnboardingOfficers } from './StepOfficers';
 import StepCelebration from './StepCelebration';
 import frMessages from '@/messages/fr.json';
@@ -77,7 +78,12 @@ const today = new Date().toISOString().split('T')[0];
 // `a.address_line1` sur `undefined` — une LEVÉE au premier « Continuer » de l'étape 4.
 // La porte de version est, comme le dit le commentaire ci-dessus, la SEULE chose qui
 // puisse le rejeter : tsc croit le champ présent, la session JSON ne le porte pas.
-const DRAFT_VERSION = 7;
+// ⚠️ 8 DEPUIS LE LOT « NATURE DU DÉTENTEUR » (2026-09-15) : OnboardingShareholder gagne
+// `nature` et `entite`, tous deux REQUIS. Un brouillon en v7 porte des actionnaires
+// sans nature — `nomActionnaire` y lirait `s.entite.legalName` sur `undefined` dès que
+// la comparaison tombe du mauvais côté, et la carte rendrait un bloc société sur une
+// valeur absente. Même porte, même raison : rien d'autre ne peut rejeter ce brouillon.
+const DRAFT_VERSION = 8;
 
 interface OnboardingDraft {
   v: number;
@@ -434,7 +440,58 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
           // written; pressing Continue again no longer duplicates them — the
           // pre-read below skips what this flow has already issued.
           for (const sh of shs) {
-            if (!sh.fullName.trim() || sh.numberOfShares <= 0) continue;
+            // ⛔ `nomActionnaire`, PAS `fullName`. Une ligne d'ENTITÉ porte sa
+            //    dénomination dans `entite.legalName` et laisse `fullName` vide : ce
+            //    test l'aurait sautée EN SILENCE, et l'étape aurait annoncé un succès
+            //    en perdant un actionnaire entier. Une seule fonction, aux six sites
+            //    du parcours qui lisaient un actionnaire par son nom.
+            if (!nomActionnaire(sh).trim() || sh.numberOfShares <= 0) continue;
+
+            // ── QUI DÉTIENT — la question que cette étape ne posait pas ───────────
+            // ★ DEUX BRANCHES, UNE SEULE DISCIPLINE : chacune PRÉ-LIT son détenteur,
+            //   lit l'erreur de cette lecture, et sort par `return false` plutôt que
+            //   de prendre un échec pour une absence. C'est ce qui rend un second
+            //   « Continuer » inoffensif des deux côtés — ni personne ni entité en
+            //   double. Aucune des deux tables ne porte d'unicité (mesuré).
+            let holder: { holder_type: 'individual' | 'entity'; person_id?: string; entity_id?: string };
+            let colonneDetenteur: 'person_id' | 'entity_id';
+            let idDetenteur: string;
+
+            if (sh.nature === 'entity') {
+              // ⛔ LA MÊME PORTE QUE L'APPLICATION, PAS UN SECOND CHEMIN.
+              //    `chargeEntite` construit la charge, `create_entity_with_signatories`
+              //    l'écrit — exactement ce qu'IssueSharesModal appelle. L'inscription
+              //    hérite donc du `NULLIF` de la fonction sur ses douze champs : un
+              //    champ vide s'écrit NULL, jamais un défaut.
+              // ★ `p_signatories: []` EST NATIVEMENT ADMIS — la fonction teste
+              //    `IF v_count IS NOT NULL AND v_count > 0` avant sa boucle. « Sans
+              //    signataire » ne coûte donc aucune ligne de SQL. Et c'est la
+              //    décision : un signataire n'est pas l'actionnaire, c'est une
+              //    personne de plus, avec son rôle et ses dates ; son chemin existe
+              //    déjà dans l'application.
+              // ⚠️ ANNOTATION EXPLICITE, JAMAIS UN CAST — `supabase.rpc` type sa
+              //    charge en `any`, et sans `: ChargeEntite` une clé d'adresse
+              //    absente repartirait sans que rien ne le dise.
+              const { data: entitesExistantes, error: entiteErr } = await supabase
+                .from('shareholder_entities')
+                .select('id')
+                .eq('company_id', companyId)
+                .ilike('legal_name', sh.entite.legalName.trim());
+              if (entiteErr) return false;
+              if (entitesExistantes && entitesExistantes.length > 0) {
+                idDetenteur = entitesExistantes[0].id;
+              } else {
+                const p_entity: ChargeEntite = chargeEntite(companyId, sh.entite);
+                const { data: entityId, error: rpcErr } = await supabase.rpc(
+                  'create_entity_with_signatories',
+                  { p_entity, p_signatories: [] },
+                );
+                if (rpcErr || !entityId) return false;
+                idDetenteur = entityId as string;
+              }
+              holder = { holder_type: 'entity', entity_id: idDetenteur };
+              colonneDetenteur = 'entity_id';
+            } else {
             // ⚠️ PRECONDITION OF THE SHAREHOLDING GUARD BELOW, not a tidy-up.
             // A failed lookup read as "no such person" yields a FRESH personId, so
             // the guard below finds nothing to compare and inserts. It would be at
@@ -447,9 +504,8 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
               .eq('company_id', companyId)
               .ilike('full_name', sh.fullName.trim());
             if (existingPeopleErr) return false;
-            let personId: string;
             if (existingPeople && existingPeople.length > 0) {
-              personId = existingPeople[0].id;
+              idDetenteur = existingPeople[0].id;
             } else {
               // ⚠️ `continue` ÉTAIT LA FAUTE, PAS L'ABSENCE DE LECTURE D'ERREUR.
               // Cet insert ne lisait pas son `error`, mais surtout : sur un échec
@@ -489,7 +545,10 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
               };
               const { data: newPerson, error: newPersonErr } = await insererPersonne(supabase, chargeActionnaire);
               if (newPersonErr || !newPerson) return false;
-              personId = newPerson.id;
+              idDetenteur = newPerson.id;
+            }
+            holder = { holder_type: 'individual', person_id: idDetenteur };
+            colonneDetenteur = 'person_id';
             }
             // Skip a shareholding this flow has ALREADY written. The key must run
             // through shareholding_holders — shareholdings carries no person column.
@@ -513,7 +572,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
               .from('shareholding_holders')
               .select('shareholding_id, shareholding:shareholdings!inner(share_class_id, issue_date, quantity, source)')
               .eq('company_id', companyId)
-              .eq('person_id', personId)
+              .eq(colonneDetenteur, idDetenteur)
               .eq('shareholding.share_class_id', shareClassId)
               .eq('shareholding.issue_date', sh.issueDate)
               .eq('shareholding.quantity', sh.numberOfShares)
@@ -523,8 +582,14 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             // Skip WITHOUT consuming a certificate number: the existing row already
             // holds one, and it is already counted in the series resumed above.
             if (existingSh && existingSh.length > 0) continue;
-            // Atom 2 (Q-R-G2-A): Pattern β2 RPC. Individual-only holder for atom 2;
-            // entity-holder onboarding paths are atom 3+ scope.
+            // ⛔ LE COMMENTAIRE QUI VIVAIT ICI EST MORT AVEC SA CONDITION. Il disait
+            //    « Individual-only holder for atom 2 ; entity-holder onboarding paths
+            //    are atom 3+ scope » — vrai jusqu'au 2026-09-15, faux depuis : le
+            //    détenteur est résolu plus haut, dans l'une ou l'autre branche, et
+            //    part ici sous sa forme propre.
+            // ⚪ `check_mixed_holders` ne peut pas se déclencher sur ce chemin : il
+            //    refuse une détention CONJOINTE mêlant une entité à d'autres
+            //    détenteurs, et cette boucle écrit UN détenteur par détention.
             const { error: shErr } = await supabase.rpc('create_shareholding_with_holders', {
               p_shareholding: {
                 company_id: companyId,
@@ -535,7 +600,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
                 certificate_number: String(certNum).padStart(3, '0'),
               },
               p_holders: [
-                { holder_type: 'individual', person_id: personId },
+                holder,
               ],
             });
             // Stop at the FIRST failure: do not advance, and do not consume

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
-import type { OnboardingShareholder } from './StepShareholders';
+import { nomActionnaire, type OnboardingShareholder } from './StepShareholders';
 import type { OnboardingOfficers } from './StepOfficers';
 import type { IncorporationType } from '@/lib/types';
 import IntlMessageFormat from 'intl-messageformat';
@@ -49,6 +49,31 @@ function formatMsg(
   return new IntlMessageFormat(template, locale).format(params) as string;
 }
 
+/**
+ * LE NOM D'UN ACTIONNAIRE AU SOMMAIRE — et sa NATURE quand c'en est une société.
+ *
+ * ⚖️ DÉCISION DE DOM, 2026-09-15, forme (A) : la nature entre dans le nom. « Le défaut
+ * à fermer est qu'une société ressemble à une personne, pas qu'on ne sait pas combien
+ * de chaque. » Un second compte aurait demandé deux clés ICU de plus, avec leurs
+ * clauses =0/=1/other dans les deux langues, sur une ligne qui en porte déjà trois.
+ *
+ * ⛔ LE MARQUEUR DÉRIVE DU TYPE, JAMAIS UN MOT FIXE. `entity_type` admet `trust` :
+ * écrire « société » sur une fiducie serait la même erreur d'un cran plus fin.
+ * ★ ET LES DEUX LIBELLÉS SONT CEUX DU CATALOGUE QUE L'UTILISATEUR VIENT DE CHOISIR À
+ * L'ÉTAPE 5 — `shareholders.entityTypeCorporation` / `entityTypeTrust`. Aucune table
+ * de libellés neuve : c'est ainsi qu'on arrive à treize tables pour les titres.
+ */
+function nomAffiche(s: OnboardingShareholder, locale: string): string {
+  const nom = nomActionnaire(s).trim();
+  if (s.nature !== 'entity') return nom;
+  const messages = locale === 'fr' ? frMessages : enMessages;
+  const type =
+    s.entite.entityType === 'trust'
+      ? messages.shareholders.entityTypeTrust
+      : messages.shareholders.entityTypeCorporation;
+  return formatMsg(locale, 'onboarding.summary.shareholderEntity', { name: nom, type });
+}
+
 // Counts 1–4 show all names; 5+ shows first 3 + "et N autres" / "and N more".
 function joinNames(names: string[], locale: string): string {
   if (names.length <= 4) return names.join(', ');
@@ -90,7 +115,16 @@ export default function StepCelebration({
   }
 
   const validDirectors = directors.filter((d) => d.fullName.trim());
-  const validShareholders = shareholders.filter((s) => s.fullName.trim());
+  /**
+   * ⛔ `nomActionnaire`, PAS `fullName` — ET C'EST LE FILTRE QUI CASSAIT LE PLUS FORT.
+   * Une ligne d'actionnaire-SOCIÉTÉ porte sa dénomination dans `entite.legalName` et
+   * laisse `fullName` vide. Ce filtre l'aurait donc écartée — pas affichée comme une
+   * personne : ÉCARTÉE, donc absente du COMPTE. Le sommaire aurait annoncé
+   * « 1 actionnaire » là où l'utilisateur venait d'en saisir deux, avec sa pastille
+   * verte, sur l'écran où il relit son travail juste avant de le sceller.
+   * ★ Le lot aurait fermé la confusion à l'étape 5 et l'aurait rouverte ici, en pire.
+   */
+  const validShareholders = shareholders.filter((s) => nomActionnaire(s).trim());
 
   // Build summary lines per Bundle B Fix 3: medium-detail per category.
   const lines: { text: string; done: boolean }[] = [];
@@ -122,7 +156,10 @@ export default function StepCelebration({
     let text = formatMsg(locale, 'onboarding.summary.shareholdersCount', { count });
     if (count > 0) {
       text += formatMsg(locale, 'onboarding.summary.shareholdersNames', {
-        names: joinNames(validShareholders.map((s) => s.fullName.trim()), locale),
+        // ⛔ PAS `.map(nomAffiche)` NU : `Array.map` passe (valeur, INDEX, tableau), et
+        //    l'index serait arrivé dans `locale`. tsc l'a refusé — il ne l'aurait pas
+        //    fait si `nomAffiche` n'avait eu qu'un paramètre.
+        names: joinNames(validShareholders.map((s) => nomAffiche(s, locale)), locale),
       });
     }
     lines.push({ text, done: count > 0 });
