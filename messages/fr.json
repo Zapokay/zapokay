@@ -272,6 +272,7 @@
     "addFirstDoc": "Ajouter votre premier document →"
   },
   "documents": {
+    "untitledFallback": "Document sans titre",
     "entityNoSignatoriesNote": "Cette entité n'a aucun signataire enregistré. Une ligne de signature vierge sera ajoutée au document pour remplissage manuel.",
     "vaultTitle": "Coffre-fort documentaire",
     "uploadDrag": "Glissez un fichier ici ou",

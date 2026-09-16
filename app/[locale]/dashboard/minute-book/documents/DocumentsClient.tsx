@@ -8,6 +8,8 @@ import { DocumentRow, type VaultDocument } from '@/components/documents/Document
 import { UploadZone } from '@/components/documents/UploadZone';
 import { useToasts } from '@/components/ui/Toasts';
 import { filePathFromFileUrl } from '@/lib/storage-path';
+import { logActivity } from '@/lib/activity-log';
+import { titresDeJournalSuppression } from '@/lib/journal-document';
 import type { Company } from '@/lib/types';
 
 interface DocumentsClientProps {
@@ -133,6 +135,26 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
         'error'
       );
     } else {
+      // ★ LE REGISTRE S'INSCRIT ICI, ET NULLE PART AILLEURS SUR CE CHEMIN.
+      // APRÈS la suppression de la LIGNE, donc jamais sur un échec : une entrée
+      // qui dit « supprimé » alors que la ligne est restée serait un mensonge.
+      // ⚪ EN REVANCHE ELLE S'ÉCRIT MÊME SI LE RETRAIT DU FICHIER A ÉCHOUÉ
+      // ci-dessus, et c'est une DÉCISION, pas un oubli : le geste de
+      // l'utilisateur a bien eu lieu et le document a bien quitté le livre. Un
+      // objet de stockage orphelin est un autre problème, qui a ses propres
+      // mesures — le taire ici ferait disparaître le geste du registre.
+      // ⛔ LE TITRE EST GELÉ MAINTENANT, dans les DEUX langues : à la lecture,
+      // la ligne `documents` n'existera plus et rien ne pourra le recomposer.
+      const { titleFr, titleEn } = titresDeJournalSuppression(doc?.title);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && company) {
+        await logActivity(supabase, company.id, user.id, 'document_deleted', titleFr, titleEn, {
+          document_id: id,
+          document_type: doc?.document_type ?? null,
+          language: doc?.language ?? null,
+          document_year: doc?.document_year ?? null,
+        });
+      }
       setDocuments(prev => prev.filter(d => d.id !== id));
       addToast(fr ? 'Document supprimé.' : 'Document deleted.', 'success');
     }

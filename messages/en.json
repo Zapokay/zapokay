@@ -272,6 +272,7 @@
     "addFirstDoc": "Add your first document →"
   },
   "documents": {
+    "untitledFallback": "Untitled document",
     "entityNoSignatoriesNote": "This entity has no registered signatories. A blank signature line will be added to the document for manual completion.",
     "vaultTitle": "Document Vault",
     "uploadDrag": "Drag a file here or",
