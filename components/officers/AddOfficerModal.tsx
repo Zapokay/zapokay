@@ -10,6 +10,7 @@ import PersonSelector, {
 import type { OfficerTitle, OfficerEndReason } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
 import { libelleTitre } from '@/lib/officer-titles';
+import { titresDeJournalCharge } from '@/lib/journal-charge';
 import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
 import { chargePersonne, insererPersonne } from '@/lib/person-payload';
@@ -266,24 +267,19 @@ export default function AddOfficerModal({
         throw new Error(appointErr.message);
       }
 
-      const titleFrMap: Record<string, string> = {
-        president: 'Président·e',
-        vice_president: 'Vice-président·e',
-        secretary: 'Secrétaire',
-        treasurer: 'Trésorier·ère',
-        director_general: 'Directeur·rice général·e',
-      };
       const fullName = personValue.mode === 'new' ? personValue.fullName : personValue.person.full_name;
-      const titleLabel = title === 'custom' ? customTitle.trim() : (titleFrMap[title] || title);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // Option A: single _added event; retroactive carries end metadata in details.
-        const titleFr = stillInOffice
-          ? `Dirigeant nommé : ${fullName} — ${titleLabel}`
-          : `Dirigeant nommé (rétroactif) : ${fullName} — ${titleLabel}`;
-        const titleEn = stillInOffice
-          ? `Officer appointed: ${fullName} — ${title}`
-          : `Officer appointed (retroactive): ${fullName} — ${title}`;
+        // ★ LES DEUX TITRES VIENNENT DU MÊME GESTE, ET DU CATALOGUE.
+        // Avant ce lot, le français passait par une table recopiée ici et
+        // l'anglais interpolait `${title}` — LE CODE. Quatre lignes du parc
+        // portent « — vice_president » à cause de ces deux lignes.
+        const { titleFr, titleEn } = titresDeJournalCharge(
+          stillInOffice ? 'nomme' : 'nomme_retroactif',
+          fullName,
+          { title, custom_title: customTitle.trim() || null },
+        );
         const details: Record<string, unknown> = { person_id: personId, title };
         if (!stillInOffice) {
           details.ended = true;

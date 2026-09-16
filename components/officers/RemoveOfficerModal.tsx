@@ -7,6 +7,7 @@ import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import type { OfficerWithPerson, OfficerEndReason } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
 import { libelleTitre } from '@/lib/officer-titles';
+import { titresDeJournalCharge } from '@/lib/journal-charge';
 import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 // =============================================================================
@@ -84,25 +85,23 @@ export default function RemoveOfficerModal({
 
       if (updateErr) throw new Error(updateErr.message);
 
-      const titleFrMap: Record<string, string> = {
-        president: 'Président·e',
-        vice_president: 'Vice-président·e',
-        secretary: 'Secrétaire',
-        treasurer: 'Trésorier·ère',
-        director_general: 'Directeur·rice général·e',
-      };
-      const titleLabel = officer.title === 'custom'
-        ? (officer.custom_title || officer.title)
-        : (titleFrMap[officer.title] || officer.title);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // ★ LES DEUX TITRES VIENNENT DU MÊME GESTE, ET DU CATALOGUE. Le français
+        // passait par une table recopiée ici — redivergée du catalogue sur
+        // « Trésorier·ère » — et l'anglais interpolait `officer.title`, le CODE.
+        const { titleFr, titleEn } = titresDeJournalCharge(
+          'retire',
+          officer.person.full_name,
+          { title: officer.title, custom_title: officer.custom_title ?? null },
+        );
         await logActivity(
           supabase,
           officer.company_id,
           user.id,
           'officer_removed',
-          `Dirigeant retiré : ${officer.person.full_name} — ${titleLabel}`,
-          `Officer removed: ${officer.person.full_name} — ${officer.title}`,
+          titleFr,
+          titleEn,
           { person_id: officer.person_id, title: officer.title }
         );
       }

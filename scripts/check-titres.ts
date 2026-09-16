@@ -114,39 +114,29 @@ function recenser(texte: string, fichier: string): Trouvaille[] {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * ⛔⛔ DEUX EXCEPTIONS, ET CE N'EST PAS UNE DETTE À SOLDER. Lis ceci avant de
- * les retirer — les retirer RÉINTRODUIRAIT un défaut, il n'en corrigerait
- * aucun.
+ * ⛔ ZÉRO EXCEPTION, ET C'EST NEUF — 2026-09-16.
  *
- * Ces deux fichiers composent la ligne d'Historique (`activity_log.title_fr`
- * ET `title_en`), qui stocke du TEXTE RENDU, dans LES DEUX LANGUES, au moment
- * de l'écriture. Leur table française doit donc être INDÉPENDANTE DE LA LOCALE
- * D'INTERFACE — et c'est précisément ce qu'une lecture de catalogue ne peut pas
- * être depuis un composant client : `i18n/request.ts:11` n'importe qu'UN
- * catalogue (`messages/${locale}.json`) et `app/[locale]/layout.tsx:24,37` ne
- * passe que celui-là au fournisseur. Le client ne DÉTIENT qu'une langue.
+ * Deux fichiers étaient tolérés ici : `AddOfficerModal` et `RemoveOfficerModal`.
+ * La raison écrite disait qu'ils composent `activity_log.title_fr` ET `title_en`
+ * au même geste, et qu'« un composant client ne détient qu'UN catalogue ».
  *
- * ⛔ Conséquence concrète : migrer la ligne française vers `libelleTitre` ferait
- * écrire « Treasurer » dans `title_fr` dès qu'un utilisateur travaille en
- * anglais. Ce n'est pas une table oubliée : c'est la seule forme qui tienne
- * tant que le journal stocke du texte rendu.
+ * ⛔ CETTE RAISON ÉTAIT FAUSSE, ET ELLE A COÛTÉ. Elle est vraie de
+ * `useTranslations`, pas du dépôt : `lib/i18n/lifecycle-labels.ts` importe LES
+ * DEUX catalogues et est consommé par un composant CLIENT. La limite invoquée
+ * n'existait pas. Pendant qu'elle tenait, l'exemption a couvert deux tables qui
+ * ont REDIVERGÉ du catalogue le jour même — et un côté anglais qui écrivait
+ * `${title}`, LE CODE, dans quatre lignes de journal du parc.
  *
- * ⚪ CE QUI LÈVERAIT VRAIMENT L'EXCEPTION : que le journal cesse de stocker du
- * texte rendu (une clé + ses paramètres), ou que l'écriture passe au serveur,
- * qui détient les deux catalogues. Tant que ni l'un ni l'autre n'est fait, ces
- * deux lignes restent — et elles restent JUSTES.
+ * ★ CE QUI A REMPLACÉ L'EXCEPTION : `lib/i18n/catalogue-langue.ts` nomme la
+ * capacité qui existait déjà (un résolveur lié à une LANGUE CHOISIE), et
+ * `lib/journal-charge.ts` compose les deux titres d'un seul geste, en fonction
+ * PURE — donc vérifiable, ce qu'une modale ne sera jamais.
+ *
+ * ⚠️ SI UNE EXCEPTION REVIENT ICI, QU'ELLE PORTE UNE LIMITE MESURÉE, pas une
+ * limite supposée. Celle-ci a survécu à sa propre fausseté parce que personne ne
+ * la remesurait.
  */
-const TOLERES = new Map<string, string>([
-  [
-    'components/officers/AddOfficerModal.tsx',
-    "journal bilingue — indépendant de la locale PAR CONSTRUCTION ; le client ne détient qu'un catalogue (2026-09-12)",
-  ],
-  [
-    'components/officers/RemoveOfficerModal.tsx',
-    "journal bilingue — indépendant de la locale PAR CONSTRUCTION ; le client ne détient qu'un catalogue (2026-09-12)",
-  ],
-]);
-
+const TOLERES = new Map<string, string>([]);
 /* ═══════════════════════════════════════════════════════════════════════════
    3. L'AUTO-TEST — ce script a-t-il le droit de dire « une seule » ?
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -261,7 +251,9 @@ function main(): void {
   console.log(`  ⛔ ${hors.length} libellé(s) de titre hors de la déclaration unique :`);
   for (const t of hors) console.log(`      ${t.fichier}:${t.ligne}  « ${t.extrait} »`);
   console.log('\n  Résous par libelleTitre() : getServerMessage au serveur,');
-  console.log('  useResolveurCatalogue au client. La déclaration est lib/officer-titles.ts.');
+  console.log('  useResolveurCatalogue au client sur la locale de l\'URL, et');
+  console.log('  resolveurDeLangue(langue) quand la langue est CHOISIE — journal, document,');
+  console.log('  inscription. La déclaration est lib/officer-titles.ts.');
   process.exitCode = 1;
 }
 
