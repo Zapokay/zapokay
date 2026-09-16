@@ -146,15 +146,36 @@ export default function ActivityPage({ registerOpenedAt, incorporationDate }: Ac
             )}
           </button>
         </div>
-        <p className="text-sm text-[var(--text-muted)] mt-1">
-          {t('eventsCount', { count: total })}
-        </p>
+        {/* ⛔ LE COMPTEUR SE TAIT QUAND IL N'Y A RIEN À COMPTER. À zéro il rendait
+            « Aucun événement enregistré » — le MÊME fait que la frontière du
+            registre, quatre lignes plus bas, à quatre mots près. Deux phrases qui
+            disent la même chose à moitié, c'est ce que le lot précédent a créé
+            sans le voir. Une ligne se lit, un dénombrement se consulte : à zéro
+            il n'y a rien à dénombrer.
+            ⛔⛔ MAIS LA BRANCHE `=0` RESTE AU CATALOGUE, ET CE N'EST PAS UN OUBLI.
+            La retirer ferait tomber un rendu à zéro dans `other` — « 0 événements
+            enregistrés », faux de FORME en français, qui est grammaticalement
+            singulier pour zéro. C'est un REPLI DÉFENSIF, pas un état affiché :
+            elle a un chemin, et on souhaite ne jamais l'emprunter.
+            ★ Si quelqu'un la trouve « inutile » un jour et la supprime, c'est ce
+            commentaire qui doit l'arrêter — une règle périmée laissée sans sa
+            raison a produit trois défauts corrigés aujourd'hui. */}
+        {total > 0 && (
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            {t('eventsCount', { count: total })}
+          </p>
+        )}
       </div>
 
       {events.length === 0 ? (
         /* ⛔ PLUS D'ÉTAT VIDE NU. « Aucun événement enregistré pour le moment »
            était exact et se lisait comme « ce produit ne consigne rien ». La
-           frontière du registre le remplace : elle dit DEPUIS QUAND il regarde. */
+           frontière du registre le remplace : elle dit DEPUIS QUAND il regarde.
+           ⚪ MAIS `activity.empty` RESTE, COMME DERNIER REPLI. Depuis que la
+           frontière existe, il n'est plus atteignable que si `registerOpenedAt`
+           est nul — c'est-à-dire si la SOCIÉTÉ elle-même est absente. Ce n'est
+           pas une entrée morte : une entrée morte n'a AUCUN chemin, celle-ci en
+           a un qu'on souhaite ne jamais emprunter. Ne pas le « nettoyer ». */
         <p className="text-center text-[var(--text-muted)] italic py-12">
           {origine ?? t('empty')}
         </p>
