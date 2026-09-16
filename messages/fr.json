@@ -128,9 +128,7 @@
       "shareholdersCount": "{count, plural, =0 {Aucun actionnaire} =1 {1 actionnaire} other {# actionnaires}}",
       "shareholdersNames": " : {names}",
       "shareholderEntity": "{name} ({type})",
-      "officerPresident": "Président·e : {name}",
-      "officerSecretary": "Secrétaire : {name}",
-      "officerTreasurer": "Trésorier·ière : {name}",
+      "officerLine": "{title} : {name}",
       "andMore": "{first} et {count, plural, =1 {1 autre} other {# autres}}"
     },
     "step1Title": "Choisissez votre langue",
@@ -510,7 +508,7 @@
       "president": "Président·e",
       "vice_president": "Vice-président·e",
       "secretary": "Secrétaire",
-      "treasurer": "Trésorier·ère",
+      "treasurer": "Trésorier·ière",
       "custom": "Titre personnalisé"
     },
     "signingAuthority": "Signataire autorisé",

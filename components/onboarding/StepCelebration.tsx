@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
 import { nomActionnaire, type OnboardingShareholder } from './StepShareholders';
-import { nomDirigeant, type OnboardingOfficers } from './StepOfficers';
+import { nomDirigeant, POSTES, type OnboardingOfficers } from './StepOfficers';
 import type { IncorporationType } from '@/lib/types';
 import { regimeEnBase } from '@/lib/regimes';
 import IntlMessageFormat from 'intl-messageformat';
@@ -181,26 +181,24 @@ export default function StepCelebration({
   }
 
   // Officers — one line per assigned role; omit lines for unassigned roles.
-  if (nomDirigeant(officers.president).trim()) {
+  //
+  // ★ LE LIBELLÉ VIENT DU CATALOGUE CANONIQUE `officers.titles.*`, celui que
+  // `CLE_TITRE` désigne et que le registre imprimé résout déjà. Trois clés
+  // `onboarding.summary.officer*` portaient chacune SA copie du libellé, et
+  // l'une avait dérivé : `officerTreasurer` disait « Trésorier·ière » quand
+  // `officers.titles.treasurer` disait « Trésorier·ère ». Une seule clé,
+  // `officerLine`, ne porte plus que la PONCTUATION — le titre lui est passé.
+  // ⚠️ `officers.titles` est lu ici sur `locale`, la langue CHOISIE À
+  // L'INSCRIPTION, jamais celle de l'URL : c'est la même raison qui fait
+  // exister `formatMsg` au lieu de `useTranslations` dans ce fichier.
+  const titresCatalogue = (locale === 'fr' ? frMessages : enMessages).officers.titles;
+  for (const poste of POSTES) {
+    const nom = nomDirigeant(officers[poste]).trim();
+    if (!nom) continue;
     lines.push({
-      text: formatMsg(locale, 'onboarding.summary.officerPresident', {
-        name: nomDirigeant(officers.president).trim(),
-      }),
-      done: true,
-    });
-  }
-  if (nomDirigeant(officers.secretary).trim()) {
-    lines.push({
-      text: formatMsg(locale, 'onboarding.summary.officerSecretary', {
-        name: nomDirigeant(officers.secretary).trim(),
-      }),
-      done: true,
-    });
-  }
-  if (nomDirigeant(officers.treasurer).trim()) {
-    lines.push({
-      text: formatMsg(locale, 'onboarding.summary.officerTreasurer', {
-        name: nomDirigeant(officers.treasurer).trim(),
+      text: formatMsg(locale, 'onboarding.summary.officerLine', {
+        title: titresCatalogue[poste],
+        name: nom,
       }),
       done: true,
     });

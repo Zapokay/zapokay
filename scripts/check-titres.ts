@@ -46,7 +46,19 @@ const ARBRES = ['app', 'components', 'lib', 'scripts'];
  * manage the day-to-day operations ». Un faux positif use la garde : on finit
  * par exempter le fichier, et l'exemption couvre alors une vraie table.
  */
-const CODES = /^\s*(president|vice_president|secretary|treasurer|director_general)\s*:|value:\s*'(president|vice_president|secretary|treasurer)'/;
+/**
+ * ★ TROISIÈME FORME, AJOUTÉE LE 2026-09-16 : `=== 'president'`.
+ * Une table peut s'écrire en TERNAIRE plutôt qu'en objet, et celle-là
+ * échappait — mesuré sur `StepOfficers`, qui portait les trois libellés en dur
+ * et divergeait du catalogue sur le trésorier. Un code COMPARÉ à un littéral
+ * est aussi ancré que `value: 'code'` : c'est une valeur de l'union, pas un
+ * mot dans une phrase.
+ * ⛔ ET RIEN DE PLUS LARGE. La prose de l'état vide — « Officers (president,
+ * secretary, treasurer) manage… » — n'a ni deux-points, ni `value:`, ni
+ * `===`, et l'auto-test l'AFFIRME au lieu de l'espérer.
+ */
+const CODES =
+  /^\s*(president|vice_president|secretary|treasurer|director_general)\s*:|value:\s*'(president|vice_president|secretary|treasurer)'|===\s*'(president|vice_president|secretary|treasurer)'/;
 
 /**
  * ⚠️ UNE CLÉ DE CATALOGUE N'EST PAS UN LIBELLÉ, et c'est toute la finesse de ce
@@ -55,6 +67,18 @@ const CODES = /^\s*(president|vice_president|secretary|treasurer|director_genera
  * reconnaît à ce qu'il N'EST PAS un chemin pointé.
  */
 const CLE_POINTEE = /^[a-z][a-zA-Z]*(\.[a-zA-Z_]+)+$/;
+/**
+ * ⚠️ LE CODE N'EST PAS SON PROPRE LIBELLÉ, et il a fallu le dire. La troisième
+ * forme (`=== 'president'`) amène le CODE dans la fenêtre comme littéral de
+ * chaîne — et `MOTS_HUMAINS`, insensible à la casse, y reconnaissait
+ * « president ». Une comparaison nue, sans aucun libellé autour, levait donc.
+ * ★ C'EST LE CONTRÔLE NÉGATIF QUI L'A TROUVÉ, au premier lancement. Sans lui
+ * la garde rendait rouge pour la mauvaise raison, ce qui use une garde aussi
+ * sûrement qu'un faux vert.
+ * ⚪ ANCRÉ ET SENSIBLE À LA CASSE : « President », le libellé anglais, n'est PAS
+ * filtré — seule la valeur exacte de l'union l'est.
+ */
+const CODE_NU = /^(president|vice_president|secretary|treasurer|director_general)$/;
 const MOTS_HUMAINS = /(?:Pr[ée]sident|Secr[ée]taire|Tr[ée]sorier|Vice[- ]?pr[ée]sident|President|Treasurer|Secretary|Directeur|Fiduciaire|Trustee)/i;
 
 /** Les littéraux de chaîne d'une ligne, quel que soit le délimiteur. */
@@ -77,7 +101,7 @@ function recenser(texte: string, fichier: string): Trouvaille[] {
     // Le libellé peut vivre sur la ligne du code ou juste après.
     const fenetre = lignes.slice(i, i + 3).join('\n');
     const humains = chaines(fenetre).filter(
-      (s) => MOTS_HUMAINS.test(s) && !CLE_POINTEE.test(s),
+      (s) => MOTS_HUMAINS.test(s) && !CLE_POINTEE.test(s) && !CODE_NU.test(s),
     );
     if (humains.length === 0) continue;
     trouvailles.push({ fichier, ligne: i + 1, extrait: humains[0].slice(0, 40) });
@@ -148,12 +172,27 @@ function autoTest(): boolean {
   treasurer: 'officers.titles.treasurer',
 };`;
   const APPEL = `const l = libelleTitre(charge, tCatalogue);`;
+  /** La forme que StepOfficers portait — une table écrite en TERNAIRE. */
+  const TERNAIRE = `const label =
+  poste === 'president' ? (fr ? 'Président·e' : 'President')
+  : poste === 'secretary' ? (fr ? 'Secrétaire' : 'Secretary')
+  : (fr ? 'Trésorier·ière' : 'Treasurer');`;
+  /* ⛔ TROIS NÉGATIFS — un motif élargi doit prouver qu'il n'a pas élargi TROP.
+     Sans eux, la troisième forme pourrait accuser de la prose : on exempterait
+     le fichier, et l'exemption couvrirait ensuite une vraie table. */
+  const PROSE = `// Officers (president, secretary, treasurer) manage the day-to-day operations.`;
+  const COMPARAISON_NUE = `if (poste === 'president') return null;`;
+  const TEXTE_SANS_CODE = `const titre = 'Président·e de la séance';`;
 
   dire(recenser(TABLE_FR_EN, 'x').length > 0, 'table fr/en          → vue');
   dire(recenser(TABLE_FR_SEULE, 'x').length > 0, 'table FR seule       → vue');
   dire(recenser(OPTIONS, 'x').length > 0, "liste d'options      → vue");
   dire(recenser(DECLARATION_DE_CLES, 'x').length === 0, 'déclaration de CLÉS  → ignorée (ce sont des clés, pas des libellés)');
   dire(recenser(APPEL, 'x').length === 0, 'appel à libelleTitre → ignoré');
+  dire(recenser(TERNAIRE, 'x').length > 0, 'table en TERNAIRE    → vue   (la forme de StepOfficers)');
+  dire(recenser(PROSE, 'x').length === 0, 'prose état vide      → IGNORÉE (négatif)');
+  dire(recenser(COMPARAISON_NUE, 'x').length === 0, 'comparaison sans libellé → IGNORÉE (négatif)');
+  dire(recenser(TEXTE_SANS_CODE, 'x').length === 0, 'libellé sans code    → IGNORÉ (négatif)');
   return ok;
 }
 

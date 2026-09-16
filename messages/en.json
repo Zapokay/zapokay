@@ -128,9 +128,7 @@
       "shareholdersCount": "{count, plural, =0 {No shareholders} =1 {1 shareholder} other {# shareholders}}",
       "shareholdersNames": ": {names}",
       "shareholderEntity": "{name} ({type})",
-      "officerPresident": "President: {name}",
-      "officerSecretary": "Secretary: {name}",
-      "officerTreasurer": "Treasurer: {name}",
+      "officerLine": "{title}: {name}",
       "andMore": "{first} and {count, plural, =1 {1 more} other {# more}}"
     },
     "step1Title": "Choose your language",

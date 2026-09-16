@@ -4,6 +4,8 @@ import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { ADRESSE_VIERGE, type AdresseSaisie } from '@/lib/address';
 import BlocAdresse from '@/components/ui/BlocAdresse';
+import frMessages from '@/messages/fr.json';
+import enMessages from '@/messages/en.json';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
 import type { OnboardingShareholder } from './StepShareholders';
@@ -319,10 +321,16 @@ export default function StepOfficers({
           //    emploie `ilike`, qui ignore la casse. Deux mécanismes qui décident de
           //    la même chose doivent comparer de la même façon.
           const dejaConnue = valeur.nouvelle && connus.has(valeur.nomSaisi.trim().toLowerCase());
-          const label =
-            poste === 'president' ? (fr ? 'Président·e' : 'President')
-            : poste === 'secretary' ? (fr ? 'Secrétaire' : 'Secretary')
-            : (fr ? 'Trésorier·ière' : 'Treasurer');
+          // ★ LE LIBELLÉ VIENT DU CATALOGUE `officers.titles.*`, celui que
+          //   `CLE_TITRE` désigne. Un ternaire écrivait ici les trois libellés
+          //   en dur, et il était la QUATRIÈME copie — celle qui divergeait du
+          //   catalogue sur le trésorier.
+          // ⚠️ LU SUR `fr`, DONC SUR LA LOCALE DE L'INSCRIPTION, pas celle de
+          //   l'URL. `useTranslations` est importé plus haut mais lit l'URL :
+          //   s'en servir ici ferait suivre à cette étiquette une langue que
+          //   le reste de l'étape ne suit pas. Même patron que StepCompany,
+          //   StepSiege et StepLanguage.
+          const label = (fr ? frMessages : enMessages).officers.titles[poste];
           return (
             <div key={poste}>
               <label style={fieldLabelStyle}>
