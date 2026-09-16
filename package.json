@@ -14,6 +14,7 @@
     "check:dates": "tsx scripts/check-dates-vides.ts",
     "check:adresses": "tsx scripts/check-adresses.ts",
     "check:significant-control": "tsx scripts/check-significant-control.ts",
+    "porte:identite": "sh scripts/porte-identite.sh",
     "export:registry": "tsx scripts/export-registry.ts"
   },
   "dependencies": {
