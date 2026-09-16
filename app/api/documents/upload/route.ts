@@ -150,9 +150,14 @@ export async function POST(request: NextRequest) {
       } catch { /* malformed eventLink ignored — treated as a plain upload */ }
     }
 
-    // A2a — the requirements the vault form declared. Same wire idiom as
-    // `requirements` and `eventLink` above: one key, one JSON array. Absent is the
-    // NORM, not an edge: row mode never sends it, and the scalar still governs.
+    // A2a — the coverage the client declared, from EITHER mode. Same wire idiom
+    // as `requirements` and `eventLink` above: one key, one JSON array.
+    // ⛔ ABSENT NO LONGER MEANS "row mode". Until this lot the rule here let row
+    // mode skip the links, on the ground that `documents.requirement_key` still
+    // governed. A8-1 removed the write to that column, so nothing governed and
+    // the row-mode upload declared no coverage at all. Absent now means one thing:
+    // the caller selected no requirement (an event row, an archive replacement,
+    // a free Vault upload).
     //
     // ★ THE VALIDATION RULE, and it covers BOTH columns: a malformed body may
     // produce FEWER links, or none — never a link that says the wrong thing.

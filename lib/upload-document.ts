@@ -91,14 +91,18 @@ export interface UploadDocumentParams {
    */
   eventLink?: { event_type: string; event_id: string; event_phase: string };
   /**
-   * A2a — the requirements this document DECLARES it covers. One requirement_documents
-   * row per entry, in a SINGLE multi-row insert (atomic in Postgres, so no partial
-   * state). The caller ALSO copies the first entry into the scalar requirement_key /
-   * requirement_year: the double write is the point — the seven scalar readers must
-   * see no difference, which is what allows switching them over one at a time.
-   * VAULT PATH ONLY (Max's ruling, 2026-08-23). Row mode deliberately omits it: its
-   * link would be an exact copy of the scalar, so it carries zero information, and
-   * A4's backfill of the 83 historical rows covers that path anyway.
+   * A2a — the requirements this document DECLARES it covers. One
+   * `requirement_documents` row per entry, in a SINGLE multi-row insert (atomic
+   * in Postgres, so no partial state).
+   * ⛔ BOTH MODES SEND IT. The Vault-only rule that stood here until this lot is
+   * RETIRED, and its premise is why: it let row mode omit the links because they
+   * would copy `documents.requirement_key`. A8-1 removed the write to that
+   * column, so a row-mode upload declared NO coverage at all — and the
+   * completeness screen, whose only source is `requirement_documents`, read the
+   * requirement as unsatisfied even with a certified final on file.
+   * ★ ABSENT MEANS ONE THING NOW: the caller selected no requirement. The
+   * callers that have none — lifecycle event rows, archive replacement — send
+   * nothing, and that is correct: they carry no `requirementKey` to declare.
    */
   requirementLinks?: { requirement_key: string; requirement_year: number | null }[];
 }

@@ -20,9 +20,13 @@ type Mode = 'vault' | 'row';
 type Step = 'form' | 'confirm' | 'uploading' | 'done';
 
 /**
- * A2a — ONE requirement this document declares it covers. The collection of these
- * replaces the two scalar useStates; requirementKey / requirementYear are DERIVED
- * from its first element (E1), so the seven existing readers keep reading scalars.
+ * A2a — ONE requirement this document declares it covers. The collection of
+ * these IS the state; `requirementKey` / `requirementYear` are DERIVED from its
+ * first element (E1) and still travel on the wire, where the route checks the
+ * year and `resolveMinuteBookSection` derives the shelf from the key.
+ * ⛔ NEITHER IS PERSISTED. `documents.requirement_key` and
+ * `documents.requirement_year` lost their last writer in A8-1 and have no
+ * reader. Coverage is persisted ONLY as `requirement_documents` rows.
  */
 type SelectedRequirement = { key: string; year: number | null };
 
@@ -255,9 +259,13 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     });
   }, [selected, requirements]);
 
-  // The two scalars the SEVEN existing readers consume — now DERIVED from the
-  // collection instead of stored beside it. Same names, same types, same nulls, so
-  // not one of those readers is touched by this slice.
+  // The two values the wire still carries — DERIVED from the collection instead
+  // of stored beside it. `requirementYear` feeds the route's
+  // year-required-for-annual guard and its FISCAL_YEAR_NOT_DECLARED check;
+  // `requirementKey` feeds resolveMinuteBookSection.
+  // ⛔ NEITHER REACHES `documents.requirement_key` /
+  // `documents.requirement_year`: A8-1 removed that write, and coverage lives in
+  // `requirement_documents` alone.
   const requirementKey = orderedSelected[0]?.key ?? null;
   const requirementYear = orderedSelected[0]?.year ?? null;
 
@@ -624,13 +632,19 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     if (docYear === 'none') fd.append('noFiscalYear', 'true');
     if (requirementKey) fd.append('requirementKey', requirementKey);
     if (requirementYear != null) fd.append('requirementYear', String(requirementYear));
-    // ★ A2a — THE DOUBLE WRITE. The whole collection goes to requirement_documents;
-    // the FIRST (E1) also stays on the two scalars above, so the seven scalar readers
-    // see no difference at all. That is what will let them be switched one at a time.
-    // VAULT ONLY, and the test is explicit because row mode shares this very function
-    // and this very route: its link would be an exact copy of the scalar, so it
-    // carries zero information, and A4's backfill covers that path anyway.
-    if (mode === 'vault' && orderedSelected.length > 0) {
+    // ★ A2a — COVERAGE IS WRITTEN HERE AND NOWHERE ELSE: every selected
+    // requirement becomes one `requirement_documents` row.
+    // ⛔ THE GATE IS `orderedSelected.length > 0` ALONE. It also tested
+    // `mode === 'vault'` until this lot, on the premise that a row-mode link
+    // would merely duplicate `documents.requirement_key`. A8-1 stopped writing
+    // that column, so row mode wrote NO coverage at all — and Complétude, whose
+    // only source is `requirement_documents`, read the requirement as
+    // unsatisfied even with a certified final in hand.
+    // ★ THE LENGTH TEST IS THE REAL GUARD, not an afterthought: the callers that
+    // have no requirement — event rows, archive replacement — seed `selected`
+    // empty because their prefill carries no `requirementKey`, so they still
+    // send nothing. Removing the mode test does not widen what they write.
+    if (orderedSelected.length > 0) {
       fd.append(
         'requirementLinks',
         JSON.stringify(

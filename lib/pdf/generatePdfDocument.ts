@@ -504,9 +504,14 @@ export async function generatePdfDocument(
   }
 
   // A4-bis — UNE SEULE SOURCE POUR L'ANNÉE DE L'EXIGENCE.
-  // Le scalaire et la liaison DOIVENT porter la même valeur : l'invariant
-  // « année NULLE = la ligne du catalogue est fondationnelle » (A4, D2) se
-  // vérifie sur les deux. `effectiveYear` retombe sur l'année courante quand
+  // ⛔ L'INVARIANT NE PORTE PLUS QUE SUR UNE COLONNE, ET C'EST UNE CORRECTION.
+  // Il exigeait que `documents.requirement_year` et
+  // `requirement_documents.requirement_year` portent la même valeur. A8-1 a
+  // retiré l'écriture de la première, qui n'a plus ni écrivain ni lecteur :
+  // exiger qu'elle s'accorde avec quoi que ce soit n'a plus de sens.
+  // Reste celle qui décide : `requirement_documents.requirement_year` NULLE =
+  // la ligne du catalogue est fondationnelle (A4, D2).
+  // `effectiveYear` retombe sur l'année courante quand
   // `year` est absent — l'écrire nu sur un fondationnel poserait 2026 sur une
   // ligne qui doit porter NULL.
   const requirementLinkYear = hasYear && !isFoundational ? effectiveYear : null;
