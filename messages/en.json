@@ -905,6 +905,9 @@
     }
   },
   "activity": {
+    "registerOpened": "Register opened on {date}.",
+    "companyIncorporated": "Company incorporated on {date}.",
+    "noEventsSince": "No events since.",
     "pageTitle": "Activity History",
     "tooltip": "Chronological log of actions performed on your company. This log is immutable and cannot be modified.",
     "empty": "No events recorded yet.",

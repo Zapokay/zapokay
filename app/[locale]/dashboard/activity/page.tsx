@@ -23,7 +23,13 @@ export default async function ActivityDashboardPage({
 
   return (
     <DashboardShell locale={locale} profile={profile} company={company ?? null}>
-      <ActivityPage />
+      {/* ⛔ DEUX DATES, PAS LA SOCIÉTÉ. La ligne d'origine n'a besoin que de
+          celles-là, et `created_at` est l'ancrage — jamais la première entrée
+          du journal, qui daterait le registre par lui-même. */}
+      <ActivityPage
+        registerOpenedAt={company?.created_at ?? null}
+        incorporationDate={company?.incorporation_date ?? null}
+      />
     </DashboardShell>
   )
 }

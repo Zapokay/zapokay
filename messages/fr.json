@@ -905,6 +905,9 @@
     }
   },
   "activity": {
+    "registerOpened": "Registre ouvert le {date}.",
+    "companyIncorporated": "Société constituée le {date}.",
+    "noEventsSince": "Aucun événement depuis.",
     "pageTitle": "Historique des activités",
     "tooltip": "Journal chronologique des actions effectuées sur votre société. Ce registre est immuable et ne peut être modifié.",
     "empty": "Aucun événement enregistré pour le moment.",

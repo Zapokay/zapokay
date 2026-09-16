@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Info } from 'lucide-react'
 import ActivityGroup from './ActivityGroup'
+import { formatDate } from '@/lib/utils'
+import { ligneOrigine } from '@/lib/journal-origine'
 
 interface Event {
   id: string
@@ -60,7 +62,14 @@ function groupByDate(
 
 const PAGE_SIZE = 50
 
-export default function ActivityPage() {
+interface ActivityPageProps {
+  /** `companies.created_at` — le moment où le livre est entré chez nous. */
+  registerOpenedAt: string | null
+  /** `companies.incorporation_date`, NULLABLE : la phrase disparaît alors. */
+  incorporationDate: string | null
+}
+
+export default function ActivityPage({ registerOpenedAt, incorporationDate }: ActivityPageProps) {
   const t = useTranslations('activity')
   const locale = useLocale()
   const [events, setEvents] = useState<Event[]>([])
@@ -68,6 +77,22 @@ export default function ActivityPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [showTooltip, setShowTooltip] = useState(false)
+
+  // ★ LA FRONTIÈRE DU REGISTRE. Calculée, jamais stockée — l'écrire au journal
+  //   serait fabriquer une entrée. `formatDate` est le seul formateur du dépôt ;
+  //   en écrire un second ici serait une seconde vérité sur les dates.
+  // ⚪ Sans `registerOpenedAt` il n'y a rien d'honnête à dire : la ligne
+  //   disparaît, et l'état vide d'origine reprend sa place.
+  const origine = registerOpenedAt
+    ? ligneOrigine(
+        t as (cle: string, params?: Record<string, string>) => string,
+        {
+          registreOuvertLe: formatDate(registerOpenedAt, locale),
+          constitueeLe: incorporationDate ? formatDate(incorporationDate, locale) : null,
+        },
+        events.length === 0,
+      )
+    : null
 
   const fetchEvents = useCallback(async (offset: number) => {
     const res = await fetch(`/api/activity-log?limit=${PAGE_SIZE}&offset=${offset}`)
@@ -127,8 +152,11 @@ export default function ActivityPage() {
       </div>
 
       {events.length === 0 ? (
+        /* ⛔ PLUS D'ÉTAT VIDE NU. « Aucun événement enregistré pour le moment »
+           était exact et se lisait comme « ce produit ne consigne rien ». La
+           frontière du registre le remplace : elle dit DEPUIS QUAND il regarde. */
         <p className="text-center text-[var(--text-muted)] italic py-12">
-          {t('empty')}
+          {origine ?? t('empty')}
         </p>
       ) : (
         <div className="space-y-6">
@@ -141,6 +169,20 @@ export default function ActivityPage() {
             />
           ))}
         </div>
+      )}
+
+      {/* ⛔ AU PIED DE LA LISTE, JAMAIS EN TÊTE — là où serait la plus vieille
+          entrée, parce que c'est là que le registre s'arrête de savoir.
+          ⛔ ET SEULEMENT QUAND TOUT EST CHARGÉ (`!hasMore`). Tant qu'un
+          « Charger plus » reste, le pied de liste N'EST PAS la plus vieille
+          entrée : la ligne y mentirait sur sa propre position.
+          ⚪ Style minimal et délibéré : c'est une FRONTIÈRE de registre, pas un
+          état vide ni un message d'erreur. Son traitement viendra au Visual
+          Update ; la sur-styler maintenant préempterait cette décision. */}
+      {origine && events.length > 0 && !hasMore && (
+        <p className="text-center text-xs text-[var(--text-muted)] italic mt-8">
+          {origine}
+        </p>
       )}
 
       {hasMore && (
