@@ -29,6 +29,7 @@ import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
 import { fiscalYearForDate } from '@/lib/active-years';
 import { pickShareClassName } from '@/lib/pdf/share-class-name';
 import { pickCompanyLegalName } from '@/lib/company-name';
+import { titreExigence } from '@/lib/requirement-title';
 
 /* ------------------------------------------------------------------ */
 /*  Requirement → document type mapping                                */
@@ -256,12 +257,10 @@ export async function generatePdfDocument(
 
   const isFoundational = requirement?.category === 'foundational';
 
-  // Defensive title fallback: never expose the code identifier in Coffre-fort.
-  const requirementTitle = language === 'en' ? requirement?.title_en : requirement?.title_fr;
-  const documentTitle =
-    requirementTitle && requirementTitle.length > 0
-      ? requirementTitle
-      : (language === 'en' ? 'Resolution' : 'Résolution');
+  // Le titre suit `language`, la langue du DOCUMENT. Le repli défensif — ne jamais
+  // exposer l'identifiant de code au Coffre-fort — vit désormais dans la
+  // déclaration unique, que le chemin de téléversement consomme aussi.
+  const documentTitle = titreExigence(language, requirement);
 
   // 3. Load company.
   const { data: company, error: companyError } = await supabaseAdmin

@@ -12,6 +12,7 @@ import { mustBlockUpload } from '@/lib/fiscal-year-open';
 import { formatDate } from '@/lib/utils';
 import { MINUTE_BOOK_SECTIONS, resolveMinuteBookSection } from '@/lib/minute-book-section';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
+import { titreExigence } from '@/lib/requirement-title';
 
 const DOC_TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre'] as const;
 const LANGUAGE_KEYS = ['fr', 'en', 'bilingual'] as const;
@@ -448,9 +449,11 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     // ⚠️ NO setDocYear HERE ANY MORE (A2a É5). The year has ONE writer now, the D3
     // effect below — this cascade is frozen at two or more, and the year must still
     // follow there. Same values at one selection, so nothing changed under N ≤ 1.
-    if (selectedReq.category === 'foundational' && !everMulti) {
-      setTitle(fr ? selectedReq.title_fr : selectedReq.title_en);
-    }
+    // ⛔ PLUS DE setTitle ICI. Le titre a UN SEUL écrivain, l'effet ci-dessous,
+    // gouverné par `titleDirty`. Cette cascade n'écrivait que le cas
+    // `foundational` et ne dépendait pas de `language` : c'est par elle que
+    // passait « Première résolution du conseil d'administration » posé sur un
+    // document anglais. La cascade garde le type et le rayon.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requirementKey, requirementYear, requirements]);
 
@@ -488,15 +491,26 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
   // forbids. Read side by side with the cascade above, not assumed. The count guard
   // also removes a render-ordering race: at 1 → 2 the sticky's state has not
   // committed yet, but the count already reads two.
+  // ★ L'UNIQUE ÉCRIVAIN DU TITRE, ET UNE SEULE CONDITION LE GOUVERNE.
+  // Le titre SUIT la dérivation jusqu'à ce que l'utilisateur le reprenne, et
+  // « l'utilisateur l'a repris » s'appelle `titleDirty`. Les deux modes obéissent
+  // au même test : en mode ligne le champ est `readOnly`, donc `titleDirty` reste
+  // faux et le titre suit toujours — y compris le champ de LANGUE, qui est
+  // modifiable dans les deux modes et entre ici en dépendance.
+  // ⛔ TROIS SORTIES ONT DISPARU, ET CHACUNE CACHAIT UN CAS :
+  //   · `mode === 'row'` — le mode ligne ne dérivait jamais rien ;
+  //   · `category !== 'annual'` — les exigences FONDATRICES étaient servies par la
+  //     cascade au-dessus, qui ne dépendait pas de `language`. C'est le cas mesuré
+  //     le 2026-09-16 : `cbca_first_board_resolution` est `foundational` ;
+  //   · l'absence de `language` en dépendance — changer la langue ne retitrait pas.
   useEffect(() => {
-    if (mode === 'row') return;
     if (selectedCount >= 2) return;
     if (everMulti) return;
-    if (!selectedReq || selectedReq.category !== 'annual') return;
+    if (!selectedReq) return;
     if (titleDirty) return;
-    setTitle(fr ? selectedReq.title_fr : selectedReq.title_en);
+    setTitle(titreExigence(language === 'en' ? 'en' : 'fr', selectedReq));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requirementKey, requirementYear, requirements, docYear, titleDirty]);
+  }, [requirementKey, requirementYear, requirements, docYear, titleDirty, language]);
 
   // -- ESC closes (unless mid-upload) --
   useEffect(() => {

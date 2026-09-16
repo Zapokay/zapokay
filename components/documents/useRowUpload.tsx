@@ -8,6 +8,7 @@ import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
 import { resolveEventDocTitle } from '@/lib/minute-book/event-act-helpers';
 import { parseLocalDate } from '@/lib/utils';
+import { titreExigence } from '@/lib/requirement-title';
 
 // Matches CompletenessPage's cap + UploadZone's cap.
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -82,8 +83,13 @@ export function useRowUpload(ctx: RowUploadContext): {
   const tEvents = useTranslations('events');
   const [active, setActive] = useState<ActiveUpload | null>(null);
 
-  // ChecklistItem → prefill + replace target. Title follows UI locale (matches the
-  // current doc-row modal render); the modal owns the doc-language field separately.
+  // ChecklistItem → prefill + replace target.
+  // ⛔ LE TITRE SUIT LA LANGUE DU DOCUMENT, PAS LA LOCALE DE L'URL. Il lisait
+  // `locale` jusqu'à ce lot, ce qui gelait un titre français sur un document
+  // `language = 'en'` dès qu'on téléversait depuis une interface française.
+  // `preferredLanguage` est exactement ce dont le modal amorce son champ de
+  // langue, donc les deux partent d'accord — et la branche `event` ci-dessous
+  // lisait déjà `preferredLanguage`, elle n'a jamais eu le défaut.
   const resolveItem = useCallback(
     (item: ChecklistItem): Pick<ActiveUpload, 'prefill' | 'replaceDocumentId'> => {
       // The year does NOT belong in the document's NAME — it's captured in
@@ -91,7 +97,7 @@ export function useRowUpload(ctx: RowUploadContext): {
       // (composeDisplayName). Baking "— {year}" here produced doubled/em-dash
       // years in the Vault + Binder; the stored title is now always the clean
       // localized requirement title.
-      const title = fr ? item.title_fr : item.title_en;
+      const title = titreExigence(preferredLanguage, item);
       return {
         prefill: {
           requirementKey: item.requirement_key,
@@ -103,7 +109,7 @@ export function useRowUpload(ctx: RowUploadContext): {
         replaceDocumentId: item.satisfied ? (item.document_id ?? undefined) : undefined,
       };
     },
-    [fr],
+    [preferredLanguage],
   );
 
   const openUpload = useCallback(
