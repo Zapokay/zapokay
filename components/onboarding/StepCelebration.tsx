@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
 import { nomActionnaire, type OnboardingShareholder } from './StepShareholders';
-import { nomDirigeant, POSTES, type OnboardingOfficers } from './StepOfficers';
+import { nomDirigeant, nomsCanoniques, POSTES, type OnboardingOfficers } from './StepOfficers';
 import type { IncorporationType } from '@/lib/types';
 import { regimeEnBase } from '@/lib/regimes';
 import IntlMessageFormat from 'intl-messageformat';
@@ -192,13 +192,24 @@ export default function StepCelebration({
   // L'INSCRIPTION, jamais celle de l'URL : c'est la même raison qui fait
   // exister `formatMsg` au lieu de `useTranslations` dans ce fichier.
   const titresCatalogue = (locale === 'fr' ? frMessages : enMessages).officers.titles;
+  // ★ LE NOM AFFICHÉ EST CELUI QUI PARTIRA EN BASE, PAS CELUI QUI A ÉTÉ TAPÉ.
+  // Deux charges tenues par la même personne s'écrivaient ici sous deux
+  // orthographes — « Chantal Nadeau » et « chantal nadeau » — alors que le
+  // parcours la RECONNAISSAIT déjà et que la base ne porte qu'une fiche.
+  // ⛔ LE CHAMP DE L'ÉTAPE 6 N'EST PAS TOUCHÉ. La saisie reste la saisie ; c'est
+  // l'écran qu'on relit avant de sceller qui nomme la personne reconnue.
+  // ⚪ UN NOM QUE PERSONNE D'AUTRE NE PORTE SE RETROUVE LUI-MÊME dans la
+  // correspondance, donc il s'affiche EXACTEMENT tel que tapé — casse, accents
+  // et espaces intérieurs compris. Le repli `?? nom` est une nécessité de TYPE
+  // (`Map.get` rend `| undefined`), pas une garde d'exécution.
+  const canoniques = nomsCanoniques(directors, shareholders, officers);
   for (const poste of POSTES) {
     const nom = nomDirigeant(officers[poste]).trim();
     if (!nom) continue;
     lines.push({
       text: formatMsg(locale, 'onboarding.summary.officerLine', {
         title: titresCatalogue[poste],
-        name: nom,
+        name: canoniques.get(nom.toLowerCase()) ?? nom,
       }),
       done: true,
     });

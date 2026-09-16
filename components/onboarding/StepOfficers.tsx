@@ -71,6 +71,54 @@ export function nomDirigeant(s: SaisieDirigeant): string {
   return s.nouvelle ? s.nomSaisi : s.nomChoisi;
 }
 
+/**
+ * LES NOMS CANONIQUES DU PARCOURS — minuscule → l'orthographe qui partira en base.
+ *
+ * ⛔ LE DÉFAUT QUE CETTE DÉCLARATION FERME. Le sommaire montrait « Chantal Nadeau »
+ * en présidente et « chantal nadeau » en secrétaire — LA MÊME personne, dont la
+ * base ne porte qu'UNE fiche. L'écran affichait ce qui avait été TAPÉ ; la
+ * reconnaissance existait déjà, mais seulement pour décider d'une note.
+ *
+ * ★ L'ORDRE EST CELUI DE L'ÉCRITURE, ET IL EST MESURÉ, PAS SUPPOSÉ.
+ * `OnboardingFlow` écrit les administrateurs, puis les actionnaires, puis les
+ * dirigeants dans l'ordre de `POSTES`. Le PREMIER écrivain crée la fiche ; les
+ * suivants la retrouvent par `ilike` et n'écrivent aucun nom. Donc le premier
+ * rencontré ici EST le canonique — reproduire un autre ordre afficherait une
+ * orthographe que la base ne portera pas.
+ *
+ * ⚠️ LA CLÉ EST `trim().toLowerCase()`, comme partout ailleurs sur ce chemin :
+ * la pré-lecture emploie `ilike`, qui ignore la casse, et la table de passage
+ * d'`OnboardingFlow` emploie la même clé. Trois mécanismes qui décident de la
+ * même chose doivent comparer de la même façon.
+ *
+ * ⚪ `officiers` est OPTIONNEL : l'écran l'omet parce qu'il compose sa propre
+ * liste poste par poste ; le sommaire le passe, parce que deux dirigeants
+ * peuvent être la même personne sans figurer aux étapes 4 ou 5.
+ */
+export function nomsCanoniques(
+  directors: OnboardingDirector[],
+  shareholders: OnboardingShareholder[],
+  officiers?: OnboardingOfficers,
+): Map<string, string> {
+  const canoniques = new Map<string, string>();
+  const retenir = (nom: string) => {
+    const propre = nom.trim();
+    if (!propre) return;
+    const cle = propre.toLowerCase();
+    // Premier arrivé, premier servi — c'est la règle de l'écriture.
+    if (!canoniques.has(cle)) canoniques.set(cle, propre);
+  };
+  directors.forEach((d) => retenir(d.fullName));
+  // ⛔ LE FILTRE PORTE SUR `nature`, PAS SUR LE VIDE D'UN CHAMP. Une ligne
+  // d'entité laisse `fullName` vide et s'écarterait toute seule — mais
+  // l'intention doit vivre dans le code, pas dans une absence.
+  shareholders.forEach((s) => {
+    if (s.nature === 'individual') retenir(s.fullName);
+  });
+  if (officiers) POSTES.forEach((p) => retenir(nomDirigeant(officiers[p])));
+  return canoniques;
+}
+
 export interface OnboardingOfficers {
   president: SaisieDirigeant;
   secretary: SaisieDirigeant;
@@ -164,16 +212,15 @@ export default function StepOfficers({
   // une société dans la liste des dirigeants.
   // ★ Le test porte donc sur `nature`, pas sur le vide d'un champ : l'intention
   // vit dans le code, pas dans une absence.
-  const knownPeople = useMemo(() => {
-    const names = new Set<string>();
-    directors.forEach((d) => {
-      if (d.fullName.trim()) names.add(d.fullName.trim());
-    });
-    shareholders.forEach((s) => {
-      if (s.nature === 'individual' && s.fullName.trim()) names.add(s.fullName.trim());
-    });
-    return Array.from(names);
-  }, [directors, shareholders]);
+  // ★ UNE SEULE DÉCLARATION, DEUX LECTEURS. Cet écran et le sommaire dérivaient
+  // la même liste ; elle vit maintenant dans `nomsCanoniques`, au module. Les
+  // noms sont rendus dans l'ordre d'insertion de la Map — celui de l'écriture.
+  // ⚪ `officiers` n'est PAS passé ici : cette liste alimente les menus, qui ne
+  // doivent offrir que les personnes des étapes 4 et 5.
+  const knownPeople = useMemo(
+    () => Array.from(nomsCanoniques(directors, shareholders).values()),
+    [directors, shareholders],
+  );
 
   // Smart default: pre-select sole director for president + secretary
   const seul = knownPeople.length === 1 ? knownPeople[0] : '';
