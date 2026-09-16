@@ -8,6 +8,9 @@ import { normalizeNeq, normalizeCorporationNumber } from '@/lib/identifiers';
 import { residencyApplies } from '@/lib/residency';
 import { insererPersonne, type ChargePersonne } from '@/lib/person-payload';
 import { chargeEntite, type ChargeEntite } from '@/lib/entity-payload';
+import { logActivity } from '@/lib/activity-log';
+import { titresDeJournalInscription } from '@/lib/journal-inscription';
+import { regimeEnBase } from '@/lib/regimes';
 import { StepLanguage } from './StepLanguage';
 import { StepCompany } from './StepCompany';
 import { StepSiege } from './StepSiege';
@@ -821,11 +824,43 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
       console.error('[onboarding] step 7 users.upsert threw:', err);
       return false;
     }
+    // ★★ LE REGISTRE A SON ORIGINE ICI, ET NULLE PART AILLEURS DANS L'INSCRIPTION.
+    // Ce point n'est atteignable QUE par des succès : chaque `setStep(n+1)` vit
+    // dans le chemin de succès de son gestionnaire, et l'upsert ci-dessus bloque
+    // sur échec — « BLOCKING IS THE EXIT ». Une ligne ne peut donc pas naître
+    // d'une inscription à moitié faite.
+    // ⛔ UNE LIGNE, PAS SIX. On consigne ce qui a EU LIEU, pas ce qui a été
+    // demandé : il ne s'est pas passé six choses, il s'en est passé UNE.
+    // ⛔ ET SAUTER N'EST PAS ÉCHOUER. Les étapes 4, 5 et 6 ont un `onSkip` ; une
+    // société sans dirigeants est une inscription COMPLÉTÉE. Les comptes vont
+    // dans `details` SANS condition — zéro est une réponse, pas une anomalie.
+    // ⚪ La ligne est au MIEUX, comme tout le journal : `logActivity` ne lève
+    // jamais. L'inscription est déjà finie ; rien ici ne doit la défaire.
+    if (companyId) {
+      const { titleFr, titleEn } = titresDeJournalInscription({
+        fr: data.company.legalName,
+        en: data.company.legalNameEn,
+      });
+      await logActivity(supabase, companyId, userId, 'company_created', titleFr, titleEn, {
+        regime: regimeEnBase(data.company.incorporationType),
+        administrateurs: directors.length,
+        actionnaires: shareholders.length,
+        dirigeants: POSTES.filter((p) => nomDirigeant(officers[p]).trim()).length,
+      });
+    }
+
     // #146 Phase D: onboarding done — clear the draft so a fresh start can't resurrect it.
     try { window.sessionStorage.removeItem(onboardingDraftKey(userId)); } catch {}
     router.push(`/${locale}/onboarding/fiscal-years`);
     return true;
-  }, [userId, data.language, locale, supabase, router]);
+    // ⚠️ LES SEPT DERNIÈRES SONT CELLES DE LA LIGNE DE REGISTRE. Sans elles,
+    //    `react-hooks/exhaustive-deps` lève — et une fermeture périmée écrirait
+    //    au journal un nom ou des comptes d'un rendu antérieur.
+  }, [
+    userId, data.language, locale, supabase, router,
+    companyId, data.company.legalName, data.company.legalNameEn,
+    data.company.incorporationType, directors, shareholders, officers,
+  ]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--page-bg)' }}>

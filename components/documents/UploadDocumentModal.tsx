@@ -735,7 +735,6 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
     docType,
     language,
     docYear,
-    mode,
     requirementKey,
     requirementYear,
     orderedSelected,
