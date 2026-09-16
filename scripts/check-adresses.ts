@@ -1012,7 +1012,7 @@ function verifierA4a(): boolean {
       ['StepOfficers (étape 6, dirigeant saisi)', el(StepOfficers, {
         locale: 'fr', directors: [], shareholders: [], incorporationDate: '2024-05-06',
         initialOfficers: {
-          president: { nom: 'Chantal Nadeau', nouvelle: true, adresse: { ...ADRESSE_VIERGE } },
+          president: { nomChoisi: '', nomSaisi: 'Chantal Nadeau', nouvelle: true, adresse: { ...ADRESSE_VIERGE } },
           secretary: { ...DIRIGEANT_VIDE },
           treasurer: { ...DIRIGEANT_VIDE },
         },

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import type { OnboardingDirector } from './StepDirectors';
 import { nomActionnaire, type OnboardingShareholder } from './StepShareholders';
-import type { OnboardingOfficers } from './StepOfficers';
+import { nomDirigeant, type OnboardingOfficers } from './StepOfficers';
 import type { IncorporationType } from '@/lib/types';
 import { regimeEnBase } from '@/lib/regimes';
 import IntlMessageFormat from 'intl-messageformat';
@@ -181,26 +181,26 @@ export default function StepCelebration({
   }
 
   // Officers — one line per assigned role; omit lines for unassigned roles.
-  if (officers.president.nom.trim()) {
+  if (nomDirigeant(officers.president).trim()) {
     lines.push({
       text: formatMsg(locale, 'onboarding.summary.officerPresident', {
-        name: officers.president.nom.trim(),
+        name: nomDirigeant(officers.president).trim(),
       }),
       done: true,
     });
   }
-  if (officers.secretary.nom.trim()) {
+  if (nomDirigeant(officers.secretary).trim()) {
     lines.push({
       text: formatMsg(locale, 'onboarding.summary.officerSecretary', {
-        name: officers.secretary.nom.trim(),
+        name: nomDirigeant(officers.secretary).trim(),
       }),
       done: true,
     });
   }
-  if (officers.treasurer.nom.trim()) {
+  if (nomDirigeant(officers.treasurer).trim()) {
     lines.push({
       text: formatMsg(locale, 'onboarding.summary.officerTreasurer', {
-        name: officers.treasurer.nom.trim(),
+        name: nomDirigeant(officers.treasurer).trim(),
       }),
       done: true,
     });

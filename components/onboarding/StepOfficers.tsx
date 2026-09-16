@@ -28,18 +28,45 @@ import type { OnboardingShareholder } from './StepShareholders';
  * n'existe pas, dans un registre légal.
  */
 export interface SaisieDirigeant {
-  /** Le nom — choisi dans la liste, ou saisi ici. Vide = poste non pourvu. */
-  nom: string;
+  /**
+   * DEUX NOMS, UN PAR BRANCHE — ET C'EST CE QUI PERMET DE REVENIR SANS PERDRE.
+   *
+   * ⚖️ DÉCISION DE DOM, 2026-09-15 : « ← Choisir dans la liste » N'EFFACE PLUS.
+   * Il portait une action DESTRUCTIVE déguisée en navigation — un lien, en bas du
+   * bloc, après six champs remplis, sans confirmation ni retour.
+   *
+   * ⛔ ET LA RAISON EST UNE INCOHÉRENCE INTERNE, PAS UNE PRÉFÉRENCE. À l'étape 5,
+   * basculer personne ↔ société n'efface rien : les deux branches y ont des champs
+   * DISTINCTS (`fullName` et `entite.legalName`), donc l'état de chacune survit à
+   * l'autre. Cette étape-ci partageait un seul `nom` entre ses deux branches, et
+   * c'est ce partage — pas le lien — qui rendait l'effacement nécessaire : un nom
+   * tapé, laissé dans un `<select>`, aurait affiché une option qui n'existe pas.
+   * ★ Même forme et même remède qu'à l'étape 5.
+   */
+  nomChoisi: string;
+  nomSaisi: string;
   /**
    * ⚠️ `true` VEUT DIRE « SAISI ICI », PAS « INCONNU DU DOSSIER ». Un nom tapé
-   * qui se trouve déjà aux étapes 4 ou 5 reste `nouvelle: false` : sa fiche est
-   * RÉUTILISÉE, et son bloc d'adresse n'est pas remontré. Sans quoi l'utilisateur
-   * saisirait une adresse que rien n'écrirait — le piège exact de la pré-lecture
-   * de l'étape 5.
+   * qui se trouve déjà aux étapes 4 ou 5 reste marqué comme saisi, mais sa fiche
+   * est RÉUTILISÉE et son bloc d'adresse n'est pas remontré. Sans quoi
+   * l'utilisateur saisirait une adresse que rien n'écrirait — le piège exact de la
+   * pré-lecture de l'étape 5.
    */
   nouvelle: boolean;
-  /** Le domicile, offert avec le nom. Vide sur un dirigeant choisi dans la liste. */
+  /** Le domicile, offert avec le nom saisi. Conservé quand on revient à la liste. */
   adresse: AdresseSaisie;
+}
+
+/**
+ * LE NOM D'UN POSTE, QUELLE QUE SOIT SA BRANCHE.
+ *
+ * ★ Même forme que `nomActionnaire` à l'étape 5, et pour la même raison : quatre
+ * sites lisent le nom d'un dirigeant — la règle « même nom » de l'écran, la
+ * boucle d'écriture, le test « y a-t-il quelqu'un à nommer », et le sommaire.
+ * Une seule définition, et les quatre l'appellent.
+ */
+export function nomDirigeant(s: SaisieDirigeant): string {
+  return s.nouvelle ? s.nomSaisi : s.nomChoisi;
 }
 
 export interface OnboardingOfficers {
@@ -50,7 +77,8 @@ export interface OnboardingOfficers {
 
 /** Un poste non pourvu. ⛔ Aucune présélection : ni nom, ni pays, ni province. */
 export const DIRIGEANT_VIDE: SaisieDirigeant = {
-  nom: '',
+  nomChoisi: '',
+  nomSaisi: '',
   nouvelle: false,
   adresse: { ...ADRESSE_VIERGE },
 };
@@ -149,8 +177,8 @@ export default function StepOfficers({
   const seul = knownPeople.length === 1 ? knownPeople[0] : '';
   const [officiers, setOfficiers] = useState<OnboardingOfficers>(() =>
     initialOfficers ?? {
-      president: { ...DIRIGEANT_VIDE, nom: seul },
-      secretary: { ...DIRIGEANT_VIDE, nom: seul },
+      president: { ...DIRIGEANT_VIDE, nomChoisi: seul },
+      secretary: { ...DIRIGEANT_VIDE, nomChoisi: seul },
       treasurer: { ...DIRIGEANT_VIDE },
     },
   );
@@ -181,8 +209,8 @@ export default function StepOfficers({
     const noms = new Set(knownPeople.map((n) => n.trim().toLowerCase()));
     POSTES.forEach((p) => {
       if (p === postePropre) return;
-      const o = officiers[p];
-      if (o.nom.trim()) noms.add(o.nom.trim().toLowerCase());
+      const nom = nomDirigeant(officiers[p]);
+      if (nom.trim()) noms.add(nom.trim().toLowerCase());
     });
     return noms;
   };
@@ -214,14 +242,11 @@ export default function StepOfficers({
     // supabase-js RETURNS { error } on Postgres and THROWS on a network failure.
     // Without the catch, saving stays true and the button freezes with no message.
     try {
-      // ⛔ LE NOM EST TRIMÉ, LE RESTE PASSE TEL QUEL. `chargeAdresse` fait déjà le
-      //    trim de chaque champ d'adresse, et le refaire ici serait une seconde
-      //    définition du vide.
-      ok = await onContinue({
-        president: { ...officiers.president, nom: officiers.president.nom.trim() },
-        secretary: { ...officiers.secretary, nom: officiers.secretary.nom.trim() },
-        treasurer: { ...officiers.treasurer, nom: officiers.treasurer.nom.trim() },
-      });
+      // ⛔ RIEN N'EST TRIMÉ ICI. `nomDirigeant` choisit la branche, la boucle
+      //    d'écriture trime le nom qu'elle insère, et `chargeAdresse` trime chaque
+      //    champ d'adresse. Le faire une seconde fois ici serait une seconde
+      //    définition du vide, à côté de celles qui existent.
+      ok = await onContinue(officiers);
       if (!ok) {
         setError(tCommon('saveFailed'));
       }
@@ -237,121 +262,6 @@ export default function StepOfficers({
       // OnboardingFlow) — this guard does not DEPEND on that staying true.
       if (!ok) setSaving(false);
     }
-  }
-
-  // ---- Le contrôle d'un poste ------------------------------------------------
-  /**
-   * ⚖️ L'OPTION « UNE AUTRE PERSONNE » EST EN DERNIER, APRÈS LES NOMS ET SÉPARÉE
-   * D'EUX. Décision de Dom, 2026-09-15. Elle n'entre pas en concurrence avec les
-   * noms du dossier : elle est la sortie quand aucun ne convient.
-   *
-   * ⛔ ET LE BLOC D'ADRESSE ARRIVE AVEC LE CHAMP DE NOM, EN UN SEUL GESTE — pas
-   * après qu'on ait tapé. Même principe que la province tranchée la veille : un
-   * champ qui apparaît sous le curseur se lit comme une panne.
-   *
-   * ⚪ TROIS BLOCS PEUVENT S'OUVRIR SUR CET ÉCRAN, et c'est accepté (décision de
-   * Dom) : leur longueur est PROPORTIONNELLE à ce que l'utilisateur a déclaré. Il
-   * ne les voit que s'il a dit trois fois « celui-là aussi est neuf ».
-   */
-  function ChampPoste({
-    poste,
-    label,
-    optional = false,
-  }: {
-    poste: Poste;
-    label: string;
-    optional?: boolean;
-  }) {
-    const valeur = officiers[poste];
-    const connus = nomsConnus(poste);
-    // ⚠️ « Déjà connue » se décide sur le NOM TAPÉ, pas sur `nouvelle` : l'utilisateur
-    //    peut taper un nom qui se trouve aux étapes 4 ou 5. Sa fiche sera réutilisée,
-    //    donc son adresse ne serait écrite nulle part — on ne la demande pas.
-    const dejaConnue = valeur.nouvelle && connus.has(valeur.nom.trim().toLowerCase());
-    return (
-      <div>
-        <label style={fieldLabelStyle}>
-          {label}
-          {optional && (
-            <span style={{ marginLeft: '4px', fontSize: '12px', fontWeight: 400, color: 'var(--text-muted)' }}>
-              ({fr ? 'optionnel' : 'optional'})
-            </span>
-          )}
-        </label>
-
-        {!valeur.nouvelle ? (
-          <select
-            value={valeur.nom}
-            onChange={(e) =>
-              e.target.value === AUTRE
-                ? maj(poste, { nom: '', nouvelle: true, adresse: { ...ADRESSE_VIERGE } })
-                : maj(poste, { nom: e.target.value })
-            }
-            style={selectStyle}
-          >
-            <option value="">{fr ? '— Sélectionner —' : '— Select —'}</option>
-            {knownPeople.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-            <option disabled value="__separateur">
-              ──────────
-            </option>
-            <option value={AUTRE}>{t('otherPerson')}</option>
-          </select>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <input
-              type="text"
-              value={valeur.nom}
-              onChange={(e) => maj(poste, { nom: e.target.value })}
-              placeholder="Jean-Philippe Roussy"
-              style={selectStyle}
-            />
-
-            {/* ⛔ AUCUNE PROP `marque` : CHAMPS_REQUIS.officer ne bouge pas, et cette
-                étape n'exige rien de neuf. OFFRIR ≠ IMPOSER. */}
-            {dejaConnue ? (
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('alreadyKnown')}</p>
-            ) : (
-              <>
-                <BlocAdresse
-                  valeur={valeur.adresse}
-                  onChange={(adresse) => maj(poste, { adresse })}
-                  locale={locale}
-                  libelleLigne1={tPeople('address')}
-                  idPrefixe={`dirigeant-${poste}`}
-                  styleChamp={selectStyle}
-                  styleEtiquette={fieldLabelStyle}
-                />
-                {/* ⚠️ ET ON SAIT CE QU'ELLE VAUT. Sa jumelle de l'étape 3 est là depuis
-                    le 2026-09-09 et la plupart des sièges du parc sont encore vides. On
-                    la met parce qu'elle coûte une phrase, pas parce qu'on y croit.
-                    ⛔ Le compte vit dans le message de commit, que l'historique date.
-                    ★ CHAMPS_REQUIS.officer exige ville et pays : une personne nommée ici
-                    sans adresse entre dans la liste des trous LE JOUR de sa création,
-                    exactement comme un actionnaire de l'étape 5. La phrase dit où. */}
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  {t('completeLater')}
-                </p>
-              </>
-            )}
-
-            <button
-              type="button"
-              onClick={() => maj(poste, { ...DIRIGEANT_VIDE })}
-              style={{
-                alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0,
-                fontSize: '12px', color: 'var(--text-muted)', cursor: 'pointer',
-              }}
-            >
-              {t('backToList')}
-            </button>
-          </div>
-        )}
-      </div>
-    );
   }
 
   const briefcaseIcon = (
@@ -383,9 +293,126 @@ export default function StepOfficers({
       saving={saving}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <ChampPoste poste="president" label={fr ? 'Président·e' : 'President'} />
-        <ChampPoste poste="secretary" label={fr ? 'Secrétaire' : 'Secretary'} />
-        <ChampPoste poste="treasurer" label={fr ? 'Trésorier·ière' : 'Treasurer'} optional />
+        {/* ⛔ RENDU EN LIGNE, ET CE N'EST PAS UN CHOIX DE STYLE.
+            Ce bloc vivait dans un composant `ChampPoste` DÉFINI DANS LE CORPS de
+            StepOfficers. Un composant déclaré dans un rendu est une fonction NEUVE à
+            chaque rendu : React compare les types d'élément par identité, ne les
+            reconnaît pas, DÉMONTE le sous-arbre et le REMONTE. Le nœud DOM de
+            l'entrée est donc remplacé à chaque frappe, et le focus part avec lui —
+            on ne peut pas taper un nom.
+            ⛔ LE DÉFAUT EST ANTÉRIEUR À CE LOT, ET IL DORMAIT. Son prédécesseur
+            `PersonDropdown` était nesté de la même façon depuis toujours, mais il ne
+            rendait qu'un `<select>` : on clique, on choisit, l'interaction est finie
+            avant que la perte de focus se voie. Le premier champ TEXTE l'a réveillé.
+            ★ Mesuré au 2026-09-15, balayage AST de app/ et components/ : c'était le
+            SEUL composant défini dans le corps d'un autre. Pas un motif, un cas.
+            ⛔ NE PAS LE REMETTRE DANS UN COMPOSANT LOCAL « pour la lisibilité ». Si
+            ce bloc doit redevenir un composant, il se hisse AU MODULE. */}
+        {POSTES.map((poste) => {
+          const valeur = officiers[poste];
+          const connus = nomsConnus(poste);
+          // ⚠️ « Déjà connue » se décide sur le NOM TAPÉ, pas sur `nouvelle` :
+          //    l'utilisateur peut taper un nom qui se trouve aux étapes 4 ou 5. Sa
+          //    fiche sera réutilisée, donc son adresse ne serait écrite nulle part —
+          //    on ne la demande pas.
+          // ⚠️ Minuscules et sans espaces de bord : la pré-lecture d'OnboardingFlow
+          //    emploie `ilike`, qui ignore la casse. Deux mécanismes qui décident de
+          //    la même chose doivent comparer de la même façon.
+          const dejaConnue = valeur.nouvelle && connus.has(valeur.nomSaisi.trim().toLowerCase());
+          const label =
+            poste === 'president' ? (fr ? 'Président·e' : 'President')
+            : poste === 'secretary' ? (fr ? 'Secrétaire' : 'Secretary')
+            : (fr ? 'Trésorier·ière' : 'Treasurer');
+          return (
+            <div key={poste}>
+              <label style={fieldLabelStyle}>
+                {label}
+                {poste === 'treasurer' && (
+                  <span style={{ marginLeft: '4px', fontSize: '12px', fontWeight: 400, color: 'var(--text-muted)' }}>
+                    ({fr ? 'optionnel' : 'optional'})
+                  </span>
+                )}
+              </label>
+
+              {!valeur.nouvelle ? (
+                <select
+                  value={valeur.nomChoisi}
+                  onChange={(e) =>
+                    e.target.value === AUTRE
+                      ? maj(poste, { nouvelle: true })
+                      : maj(poste, { nomChoisi: e.target.value })
+                  }
+                  style={selectStyle}
+                >
+                  <option value="">{fr ? '— Sélectionner —' : '— Select —'}</option>
+                  {knownPeople.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                  <option disabled value="__separateur">
+                    ──────────
+                  </option>
+                  <option value={AUTRE}>{t('otherPerson')}</option>
+                </select>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input
+                    type="text"
+                    value={valeur.nomSaisi}
+                    onChange={(e) => maj(poste, { nomSaisi: e.target.value })}
+                    placeholder="Jean-Philippe Roussy"
+                    style={selectStyle}
+                  />
+
+                  {/* ⛔ AUCUNE PROP `marque` : CHAMPS_REQUIS.officer ne bouge pas, et
+                      cette étape n'exige rien de neuf. OFFRIR ≠ IMPOSER. */}
+                  {dejaConnue ? (
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('alreadyKnown')}</p>
+                  ) : (
+                    <>
+                      <BlocAdresse
+                        valeur={valeur.adresse}
+                        onChange={(adresse) => maj(poste, { adresse })}
+                        locale={locale}
+                        libelleLigne1={tPeople('address')}
+                        idPrefixe={`dirigeant-${poste}`}
+                        styleChamp={selectStyle}
+                        styleEtiquette={fieldLabelStyle}
+                      />
+                      {/* ⚠️ ET ON SAIT CE QU'ELLE VAUT. Sa jumelle de l'étape 3 est là
+                          depuis le 2026-09-09 et la plupart des sièges du parc sont
+                          encore vides. On la met parce qu'elle coûte une phrase.
+                          ⛔ Le compte vit dans le message de commit, que l'historique
+                          date. ★ CHAMPS_REQUIS.officer exige ville et pays : une
+                          personne nommée ici sans adresse entre dans la liste des
+                          trous LE JOUR de sa création. La phrase dit où. */}
+                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        {t('completeLater')}
+                      </p>
+                    </>
+                  )}
+
+                  {/* ⚖️ IL N'EFFACE PLUS — décision de Dom, 2026-09-15. Il ne touche
+                      que `nouvelle` : le nom saisi et l'adresse restent en état, et
+                      rebasculer sur « Une autre personne… » les retrouve. Ce qu'ils
+                      deviennent si l'on reste sur un nom de la liste : rien ne les
+                      écrit, puisque `nomDirigeant` ne lit que la branche active. */}
+                  <button
+                    type="button"
+                    onClick={() => maj(poste, { nouvelle: false })}
+                    style={{
+                      alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0,
+                      fontSize: '12px', color: 'var(--text-muted)', cursor: 'pointer',
+                    }}
+                  >
+                    {t('backToList')}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Note */}
         <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '4px' }}>

@@ -13,7 +13,7 @@ import { StepCompany } from './StepCompany';
 import { StepSiege } from './StepSiege';
 import StepDirectors, { type OnboardingDirector } from './StepDirectors';
 import StepShareholders, { nomActionnaire, type OnboardingShareholder } from './StepShareholders';
-import StepOfficers, { DIRIGEANT_VIDE, POSTES, type OnboardingOfficers } from './StepOfficers';
+import StepOfficers, { DIRIGEANT_VIDE, POSTES, nomDirigeant, type OnboardingOfficers, type SaisieDirigeant } from './StepOfficers';
 import StepCelebration from './StepCelebration';
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
@@ -90,7 +90,12 @@ const today = new Date().toISOString().split('T')[0];
 // `.trim()` y LÈVERAIT au premier rendu de l'étape 6, et le sommaire de l'étape 7
 // avec lui. C'est le changement de forme le plus large des quatre : la porte de
 // version reste la seule chose capable de rejeter un tel brouillon.
-const DRAFT_VERSION = 9;
+// ⚠️ 10 DEPUIS LE LOT « FOCUS ET LIEN » (2026-09-15) : `SaisieDirigeant` perd `nom`
+// et gagne `nomChoisi` + `nomSaisi`, un par branche, pour que « ← Choisir dans la
+// liste » cesse d'effacer la saisie. Un brouillon en v9 porte `nom` là où
+// `nomDirigeant` lit `nomSaisi` ou `nomChoisi` : les deux rendraient `undefined`,
+// et `.trim()` y lèverait au premier rendu de l'étape 6.
+const DRAFT_VERSION = 10;
 
 interface OnboardingDraft {
   v: number;
@@ -652,7 +657,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
         // le mandat. Même forme que la branche « pas de société » plus bas ;
         // inatteignable par le parcours normal, puisque l'étape 2 l'exige.
         const appointmentDate = incorporationDate;
-        const aNommer = POSTES.some((poste) => offs[poste].nom.trim());
+        const aNommer = POSTES.some((poste) => nomDirigeant(offs[poste]).trim());
         if (aNommer && !appointmentDate) return false;
 
         // DUPLICATION ON A SECOND PASS — CLOSED BY PRE-READ, NOT BY A CONSTRAINT.
@@ -681,10 +686,14 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
 
         // Returns true on success, false on the first failed write.
         const appointOfficer = async (
-          saisie: { nom: string; nouvelle: boolean; adresse: AdresseSaisie },
+          saisie: SaisieDirigeant,
           title: 'president' | 'secretary' | 'treasurer'
         ): Promise<boolean> => {
-          const name = saisie.nom;
+          // ⛔ `nomDirigeant`, PAS UN CHAMP. Depuis le 2026-09-15 la saisie porte DEUX
+          //    noms — un par branche — pour que « ← Choisir dans la liste » cesse
+          //    d'effacer. Lire l'un des deux ici écrirait le nom de la branche
+          //    inactive : celui que l'utilisateur a abandonné.
+          const name = nomDirigeant(saisie);
           if (!name.trim()) return true;
           const cle = name.trim().toLowerCase();
           // Skip if this TITLE is already actively held. Form copied from
@@ -927,7 +936,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             pas. */}
         {step === 4 && <StepDirectors locale={activeLocale} residencyApplies={residencyApplies(data.company.incorporationType)} initialDirectors={directors.length > 0 ? directors : undefined} onContinue={handleDirectorsContinue} onSkip={() => setStep(5)} />}
         {step === 5 && <StepShareholders locale={activeLocale} directors={directors} initialShareholders={shareholders.length > 0 ? shareholders : undefined} onContinue={handleShareholdersContinue} onSkip={() => setStep(6)} />}
-        {step === 6 && <StepOfficers locale={activeLocale} directors={directors} shareholders={shareholders} incorporationDate={incorporationDate} initialOfficers={POSTES.some((p) => officers[p].nom) ? officers : undefined} onContinue={handleOfficersContinue} onSkip={() => setStep(7)} />}
+        {step === 6 && <StepOfficers locale={activeLocale} directors={directors} shareholders={shareholders} incorporationDate={incorporationDate} initialOfficers={POSTES.some((p) => nomDirigeant(officers[p])) ? officers : undefined} onContinue={handleOfficersContinue} onSkip={() => setStep(7)} />}
         {step === 7 && <StepCelebration locale={activeLocale} companyName={data.company.legalName} incorporationType={data.company.incorporationType} directors={directors} shareholders={shareholders} officers={officers} onContinue={handleCelebrationContinue} />}
       </main>
     </div>
