@@ -68,6 +68,13 @@ export function FiscalYearsSetup({
   // `activeYears` et `saving` — donc rien qui puisse porter un échec, et donc
   // quatre écritures dont l'échec ne pouvait atteindre aucun écran.
   const [saveError, setSaveError] = useState<string | null>(null)
+  /**
+   * ⛔ L'EXERCICE DONT ON VIENT DE REFUSER LE DÉCOCHAGE — un seul à la fois, et c'est
+   * suffisant : on ne clique qu'une carte à la fois, et la raison est la même pour
+   * toutes. Un `Set` laisserait des raisons s'accumuler sous des cartes qu'on ne
+   * regarde plus.
+   */
+  const [refus, setRefus] = useState<number | null>(null)
 
   const docYearSet = new Set(documentYears)
 
@@ -123,7 +130,18 @@ export function FiscalYearsSetup({
     // ⛔ Un exercice verrouillé et coché ne se décoche pas (lib/active-years.ts) : le bouton est
     // désactivé, cette ligne est la ceinture. Verrouillé mais décoché — une ligne archivée
     // d'avant ce lot —, il peut être coché, et il est alors verrouillé.
-    if (docYearSet.has(year) || (exercicesVerrouilles.includes(year) && activeYears.has(year))) return
+    // ⛔ LA CEINTURE, INCHANGÉE — MAIS ELLE PARLE. Elle refusait en silence, et le
+    //    bouton d'un exercice verrouillé était `disabled`, donc ce `return` n'était
+    //    même pas atteint. Il l'est maintenant, et c'est là que la raison se pose :
+    //    au moment du geste, sur la carte qu'on vient de toucher.
+    // ⚪ `docYearSet` garde son `return` muet : son bouton reste `disabled` et sa
+    //    raison est déjà sur la carte.
+    if (exercicesVerrouilles.includes(year) && activeYears.has(year)) {
+      setRefus(year)
+      return
+    }
+    if (docYearSet.has(year)) return
+    setRefus(null)
     const isActive = activeYears.has(year)
     const next = new Set(activeYears)
     if (isActive) {
@@ -420,17 +438,33 @@ export function FiscalYearsSetup({
                 const hasDoc = docYearSet.has(year)
                 const isCurrent = year === exerciceEnCours
                 const isLocked = isActive && exercicesVerrouilles.includes(year)
+                // ⛔⛔ LA RAISON ÉTAIT RENDUE, ET PERSONNE NE POUVAIT LA LIRE.
+                //    Elle vivait dans `title=` — l'infobulle native du navigateur —
+                //    POSÉE SUR UN BOUTON `disabled`. Un élément désactivé ne reçoit pas
+                //    d'événement de souris : l'infobulle ne s'affiche jamais. Ce n'était
+                //    donc pas « rendue mais mal placée », c'était rendue et INATTEIGNABLE
+                //    PAR CONSTRUCTION — pire qu'absente, parce que le code prouvait qu'on
+                //    y avait pensé.
+                // ⚖️ Décision de Dom, 2026-09-17 : elle doit se lire AU MOMENT où l'on
+                //    essaie de décocher.
+                // ⛔ LE BOUTON D'UN EXERCICE VERROUILLÉ N'EST DONC PLUS `disabled` — il
+                //    REFUSE et il DIT POURQUOI. Septième application de `b0f44ed` cette
+                //    semaine : un refus juste et invisible est pire qu'un refus expliqué.
+                // ⚪ `hasDoc` GARDE SON `disabled` : sa raison est déjà VISIBLE sur la
+                //    carte, la pastille « Documents existants ». Il n'a rien de caché à
+                //    révéler, et le rendre cliquable ajouterait un refus pour une chose
+                //    que l'écran montre déjà.
+                // ⚠️ LA CEINTURE DE `toggleYear` NE BOUGE PAS : elle refusait déjà les
+                //    deux cas, et c'est elle qui rend ce changement sûr.
                 return (
                   <button
                     key={year}
                     onClick={() => toggleYear(year)}
-                    disabled={hasDoc || isLocked}
+                    disabled={hasDoc}
                     title={
                       hasDoc
                         ? (fr ? 'Des documents existent pour cette année' : 'Documents exist for this year')
-                        : isLocked
-                          ? tCommon('fiscalYears.lockedAlwaysTracked')
-                          : undefined
+                        : undefined
                     }
                     style={{
                       width: '100%', textAlign: 'left',
@@ -481,6 +515,21 @@ export function FiscalYearsSetup({
                         </span>
                       )}
                     </div>
+                    {/* ★ LA RAISON, DANS LA CARTE QU'ON VIENT DE TOUCHER — pas en bas
+                        de l'écran, pas dans une infobulle. Elle ne paraît qu'après le
+                        geste : l'afficher d'emblée sur deux cartes ferait un mur que
+                        personne ne lit, et la carte est déjà marquée par sa case
+                        cochée. ⚪ La chaîne est celle du catalogue, celle-là même que
+                        `title=` portait — on ne l'a pas réécrite, on l'a rendue
+                        lisible. */}
+                    {refus === year && (
+                      <p style={{
+                        margin: '8px 0 0', fontSize: '12px', lineHeight: 1.5,
+                        color: 'var(--info-text)',
+                      }}>
+                        {tCommon('fiscalYears.lockedAlwaysTracked')}
+                      </p>
+                    )}
                   </button>
                 )
               })}

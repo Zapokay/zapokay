@@ -651,6 +651,36 @@ function lotD(): void {
   dire(!aActiver.includes(2026), "l'exercice en cours déjà suivi n'est PAS réécrit");
   dire(aActiver.length === 0, `et rien d'autre ne l'est (aActiver = [${aActiver}])`);
 
+  console.log('   ⛔ LOT E3 — LE REFUS SE LIT, AU LIEU DE SE TAIRE');
+  /**
+   * ⛔ MÊME LIMITE QU'AU LOT D : l'écran ne monte pas (`useRouter`), et la sonde ne
+   * clique pas. Le chemin se lit donc à l'AST, en trois morceaux :
+   *   ① le bouton d'un exercice VERROUILLÉ n'est plus `disabled` — sans quoi le clic
+   *      n'arriverait jamais et la raison ne pourrait pas se poser ;
+   *   ② `toggleYear` POSE la raison au lieu de rendre en silence ;
+   *   ③ la carte REND cette raison, et la phrase vient du catalogue.
+   * ⚠️ Et une quatrième, négative : `title=` ne porte plus la phrase. La laisser là
+   * ferait deux sources pour un seul fait, dont une inatteignable.
+   */
+  const ecran = readFileSync(
+    join(__dirname, '..', 'components', 'onboarding', 'FiscalYearsSetup.tsx'),
+    'utf8',
+  );
+  dire(/disabled=\{hasDoc\}/.test(ecran), 'le bouton n’est `disabled` que pour `hasDoc`');
+  dire(!/disabled=\{hasDoc \|\| isLocked\}/.test(ecran), '⛔ un exercice verrouillé est CLIQUABLE');
+  dire(/setRefus\(year\)/.test(ecran), '`toggleYear` POSE la raison au lieu de se taire');
+  dire(/refus === year &&/.test(ecran), 'et la carte la REND');
+  dire(
+    !/title=[\s\S]{0,200}lockedAlwaysTracked/.test(ecran),
+    "⛔ et `title=` ne la porte plus — une infobulle sur un élément désactivé ne s'affiche jamais",
+  );
+  // ⭐ CONTRÔLE POSITIF : la phrase EXISTE bien au catalogue, aux deux locales.
+  dire(
+    typeof messages.common.fiscalYears.lockedAlwaysTracked === 'string' &&
+      messages.common.fiscalYears.lockedAlwaysTracked.length > 0,
+    '⭐ et la phrase du catalogue est celle qu’on rend, pas une neuve',
+  );
+
   console.log('   ⭐ ET IL EST COCHÉ DANS TOUS LES CAS, PAS SEULEMENT À NEUF');
   const cas: [string, number[]][] = [
     ['aucune ligne', []],
