@@ -37,6 +37,7 @@ import { StepSiege } from '@/components/onboarding/StepSiege';
 import { StepCompany } from '@/components/onboarding/StepCompany';
 import StepDirectors, { type OnboardingDirector } from '@/components/onboarding/StepDirectors';
 import StepShareholders, { type OnboardingShareholder } from '@/components/onboarding/StepShareholders';
+import StepOfficers, { DIRIGEANT_VIDE, type OnboardingOfficers, type SaisieDirigeant } from '@/components/onboarding/StepOfficers';
 import { VALEUR_ENTITE_VIDE, valeurAvecAdresse } from '@/lib/entity-payload';
 
 let echecs = 0;
@@ -395,12 +396,85 @@ function lotC2(): void {
   dire(dit(zeroActions, "le nombre d'actions"), 'et le message le NOMME');
 }
 
-/* ─── LOT C3, D : leurs écrans s'ajoutent ici, et A+B+C1+C2 se rejouent. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT C3 — L'ÉTAPE 6 EXIGE UN PRÉSIDENT, PAS « UN DIRIGEANT »
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const SAISI_COMPLET: SaisieDirigeant = {
+  nomChoisi: '', nomSaisi: 'Chantal', nouvelle: true,
+  adresse: adresseRemplie(CHAMPS_REQUIS.officer),
+};
+const SAISI_SANS_VILLE: SaisieDirigeant = {
+  ...SAISI_COMPLET,
+  adresse: adresseRemplie(CHAMPS_REQUIS.officer.filter((c) => c !== 'address_city')),
+};
+
+/**
+ * ⚠️ `directors` ET `shareholders` SONT VIDES PAR DÉFAUT, ET C'EST VOULU : la
+ * branche ① (nom choisi dans la liste) n'existe que s'il y a une liste. Le cas qui
+ * la teste en fournit une.
+ */
+const etape6 = (officiers: Partial<OnboardingOfficers>, connus: string[] = []) =>
+  rendre(StepOfficers, {
+    locale: 'fr',
+    directors: connus.map((nom) => ({ ...ADMIN_COMPLET, fullName: nom })),
+    shareholders: [],
+    incorporationDate: '2020-01-01',
+    initialOfficers: { president: { ...DIRIGEANT_VIDE }, secretary: { ...DIRIGEANT_VIDE }, treasurer: { ...DIRIGEANT_VIDE }, ...officiers },
+    onContinue: async () => true,
+  });
+
+function lotC3(): void {
+  console.log('\n── LOT C3 · étape 6 · le président');
+
+  const vide = etape6({});
+
+  console.log('   ① aucun président');
+  dire(boutonDesactive(vide), 'le bouton « Continuer » est DÉSACTIVÉ');
+  dire(dit(vide, 'Un président est requis'), 'le message dit la RÈGLE');
+  dire(
+    ['le nom', 'la ville du domicile', 'le pays du domicile'].every((mot) => dit(vide, mot)),
+    'et il NOMME les trois champs qui manquent',
+  );
+  dire(!dit(vide, 'Passer') && !dit(vide, 'Skip'), '⛔ ni « Passer » ni « Skip »');
+  // ⭐ Le poste exigé se marque, les deux autres se disent facultatifs.
+  dire(asterisques(vide) === 1, `un seul astérisque, celui du président (obtenu ${asterisques(vide)})`);
+  dire((vide.match(/\(optionnel\)/g) ?? []).length === 2, 'et DEUX postes se disent « (optionnel) »');
+
+  console.log('   ② un président SAISI et complet (branche ③)');
+  const president = etape6({ president: SAISI_COMPLET });
+  dire(!boutonDesactive(president), '⛔ NÉGATIF ① — un président complet ne bloque JAMAIS');
+  dire(!dit(president, 'Un président est requis'), 'aucun message de minimum');
+
+  console.log('   ③ ⛔ LE NÉGATIF DE CE LOT — UN TRÉSORIER SEUL NE SUFFIT PAS');
+  // ⛔ Sans cette assertion, `MINIMUM_PAR_ROLE.officer = 1` passerait pour juste.
+  const tresorierSeul = etape6({ treasurer: SAISI_COMPLET });
+  dire(boutonDesactive(tresorierSeul), 'un TRÉSORIER complet, seul, BLOQUE toujours');
+  dire(dit(tresorierSeul, 'Un président est requis'), 'et le message réclame le PRÉSIDENT');
+  const secretaireSeul = etape6({ secretary: SAISI_COMPLET });
+  dire(boutonDesactive(secretaireSeul), 'un SECRÉTAIRE complet, seul, BLOQUE aussi');
+
+  console.log('   ③ ⛔ LA BRANCHE ① — UN NOM CHOISI SUFFIT, SANS ADRESSE');
+  const choisi = etape6({ president: { ...DIRIGEANT_VIDE, nomChoisi: 'Ana' } }, ['Ana']);
+  dire(!boutonDesactive(choisi), 'un président CHOISI dans la liste ne bloque pas');
+  dire(!dit(choisi, 'Un président est requis'), 'et rien ne lui est réclamé');
+  // ⭐ Et la preuve que c'est bien la branche ① : aucun champ d'adresse rendu.
+  dire(!dit(choisi, 'Adresse du domicile'), 'aucun bloc d’adresse : la fiche existe déjà');
+
+  console.log('   ③ ⛔ LA BRANCHE ③ INCOMPLÈTE');
+  const sansVille = etape6({ president: SAISI_SANS_VILLE });
+  dire(boutonDesactive(sansVille), 'un président saisi SANS VILLE bloque');
+  dire(dit(sansVille, 'la ville du domicile'), 'et le message NOMME la ville');
+  dire(!dit(sansVille, 'il manque le nom'), 'et ne réclame PAS ce qui est rempli');
+}
+
+/* ─── LOT D : son écran s'ajoute ici, et A+B+C1+C2+C3 se rejouent. */
 
 console.log('EXIGENCES DE L’INSCRIPTION — montage réel, sans navigateur');
 lotA();
 lotB();
 lotC1();
 lotC2();
+lotC3();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

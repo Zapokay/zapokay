@@ -2,7 +2,14 @@
 
 import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { ADRESSE_VIERGE, type AdresseSaisie } from '@/lib/address';
+import { ADRESSE_VIERGE, type AdresseSaisie, type ChampAdresse } from '@/lib/address';
+import {
+  champsExigesDeLaLigne,
+  champsManquantsDeLaLigne,
+  minimumManquantParTitre,
+  estTitreExige,
+  type ChampExigeDeLaLigne,
+} from '@/lib/data-gaps';
 import BlocAdresse from '@/components/ui/BlocAdresse';
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
@@ -135,6 +142,14 @@ export const DIRIGEANT_VIDE: SaisieDirigeant = {
 
 /** Les trois postes, dans l'ordre où l'écran les pose. */
 export const POSTES = ['president', 'secretary', 'treasurer'] as const;
+
+/**
+ * ⛔ LE MINIMUM D'UN POSTE SE LIT DANS LA DÉCLARATION, JAMAIS DANS CET ÉCRAN. Les
+ * trois emplacements de l'étape 6 sont des titres de `OfficerTitle` ; ce que chacun
+ * exige vit dans `MINIMUM_PAR_TITRE`. Écrire ici « le président est requis » ferait
+ * une seconde source, et c'est elle qui mentirait le jour où la première bouge.
+ */
+const posteExige = (poste: Poste): boolean => estTitreExige(poste);
 export type Poste = (typeof POSTES)[number];
 
 interface StepOfficersProps {
@@ -148,7 +163,6 @@ interface StepOfficersProps {
   // anything was saved. That was the second half of the bceb84d defect at step 5,
   // and tsc reports NOTHING for it. Keep the return type.
   onContinue: (officers: OnboardingOfficers) => Promise<boolean>;
-  onSkip: () => void;
 }
 
 // =============================================================================
@@ -181,7 +195,6 @@ export default function StepOfficers({
   incorporationDate = '',
   initialOfficers,
   onContinue,
-  onSkip,
 }: StepOfficersProps) {
 
   const fr = locale === 'fr';
@@ -264,6 +277,52 @@ export default function StepOfficers({
     return noms;
   };
 
+  /**
+   * ★★ CE QU'UN EMPLACEMENT DOIT PORTER POUR COMPTER — ET IL A TROIS BRANCHES,
+   *   PAS DEUX. C'est la mesure qui a précédé ce lot, et elle décide de tout :
+   *
+   *     ① nom CHOISI dans la liste      → aucun champ d'adresse à l'écran
+   *     ② nom TAPÉ, déjà connu du dossier → aucun champ d'adresse à l'écran
+   *     ③ nom TAPÉ, inconnu              → les six champs, et l'écriture crée la fiche
+   *
+   * ⚖️ DÉCISION DE DOM, 2026-09-17 : le nom SEUL suffit sur ① et ②, le nom PLUS
+   *   ville et pays sur ③.
+   * ⛔ ET LA RAISON EST CELLE DE `b0f44ed` : sur ① et ②, l'adresse n'est PAS à
+   *   l'écran — elle appartient à une fiche qui existe déjà. Exiger un champ
+   *   invisible serait un refus sans marque, le défaut que les trois lots
+   *   précédents ont passé leur temps à fermer.
+   * ⚠️ CE QUE ÇA LAISSE, DÉCIDÉ ET NON OUBLIÉ : un nom choisi dans la liste ne
+   *   garantit PAS que cette personne est complète — la liste offre TOUS les noms
+   *   des étapes 4 et 5, alors que celles-ci n'exigent qu'UNE ligne complète
+   *   chacune. Sa fiche a déjà SA ligne dans la liste des trous : « signaler n'est
+   *   pas exiger » (décision du 2026-09-13).
+   */
+  const manquantsDuPoste = (poste: Poste): ChampExigeDeLaLigne[] => {
+    const valeur = officiers[poste];
+    const nom = nomDirigeant(valeur).trim();
+    if (!nom) return [...champsExigesDeLaLigne('officer')];
+    // ① et ② : la fiche existe, l'écran ne montre aucune adresse, le nom suffit.
+    if (!valeur.nouvelle || nomsConnus(poste).has(nom.toLowerCase())) return [];
+    // ③ : l'écriture crée la fiche depuis CES champs — ce sont eux qu'on exige.
+    return champsManquantsDeLaLigne('officer', { full_name: nom, ...valeur.adresse });
+  };
+
+  /**
+   * ⛔ LE MINIMUM PORTE SUR LE TITRE, PAS SUR LE RÔLE. « Au moins un PRÉSIDENT »,
+   *   et non « au moins un dirigeant » : un trésorier seul ne satisfait rien.
+   * ⚪ Un emplacement compte pour 1 s'il ne lui manque rien — les emplacements sont
+   *   nommés, donc « combien de présidents » ne peut valoir que 0 ou 1 ici.
+   */
+  const manquantsDuPresident = manquantsDuPoste('president');
+  const minimumNonAtteint = minimumManquantParTitre('president', manquantsDuPresident.length === 0 ? 1 : 0) > 0;
+
+  // ★ L'ASTÉRISQUE DÉRIVE DE LA DÉCLARATION — et il ne se pose QUE sur le poste
+  //   exigé. Élargi en `string[]` pour la comparaison : `BlocAdresse.marque` est
+  //   appelée sur les six colonnes, dont quatre que rien n'exige.
+  const exigesDuDirigeant: readonly string[] = champsExigesDeLaLigne('officer');
+  const marqueDirigeant = (champ: ChampAdresse | 'full_name') =>
+    exigesDuDirigeant.includes(champ) ? <span style={{ color: '#ef4444' }}>*</span> : null;
+
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -322,6 +381,12 @@ export default function StepOfficers({
     </svg>
   );
 
+  /**
+   * ⚖️ « PASSER » A DISPARU — DÉCISION DE DOM, 2026-09-17, comme aux étapes 4 et 5.
+   * Il était câblé `onSkip={() => setStep(7)}` : il avançait SANS RIEN ÉCRIRE, juste
+   * à côté du bouton qu'on vient de désactiver. ⛔ La prop part avec le bouton, des
+   * deux côtés.
+   */
   // ---- Render ---------------------------------------------------------------
   return (
     <OnboardingStepLayout
@@ -337,9 +402,9 @@ export default function StepOfficers({
         ? "Le président supervise les affaires. Le secrétaire tient les registres. Souvent, c'est la même personne dans les petites entreprises."
         : 'The president oversees business affairs. The secretary maintains records. Often, this is the same person in small businesses.'}
       locale={locale}
-      onSkip={onSkip}
       onContinue={handleContinue}
       saving={saving}
+      continueDisabled={minimumNonAtteint}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {/* ⛔ RENDU EN LIGNE, ET CE N'EST PAS UN CHOIX DE STYLE.
@@ -380,9 +445,20 @@ export default function StepOfficers({
           const label = (fr ? frMessages : enMessages).officers.titles[poste];
           return (
             <div key={poste}>
+              {/* ⚖️ §362, ET IL EXISTAIT AVANT CE LOT, DANS L'AUTRE SENS. Sur trois
+                  postes, SEUL le trésorier portait « (optionnel) » — ce qui laissait
+                  entendre que les deux autres étaient requis. Ils ne l'étaient pas :
+                  l'écran annonçait PLUS d'exigence qu'il n'en appliquait.
+                  ⚖️ Décision de Dom, 2026-09-17 : le président l'est vraiment, et le
+                  secrétaire gagne le « (optionnel) » qui lui manquait. Les trois
+                  postes disent enfin ce qu'ils sont.
+                  ⛔ L'ASTÉRISQUE NE SE POSE QUE SUR LE POSTE EXIGÉ — il dérive de
+                  `MINIMUM_PAR_TITRE`, jamais d'une liste écrite ici. */}
               <label style={fieldLabelStyle}>
                 {label}
-                {poste === 'treasurer' && (
+                {posteExige(poste) ? (
+                  <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
+                ) : (
                   <span style={{ marginLeft: '4px', fontSize: '12px', fontWeight: 400, color: 'var(--text-muted)' }}>
                     ({fr ? 'optionnel' : 'optional'})
                   </span>
@@ -420,13 +496,19 @@ export default function StepOfficers({
                     style={selectStyle}
                   />
 
-                  {/* ⛔ AUCUNE PROP `marque` : CHAMPS_REQUIS.officer ne bouge pas, et
-                      cette étape n'exige rien de neuf. OFFRIR ≠ IMPOSER. */}
+                  {/* ⚖️ LA PROP `marque` ENTRE, DÉCISION DE DOM DU 2026-09-17. La ligne
+                      d'hier disait « AUCUNE PROP marque : CHAMPS_REQUIS.officer ne bouge
+                      pas, et cette étape n'exige rien de neuf. OFFRIR ≠ IMPOSER » —
+                      juste jusqu'ici. ⭐ Et `CHAMPS_REQUIS.officer` ne bouge TOUJOURS
+                      pas : ville et pays depuis le 2026-09-11, enfin visibles.
+                      ⛔ ELLE NE SE POSE QUE SUR UN POSTE EXIGÉ. Marquer l'adresse d'un
+                      secrétaire facultatif annoncerait un refus qui n'aura pas lieu. */}
                   {dejaConnue ? (
                     <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('alreadyKnown')}</p>
                   ) : (
                     <>
                       <BlocAdresse
+                        marque={posteExige(poste) ? marqueDirigeant : undefined}
                         valeur={valeur.adresse}
                         onChange={(adresse) => maj(poste, { adresse })}
                         locale={locale}
@@ -435,7 +517,13 @@ export default function StepOfficers({
                         styleChamp={selectStyle}
                         styleEtiquette={fieldLabelStyle}
                       />
-                      {/* ⚠️ ET ON SAIT CE QU'ELLE VAUT. Sa jumelle de l'étape 3 est là
+                      {/* ⚖️ CETTE PHRASE PROMETTAIT TROP, comme sa jumelle de l'étape 5.
+                          Elle disait « Vous pourrez compléter cette fiche — ADRESSE —
+                          plus tard » ; or pour un PRÉSIDENT saisi, ville et pays sont
+                          exigés ICI depuis le 2026-09-17. Elle promettait un report que
+                          le bouton refuse, à quelques pixels de lui. Elle ne parle plus
+                          que du RESTE. §362.
+                          ⚠️ ET ON SAIT CE QU'ELLE VAUT. Sa jumelle de l'étape 3 est là
                           depuis le 2026-09-09 et la plupart des sièges du parc sont
                           encore vides. On la met parce qu'elle coûte une phrase.
                           ⛔ Le compte vit dans le message de commit, que l'historique
@@ -480,6 +568,21 @@ export default function StepOfficers({
             : 'The same person can hold multiple positions. This is very common in small businesses.'}
         </p>
 
+        {/* ⛔ LA TROISIÈME PIÈCE — LE MESSAGE QUI NOMME, forme des étapes 2 à 5 : la
+            RÈGLE, puis le GESTE. ⚪ Pas de numéro de ligne ici : l'emplacement a un
+            NOM, et « Président » le dit mieux qu'un index. */}
+        {minimumNonAtteint && (
+          <div style={{ marginTop: '4px' }}>
+            <p style={{ fontSize: '12px', color: '#ef4444', margin: 0 }}>
+              {t('minimumRequired')}
+            </p>
+            <p style={{ fontSize: '12px', color: '#ef4444', margin: 0 }}>
+              {t('minimumMissingFields', {
+                champs: manquantsDuPresident.map((c) => t(`champs.${c}`)).join(', '),
+              })}
+            </p>
+          </div>
+        )}
         {error && (
           <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>
             {error}

@@ -519,7 +519,7 @@
     "otherPerson": "— Une autre personne… —",
     "backToList": "← Choisir dans la liste",
     "alreadyKnown": "Cette personne figure déjà dans votre dossier : sa fiche sera réutilisée, et son adresse reste celle que vous avez déjà saisie.",
-    "completeLater": "Vous pourrez compléter cette fiche — adresse — plus tard, dans Dirigeants.",
+    "completeLater": "Vous pourrez compléter le reste de cette fiche plus tard, dans Dirigeants.",
     "role": "Poste",
     "customTitle": "Titre personnalisé",
     "errorCity": "La ville du domicile est requise.",
@@ -571,7 +571,14 @@
     "generateResolution": "Générer la résolution",
     "viewDocument": "Voir le document",
     "generateAppointmentResolution": "Générer la résolution de nomination",
-    "viewInCompleteness": "Voir dans Complétude"
+    "viewInCompleteness": "Voir dans Complétude",
+    "minimumRequired": "Un président est requis pour continuer.",
+    "minimumMissingFields": "Président : il manque {champs}.",
+    "champs": {
+      "full_name": "le nom",
+      "address_city": "la ville du domicile",
+      "address_country": "le pays du domicile"
+    }
   },
   "shareholders": {
     "_locale": "fr",
@@ -847,7 +854,14 @@
       "gapNoDirector": "Aucun administrateur n'est inscrit.",
       "gapNoOfficer": "Aucun dirigeant n'est inscrit.",
       "gapNoShareholder": "Aucun actionnaire n'est inscrit.",
-      "gapNoEntitySignatory": "Aucun signataire n'est inscrit."
+      "gapNoEntitySignatory": "Aucun signataire n'est inscrit.",
+      "gapNo": {
+        "president": "Aucun président n'est inscrit.",
+        "vice_president": "Aucun vice-président n'est inscrit.",
+        "secretary": "Aucun secrétaire n'est inscrit.",
+        "treasurer": "Aucun trésorier n'est inscrit.",
+        "custom": "Aucun dirigeant à titre personnalisé n'est inscrit."
+      }
     },
     "registers": {
       "directors": "Registre des administrateurs",

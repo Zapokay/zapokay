@@ -519,7 +519,7 @@
     "otherPerson": "— Someone else… —",
     "backToList": "← Choose from the list",
     "alreadyKnown": "This person is already in your file: their record will be reused, and their address stays the one you already entered.",
-    "completeLater": "You can complete this record — address — later, under Officers.",
+    "completeLater": "You can complete the rest of this record later, in Officers.",
     "role": "Position",
     "customTitle": "Custom title",
     "errorCity": "Home address city is required.",
@@ -571,7 +571,14 @@
     "generateResolution": "Generate resolution",
     "viewDocument": "View document",
     "generateAppointmentResolution": "Generate appointment resolution",
-    "viewInCompleteness": "View in Completeness"
+    "viewInCompleteness": "View in Completeness",
+    "minimumRequired": "A president is required to continue.",
+    "minimumMissingFields": "President: missing {champs}.",
+    "champs": {
+      "full_name": "the name",
+      "address_city": "the home city",
+      "address_country": "the home country"
+    }
   },
   "shareholders": {
     "_locale": "en",
@@ -847,7 +854,14 @@
       "gapNoDirector": "No director is on record.",
       "gapNoOfficer": "No officer is on record.",
       "gapNoShareholder": "No shareholder is on record.",
-      "gapNoEntitySignatory": "No signatory is on record."
+      "gapNoEntitySignatory": "No signatory is on record.",
+      "gapNo": {
+        "president": "No president is on record.",
+        "vice_president": "No vice-president is on record.",
+        "secretary": "No secretary is on record.",
+        "treasurer": "No treasurer is on record.",
+        "custom": "No officer with a custom title is on record."
+      }
     },
     "registers": {
       "directors": "Director Register",

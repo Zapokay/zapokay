@@ -38,6 +38,35 @@ export const CLE_TITRE: Record<TitreAvecLibelle, `officers.titles.${TitreAvecLib
 };
 
 /**
+ * ★★ LE TITRE QUI MANQUE — la clé de la phrase que le classeur rend quand aucune
+ * charge de ce titre n'est inscrite.
+ *
+ * ⚖️ ELLE VIT ICI, ET PAS DANS LE CLASSEUR, PARCE QUE LA GARDE DE LINT L'A EXIGÉ.
+ * Écrite dans `BinderExportModal`, elle déclenchait `no-restricted-syntax` :
+ * « LIBELLE DE TITRE EN DUR. Une seule declaration existe : lib/officer-titles.ts
+ * (CLE_TITRE). » ⛔ La règle se trompait sur la NATURE de la valeur — ce sont des
+ * clés de catalogue, pas des libellés — mais elle avait raison sur l'INTENTION, et
+ * sur l'endroit : une table indexée par les titres appartient à ce fichier.
+ * ⭐ ON N'A DONC PAS AJOUTÉ D'EXEMPTION POUR LE CLASSEUR. On a mis la table là où
+ * la règle dit qu'elle doit être. Une garde qu'on contourne par un override cesse
+ * de garder quoi que ce soit.
+ *
+ * ⛔ `Record` SUR LES CINQ TITRES, `CLE_TITRE` n'en couvrant que quatre : celle-ci
+ * inclut `custom`, parce qu'un minimum PEUT être posé sur lui — il ne dirait rien
+ * d'un libellé d'utilisateur, seulement qu'aucune charge de ce genre n'existe.
+ * ⚪ Quatre des cinq n'exigent rien aujourd'hui (`MINIMUM_PAR_TITRE`) et ne peuvent
+ * donc pas paraître. Elles sont là pour que relever l'une d'elles ne demande pas de
+ * revenir ici, et pour que l'oublier ne compile pas.
+ */
+export const CLE_MINIMUM_TITRE: Record<OfficerTitle, `minuteBook.binderExport.gapNo.${OfficerTitle}`> = {
+  president: 'minuteBook.binderExport.gapNo.president',
+  vice_president: 'minuteBook.binderExport.gapNo.vice_president',
+  secretary: 'minuteBook.binderExport.gapNo.secretary',
+  treasurer: 'minuteBook.binderExport.gapNo.treasurer',
+  custom: 'minuteBook.binderExport.gapNo.custom',
+};
+
+/**
  * Le repli d'un titre personnalisé SANS texte — un état que la base admet et
  * que le produit ne crée pas : la modale exige le texte. Il vit sous le MÊME
  * sous-arbre que les quatre autres, donc sous la même garde de glyphes.

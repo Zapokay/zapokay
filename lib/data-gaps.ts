@@ -35,6 +35,7 @@ import type { ChampAdresse, PersonneAdressable } from '@/lib/address';
 // fichier à l'exécution, et les types s'effacent à la compilation.
 import type { RegimeEnBase } from '@/lib/regimes';
 import type { Company } from '@/lib/types';
+import type { OfficerTitle } from '@/lib/supabase/people-types';
 
 /**
  * ★ LE TYPE EST LA GARDE. `keyof CompanyPerson` rend impossible de nommer un
@@ -382,10 +383,73 @@ export function exigencesManquantesSociete(
  */
 export const MINIMUM_PAR_ROLE: Record<RoleAvecExigence, number> = {
   director: 1,
+  /**
+   * ⛔⛔ `officer` RESTE À 0 APRÈS LE LOT DU 2026-09-17, ET C'EST JUSTE — NE PAS
+   * « RÉPARER » CET OUBLI, PARCE QUE CE N'EN EST PAS UN. L'exigence de Dom porte
+   * sur le TITRE, pas sur le rôle : au moins un PRÉSIDENT, et non « au moins un
+   * dirigeant ». Elle est déclarée dans `MINIMUM_PAR_TITRE`, ci-dessous.
+   * ★ METTRE `officer: 1` ICI RENDRAIT UN TRÉSORIER SUFFISANT, et personne ne le
+   * verrait : mesuré le 2026-09-17, AUCUNE société du parc n'a de dirigeant sans
+   * président, donc les deux règles y rendent le même verdict. La différence
+   * n'apparaîtrait que chez le premier client qui ne nomme qu'un trésorier.
+   */
   officer: 0,
   shareholder: 1,
   entity_signatory: 0,
 };
+
+/**
+ * ★★ LE MÊME MINIMUM, SUR UN SECOND INDEX — ET CE N'EST PAS UNE CINQUIÈME FORME.
+ *
+ * ⚖️ DÉCISION DE DOM, 2026-09-17 : au moins UN PRÉSIDENT à l'étape 6.
+ *
+ * ★ LA QUATRIÈME FORME N'EST PAS « UN MINIMUM PAR RÔLE », C'EST « UN MINIMUM
+ * INDEXÉ PAR UN DISCRIMINANT FERMÉ ». Le rôle était son premier index ; le titre
+ * en est un second. C'est exactement le rapport qu'ont `CHAMPS_REQUIS` (par rôle)
+ * et `CHAMPS_REQUIS_SOCIETE` (par régime) : une forme, deux axes.
+ *
+ * ⛔ POURQUOI PAS UN CINQUIÈME MEMBRE DE `RoleAvecExigence`. Ce type indexe
+ * `CHAMPS_REQUIS` — ce qu'une PERSONNE doit porter par rôle —, `ROLES_LUS`,
+ * `TIENT_LE_ROLE` et `porteeDeLaPersonne`. Un président EST un dirigeant : son
+ * exigence de domicile est celle du dirigeant. L'y ajouter forcerait une entrée
+ * `CHAMPS_REQUIS.president` qui recopie `officer`, ferait rendre les deux par
+ * `porteeDeLaPersonne` — la même exigence comptée deux fois — et mentirait sur le
+ * domaine.
+ *
+ * ⚠️⚠️ UNE LISTE, PAS UN `Record<OfficerTitle, number>` — ET LE CHANGEMENT EST
+ * DÉLIBÉRÉ, PAS UNE COMMODITÉ. Le second axe devait être un `Record` de nombres,
+ * par symétrie avec `MINIMUM_PAR_ROLE`. Deux choses l'ont écarté, dans cet ordre :
+ *
+ *   ① `no-restricted-syntax` a REFUSÉ l'objet. Sa règle interdit toute propriété
+ *      nommée `president|secretary|treasurer|vice_president` portant une valeur
+ *      littérale, hors `lib/officer-titles.ts`. Elle se trompait sur la NATURE de
+ *      mes valeurs — des nombres, pas des libellés — mais on ne desserre pas une
+ *      garde parce qu'elle vise trop large, et une exemption d'override aurait
+ *      ouvert ce fichier à de vrais libellés en dur.
+ *   ② ⭐ ET EN CHERCHANT LA SORTIE, LA LISTE S'EST RÉVÉLÉE PLUS JUSTE QUE L'OBJET.
+ *      Un nombre se justifiait pour les rôles — une société ouverte fédérale exige
+ *      TROIS administrateurs (LCSA 102(2)). Un TITRE ne peut pas en exiger deux :
+ *      l'invariant du domaine est UN SEUL porteur actif par titre (art. 31(3°)),
+ *      écrit noir sur blanc dans la garde d'`appointOfficer`. Un `Record` de
+ *      nombres aurait donc admis `president: 2`, que le domaine interdit. La liste
+ *      dit exactement ce qui est vrai : ces titres-là sont exigés, et 0-ou-1 est
+ *      structurel.
+ *
+ * ⚠️ CE QUE LA LISTE PERD, ET IL FAUT LE DIRE : le `Record` forçait les cinq titres
+ * à FIGURER, donc à être considérés. La liste ne force rien. Les quatre absents le
+ * sont par décision — secrétaire, trésorier, vice-président et titre personnalisé
+ * ne sont exigés par aucune loi ni par aucune décision de Dom au 2026-09-17.
+ * ⭐ La couverture des cinq survit ailleurs : `CLE_MINIMUM_TITRE`, dans
+ * `lib/officer-titles.ts`, est un `Record<OfficerTitle, …>` — chacun a déjà sa
+ * phrase, et en ajouter un au type ne compilerait pas sans elle.
+ *
+ * ⭐ `OfficerTitle` EXISTAIT DÉJÀ, miroir de la contrainte CHECK de la table.
+ */
+export const TITRES_EXIGES = ['president'] as const satisfies readonly OfficerTitle[];
+
+/** Les deux axes que le minimum sait indexer. ⭐ Aucune collision : les quatre
+ *  rôles et les cinq titres n'ont aucun nom en commun. */
+export type ExigenceMinimum = RoleAvecExigence | OfficerTitle;
 
 /**
  * Les champs qu'une LIGNE doit porter pour compter : son NOM, plus ce que son
@@ -490,7 +554,22 @@ export function champsManquantsDeLEntite(
  * ensemble et leur différence s'explique.
  */
 export function minimumManquant(role: RoleAvecExigence, lignesQuiComptent: number): number {
-  return Math.max(0, MINIMUM_PAR_ROLE[role] - lignesQuiComptent);
+  return manqueAuMinimum(MINIMUM_PAR_ROLE[role], lignesQuiComptent);
+}
+
+/** Le même calcul, sur l'axe des TITRES. ⛔ Une seule arithmétique, deux
+ *  déclarations : deux soustractions divergeraient un jour sur le `Math.max`. */
+export function minimumManquantParTitre(titre: OfficerTitle, tenants: number): number {
+  return manqueAuMinimum(estTitreExige(titre) ? 1 : 0, tenants);
+}
+
+/** Ce titre est-il exigé ? ⛔ Une seule lecture de la liste, que l'écran partage. */
+export function estTitreExige(titre: OfficerTitle): boolean {
+  return (TITRES_EXIGES as readonly OfficerTitle[]).includes(titre);
+}
+
+function manqueAuMinimum(minimum: number, presents: number): number {
+  return Math.max(0, minimum - presents);
 }
 
 /** Les lignes d'une SAISIE qui comptent : celles à qui rien ne manque. */
@@ -587,12 +666,18 @@ export function champsVidesParLaCorrection<C extends string>(
  * sens d'« actif » ou d'« imprimé ».
  */
 export const SELECT_ROLES_PERSONNE =
-  'director_mandates(deleted_at, is_active), officer_appointments(deleted_at, is_active), shareholding_holders(shareholdings(end_date))';
+  'director_mandates(deleted_at, is_active), officer_appointments(deleted_at, is_active, title), shareholding_holders(shareholdings(end_date))';
 
 /** Ce que `SELECT_ROLES_PERSONNE` rend, embarqué sur une ligne de company_people. */
 export interface PersonneAvecRoles {
   director_mandates?: { deleted_at: string | null; is_active: boolean }[];
-  officer_appointments?: { deleted_at: string | null; is_active: boolean }[];
+  /**
+   * ⚠️ `title` EST ENTRÉ LE 2026-09-17, ET IL EST FACULTATIF SUR LE TYPE. Il sert
+   * au seul minimum par titre ; les prédicats de rôle l'ignorent, comme avant. Un
+   * lecteur qui ne sélectionne pas la colonne — il n'y en a pas aujourd'hui — rend
+   * `undefined`, ce que le décompte traite comme « ce n'est pas ce titre-là ».
+   */
+  officer_appointments?: { deleted_at: string | null; is_active: boolean; title?: string }[];
   shareholding_holders?: { shareholdings?: { end_date: string | null } | null }[];
 }
 
@@ -681,12 +766,16 @@ export type Trou =
    * définition : il n'y en a pas.
    * ⚠️ `id` EST CELUI DE LA SOCIÉTÉ, pour que la clé de rendu reste unique — il
    * ne désigne pas le manquant, qui n'existe pas.
+   * ★ `quoi` PORTE L'AXE, ET UN SEUL CHAMP SUFFIT : les quatre rôles et les cinq
+   * titres n'ont aucun nom en commun, donc la valeur se lit sans ambiguïté. Un
+   * second champ `axe: 'role' | 'titre'` aurait été une donnée dérivable, donc une
+   * donnée à maintenir d'accord avec la première.
    * ⛔ ET IL N'A PAS DE `champs`. Un consommateur qui teste un sujet puis traite
    * « sinon » comme une personne lirait `trou.nom` et `trou.champs` sur celui-ci :
    * les deux sont ABSENTS, donc le compilateur l'arrête. C'est voulu — c'est la
    * garde que l'en-tête de ce type réclame depuis le lot des entités.
    */
-  | { sujet: 'minimum'; id: string; role: RoleAvecExigence; manque: number };
+  | { sujet: 'minimum'; id: string; quoi: ExigenceMinimum; manque: number };
 
 /**
  * Les trous d'une société — SON SIÈGE, PUIS LES TROIS FAMILLES DE RÔLES, UNE
@@ -776,6 +865,25 @@ export async function trousDeLaSociete(
    * au-dessus, et la recompter ici dirait « aucun administrateur » d'une société
    * qui en a un.
    */
+  /**
+   * ★ LE MINIMUM PAR TITRE — SUR LES CHARGES ACTIVES, non supprimées, comme le
+   * prédicat de rôle juste au-dessus. ⛔ Il compte les CHARGES, pas les personnes :
+   * une personne peut tenir deux titres, et « y a-t-il un président ? » ne demande
+   * pas combien de gens.
+   * ⚠️ Les titres se lisent sur l'embarqué de `SELECT_ROLES_PERSONNE`, qui porte
+   * `title` depuis le 2026-09-17.
+   */
+  const trousTitres: Trou[] = TITRES_EXIGES.flatMap((titre) => {
+    const tenants = personnes.reduce(
+      (n, p) =>
+        n +
+        (p.officer_appointments ?? []).filter((c) => !c.deleted_at && c.is_active && c.title === titre).length,
+      0,
+    );
+    const manque = minimumManquantParTitre(titre, tenants);
+    return manque > 0 ? [{ sujet: 'minimum' as const, id: companyId, quoi: titre, manque }] : [];
+  });
+
   const trousMinima: Trou[] = ROLES_LUS.flatMap((role) => {
     // ⛔ LES ENTITÉS S'AJOUTENT AU SEUL RÔLE QU'ELLES PEUVENT TENIR. Écrit
     //   `role === 'shareholder' ? … : 0`, et jamais « sinon » : le jour où un
@@ -785,12 +893,12 @@ export async function trousDeLaSociete(
       personnes.filter((p) => TIENT_LE_ROLE[role](p, 'actif')).length +
       (role === 'shareholder' ? detentricesEnCours : 0);
     const manque = minimumManquant(role, tenants);
-    return manque > 0 ? [{ sujet: 'minimum' as const, id: companyId, role, manque }] : [];
+    return manque > 0 ? [{ sujet: 'minimum' as const, id: companyId, quoi: role, manque }] : [];
   });
 
   // ⚪ LES MINIMA EN TÊTE, AVANT MÊME LE SIÈGE : « il n'y a aucun administrateur »
   //   se lit avant « il manque la ville d'un tel ». L'absence prime le détail.
-  return [...trousMinima, ...trouSiege, ...trousPersonnes, ...trousEntites];
+  return [...trousMinima, ...trousTitres, ...trouSiege, ...trousPersonnes, ...trousEntites];
 }
 
 /**

@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ChampEntite, ChampSiege, RoleAvecExigence, Trou } from '@/lib/data-gaps';
+import type { ChampEntite, ChampSiege, ExigenceMinimum, RoleAvecExigence, Trou } from '@/lib/data-gaps';
+import type { OfficerTitle } from '@/lib/supabase/people-types';
+import { CLE_MINIMUM_TITRE } from '@/lib/officer-titles';
 import { useTranslations, useLocale } from 'next-intl';
 import Button from '@/components/ui/Button';
 
@@ -38,7 +40,9 @@ export default function BinderExportModal({
   isOpen,
   onClose,
 }: BinderExportModalProps) {
-  const t = useTranslations('minuteBook.binderExport');
+  const t = useTranslations('minuteBook.binderExport')
+  // ⚠️ Résolveur à la RACINE : les clés de `CLE_MINIMUM_TITRE` sont absolues.
+  const tRacine = useTranslations();
   const locale = useLocale();
 
   /* ---------- State ---------- */
@@ -273,12 +277,34 @@ export default function BinderExportModal({
    * ⚪ Ce sont des phrases entières, pas des étiquettes de champ : cette ligne ne
    *   nomme personne, elle constate une absence.
    */
-  const CLE_MINIMUM = {
+  /**
+   * ★ UNE PHRASE PAR RÔLE. `Record<RoleAvecExigence, …>` les exige tous les quatre,
+   *   même ceux dont le minimum vaut 0 : relever l'un d'eux ne demandera pas de
+   *   revenir ici, et l'oublier ne compilerait pas.
+   * ⛔ LES CINQ TITRES NE SONT PAS ICI, ET CE N'EST PAS UN OUBLI : leur table vit
+   *   dans `lib/officer-titles.ts`, où la garde de lint dit qu'une table indexée par
+   *   les titres doit vivre. Voir son en-tête.
+   * ⚪ Ce sont des phrases entières, pas des étiquettes : cette ligne ne nomme
+   *   personne, elle constate une absence.
+   */
+  const CLE_MINIMUM_ROLE = {
     director: 'gapNoDirector',
     officer: 'gapNoOfficer',
     shareholder: 'gapNoShareholder',
     entity_signatory: 'gapNoEntitySignatory',
   } as const satisfies Record<RoleAvecExigence, string>;
+  /**
+   * ⛔ LES DEUX AXES SE LISENT PAR UN TEST D'APPARTENANCE, jamais par « sinon ».
+   *   Les quatre rôles et les cinq titres n'ont aucun nom en commun, donc la valeur
+   *   se range sans ambiguïté — mais un « sinon » ferait passer un axe futur pour un
+   *   titre, en silence.
+   * ⚠️ `tRacine` : la clé des titres est ABSOLUE (`minuteBook.binderExport.gapNo.…`),
+   *   parce qu'elle vit dans un module qui ne connaît pas l'espace de ce composant.
+   */
+  const phraseDuMinimum = (quoi: ExigenceMinimum): string =>
+    quoi in CLE_MINIMUM_ROLE
+      ? t(CLE_MINIMUM_ROLE[quoi as RoleAvecExigence])
+      : tRacine(CLE_MINIMUM_TITRE[quoi as OfficerTitle]);
   const manqueSiege = trous.some((x) => x.sujet === 'societe');
   // ⚖️ DÉCISION DE DOM, 2026-09-14 — LES LIGNES DE PERSONNE N'ONT PLUS DE LIEN DE CORRECTION.
   //   « Corriger dans Administrateurs » n'était juste que pour un administrateur. Il trompait
@@ -385,7 +411,7 @@ export default function BinderExportModal({
                           le compilateur a refusé le « sinon » qui le traitait en
                           personne. C'est la garde que l'en-tête de `Trou` réclamait. */}
                       {trou.sujet === 'minimum'
-                        ? t(CLE_MINIMUM[trou.role])
+                        ? phraseDuMinimum(trou.quoi)
                         : trou.sujet === 'societe'
                           ? `${t('gapSiege')} — ${libelleChampsSiege(trou.champs)}`
                           : trou.sujet === 'entite'

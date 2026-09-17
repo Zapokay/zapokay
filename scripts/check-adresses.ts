@@ -94,6 +94,7 @@ import { join, relative } from 'node:path';
 import messages from '@/messages/fr.json';
 import { ADRESSE_VIERGE, adresseRegistre, chargeAdresse, type AdresseSaisie, type ChampAdresse } from '@/lib/address';
 import {
+  CHAMPS_REQUIS,
   CHAMPS_REQUIS_ENTITE,
   CHAMPS_REQUIS_SIEGE,
   HORS_ROLE_AUCUNE_EXIGENCE,
@@ -682,6 +683,9 @@ type Refus =
   | 'champsManquants'
   | 'champsManquantsEntite'
   | 'champsVidesParLaCorrection'
+  /** ⚖️ AJOUTÉ LE 2026-09-17 : le minimum sur l'axe des TITRES. Même arithmétique
+   *  que `minimumManquant`, second index — voir `TITRES_EXIGES`. */
+  | 'minimumManquantParTitre'
   /** ⚖️ AJOUTÉ LE 2026-09-17 : le refus d'une COLLECTION. Les trois autres refusent
    *  un sujet incomplet ; celui-ci refuse qu'il n'y en ait AUCUN de complet. */
   | 'minimumManquant'
@@ -765,9 +769,13 @@ const FORMULAIRES = new Map<string, Formulaire>([
     genre: 'création', raison: "exige un actionnaire complet à l'étape 5, de l'une ou l'autre nature (décision de Dom, 2026-09-17)",
     exigences: [], refus: ['minimumManquant'],
   }],
+  // ⚖️ STEPOFFICERS CHANGE DE GENRE LE 2026-09-17, le troisième en trois lots.
+  //    Son entrée disait « offre le domicile d'un dirigeant SAISI à l'étape 6 ».
+  //    ⚠️ ET SON EXIGENCE PORTE SUR UN TITRE, PAS SUR UN RÔLE : au moins un
+  //    PRÉSIDENT. Un trésorier seul ne la satisfait pas.
   ['components/onboarding/StepOfficers.tsx', {
-    genre: 'offre', raison: "offre le domicile d'un dirigeant SAISI à l'étape 6 — « Une autre personne… », 2026-09-15",
-    exigences: [], refus: [],
+    genre: 'création', raison: "exige un PRÉSIDENT à l'étape 6 — un titre, pas un rôle (décision de Dom, 2026-09-17)",
+    exigences: [], refus: ['minimumManquantParTitre'],
   }],
   // ⚖️ STEPSIEGE A CHANGÉ DE GENRE LE 2026-09-17 ET CETTE LIGNE NE L'A PAS SUIVI —
   //    dette du lot précédent, trouvée en rééduquant A4a pour l'étape 4. Elle
@@ -1059,20 +1067,51 @@ function verifierA4a(): boolean {
       //    un montage ne clique pas. `initialOfficers` est la seule porte qui ouvre la
       //    branche de SAISIE ; sans elle la garde ne verrait que les trois listes et se
       //    croirait complète.
-      ['StepOfficers (étape 6, dirigeant saisi)', el(StepOfficers, {
-        locale: 'fr', directors: [], shareholders: [], incorporationDate: '2024-05-06',
-        initialOfficers: {
-          president: { nomChoisi: '', nomSaisi: 'Chantal Nadeau', nouvelle: true, adresse: { ...ADRESSE_VIERGE } },
-          secretary: { ...DIRIGEANT_VIDE },
-          treasurer: { ...DIRIGEANT_VIDE },
-        },
-        onContinue: accepte, onSkip: rien,
-      })],
+      // ⚠️ L'ÉTAPE 6 N'EST PLUS ICI — elle est montée plus bas, contre sa
+      //    déclaration. La laisser aurait exigé qu'elle ne marque RIEN.
     ];
     for (const [quoi, element] of offres) {
       const marques = libellesMarques(rendre(element)).filter((l) => adressePersonne.has(l));
       vrai = dire(marques.length === 0, `${quoi} — aucun astérisque sur les six champs d'adresse${marques.length ? ` : [${marques.join(', ')}] EN PORTENT UN` : ''}`) && vrai;
     }
+
+    // ⭐ L'ÉTAPE 6 — LA PREUVE QUE L'ASTÉRISQUE SUIT LE TITRE EXIGÉ, ET LUI SEUL.
+    //    Un président SAISI marque son nom et ce que `CHAMPS_REQUIS.officer` exige ;
+    //    un secrétaire saisi, facultatif, ne marque RIEN. C'est ce second montage
+    //    qui distingue « un minimum par TITRE » d'« un minimum par RÔLE » : sans lui
+    //    les deux règles rendraient le même verdict sur cet écran.
+    const etape6 = (poste: 'president' | 'secretary') =>
+      rendre(el(StepOfficers, {
+        locale: 'fr', directors: [], shareholders: [], incorporationDate: '2024-05-06',
+        initialOfficers: {
+          president: { ...DIRIGEANT_VIDE },
+          secretary: { ...DIRIGEANT_VIDE },
+          treasurer: { ...DIRIGEANT_VIDE },
+          [poste]: { nomChoisi: '', nomSaisi: 'Chantal Nadeau', nouvelle: true, adresse: { ...ADRESSE_VIERGE } },
+        },
+        onContinue: accepte,
+      }));
+    // ⚠️ PAS `marquesDeclarees('officer')`, ET LA RAISON EST DANS L'ÉCRAN, PAS DANS
+    //    LA DÉCLARATION. Cet écran n'a AUCUN libellé « Nom complet » : sur la branche
+    //    saisie, le champ du nom est une entrée nue sous le libellé DU POSTE. C'est
+    //    donc le poste qui porte la marque du nom — « Président·e * » —, et exiger
+    //    ici le libellé des personnes chercherait une étiquette qui n'existe pas.
+    // ★ L'ATTENDU RESTE DÉRIVÉ DE DEUX DÉCLARATIONS : `TITRES_EXIGES` dit QUEL poste
+    //    se marque, `CHAMPS_REQUIS.officer` dit quels champs d'adresse le suivent.
+    const rendus6President = libellesMarques(etape6('president'));
+    const attendus6President = [
+      messages.officers.titles.president,
+      ...CHAMPS_REQUIS.officer.map((c) => libelle(LIBELLE_PERSONNE, c)),
+    ].sort();
+    vrai = dire(
+      memes(rendus6President, attendus6President),
+      `StepOfficers (étape 6, président saisi) — astérisques [${rendus6President.join(', ')}]${memes(rendus6President, attendus6President) ? '' : ` ≠ déclarés [${attendus6President.join(', ')}]`}`,
+    ) && vrai;
+    const rendus6Secretaire = libellesMarques(etape6('secretary')).filter((l) => adressePersonne.has(l));
+    vrai = dire(
+      rendus6Secretaire.length === 0,
+      `StepOfficers (étape 6, secrétaire saisi) — AUCUN astérisque, le poste est facultatif${rendus6Secretaire.length ? ` : [${rendus6Secretaire.join(', ')}] EN PORTENT UN` : ''}`,
+    ) && vrai;
 
     // ⭐ L'ÉTAPE 5, SES DEUX BRANCHES, CONTRE DEUX DÉCLARATIONS DIFFÉRENTES. La
     //    personne marque le nom + CHAMPS_REQUIS.shareholder ; la société marque sa
