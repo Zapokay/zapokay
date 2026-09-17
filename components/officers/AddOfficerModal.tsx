@@ -10,7 +10,7 @@ import PersonSelector, {
 import type { OfficerTitle, OfficerEndReason } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
 import { libelleTitre } from '@/lib/officer-titles';
-import { titresDeJournalCharge } from '@/lib/journal-charge';
+import { titresDeJournalCharge, titresDeJournalRemplacement } from '@/lib/journal-charge';
 import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
 import { chargePersonne, insererPersonne } from '@/lib/person-payload';
@@ -210,6 +210,10 @@ export default function AddOfficerModal({
         }
       }
 
+      // ⚪ Non vide UNIQUEMENT sur la branche de remplacement ci-dessous. C'est
+      //    lui qui fait basculer la ligne de registre de « nommé » à « remplacé ».
+      let nomSortant = '';
+
       // If replacing, deactivate the existing officer first
       if (replaceConflict && conflictOfficer) {
         const { error: deactivateErr } = await supabase
@@ -222,6 +226,11 @@ export default function AddOfficerModal({
           console.error('[AddOfficerModal] deactivating the replaced officer failed:', deactivateErr);
           throw new Error(tCommon('saveFailed'));
         }
+        // ⛔ LE NOM DU SORTANT EST CAPTURÉ AVANT `setConflictOfficer(null)`.
+        //    La fermeture survivrait à ce rendu, mais s'appuyer dessus rendrait
+        //    la ligne de registre dépendante d'un détail de React. Une valeur
+        //    locale ne dépend de rien.
+        nomSortant = conflictOfficer.name;
         setConflictOfficer(null);
       }
 
@@ -275,11 +284,24 @@ export default function AddOfficerModal({
         // Avant ce lot, le français passait par une table recopiée ici et
         // l'anglais interpolait `${title}` — LE CODE. Quatre lignes du parc
         // portent « — vice_president » à cause de ces deux lignes.
-        const { titleFr, titleEn } = titresDeJournalCharge(
-          stillInOffice ? 'nomme' : 'nomme_retroactif',
-          fullName,
-          { title, custom_title: customTitle.trim() || null },
-        );
+        //
+        // ⛔⛔ ET LA BRANCHE DE REMPLACEMENT ÉCRIT UNE AUTRE LIGNE. Cet écran a
+        //    DEUX gestes derrière un seul bouton : nommer quelqu'un, ou
+        //    remplacer le titulaire en place. Le second désactivait le sortant
+        //    et écrivait « Dirigeant nommé » — un autre associé voyait l'arrivée
+        //    SANS voir le départ. Mesuré le 2026-09-17.
+        //    ⚪ `nomSortant` n'est non vide que sur cette branche : la branche
+        //    SANS conflit écrit toujours « Dirigeant nommé », inchangée.
+        const { titleFr, titleEn } = nomSortant
+          ? titresDeJournalRemplacement(nomSortant, fullName, {
+              title,
+              custom_title: customTitle.trim() || null,
+            })
+          : titresDeJournalCharge(
+              stillInOffice ? 'nomme' : 'nomme_retroactif',
+              fullName,
+              { title, custom_title: customTitle.trim() || null },
+            );
         const details: Record<string, unknown> = { person_id: personId, title };
         if (!stillInOffice) {
           details.ended = true;

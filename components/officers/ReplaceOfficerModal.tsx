@@ -11,6 +11,8 @@ import type { OfficerWithPerson, OfficerEndReason } from '@/lib/supabase/people-
 import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
 import { chargePersonne, insererPersonne } from '@/lib/person-payload';
 import { libelleTitre } from '@/lib/officer-titles';
+import { logActivity } from '@/lib/activity-log';
+import { titresDeJournalRemplacement } from '@/lib/journal-charge';
 import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 
 // =============================================================================
@@ -174,6 +176,29 @@ export default function ReplaceOfficerModal({
         });
 
       if (createErr) throw new Error(createErr.message);
+
+      // ★ LE REGISTRE DIT QU'UNE CHARGE A CHANGÉ DE MAIN — UNE ligne, pas trois.
+      // Cet écran montre UN titre et UN bouton ; le code fait trois écritures.
+      // On consigne ce que la personne a FAIT, pas ce que le code a exécuté.
+      // ⛔ APRÈS les trois écritures : une ligne qui dirait « remplacé » alors
+      //    que la nomination a échoué serait un mensonge.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { titleFr, titleEn } = titresDeJournalRemplacement(
+          officer.person.full_name,
+          personValue.mode === 'new' ? personValue.fullName : personValue.person.full_name,
+          { title: officer.title, custom_title: officer.custom_title ?? null },
+        );
+        await logActivity(supabase, companyId, user.id, 'officer_replaced', titleFr, titleEn, {
+          outgoing_person_id: officer.person_id,
+          outgoing_appointment_id: officer.id,
+          incoming_person_id: incomingPersonId,
+          title: officer.title,
+          end_date: endDate,
+          end_reason: endReason,
+          start_date: startDate,
+        });
+      }
 
       onSuccess();
     } catch (err: any) {
