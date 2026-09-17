@@ -31,11 +31,13 @@ import { NextIntlClientProvider } from 'next-intl';
 Object.assign(globalThis, { React });
 import messages from '../messages/fr.json';
 import { ADRESSE_VIERGE, type AdresseSaisie } from '@/lib/address';
-import { CHAMPS_REQUIS, CHAMPS_REQUIS_SIEGE } from '@/lib/data-gaps';
+import { CHAMPS_REQUIS, CHAMPS_REQUIS_ENTITE, CHAMPS_REQUIS_SIEGE } from '@/lib/data-gaps';
 import { societeEnColonnes } from '@/lib/societe-colonnes';
 import { StepSiege } from '@/components/onboarding/StepSiege';
 import { StepCompany } from '@/components/onboarding/StepCompany';
 import StepDirectors, { type OnboardingDirector } from '@/components/onboarding/StepDirectors';
+import StepShareholders, { type OnboardingShareholder } from '@/components/onboarding/StepShareholders';
+import { VALEUR_ENTITE_VIDE, valeurAvecAdresse } from '@/lib/entity-payload';
 
 let echecs = 0;
 const dire = (bon: boolean, quoi: string) => {
@@ -51,6 +53,25 @@ function rendre(composant: unknown, props: Record<string, unknown>): string {
     }),
   );
 }
+
+/**
+ * LE TEXTE RENDU DIT-IL CETTE PHRASE ? — et il faut défaire les entités d'abord.
+ *
+ * ⛔ PIÈGE TROUVÉ AU LOT C2, PAR UNE ASSERTION QUI A ÉCHOUÉ ALORS QUE L'ÉCRAN
+ * DISAIT VRAI. `renderToStaticMarkup` échappe l'apostrophe en `&#x27;`, si bien
+ * qu'une phrase du catalogue — « le nombre d'actions » — ne se retrouve JAMAIS
+ * telle quelle dans le balisage. Un `includes` nu aurait donc dit « le message ne
+ * le nomme pas » de tout message contenant une apostrophe, c'est-à-dire du tiers
+ * du catalogue français.
+ * ★ C'est un faux NÉGATIF, le moins dangereux des deux — mais il aurait pu être
+ * « corrigé » en retirant l'assertion.
+ */
+const dit = (html: string, phrase: string): boolean =>
+  html
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .includes(phrase);
 
 /** Les astérisques rendus — les TROIS notations du dépôt, pas une seule. */
 function asterisques(html: string): number {
@@ -130,12 +151,12 @@ function lotA(): void {
   dire(asterisques(vide) === 5, `cinq astérisques rendus (obtenu ${asterisques(vide)})`);
   dire(boutonDesactive(vide), 'le bouton « Continuer » est DÉSACTIVÉ');
   const nomme = ['adresse', 'ville', 'province', 'code postal', 'pays']
-    .every((mot) => vide.includes(mot));
+    .every((mot) => dit(vide, mot));
   dire(nomme, 'le message NOMME les cinq champs manquants');
-  dire(vide.includes('incomplète'), 'et il dit que le siège est incomplet');
+  dire(dit(vide, 'incomplète'), 'et il dit que le siège est incomplet');
 
   console.log('   ② état COMPLET');
-  dire(!complet.includes('incomplète'), 'aucun message d’incomplétude');
+  dire(!dit(complet, 'incomplète'), 'aucun message d’incomplétude');
   dire(!boutonDesactive(complet), '⛔ NÉGATIF — un siège COMPLET ne bloque JAMAIS');
   dire(asterisques(complet) === 5, 'les astérisques restent (ils marquent, ils n’accusent pas)');
 
@@ -171,25 +192,25 @@ function lotB(): void {
   dire(asterisques(vide) === 2, `deux astérisques rendus (obtenu ${asterisques(vide)})`);
   dire(boutonDesactive(vide), 'le bouton « Continuer » est DÉSACTIVÉ');
   dire(
-    ['dénomination sociale', 'NEQ', 'date de constitution'].every((mot) => vide.includes(mot)),
+    ['dénomination sociale', 'NEQ', 'date de constitution'].every((mot) => dit(vide, mot)),
     'le message NOMME les trois exigences manquantes',
   );
-  dire(vide.includes('Il manque des renseignements'), 'et il dit que la société est incomplète');
+  dire(dit(vide, 'Il manque des renseignements'), 'et il dit que la société est incomplète');
 
   console.log('   ② état COMPLET');
-  dire(!complet.includes('Il manque des renseignements'), 'aucun message d’incomplétude');
+  dire(!dit(complet, 'Il manque des renseignements'), 'aucun message d’incomplétude');
   dire(!boutonDesactive(complet), '⛔ NÉGATIF ① — un formulaire COMPLET ne bloque JAMAIS');
   dire(asterisques(complet) === 2, 'les astérisques restent (ils marquent, ils n’accusent pas)');
 
   console.log('   ③ ⛔ NÉGATIF ② — le régime réclame le BON champ, pas les deux');
   // ⭐ LSAQ, tout rempli SAUF le numéro fédéral : il ne doit rien réclamer.
   dire(
-    !complet.includes('numéro de société fédéral'),
+    !dit(complet, 'numéro de société fédéral'),
     'une société PROVINCIALE ne réclame PAS le numéro fédéral',
   );
   const federalVide = etape2({ incorporationType: 'CBCA', corporationNumber: '' });
   dire(boutonDesactive(federalVide), 'une société FÉDÉRALE sans ce numéro est bloquée');
-  dire(federalVide.includes('numéro de société fédéral'), 'et le message le NOMME');
+  dire(dit(federalVide, 'numéro de société fédéral'), 'et le message le NOMME');
   dire(asterisques(federalVide) === 3, `l’astérisque fédéral APPARAÎT (3 astérisques, obtenu ${asterisques(federalVide)})`);
   const federalRempli = etape2({ incorporationType: 'CBCA', corporationNumber: '1111111' });
   dire(!boutonDesactive(federalRempli), '⛔ et une FÉDÉRALE complète ne bloque JAMAIS');
@@ -198,7 +219,7 @@ function lotB(): void {
   // ⚖️ C'est l'arbitrage de Dom rendu exécutable : « au moins un des deux ».
   const anglaiseSeule = etape2({ legalName: '', legalNameEn: 'Trial Inc.' });
   dire(!boutonDesactive(anglaiseSeule), 'le bouton reste ACTIF');
-  dire(!anglaiseSeule.includes('dénomination sociale'), 'et rien ne réclame la dénomination');
+  dire(!dit(anglaiseSeule, 'dénomination sociale'), 'et rien ne réclame la dénomination');
   // ⛔ ET LA RÉCIPROQUE : française seule passe aussi. Un groupe qui n'accepterait
   //    qu'un de ses deux membres ne serait pas un groupe.
   dire(!boutonDesactive(etape2({ legalName: 'Essai inc.', legalNameEn: '' })), 'la française seule aussi');
@@ -261,22 +282,22 @@ function lotC1(): void {
   //    autres colonnes d'adresse, que rien n'exige.
   dire(asterisques(vide) === 3, `trois astérisques rendus (obtenu ${asterisques(vide)})`);
   dire(boutonDesactive(vide), 'le bouton « Continuer » est DÉSACTIVÉ');
-  dire(vide.includes('Au moins un administrateur complet'), 'le message dit la RÈGLE');
+  dire(dit(vide, 'Au moins un administrateur complet'), 'le message dit la RÈGLE');
   dire(
-    ['le nom', 'la ville du domicile', 'le pays du domicile'].every((mot) => vide.includes(mot)),
+    ['le nom', 'la ville du domicile', 'le pays du domicile'].every((mot) => dit(vide, mot)),
     'et il NOMME les trois champs qui manquent',
   );
-  dire(vide.includes('Administrateur 1'), 'et il dit à QUELLE ligne');
+  dire(dit(vide, 'Administrateur 1'), 'et il dit à QUELLE ligne');
 
   console.log('   ⛔ ET AUCUN BOUTON « PASSER » DANS LE RENDU');
-  dire(!vide.includes('Passer') && !vide.includes('Skip'), 'ni « Passer » ni « Skip »');
+  dire(!dit(vide, 'Passer') && !dit(vide, 'Skip'), 'ni « Passer » ni « Skip »');
   // ⭐ Le contrôle positif de cette assertion-là : l'étape 2 en porte un, et le
   //    motif le voit. Sans ça, « absent » ne prouverait que l'aveuglement du motif.
   dire(etape2({}).includes('Retour'), '⭐ et le motif SAIT voir un bouton de gauche (étape 2 : « Retour »)');
 
   console.log('   ② une ligne complète');
   dire(!boutonDesactive(complet), '⛔ NÉGATIF ① — une ligne complète ne bloque JAMAIS');
-  dire(!complet.includes('Au moins un administrateur'), 'aucun message de minimum');
+  dire(!dit(complet, 'Au moins un administrateur'), 'aucun message de minimum');
   dire(asterisques(complet) === 3, 'les astérisques restent (ils marquent, ils n’accusent pas)');
 
   console.log('   ③ ⛔ NÉGATIFS');
@@ -285,8 +306,8 @@ function lotC1(): void {
   dire(asterisques(completPlusVierge) === 6, 'et les deux lignes portent leurs marques');
   const sansVille = etape4([ADMIN_SANS_VILLE]);
   dire(boutonDesactive(sansVille), 'un nom SANS VILLE bloque');
-  dire(sansVille.includes('la ville du domicile'), 'et le message NOMME la ville');
-  dire(!sansVille.includes('le nom'), '⛔ et il ne réclame PAS ce qui est rempli');
+  dire(dit(sansVille, 'la ville du domicile'), 'et le message NOMME la ville');
+  dire(!dit(sansVille, 'le nom'), '⛔ et il ne réclame PAS ce qui est rempli');
 
   console.log('   ⭐ la ligne vierge reste VISIBLE comme incomplète');
   // ⚖️ Elle reste sautée à l'écriture (`continue`), et c'est correct — mais elle ne
@@ -294,11 +315,92 @@ function lotC1(): void {
   dire(asterisques(completPlusVierge) > asterisques(complet), 'la seconde ligne est marquée, pas silencieuse');
 }
 
-/* ─── LOTS C2, C3, D : leurs écrans s'ajoutent ici, et A+B+C1 se rejouent. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT C2 — L'ÉTAPE 5 EXIGE UN ACTIONNAIRE, DE L'UNE OU L'AUTRE NATURE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const ACTIONNAIRE_VIDE: OnboardingShareholder = {
+  nature: 'individual', fullName: '', numberOfShares: 100, pricePerShare: '1',
+  issueDate: '2020-01-01', adresse: { ...ADRESSE_VIERGE }, entite: { ...VALEUR_ENTITE_VIDE, legalName: '' },
+};
+const PERSONNE_COMPLETE: OnboardingShareholder = {
+  ...ACTIONNAIRE_VIDE, fullName: 'Essai', adresse: adresseRemplie(CHAMPS_REQUIS.shareholder),
+};
+/** ⭐ LE NÉGATIF PROPRE À CE LOT : une SOCIÉTÉ actionnaire, complète. */
+const SOCIETE_ACTIONNAIRE_COMPLETE: OnboardingShareholder = {
+  ...ACTIONNAIRE_VIDE,
+  nature: 'entity',
+  entite: valeurAvecAdresse(
+    { ...VALEUR_ENTITE_VIDE, legalName: 'Gestion Essai inc.' },
+    adresseRemplie(CHAMPS_REQUIS_ENTITE),
+  ),
+};
+const PERSONNE_SANS_VILLE: OnboardingShareholder = {
+  ...ACTIONNAIRE_VIDE,
+  fullName: 'Essai',
+  adresse: adresseRemplie(CHAMPS_REQUIS.shareholder.filter((c) => c !== 'address_city')),
+};
+
+const etape5 = (lignes: OnboardingShareholder[]) =>
+  rendre(StepShareholders, {
+    locale: 'fr', directors: [], initialShareholders: lignes, onContinue: async () => true,
+  });
+
+function lotC2(): void {
+  console.log('\n── LOT C2 · étape 5 · les actionnaires');
+
+  const vide = etape5([ACTIONNAIRE_VIDE]);
+  const personne = etape5([PERSONNE_COMPLETE]);
+
+  console.log('   ① aucune ligne complète');
+  dire(asterisques(vide) === 3, `trois astérisques rendus (obtenu ${asterisques(vide)})`);
+  dire(boutonDesactive(vide), 'le bouton « Continuer » est DÉSACTIVÉ');
+  dire(dit(vide, 'Au moins un actionnaire complet'), 'le message dit la RÈGLE');
+  dire(
+    ['le nom', 'la ville', 'le pays'].every((mot) => dit(vide, mot)),
+    'et il NOMME les champs qui manquent',
+  );
+  dire(dit(vide, 'Actionnaire 1'), 'et il dit à QUELLE ligne');
+  dire(!dit(vide, 'Passer') && !dit(vide, 'Skip'), '⛔ ni « Passer » ni « Skip »');
+
+  console.log('   ② une PERSONNE complète');
+  dire(!boutonDesactive(personne), '⛔ NÉGATIF ① — une personne complète ne bloque JAMAIS');
+  dire(!dit(personne, 'Au moins un actionnaire'), 'aucun message de minimum');
+
+  console.log('   ③ ⛔ NÉGATIF PROPRE À CE LOT — LA SOCIÉTÉ COMPTE AUTANT');
+  const societe = etape5([SOCIETE_ACTIONNAIRE_COMPLETE]);
+  dire(!boutonDesactive(societe), 'une SOCIÉTÉ actionnaire complète ne bloque PAS non plus');
+  dire(!dit(societe, 'Au moins un actionnaire'), 'et rien ne lui est réclamé');
+  // ⭐ ET SES ASTÉRISQUES SONT CEUX DE SA PROPRE DÉCLARATION — la branche société ne
+  //    porte pas « Nom complet », elle porte « Nom légal ». Sans cette assertion, le
+  //    minimum pourrait être juste en ayant aplati les deux natures en une.
+  dire(dit(societe, 'Nom légal'), 'sa branche est bien la branche SOCIÉTÉ');
+  dire(asterisques(societe) === 3, `trois astérisques, ceux de l’entité (obtenu ${asterisques(societe)})`);
+  const societeVide = etape5([{ ...SOCIETE_ACTIONNAIRE_COMPLETE, entite: { ...VALEUR_ENTITE_VIDE, legalName: '' } }]);
+  dire(boutonDesactive(societeVide), '⛔ et une société SANS rien est bloquée');
+  dire(dit(societeVide, 'le nom légal'), 'et le message réclame le NOM LÉGAL, pas « le nom »');
+
+  console.log('   ③ ⛔ AUTRES NÉGATIFS');
+  const sansVille = etape5([PERSONNE_SANS_VILLE]);
+  dire(boutonDesactive(sansVille), 'une personne avec nom SANS VILLE bloque');
+  dire(dit(sansVille, 'la ville'), 'et le message NOMME la ville');
+  dire(!dit(sansVille, 'il manque le nom'), 'et ne réclame PAS ce qui est rempli');
+  dire(!boutonDesactive(etape5([PERSONNE_COMPLETE, ACTIONNAIRE_VIDE])), 'complète + vierge ne bloque PAS');
+
+  console.log('   ⭐ LE NOMBRE D’ACTIONS COMPTE, ET CE N’ÉTAIT PAS AU BRIEF');
+  // ⛔ La boucle d'écriture saute sur `nom vide OU numberOfShares <= 0`. Une ligne
+  //    nommée et domiciliée à ZÉRO action passerait le bouton et n'écrirait RIEN.
+  const zeroActions = etape5([{ ...PERSONNE_COMPLETE, numberOfShares: 0 }]);
+  dire(boutonDesactive(zeroActions), 'une ligne complète à ZÉRO action bloque');
+  dire(dit(zeroActions, "le nombre d'actions"), 'et le message le NOMME');
+}
+
+/* ─── LOT C3, D : leurs écrans s'ajoutent ici, et A+B+C1+C2 se rejouent. */
 
 console.log('EXIGENCES DE L’INSCRIPTION — montage réel, sans navigateur');
 lotA();
 lotB();
 lotC1();
+lotC2();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

@@ -963,7 +963,7 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
             la franchirait. C'est ici qu'on voudra « simplifier » : ne le faites
             pas. */}
         {step === 4 && <StepDirectors locale={activeLocale} residencyApplies={residencyApplies(data.company.incorporationType)} initialDirectors={directors.length > 0 ? directors : undefined} onContinue={handleDirectorsContinue} />}
-        {step === 5 && <StepShareholders locale={activeLocale} directors={directors} initialShareholders={shareholders.length > 0 ? shareholders : undefined} onContinue={handleShareholdersContinue} onSkip={() => setStep(6)} />}
+        {step === 5 && <StepShareholders locale={activeLocale} directors={directors} initialShareholders={shareholders.length > 0 ? shareholders : undefined} onContinue={handleShareholdersContinue} />}
         {step === 6 && <StepOfficers locale={activeLocale} directors={directors} shareholders={shareholders} incorporationDate={incorporationDate} initialOfficers={POSTES.some((p) => nomDirigeant(officers[p])) ? officers : undefined} onContinue={handleOfficersContinue} onSkip={() => setStep(7)} />}
         {step === 7 && <StepCelebration locale={activeLocale} companyName={data.company.legalName} incorporationType={data.company.incorporationType} directors={directors} shareholders={shareholders} officers={officers} onContinue={handleCelebrationContinue} />}
       </main>

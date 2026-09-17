@@ -369,6 +369,11 @@ export function exigencesManquantesSociete(
  * 2026-09-17 : 8 sociétés du parc sur 27 sont dans cet état, et 8 n'ont NI
  * administrateur, NI actionnaire, NI dirigeant.
  *
+ * ⚖️ `shareholder` PASSE DE 0 À 1 LE 2026-09-17 (décision de Dom). ⛔ ET SON
+ * DÉCOMPTE N'EST PAS CELUI D'UN RÔLE ORDINAIRE : un actionnaire peut être une
+ * PERSONNE ou une SOCIÉTÉ, et les deux satisfont le minimum. Voir
+ * `minimumManquant`, dont l'en-tête dit ce que chaque surface compte.
+ *
  * ⚠️ UN NOMBRE, PAS UN BOOLÉEN. « Au moins un » est la règle d'aujourd'hui ;
  * une société ouverte en régime fédéral en exige TROIS (LCSA art. 102(2)). Le
  * jour où ce produit les servira, c'est ce chiffre qui change, pas la forme.
@@ -378,7 +383,7 @@ export function exigencesManquantesSociete(
 export const MINIMUM_PAR_ROLE: Record<RoleAvecExigence, number> = {
   director: 1,
   officer: 0,
-  shareholder: 0,
+  shareholder: 1,
   entity_signatory: 0,
 };
 
@@ -420,6 +425,43 @@ export function champsManquantsDeLaLigne(
 }
 
 /**
+ * CE QU'UNE ENTITÉ DOIT PORTER POUR COMPTER — sa DÉNOMINATION, plus ce que
+ * `CHAMPS_REQUIS_ENTITE` exige.
+ *
+ * ★ MÊME PLACE ET MÊME RAISON QUE `REQUIS_PAR_LE_COMPOSANT` POUR LES PERSONNES.
+ * Le nom ne pouvait pas entrer dans `CHAMPS_REQUIS_ENTITE` : cette liste est
+ * typée sur les colonnes d'ADRESSE (`ChampAdresse`), et `legal_name` n'en est
+ * pas une. ⛔ ET LA TOUCHER CHANGERAIT QUATRE CONSOMMATEURS EXISTANTS — les
+ * astérisques d'EntityForm, la garde de la création, celle de la correction, la
+ * liste des trous. Une exigence neuve ne se glisse pas dans une liste que
+ * d'autres lisent depuis des semaines ; elle se déclare à côté.
+ *
+ * ⚪ `legal_name` EST BIEN UNE COLONNE de `shareholder_entities` — c'est celle
+ * que `trousDesEntites` lit pour nommer ses lignes.
+ */
+export const REQUIS_PAR_LE_COMPOSANT_ENTITE = ['legal_name'] as const;
+
+export type ChampExigeDeLEntite = (typeof REQUIS_PAR_LE_COMPOSANT_ENTITE)[number] | ChampEntite;
+
+/** Les champs qu'une ligne d'ENTITÉ doit porter. Pendant de `champsExigesDeLaLigne`. */
+export function champsExigesDeLEntite(): readonly ChampExigeDeLEntite[] {
+  return [...REQUIS_PAR_LE_COMPOSANT_ENTITE, ...CHAMPS_REQUIS_ENTITE];
+}
+
+/**
+ * Ce qui manque à une ENTITÉ pour compter. `[]` = elle compte.
+ * ⛔ DISTINCTE DE `champsManquantsEntite`, ET CE N'EST PAS UN DOUBLON. Celle-là
+ * répond « que manque-t-il à cette fiche ? » et quatre surfaces la lisent ;
+ * celle-ci répond « cette ligne peut-elle compter pour le minimum ? », ce qui
+ * exige en plus une dénomination. Deux questions, deux fonctions.
+ */
+export function champsManquantsDeLEntite(
+  entite: { [K in ChampExigeDeLEntite]?: unknown },
+): ChampExigeDeLEntite[] {
+  return champsExigesDeLEntite().filter((champ) => estVide(entite[champ]));
+}
+
+/**
  * COMBIEN DE LIGNES COMPLÈTES MANQUENT AU MINIMUM. `0` = il est atteint.
  *
  * ⛔ CE QUE LE MINIMUM COMPTE N'EST PAS LE MÊME OBJET SUR LES DEUX SURFACES, ET
@@ -433,6 +475,15 @@ export function champsManquantsDeLaLigne(
  *     non. Une personne incomplète y a DÉJÀ sa ligne, qui nomme ce qui lui
  *     manque ; la recompter ici ferait deux lignes pour un seul manque, et la
  *     seconde dirait « aucun administrateur » d'une société qui en a un.
+ *
+ * ⛔⛔ ET L'ACTIONNARIAT COMPTE DEUX POPULATIONS, PAS UNE. Un actionnaire peut
+ * être une PERSONNE (`company_people`) ou une SOCIÉTÉ (`shareholder_entities`) —
+ * deux tables. Ne compter que la première dirait « aucun actionnaire » d'une
+ * société dont l'unique détenteur est une société de gestion, ce que l'en-tête
+ * de `NatureDetenteur` appelle « le cas le plus courant » pour une PME.
+ * ⚪ Mesuré le 2026-09-17 : 3 sociétés du parc ont une entité détentrice en
+ * cours, et AUCUNE n'a QUE des entités. Le défaut ne se voit donc pas
+ * aujourd'hui — ce qui est précisément pourquoi il fallait le chercher.
  *
  * ★ LES DEUX SONT ÉCRITES CÔTE À CÔTE, DANS CE FICHIER, EXPRÈS. Cachée dans un
  * écran, la première serait une règle hors déclaration ; ici, les deux se lisent
@@ -686,7 +737,7 @@ export async function trousDeLaSociete(
 
   // ⚠️ LES ENTITÉS AVANT LE RETOUR ANTICIPÉ : elles ont leur propre déclaration, et une
   // société sans rôle exigeant peut encore avoir une actionnaire-société sans adresse.
-  const trousEntites = await trousDesEntites(supabase, companyId);
+  const { trous: trousEntites, detentricesEnCours } = await trousDesEntites(supabase, companyId);
   // Aucun rôle n'exige rien : aucune personne ne peut produire de trou, et
   // `entity_signatory` n'y participe jamais — son entrée est vide.
   if (!ROLES_LUS.some((r) => CHAMPS_REQUIS[r].length > 0)) return [...trouSiege, ...trousEntites];
@@ -726,7 +777,13 @@ export async function trousDeLaSociete(
    * qui en a un.
    */
   const trousMinima: Trou[] = ROLES_LUS.flatMap((role) => {
-    const tenants = personnes.filter((p) => TIENT_LE_ROLE[role](p, 'actif')).length;
+    // ⛔ LES ENTITÉS S'AJOUTENT AU SEUL RÔLE QU'ELLES PEUVENT TENIR. Écrit
+    //   `role === 'shareholder' ? … : 0`, et jamais « sinon » : le jour où un
+    //   quatrième rôle entre, il compte zéro entité parce que personne ne l'a
+    //   décidé, pas parce qu'une branche par défaut l'a avalé.
+    const tenants =
+      personnes.filter((p) => TIENT_LE_ROLE[role](p, 'actif')).length +
+      (role === 'shareholder' ? detentricesEnCours : 0);
     const manque = minimumManquant(role, tenants);
     return manque > 0 ? [{ sujet: 'minimum' as const, id: companyId, role, manque }] : [];
   });
@@ -749,7 +806,7 @@ export async function trousDeLaSociete(
 async function trousDesEntites(
   supabase: SupabaseClient,
   companyId: string,
-): Promise<Extract<Trou, { sujet: 'entite' }>[]> {
+): Promise<{ trous: Extract<Trou, { sujet: 'entite' }>[]; detentricesEnCours: number }> {
   const { data, error } = await supabase
     .from('shareholder_entities')
     .select(
@@ -762,8 +819,19 @@ async function trousDesEntites(
     legal_name: string;
     shareholding_holders?: { shareholdings?: { end_date: string | null } | null }[];
   })[];
-  return entites
-    .filter((e) => (e.shareholding_holders ?? []).some((h) => !!h.shareholdings))
-    .map((e) => ({ sujet: 'entite' as const, id: e.id, nom: e.legal_name, champs: champsManquantsEntite(e) }))
-    .filter((t) => t.champs.length > 0);
+  return {
+    trous: entites
+      .filter((e) => (e.shareholding_holders ?? []).some((h) => !!h.shareholdings))
+      .map((e) => ({ sujet: 'entite' as const, id: e.id, nom: e.legal_name, champs: champsManquantsEntite(e) }))
+      .filter((t) => t.champs.length > 0),
+    /**
+     * ⛔ « EN COURS », PAS « IMPRIMÉ » — et c'est la même règle que pour les
+     * personnes : une société dont la détention est CLOSE n'est plus actionnaire,
+     * elle l'a ÉTÉ. Le filtre au-dessus, lui, garde les détentions closes parce
+     * qu'elles s'impriment : deux questions, deux filtres, sur la même lecture.
+     */
+    detentricesEnCours: entites.filter((e) =>
+      (e.shareholding_holders ?? []).some((h) => h.shareholdings && !h.shareholdings.end_date),
+    ).length,
+  };
 }

@@ -612,7 +612,7 @@
     "natureQuestion": "This shareholder is…",
     "natureIndividual": "A person",
     "natureEntity": "A company or trust",
-    "entityCompleteLater": "You can complete this record — address and incorporation date — later, under Shareholders.",
+    "entityCompleteLater": "You can complete the rest of this record — detailed address and incorporation date — later, in Shareholders.",
     "neq": "NEQ",
     "descriptor": "Descriptor",
     "descriptorCorporation": "Corporation",
@@ -682,6 +682,15 @@
       "address_province": "state / region / province",
       "address_postal_code": "postal code",
       "address_country": "country"
+    },
+    "minimumRequired": "At least one complete shareholder is required to continue.",
+    "minimumMissingFields": "Shareholder {index}: missing {champs}.",
+    "champs": {
+      "full_name": "the name",
+      "legal_name": "the legal name",
+      "address_city": "the city",
+      "address_country": "the country",
+      "numberOfShares": "the number of shares"
     }
   },
   "nav": {

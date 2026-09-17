@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ADRESSE_VIERGE, type AdresseSaisie } from '@/lib/address';
+import { ADRESSE_VIERGE, type AdresseSaisie, type ChampAdresse } from '@/lib/address';
+import {
+  champsExigesDeLaLigne,
+  champsExigesDeLEntite,
+  champsManquantsDeLaLigne,
+  champsManquantsDeLEntite,
+  minimumManquant,
+  type ChampExigeDeLaLigne,
+  type ChampExigeDeLEntite,
+} from '@/lib/data-gaps';
 import {
   VALEUR_ENTITE_VIDE,
   adresseDeLaValeur,
@@ -56,8 +65,11 @@ export interface OnboardingShareholder {
    * ici naissait donc sans domicile — et `CHAMPS_REQUIS.shareholder` exige ville et
    * pays, donc sa fiche arrivait dans la liste des trous le jour de sa création.
    *
-   * ⚖️ DÉCISION DE DOM, 2026-09-15 : OFFRIR ≠ IMPOSER. L'exigence ne bouge pas, rien
-   * n'est marqué, rien ne bloque.
+   * ⚖️ DÉCISION DE DOM, 2026-09-15 : OFFRIR ≠ IMPOSER. Elle disait « L'exigence ne
+   * bouge pas, rien n'est marqué, rien ne bloque » — vrai deux jours.
+   * ⚖️ RENVERSÉE LE 2026-09-17 : l'exigence n'a toujours PAS bougé — ville et pays,
+   * `CHAMPS_REQUIS.shareholder`, inchangée depuis le 2026-09-11 — mais elle est
+   * maintenant MARQUÉE et elle BLOQUE, par le minimum de l'étape.
    */
   adresse: AdresseSaisie;
   /**
@@ -92,6 +104,13 @@ export function nomActionnaire(s: OnboardingShareholder): string {
   return s.nature === 'entity' ? s.entite.legalName : s.fullName;
 }
 
+/**
+ * ★ CE QUE CET ÉCRAN DOIT SAVOIR NOMMER, ET RIEN DE PLUS — la leçon des lots B et
+ * C1 : le catalogue porte CINQ libellés, et le compilateur refuse qu'on en réclame
+ * un sixième. L'union DÉRIVE des deux déclarations, plus la condition d'écriture.
+ */
+type ChampNommeActionnaire = ChampExigeDeLaLigne | ChampExigeDeLEntite | 'numberOfShares';
+
 interface StepShareholdersProps {
   locale: string;
   directors: OnboardingDirector[];
@@ -99,7 +118,6 @@ interface StepShareholdersProps {
   /** Resolves true when every shareholding was written, false when the write
    *  failed. Step 5 stays put on false so the user can fix and retry. */
   onContinue: (shareholders: OnboardingShareholder[]) => Promise<boolean>;
-  onSkip: () => void;
 }
 
 // =============================================================================
@@ -129,7 +147,6 @@ export default function StepShareholders({
   directors,
   initialShareholders,
   onContinue,
-  onSkip,
 }: StepShareholdersProps) {
 
   const fr = locale === 'fr';
@@ -237,6 +254,61 @@ export default function StepShareholders({
     setShareholders((prev) => prev.filter((_, i) => i !== index));
   }
 
+  /**
+   * ★★ DEUX BRANCHES, DEUX DÉCLARATIONS, UN SEUL MINIMUM — et ça se ramène
+   *   proprement. Un actionnaire peut être une PERSONNE ou une SOCIÉTÉ, et les deux
+   *   déclarations existaient déjà : `CHAMPS_REQUIS.shareholder` d'un côté,
+   *   `CHAMPS_REQUIS_ENTITE` de l'autre. Le minimum ne compte pas des personnes, il
+   *   compte des ACTIONNAIRES COMPLETS — une société de gestion complète le satisfait
+   *   autant qu'une personne.
+   * ⚪ La NATURE n'est pas une condition écrite à la main : c'est la PROJECTION. La
+   *   déclaration dit combien ; la ligne dit ce qu'elle a à offrir, selon ce qu'elle
+   *   EST. Même partage qu'au lot C1.
+   *
+   * ⛔⛔ ET LE NOMBRE D'ACTIONS EN FAIT PARTIE, CE QUI N'ÉTAIT PAS PRÉVU. La boucle
+   *   d'écriture saute une ligne sur `!nomActionnaire(s).trim() || s.numberOfShares
+   *   <= 0` — DEUX conditions, pas une. Une ligne nommée, domiciliée, mais à zéro
+   *   action passerait donc le bouton et ne s'écrirait PAS : l'étape serait franchie
+   *   sans aucun actionnaire, ce que ce lot existe pour empêcher. Et zéro est
+   *   atteignable : `min="1"` ne contraint que le navigateur, et `parseInt(…) || 0`
+   *   ramène un champ vidé à zéro.
+   * ⚪ Ce n'est pas une exigence de la DÉCLARATION — ce n'est pas la présence d'un
+   *   champ, c'est la condition de saut de l'écriture, recopiée ici pour que les deux
+   *   disent la même chose. Si elle bouge là-bas, elle doit bouger ici.
+   */
+  const manquantsParLigne: ChampNommeActionnaire[][] = shareholders.map((s) => {
+    const champs =
+      s.nature === 'entity'
+        ? champsManquantsDeLEntite({ legal_name: s.entite.legalName, ...adresseDeLaValeur(s.entite) })
+        : champsManquantsDeLaLigne('shareholder', { full_name: s.fullName, ...s.adresse });
+    return s.numberOfShares > 0 ? [...champs] : [...champs, 'numberOfShares'];
+  });
+
+  const complets = manquantsParLigne.filter((m) => m.length === 0).length;
+  const minimumNonAtteint = minimumManquant('shareholder', complets) > 0;
+
+  // ⚪ LA LIGNE LA PLUS PROCHE D'ÊTRE COMPLÈTE — même raison qu'à l'étape 4 : le
+  //   minimum est UN, il suffit d'en compléter une, et c'est celle-là qui demande le
+  //   moins de gestes. À égalité, la première.
+  const laPlusProche = minimumNonAtteint
+    ? manquantsParLigne.reduce(
+        (meilleure, champs, index) =>
+          champs.length < meilleure.champs.length ? { index, champs } : meilleure,
+        { index: 0, champs: manquantsParLigne[0] ?? ([] as ChampNommeActionnaire[]) },
+      )
+    : null;
+
+  // ★ LES ASTÉRISQUES DÉRIVENT DE LA DÉCLARATION, UNE PAR BRANCHE. Les deux listes
+  //   sont élargies en `string[]` pour la comparaison : `BlocAdresse.marque` est
+  //   appelée sur LES SIX colonnes, dont quatre que rien n'exige.
+  const exigesPersonne: readonly string[] = champsExigesDeLaLigne('shareholder');
+  const exigesEntite: readonly string[] = champsExigesDeLEntite();
+  const etoile = <span style={{ color: '#ef4444' }}>*</span>;
+  const marquePersonne = (champ: ChampAdresse | 'full_name') =>
+    exigesPersonne.includes(champ) ? etoile : null;
+  const marqueEntite = (champ: ChampAdresse | 'legal_name') =>
+    exigesEntite.includes(champ) ? etoile : null;
+
   async function handleContinue() {
     // Reentrancy belt. MEASURED 2026-08-28: it cannot fire today —
     // the only invoker is the layout's continue button, which is
@@ -306,6 +378,14 @@ export default function StepShareholders({
     </svg>
   );
 
+  /**
+   * ⚖️ « PASSER » A DISPARU — DÉCISION DE DOM, 2026-09-17, comme à l'étape 4. Il
+   * était câblé `onSkip={() => setStep(6)}` : il avançait SANS RIEN ÉCRIRE, juste à
+   * côté du bouton qu'on vient de désactiver.
+   * ⛔ LA PROP EST PARTIE AVEC LE BOUTON, des deux côtés.
+   * ⚠️ Cette étape n'a donc plus de bouton à gauche. Celui qui part allait en AVANT,
+   * pas en arrière : rien n'est perdu, et en offrir un est une décision non prise.
+   */
   // ---- Render ---------------------------------------------------------------
   return (
     <OnboardingStepLayout
@@ -321,9 +401,10 @@ export default function StepShareholders({
         ? "Les actionnaires possèdent l'entreprise. Si vous êtes le seul propriétaire, ajoutez-vous avec le nombre d'actions émises."
         : 'Shareholders own the company. If you are the sole owner, add yourself with the number of shares issued.'}
       locale={locale}
-      onSkip={onSkip}
+
       onContinue={handleContinue}
       saving={saving}
+      continueDisabled={minimumNonAtteint}
       extraAboveCard={
         <div style={{
           width: '100%', maxWidth: '560px',
@@ -422,7 +503,15 @@ export default function StepShareholders({
               /* ── BRANCHE PERSONNE — inchangée ────────────────────────────── */
               <div style={{ marginBottom: '12px' }}>
                 <label style={fieldLabelStyle}>
-                  {fr ? 'Nom' : 'Name'} <span style={{ color: '#ef4444' }}>*</span>
+                  {/* ⚠️ « Nom complet », PAS « Nom » — ET CE N'EST PAS UN CHOIX DE
+                      STYLE. `check:adresses` compare les astérisques rendus aux
+                      libellés DÉCLARÉS, et la déclaration nomme `full_name` par
+                      `people.fullName`. Deux libellés pour un même champ déclaré
+                      rendaient la comparaison impossible — et rendaient surtout la
+                      même chose sous deux noms à deux étapes voisines.
+                      ⭐ Au passage, la chaîne quitte le ternaire FR/EN en dur pour le
+                      catalogue, où elle aurait dû être (convention n°1). */}
+                  {tPeople('fullName')} {marquePersonne('full_name')}
                 </label>
                 <input
                   type="text"
@@ -441,7 +530,7 @@ export default function StepShareholders({
               <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
                   <label style={fieldLabelStyle}>
-                    {t('legalName')} <span style={{ color: '#ef4444' }}>*</span>
+                    {t('legalName')} {marqueEntite('legal_name')}
                   </label>
                   <input
                     type="text"
@@ -485,9 +574,14 @@ export default function StepShareholders({
                   )}
                 </div>
 
-                {/* ⛔ AUCUNE PROP `marque` : CHAMPS_REQUIS_ENTITE ne bouge pas, et cette
-                    étape n'exige rien de neuf. OFFRIR ≠ IMPOSER. */}
+                {/* ⚖️ LA PROP `marque` ENTRE, DÉCISION DE DOM DU 2026-09-17. Le
+                    commentaire d'hier disait « AUCUNE PROP marque : CHAMPS_REQUIS_ENTITE
+                    ne bouge pas, et cette étape n'exige rien de neuf. OFFRIR ≠ IMPOSER »
+                    — juste jusqu'à ce lot, faux depuis. ⭐ Et c'est encore vrai que
+                    `CHAMPS_REQUIS_ENTITE` NE BOUGE PAS : elle disait déjà ville et pays,
+                    et personne ne les voyait ici. */}
                 <BlocAdresse
+                  marque={marqueEntite}
                   valeur={adresseDeLaValeur(shareholder.entite)}
                   onChange={(a) =>
                     updateShareholder(index, 'entite', valeurAvecAdresse(shareholder.entite, a))
@@ -499,7 +593,14 @@ export default function StepShareholders({
                   styleEtiquette={fieldLabelStyle}
                 />
 
-                {/* ⚠️ ET ON SAIT CE QU'ELLE VAUT. Sa jumelle de l'étape 3 est là depuis
+                {/* ⚖️ CETTE PHRASE DISAIT TROP, DEPUIS LE 2026-09-17. Elle promettait
+                    « Vous pourrez compléter cette fiche — ADRESSE et date de
+                    constitution — plus tard » ; or la VILLE et le PAYS sont exigés ICI
+                    depuis ce lot. Elle promettait donc un report que le bouton refuse,
+                    juste au-dessus de lui. Elle ne parle plus que du RESTE : adresse
+                    détaillée et date. §362, trouvé en cherchant les phrases devenues
+                    fausses, pas au hasard.
+                    ⚠️ ET ON SAIT CE QU'ELLE VAUT. Sa jumelle de l'étape 3 est là depuis
                     le 2026-09-09, et la plupart des sièges du parc sont encore vides.
                     On la met parce qu'elle coûte une phrase, pas parce qu'on y croit.
                     ⛔ Le compte vit dans le message de commit, que l'historique date.
@@ -579,7 +680,11 @@ export default function StepShareholders({
             </div>
 
             {/* ★ LE DOMICILE — le bloc entier, qui n'existait pas.
-                ⛔ AUCUNE PROP `marque` : cette étape n'exige rien de neuf.
+                ⚖️ LA PROP `marque` ENTRE, DÉCISION DE DOM DU 2026-09-17. La ligne
+                   d'hier disait « AUCUNE PROP marque : cette étape n'exige rien de
+                   neuf ». Elle était juste ; elle ne l'est plus.
+                ⭐ RIEN N'EST INVENTÉ : `CHAMPS_REQUIS.shareholder` déclare ville et
+                   pays depuis le 2026-09-11, et cet écran ne les montrait pas.
                 ⛔ ET IL APPARTIENT À LA BRANCHE PERSONNE. Sans cette condition il se
                    rendait AUSSI sous une société : deux blocs d'adresse sur la même
                    carte, « Adresse du domicile » sous une personne morale, et celui
@@ -589,6 +694,7 @@ export default function StepShareholders({
             {shareholder.nature === 'individual' && (
               <div style={{ marginTop: '12px' }}>
                 <BlocAdresse
+                  marque={marquePersonne}
                   valeur={shareholder.adresse}
                   onChange={(adresse) => updateShareholder(index, 'adresse', adresse)}
                   locale={locale}
@@ -621,6 +727,22 @@ export default function StepShareholders({
           <span style={{ color: '#F5B91E', fontSize: '18px', lineHeight: 1 }}>+</span>
           {fr ? 'Ajouter un actionnaire' : 'Add a shareholder'}
         </button>
+
+        {/* ⛔ LA TROISIÈME PIÈCE — LE MESSAGE QUI NOMME, forme des étapes 2, 3 et 4 :
+            la RÈGLE, puis le GESTE qui la satisfait. Les trois partent ensemble. */}
+        {laPlusProche && (
+          <div style={{ marginTop: '4px' }}>
+            <p style={{ fontSize: '12px', color: '#ef4444', margin: 0 }}>
+              {t('minimumRequired')}
+            </p>
+            <p style={{ fontSize: '12px', color: '#ef4444', margin: 0 }}>
+              {t('minimumMissingFields', {
+                index: laPlusProche.index + 1,
+                champs: laPlusProche.champs.map((c) => t(`champs.${c}`)).join(', '),
+              })}
+            </p>
+          </div>
+        )}
 
         {error && (
           <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>

@@ -612,7 +612,7 @@
     "natureQuestion": "Cet actionnaire est…",
     "natureIndividual": "Une personne",
     "natureEntity": "Une société ou une fiducie",
-    "entityCompleteLater": "Vous pourrez compléter cette fiche — adresse et date de constitution — plus tard, dans Actionnaires.",
+    "entityCompleteLater": "Vous pourrez compléter le reste de cette fiche — adresse détaillée et date de constitution — plus tard, dans Actionnaires.",
     "neq": "NEQ",
     "descriptor": "Désignation",
     "descriptorCorporation": "Société",
@@ -682,6 +682,15 @@
       "address_province": "état / région / province",
       "address_postal_code": "code postal",
       "address_country": "pays"
+    },
+    "minimumRequired": "Au moins un actionnaire complet est requis pour continuer.",
+    "minimumMissingFields": "Actionnaire {index} : il manque {champs}.",
+    "champs": {
+      "full_name": "le nom",
+      "legal_name": "le nom légal",
+      "address_city": "la ville",
+      "address_country": "le pays",
+      "numberOfShares": "le nombre d'actions"
     }
   },
   "nav": {

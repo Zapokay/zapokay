@@ -759,9 +759,11 @@ const FORMULAIRES = new Map<string, Formulaire>([
     genre: 'création', raison: "exige un administrateur complet à l'étape 4 (décision de Dom, 2026-09-17)",
     exigences: [], refus: ['minimumManquant'],
   }],
+  // ⚖️ STEPSHAREHOLDERS CHANGE DE GENRE LE 2026-09-17, comme l'étape 4 la veille.
+  //    Son entrée disait « offre le domicile à l'étape 5, SUR SES DEUX BRANCHES ».
   ['components/onboarding/StepShareholders.tsx', {
-    genre: 'offre', raison: "offre le domicile à l'étape 5, SUR SES DEUX BRANCHES — personne et société (la nature du détenteur, 2026-09-15)",
-    exigences: [], refus: [],
+    genre: 'création', raison: "exige un actionnaire complet à l'étape 5, de l'une ou l'autre nature (décision de Dom, 2026-09-17)",
+    exigences: [], refus: ['minimumManquant'],
   }],
   ['components/onboarding/StepOfficers.tsx', {
     genre: 'offre', raison: "offre le domicile d'un dirigeant SAISI à l'étape 6 — « Une autre personne… », 2026-09-15",
@@ -1050,12 +1052,9 @@ function verifierA4a(): boolean {
     const offres: [string, React.ReactElement][] = [
       // ⚠️ STEPDIRECTORS N'EST PLUS ICI — il est monté plus bas, contre la
       //    déclaration. Le laisser aurait exigé qu'il ne marque RIEN.
-      ['StepShareholders (étape 5, branche personne)', el(StepShareholders, {
-        locale: 'fr', directors: [], onContinue: accepte, onSkip: rien,
-      })],
-      ['StepShareholders (étape 5, branche société)', el(StepShareholders, {
-        locale: 'fr', directors: [], initialShareholders: [ligneEntite], onContinue: accepte, onSkip: rien,
-      })],
+      // ⚠️ LES DEUX BRANCHES DE L'ÉTAPE 5 NE SONT PLUS ICI — elles sont montées plus
+      //    bas, contre leurs déclarations. Les laisser aurait exigé qu'elles ne
+      //    marquent RIEN.
       // ⚠️ MÊME RAISON QU'À L'ÉTAPE 5 : « une autre personne » est un état interne, et
       //    un montage ne clique pas. `initialOfficers` est la seule porte qui ouvre la
       //    branche de SAISIE ; sans elle la garde ne verrait que les trois listes et se
@@ -1074,6 +1073,34 @@ function verifierA4a(): boolean {
       const marques = libellesMarques(rendre(element)).filter((l) => adressePersonne.has(l));
       vrai = dire(marques.length === 0, `${quoi} — aucun astérisque sur les six champs d'adresse${marques.length ? ` : [${marques.join(', ')}] EN PORTENT UN` : ''}`) && vrai;
     }
+
+    // ⭐ L'ÉTAPE 5, SES DEUX BRANCHES, CONTRE DEUX DÉCLARATIONS DIFFÉRENTES. La
+    //    personne marque le nom + CHAMPS_REQUIS.shareholder ; la société marque sa
+    //    dénomination + CHAMPS_REQUIS_ENTITE. C'est la preuve que le minimum unique
+    //    de l'étape n'a pas aplati les deux natures en une.
+    const htmlEtape5Personne = rendre(el(StepShareholders, {
+      locale: 'fr', directors: [], onContinue: accepte,
+    }));
+    const attendus5Personne = marquesDeclarees('shareholder');
+    const rendus5Personne = libellesMarques(htmlEtape5Personne);
+    vrai = dire(
+      memes(rendus5Personne, attendus5Personne),
+      `StepShareholders (étape 5, branche personne) — astérisques [${rendus5Personne.join(', ')}]${memes(rendus5Personne, attendus5Personne) ? '' : ` ≠ déclarés [${attendus5Personne.join(', ')}]`}`,
+    ) && vrai;
+
+    const htmlEtape5Societe = rendre(el(StepShareholders, {
+      locale: 'fr', directors: [], initialShareholders: [ligneEntite], onContinue: accepte,
+    }));
+    const attendus5Societe = [
+      messages.shareholders.legalName,
+      ...CHAMPS_REQUIS_ENTITE.map((c) => libelle(LIBELLE_ENTITE, c)),
+    ].sort();
+    const rendus5Societe = libellesMarques(htmlEtape5Societe);
+    vrai = dire(
+      memes(rendus5Societe, attendus5Societe),
+      `StepShareholders (étape 5, branche société) — astérisques [${rendus5Societe.join(', ')}]${memes(rendus5Societe, attendus5Societe) ? '' : ` ≠ déclarés [${attendus5Societe.join(', ')}]`}`,
+    ) && vrai;
+
   } catch (err) {
     vrai = dire(false, `MONTAGE IMPOSSIBLE — la garde ne peut pas conclure : ${(err as Error).message}`);
   }
@@ -1148,19 +1175,6 @@ function verifierA4b(): boolean {
     }
     const htmlEntite = rendre(el(EditEntityModal, { entity: ENTITE_SANS_ADRESSE, companyId: 'c1', onClose: rien, onSuccess: rien }));
     const entite = boutonDesactive(htmlEntite, messages.shareholders.save);
-    // ⭐ L'ÉTAPE 4 EST MONTÉE CONTRE LA MÊME DÉCLARATION QUE PERSONSELECTOR. Deux
-    //    surfaces, une source : si `CHAMPS_REQUIS.director` bouge, les deux montages
-    //    le disent ensemble, ou cette garde tombe.
-    const htmlEtape4 = rendre(el(StepDirectors, {
-      locale: 'fr', userFullName: 'Ana Martin', residencyApplies: true, onContinue: accepte,
-    }));
-    const rendusEtape4 = libellesMarques(htmlEtape4);
-    const attendusEtape4 = marquesDeclarees('director');
-    vrai = dire(
-      memes(rendusEtape4, attendusEtape4),
-      `StepDirectors (étape 4) — astérisques [${rendusEtape4.join(', ')}]${memes(rendusEtape4, attendusEtape4) ? '' : ` ≠ déclarés [${attendusEtape4.join(', ')}]`}`,
-    ) && vrai;
-
     const adresses = new Set(Object.values(LIBELLE_ENTITE));
     const rendusEntite = libellesMarques(htmlEntite).filter((l) => adresses.has(l));
     const attendusEntite = CHAMPS_REQUIS_ENTITE.map((c) => libelle(LIBELLE_ENTITE, c)).sort();
