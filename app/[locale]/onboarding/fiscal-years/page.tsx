@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getUserWithProfile } from '@/lib/auth'
+import { getUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { FiscalYearsSetup } from '@/components/onboarding/FiscalYearsSetup'
 import { declarationDesExercices } from '@/lib/active-years'
@@ -11,31 +11,8 @@ export default async function FiscalYearsPage({
 }) {
   const supabase = createClient()
 
-  const { user, profile } = await getUserWithProfile()
+  const user = await getUser()
   if (!user) redirect(`/${locale}/login`)
-
-  // ⛔ LA MÊME GARDE QUE `app/[locale]/onboarding/page.tsx`, ET C'EST UNE
-  //    DIVERGENCE QU'ON FERME, PAS UN CHOIX QU'ON FAIT. Deux pages du MÊME
-  //    parcours, l'une gardée et l'autre non : l'étape 8 restait atteignable à
-  //    vie par son URL, longtemps après la fin de l'inscription. Elle ouvrait
-  //    alors un écran de mise en route sur une société déjà en service, où
-  //    « Passer » et « Terminer » mènent tous deux au tableau de bord.
-  //    ⚪ Aucun lien n'y menait — une seule occurrence dans tout le dépôt, le
-  //    `router.push` de l'étape 7. Il fallait taper l'URL. Ce n'était donc pas
-  //    dangereux ; ce n'était pas voulu non plus.
-  //
-  // ⛔⛔ ET LA CONSÉQUENCE SE NOMME ICI, PARCE QU'ELLE SE VERRA AILLEURS.
-  //    Cette garde rend la branche d'ARCHIVAGE de `handleStart`
-  //    (`FiscalYearsSetup`) définitivement inatteignable depuis l'inscription :
-  //    elle exige des lignes `active` en base AU CHARGEMENT, et une société
-  //    neuve n'en a aucune — aucun chemin n'écrit `company_fiscal_years` avant
-  //    l'étape 8. Le seul chemin qui l'atteignait était ce retour manuel.
-  //    ★ NE PAS LA RETIRER EN LA TROUVANT MORTE :
-  //      « Inatteignable depuis l'inscription depuis ce lot. Le geste
-  //        d'archivage vit dans SettingsClient, où il a un sens : des lignes y
-  //        existent déjà. Cette branche redeviendrait utile si cet écran
-  //        servait un jour hors inscription. »
-  if (profile?.onboarding_completed) redirect(`/${locale}/dashboard`)
 
   const { data: company } = await supabase
     .from('companies')
