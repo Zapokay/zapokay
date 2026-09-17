@@ -905,6 +905,8 @@
     }
   },
   "activity": {
+    "byAuthor": "par {name}",
+    "authorUnknown": "par un utilisateur non identifié",
     "registerOpened": "Registre ouvert le {date}.",
     "companyIncorporated": "Société constituée le {date}.",
     "noEventsSince": "Aucun événement depuis.",

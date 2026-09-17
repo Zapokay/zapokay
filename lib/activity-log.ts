@@ -25,6 +25,41 @@ export async function logActivity(
   titleEn: string,
   details?: Record<string, any>
 ) {
+  // ★★ LE NOM DE L'AUTEUR EST GELÉ ICI, ET NULLE PART AILLEURS.
+  //
+  // ⛔ POURQUOI GELER, ALORS QUE `user_id` EST DÉJÀ LÀ. Mesuré le 2026-09-17 :
+  //    `activity_log.user_id → users(id)` est ON DELETE SET NULL, et
+  //    `users.id → auth.users(id)` est ON DELETE CASCADE. Supprimer un compte
+  //    met donc `user_id` à NULL — la LIGNE survit, l'AUTEUR disparaît, en
+  //    silence et sans pierre tombale. Un registre PARTAGÉ dont l'auteur
+  //    s'efface quand quelqu'un quitte l'entreprise ne remplit pas sa fonction.
+  //    ⚪ La contrainte reste telle quelle : une fois le nom gelé, elle perd le
+  //    LIEN, pas le FAIT. C'est le bon comportement.
+  //
+  // ★ ICI ET PAS AUX APPELANTS : 23 sites appellent cette fonction et TROIS
+  //   seulement ont le nom en main. Le geler au bon endroit coûte une lecture ;
+  //   le geler aux appelants coûterait vingt modifications et dix-neuf oublis
+  //   possibles. Le lot qui branchera les chemins non journalisés en héritera
+  //   sans y penser — c'est le but.
+  //
+  // ⛔⛔ ET CETTE LECTURE NE FAIT JAMAIS ÉCHOUER LA LIGNE. Si elle rate, la
+  //   ligne s'écrit SANS nom gelé : `user_id` y est toujours, donc la
+  //   résolution par la route fonctionne tant que la personne est là. Perdre le
+  //   gel dégrade l'avenir ; perdre la ligne perdrait le fait. On choisit le
+  //   moindre. Même intention que le `try/catch` ci-dessous, une couche plus tôt.
+  let detailsAvecAuteur = details || {}
+  try {
+    const { data: auteur } = await supabase
+      .from('users')
+      .select('full_name')
+      .eq('id', userId)
+      .maybeSingle()
+    const nom = (auteur?.full_name as string | null | undefined)?.trim()
+    if (nom) detailsAvecAuteur = { ...detailsAvecAuteur, author_full_name: nom }
+  } catch {
+    // Silencieux et assumé : voir le paragraphe ci-dessus. La ligne prime.
+  }
+
   try {
     const { error } = await supabase.from('activity_log').insert({
       company_id: companyId,
@@ -32,7 +67,7 @@ export async function logActivity(
       event_type: eventType,
       title_fr: titleFr,
       title_en: titleEn,
-      details: details || {},
+      details: detailsAvecAuteur,
     })
     if (error) {
       console.error(
