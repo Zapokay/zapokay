@@ -578,7 +578,8 @@
       "full_name": "the name",
       "address_city": "the home city",
       "address_country": "the home country"
-    }
+    },
+    "none": "— None —"
   },
   "shareholders": {
     "_locale": "en",

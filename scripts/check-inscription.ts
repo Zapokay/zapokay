@@ -37,7 +37,7 @@ import { StepSiege } from '@/components/onboarding/StepSiege';
 import { StepCompany } from '@/components/onboarding/StepCompany';
 import StepDirectors, { type OnboardingDirector } from '@/components/onboarding/StepDirectors';
 import StepShareholders, { type OnboardingShareholder } from '@/components/onboarding/StepShareholders';
-import StepOfficers, { DIRIGEANT_VIDE, type OnboardingOfficers, type SaisieDirigeant } from '@/components/onboarding/StepOfficers';
+import StepOfficers, { DIRIGEANT_VIDE, nomDirigeant, type OnboardingOfficers, type SaisieDirigeant } from '@/components/onboarding/StepOfficers';
 import { declarationDesExercices } from '@/lib/active-years';
 import * as ts from 'typescript';
 import { readFileSync } from 'fs';
@@ -473,6 +473,77 @@ function lotC3(): void {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   LOT E1 — L'ÉTAPE 6 GAGNE « AUCUN »
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⛔ CE QU'ON NE PEUT PAS FAIRE ICI : CLIQUER. La sonde monte un balisage, elle ne
+ * choisit rien dans un menu. La transition « un nom choisi → Aucun » se prouve donc
+ * en TROIS morceaux qui se tiennent :
+ *   ① l'OPTION existe, rendue, avec la valeur vide ;
+ *   ② la choisir appelle `vider`, et `vider` écrit `DIRIGEANT_VIDE` — lu à l'AST ;
+ *   ③ l'ÉTAT D'ARRIVÉE (`DIRIGEANT_VIDE`) rebloque, et l'emplacement y est vraiment
+ *      vide.
+ * ★ Aucun des trois ne suffit seul : ① sans ② serait une option qui ne fait rien,
+ * ② sans ③ un effacement vers un état qui n'exige rien.
+ */
+function cheminDuVide(): { appelle: boolean; remetAuVide: boolean } {
+  const chemin = join(__dirname, '..', 'components', 'onboarding', 'StepOfficers.tsx');
+  const sf = ts.createSourceFile(chemin, readFileSync(chemin, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let appelle = false;
+  let remetAuVide = false;
+  const parcourir = (n: ts.Node) => {
+    // ① la valeur vide du menu mène à `vider`
+    if (ts.isConditionalExpression(n) && /e\.target\.value === ''/.test(n.condition.getText(sf))) {
+      if (/vider\(poste\)/.test(n.whenTrue.getText(sf))) appelle = true;
+    }
+    // ② `vider` écrit l'unique définition du vide, par REMPLACEMENT et non par fusion
+    if (ts.isVariableDeclaration(n) && n.name.getText(sf) === 'vider') {
+      const corps = n.initializer?.getText(sf) ?? '';
+      remetAuVide = /\.\.\.DIRIGEANT_VIDE/.test(corps) && !/\.\.\.prev\[poste\]/.test(corps);
+    }
+    n.forEachChild(parcourir);
+  };
+  parcourir(sf);
+  return { appelle, remetAuVide };
+}
+
+function lotE1(): void {
+  console.log('\n── LOT E1 · étape 6 · « Aucun »');
+
+  const choisi = etape6({ president: { ...DIRIGEANT_VIDE, nomChoisi: 'Ana' } }, ['Ana']);
+  const vide = etape6({});
+
+  console.log('   ① l’option existe, et elle porte le bon mot');
+  dire(dit(choisi, '— Aucun —'), 'le menu offre « — Aucun — »');
+  dire(!dit(choisi, 'Sélectionner'), '⛔ et « — Sélectionner — » a disparu : une entrée, un sens');
+  dire((choisi.match(/<option value=""/g) ?? []).length === 3, 'une par poste, trois en tout');
+
+  console.log('   ② le chemin du vide, lu à l’AST');
+  const chemin = cheminDuVide();
+  dire(chemin.appelle, 'choisir la valeur vide appelle `vider`');
+  dire(chemin.remetAuVide, "`vider` REMPLACE par `DIRIGEANT_VIDE` — il ne fusionne pas");
+  // ⛔ ET LA DÉFINITION DU VIDE EST BIEN VIDE — sans quoi les deux au-dessus
+  //    prouveraient qu'on remet l'emplacement dans un état qui n'est pas vide.
+  dire(
+    nomDirigeant(DIRIGEANT_VIDE) === '' &&
+      Object.values(DIRIGEANT_VIDE.adresse).every((v) => v === ''),
+    "et `DIRIGEANT_VIDE` ne porte ni nom ni adresse — aucun orphelin",
+  );
+
+  console.log('   ③ l’état d’arrivée REBLOQUE, et le message revient');
+  dire(!boutonDesactive(choisi), 'départ : un président choisi ne bloque pas');
+  dire(boutonDesactive(vide), "arrivée : « Aucun » RE-DÉSACTIVE le bouton");
+  dire(dit(vide, 'Un président est requis'), 'et le message REVIENT');
+  dire(!dit(vide, 'Adresse du domicile'), 'aucun bloc d’adresse orphelin sous le poste vidé');
+
+  console.log('   ⛔ LE CAS QUE DOM N’A PAS PU FAIRE — UN TRÉSORIER SEUL');
+  const tresorierSeulPresidentAucun = etape6({ treasurer: SAISI_COMPLET }, ['Ana']);
+  dire(boutonDesactive(tresorierSeulPresidentAucun), 'trésorier complet + président à « Aucun » → BLOQUE');
+  dire(dit(tresorierSeulPresidentAucun, 'Un président est requis'), 'et le message réclame le président');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    LOT D — L'EXERCICE EN COURS EST DÉJÀ COCHÉ
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -601,6 +672,7 @@ lotB();
 lotC1();
 lotC2();
 lotC3();
+lotE1();
 lotD();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

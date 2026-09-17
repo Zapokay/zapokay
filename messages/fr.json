@@ -578,7 +578,8 @@
       "full_name": "le nom",
       "address_city": "la ville du domicile",
       "address_country": "le pays du domicile"
-    }
+    },
+    "none": "— Aucun —"
   },
   "shareholders": {
     "_locale": "fr",

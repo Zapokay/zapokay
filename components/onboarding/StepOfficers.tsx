@@ -256,6 +256,26 @@ export default function StepOfficers({
     setOfficiers((prev) => ({ ...prev, [poste]: { ...prev[poste], ...valeur } }));
 
   /**
+   * ⛔ « AUCUN » REMET L'EMPLACEMENT À `DIRIGEANT_VIDE`, PAS SEULEMENT SON NOM.
+   *
+   * ★ ET IL N'Y A QU'UNE DÉFINITION DU VIDE : `DIRIGEANT_VIDE`, celle que l'état
+   *   initial emploie déjà. En écrire une seconde ici — `{ nomChoisi: '' }` —
+   *   laisserait `nomSaisi` et `adresse` derrière, et l'emplacement ne serait vide
+   *   qu'à moitié.
+   * ⛔ `setOfficiers` ET PAS `maj` : `maj` FUSIONNE (`{ ...prev[poste], ...valeur }`),
+   *   donc il ne peut pas effacer un champ, seulement l'écraser. Un « vide » écrit
+   *   par fusion n'efface rien de ce qu'on ne nomme pas.
+   * ⚠️ CE QUE ÇA PERD, ET C'EST VOULU : une adresse tapée sous « Une autre
+   *   personne… » disparaît. Le lot du 2026-09-15 a rendu « ← Choisir dans la
+   *   liste » NON destructif, et cette règle-là ne bouge pas — mais « Aucun » n'est
+   *   pas une navigation entre deux branches, c'est un RETRAIT. Garder une adresse
+   *   sous un poste vacant, c'est garder un orphelin qui ressortirait plus tard sous
+   *   un autre nom.
+   */
+  const vider = (poste: Poste) =>
+    setOfficiers((prev) => ({ ...prev, [poste]: { ...DIRIGEANT_VIDE } }));
+
+  /**
    * LES NOMS QUE LE DOSSIER CONNAÎT DÉJÀ — pour la règle « on ne remontre pas
    * l'adresse d'une fiche qui existe ».
    *
@@ -471,11 +491,29 @@ export default function StepOfficers({
                   onChange={(e) =>
                     e.target.value === AUTRE
                       ? maj(poste, { nouvelle: true })
-                      : maj(poste, { nomChoisi: e.target.value })
+                      : e.target.value === ''
+                        ? vider(poste)
+                        : maj(poste, { nomChoisi: e.target.value })
                   }
                   style={selectStyle}
                 >
-                  <option value="">{fr ? '— Sélectionner —' : '— Select —'}</option>
+                  {/* ⚖️ « — Aucun — » REMPLACE « — Sélectionner — », ET CE N'EST PAS
+                      UN RENOMMAGE COSMÉTIQUE. Décision de Dom, 2026-09-17, née d'un
+                      essai : une fois un nom choisi, il paraissait impossible de
+                      l'enlever.
+                      ⭐ MESURÉ AVANT D'ÉCRIRE : l'option vide EXISTAIT et se
+                      choisissait — le menu rendait bien `<option value="">`. Ce qui
+                      manquait n'était pas le mécanisme, c'était le SENS : « —
+                      Sélectionner — » est une INVITE, pas une action. Personne ne
+                      lit « choisissez » comme « retirez », et l'invite laisse même
+                      entendre qu'il FAUT choisir — faux pour deux des trois postes.
+                      ⛔ ET UNE SECONDE OPTION « Aucun » À CÔTÉ DE L'INVITE AURAIT
+                      FAIT DEUX ENTRÉES POUR UN SEUL FAIT. Elle reste donc EN TÊTE,
+                      là où un menu montre son état vide — la question de la place ne
+                      se pose plus, puisque ce n'est pas une option de plus.
+                      ⚪ La chaîne quitte un ternaire FR/EN en dur pour le catalogue,
+                      où la convention n°1 la voulait. */}
+                  <option value="">{t('none')}</option>
                   {knownPeople.map((name) => (
                     <option key={name} value={name}>
                       {name}
