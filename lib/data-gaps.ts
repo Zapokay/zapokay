@@ -30,6 +30,11 @@ import type { CompanyPerson } from '@/lib/supabase/people-types';
 // `estVide` d'ici à l'exécution ; un import de valeur dans l'autre sens ferait un
 // cycle. Les types s'effacent à la compilation.
 import type { ChampAdresse, PersonneAdressable } from '@/lib/address';
+// ⚠️ IMPORTS DE TYPE SEULEMENT, MÊME CONDITION QUE CI-DESSUS. `lib/regimes.ts`
+// importe `IncorporationType` de `lib/types.ts` ; aucun des deux n'importe ce
+// fichier à l'exécution, et les types s'effacent à la compilation.
+import type { RegimeEnBase } from '@/lib/regimes';
+import type { Company } from '@/lib/types';
 
 /**
  * ★ LE TYPE EST LA GARDE. `keyof CompanyPerson` rend impossible de nommer un
@@ -186,6 +191,149 @@ export type ChampSiege = (typeof CHAMPS_REQUIS_SIEGE)[number];
 export const CHAMPS_REQUIS_ENTITE = ['address_city', 'address_country'] as const satisfies readonly ChampAdresse[];
 
 export type ChampEntite = (typeof CHAMPS_REQUIS_ENTITE)[number];
+
+/**
+ * LA DÉCLARATION DE LA SOCIÉTÉ — ce que l'étape 2 de l'inscription exige.
+ *
+ * ⚖️ DÉCISION DE DOM, 2026-09-17. Elle renverse celle du 2026-09-09 pour cette
+ * étape comme la précédente l'a fait pour le siège : l'inscription EXIGE ce
+ * qu'elle déclare.
+ *
+ * ★★ LA CONDITION EST LA CLÉ, PAS UN PRÉDICAT — ET CETTE FORME EXISTAIT DÉJÀ.
+ * `CHAMPS_REQUIS` ci-dessus se lit « `address_city` est exigée SI la personne
+ * est administratrice » : sa condition est un INDEX. Celle-ci se lit « le
+ * numéro de société fédéral est exigé SI le régime est fédéral », et c'est le
+ * même mécanisme. Mesuré avant d'écrire : ce fichier ne porte AUCUN prédicat
+ * dans une déclaration, et il n'en gagne aucun ici.
+ *
+ * ⛔ POURQUOI ÇA COMPTE : une condition écrite à la main dans l'écran serait
+ * une garde HORS DÉCLARATION — exactement ce que `b0f44ed` a retiré avec
+ * raison, et exactement ce que l'étape 2 faisait (`isCBCA && !…trim()`). Le lot
+ * ne l'invente pas : il la DÉPLACE.
+ *
+ * ⚠️ LE NEQ EST EXIGÉ SOUS LES DEUX RÉGIMES, ET LA RAISON A UNE DATE DE
+ * PÉREMPTION. Elle est celle que l'étape 2 portait déjà, sourcée : ZapOkay ne
+ * sert QUE le Québec aujourd'hui, et une société fédérale qui y opère
+ * s'immatricule au REQ, donc détient un NEQ. ★ Mesuré au parc le 2026-09-17 :
+ * 27 sociétés sur 27 en portent un, dont 10 CBCA sur 10. La feuille de route
+ * est pancanadienne ; une société fédérale ontarienne n'en aura PAS. Qui
+ * ajoute une province revisite CETTE LIGNE — exiger le NEQ ici, c'est adhérer,
+ * pas s'abstenir.
+ *
+ * ★ `Record<RegimeEnBase, …>` FORCE LES DEUX RÉGIMES À FIGURER, comme
+ * `CHAMPS_REQUIS` force les quatre rôles : en ajouter un au type sans l'inscrire
+ * ici échoue à la compilation. Et `satisfies … (keyof Company)[]` fait du TYPE
+ * la garde : une faute de frappe dans un nom de colonne ne compile pas.
+ *
+ * ⛔ LE VOCABULAIRE EST CELUI DES COLONNES, jamais celui du flux d'inscription.
+ * Les trois déclarations au-dessus rendent des noms de colonnes ; l'étape 2
+ * parle `legalName`, `incorporationNumber`. La conversion vit à UN SEUL endroit,
+ * `lib/societe-colonnes.ts`, sur le modèle de `regimeEnBase` — un troisième
+ * vocabulaire non converti est ce que ce dépôt passe son temps à réunir.
+ */
+export const CHAMPS_REQUIS_SOCIETE = {
+  LSA: ['neq'],
+  CBCA: ['neq', 'corporation_number'],
+} as const satisfies Record<RegimeEnBase, readonly (keyof Company)[]>;
+
+/**
+ * CE QUE TOUT RÉGIME EXIGE — la même raison d'être que `REQUIS_PAR_LE_COMPOSANT`
+ * pour les personnes : une exigence qui ne dépend d'aucun discriminant n'a rien
+ * à faire recopiée dans chaque entrée du `Record`, où deux copies finiraient par
+ * diverger.
+ *
+ * ⛔ LA PRÉSENCE SEULEMENT. « La date ne peut pas être dans le futur » RESTE
+ * dans l'écran, et ce n'est pas un oubli : l'en-tête de ce fichier l'interdit —
+ * « la question posée ici est celle de la PRÉSENCE, jamais du format ». Même
+ * partage pour le NEQ : sa présence est déclarée ici, ses dix chiffres et son
+ * unicité restent des règles d'écran.
+ */
+export const REQUIS_QUEL_QUE_SOIT_LE_REGIME = ['incorporation_date'] as const satisfies readonly (keyof Company)[];
+
+/**
+ * LES GROUPES — « AU MOINS UN DES DEUX », ET C'EST UNE FORME NEUVE.
+ *
+ * ⛔ POURQUOI AUCUNE DÉCLARATION EXISTANTE NE POUVAIT LE DIRE. `champsManquants`,
+ * `champsManquantsSiege` et `champsManquantsEntite` sont des `filter` champ par
+ * champ sur `estVide` : un filtre sait dire « celui-ci est vide », jamais « ce
+ * GROUPE compte au moins un rempli ». La dénomination sociale est une
+ * DISJONCTION — `legal_name_fr` OU `legal_name_en` — en écho à la contrainte
+ * `companies_legal_name_present` que la base porte déjà.
+ *
+ * ⭐ ET ELLE RESSERVIRA. Le prochain « au moins un des deux » se déclare ici et
+ * hérite du reste : `groupesManquants` ne sait rien du sujet qu'on lui passe.
+ * ⚠️ Un groupe N'EST PAS un champ : il porte un NOM PROPRE (`denomination`), pas
+ * un nom de colonne, parce que ce qui manque à l'utilisateur n'est pas une
+ * colonne mais une chose — sa dénomination. C'est ce nom que l'écran traduit.
+ */
+export const GROUPES_REQUIS_SOCIETE = [
+  { groupe: 'denomination', champs: ['legal_name_fr', 'legal_name_en'] },
+] as const satisfies readonly { groupe: string; champs: readonly (keyof Company)[] }[];
+
+/**
+ * TOUT CE QUE L'ÉTAPE 2 PEUT RÉCLAMER — dérivé des trois déclarations ci-dessus,
+ * jamais réécrit à la main. Ajouter un champ à l'une d'elles l'ajoute ici, et
+ * l'écran qui ne sait pas le nommer cesse de compiler.
+ */
+export type ChampExigeSociete =
+  | (typeof CHAMPS_REQUIS_SOCIETE)[RegimeEnBase][number]
+  | (typeof REQUIS_QUEL_QUE_SOIT_LE_REGIME)[number];
+
+export type GroupeSociete = (typeof GROUPES_REQUIS_SOCIETE)[number]['groupe'];
+
+/** Toute colonne que l'étape 2 porte — les exigées, plus les membres des groupes. */
+export type ChampSociete =
+  | ChampExigeSociete
+  | (typeof GROUPES_REQUIS_SOCIETE)[number]['champs'][number];
+
+/**
+ * ★ CE QU'UNE SURFACE DOIT SAVOIR NOMMER, ET RIEN DE PLUS. Un MEMBRE de groupe
+ * n'y figure pas : ce qui manque à l'utilisateur n'est jamais « legal_name_fr »,
+ * c'est « la dénomination sociale ». Le type force l'écran à ne posséder que les
+ * quatre libellés qui ont un sens à l'écran — en ajouter un sixième au catalogue
+ * ne compilerait pas plus qu'en oublier un.
+ */
+export type ExigenceSociete = ChampExigeSociete | GroupeSociete;
+
+/**
+ * Les champs qu'un régime exige — l'exigence commune PUIS la sienne.
+ * ⛔ UNE SEULE DÉFINITION : l'astérisque de l'étape 2, la garde de son bouton et
+ * son message la lisent ; aucun ne refait la concaténation à la main.
+ */
+export function champsExigesSociete(regime: RegimeEnBase): readonly ChampExigeSociete[] {
+  return [...CHAMPS_REQUIS_SOCIETE[regime], ...REQUIS_QUEL_QUE_SOIT_LE_REGIME];
+}
+
+/**
+ * Les GROUPES dont AUCUN membre n'est rempli. Un seul membre suffit à satisfaire
+ * le groupe — c'est toute la différence avec un `filter` champ par champ.
+ * Même définition du vide que partout : `estVide`.
+ */
+export function groupesManquants<G extends { groupe: string; champs: readonly string[] }>(
+  groupes: readonly G[],
+  sujet: { [champ: string]: unknown },
+): G['groupe'][] {
+  return groupes.filter((g) => g.champs.every((champ) => estVide(sujet[champ]))).map((g) => g.groupe);
+}
+
+/**
+ * CE QUI MANQUE À UNE SOCIÉTÉ, NOMMABLE — les groupes d'abord, puis les champs.
+ *
+ * ⚪ L'ORDRE SUIT L'ÉCRAN, et c'est délibéré : dénomination, NEQ, numéro fédéral,
+ * date. Une liste qui nomme les manques dans un autre ordre que celui où l'œil
+ * les cherche se lit deux fois.
+ * ⚠️ LE SUJET EST EN COLONNES. On lui passe le résultat de `societeEnColonnes`,
+ * pas l'état du formulaire.
+ */
+export function exigencesManquantesSociete(
+  regime: RegimeEnBase,
+  societe: { [K in ChampSociete]?: unknown },
+): ExigenceSociete[] {
+  return [
+    ...groupesManquants(GROUPES_REQUIS_SOCIETE, societe),
+    ...champsExigesSociete(regime).filter((champ) => estVide(societe[champ])),
+  ];
+}
 
 /**
  * ⛔ UNE SEULE DÉFINITION DU VIDE, ET ELLE NE SE RECOPIE PAS. « Absent » vaut

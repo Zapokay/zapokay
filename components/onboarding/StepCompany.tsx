@@ -2,7 +2,9 @@
 import { useState } from 'react';
 import type { OnboardingData, IncorporationType } from '@/lib/types';
 import { normalizeNeq, isValidNeq, normalizeCorporationNumber } from '@/lib/identifiers';
-import { REGIMES } from '@/lib/regimes';
+import { REGIMES, regimeEnBase } from '@/lib/regimes';
+import { societeEnColonnes } from '@/lib/societe-colonnes';
+import { champsExigesSociete, exigencesManquantesSociete, type ChampExigeSociete } from '@/lib/data-gaps';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 import frMessages from '@/messages/fr.json';
 import enMessages from '@/messages/en.json';
@@ -63,8 +65,38 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
 
   // Today as YYYY-MM-DD (local time) — used to reject future incorporation dates.
   const todayStr = new Date().toISOString().split('T')[0];
-  const incorpDateValid =
-    !!data.company.incorporationDate && data.company.incorporationDate <= todayStr;
+
+  // ★★ UNE SEULE SOURCE POUR LES TROIS MARQUES — c'est tout le lot.
+  //   Avant : le bouton connaissait la DATE, `validate()` connaissait CINQ
+  //   exigences, et l'écran marquait UN champ. Trois ensembles différents pour
+  //   une seule exigence — exactement ce que `lib/data-gaps.ts` a été écrit pour
+  //   fermer, et qui restait ouvert ici.
+  //
+  // ⛔ LA SOCIÉTÉ EST JUGÉE EN COLONNES, JAMAIS SUR L'ÉTAT DU FORMULAIRE. La
+  //   conversion vit à un seul endroit (`societeEnColonnes`), celui-là même que
+  //   l'écriture emploie : la garde juge donc la valeur QUI SERA ÉCRITE.
+  // ⭐ Effet concret, et c'est le négatif ③ du brief : pour une société LSAQ, le
+  //   numéro fédéral vaut `null` en colonnes ET n'est pas réclamé par
+  //   `CHAMPS_REQUIS_SOCIETE.LSA`. La condition n'est écrite NULLE PART ICI.
+  const regime = regimeEnBase(data.company.incorporationType);
+  const colonnes = societeEnColonnes(data.company);
+  const manquants = exigencesManquantesSociete(regime, colonnes);
+  const societeIncomplete = manquants.length > 0;
+  const messageIncomplet = societeIncomplete
+    ? cm.societe.incompleteFields.replace(
+        '{champs}',
+        manquants.map((exigence) => cm.societe.fields[exigence]).join(', '),
+      )
+    : null;
+
+  // ★ L'ASTÉRISQUE DÉRIVE DE LA DÉCLARATION — même forme qu'à l'étape 3, et la
+  //   position ne bouge pas : « en haut à droite » est un LOT À PART (29
+  //   astérisques, 12 fichiers, et `check:adresses` à rééduquer).
+  // ⭐ CELUI DU NUMÉRO FÉDÉRAL APPARAÎT ET DISPARAÎT AVEC LE RÉGIME, sans qu'une
+  //   ligne de cet écran ne teste le régime : `champsExigesSociete` le dit.
+  const exiges = champsExigesSociete(regime);
+  const marqueSociete = (champ: ChampExigeSociete) =>
+    exiges.includes(champ) ? <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span> : null;
 
   // ⚠️ THE REGIME VOCABULARY IS NOT THE SAME ON BOTH SURFACES — DO NOT "SYMMETRISE"
   // THIS. Paramètres holds the DB values 'LSA' | 'CBCA'; this flow holds
@@ -113,15 +145,31 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     }
   }
 
+  /**
+   * ⛔ CE QUI RESTE ICI EST CE QUE LA DÉCLARATION NE PEUT PAS DIRE, ET RIEN DE PLUS.
+   *
+   * `lib/data-gaps.ts` ne pose qu'une question, la PRÉSENCE — son en-tête
+   * l'interdit au format : « aucune règle de code postal, de téléphone ni de case
+   * postale ne vit ni ne vivra dans ce fichier ». Les quatre exigences de présence
+   * de l'étape 2 sont donc parties là-bas, et le bouton les applique.
+   * Restent ici les trois règles qui ne sont pas des présences :
+   *   · la date n'est pas dans le FUTUR ;
+   *   · le NEQ compte dix chiffres, et n'appartient pas à un autre compte ;
+   *   · le numéro fédéral n'appartient pas à un autre compte.
+   * ⚪ Plus la case d'autorisation — voir le commentaire de sa garde plus bas.
+   *
+   * ★ ET LE REFUS CHANGE DE PLACE, PAS DE FORCE. Une date future désactivait le
+   * bouton SANS RIEN DIRE ; elle est maintenant refusée au clic, avec son message
+   * sous le champ. C'est la leçon de `b0f44ed` appliquée dans l'autre sens : « le
+   * refus était juste et INVISIBLE ».
+   * ⛔ LES CLÉS DE PRÉSENCE RESTENT AU CATALOGUE. `cm.neqRequired`,
+   * `cm.corporationNumberRequired` et `ob.incorporationDateRequired` ne sont pas
+   * mortes : `SettingsClient` les lit (l. 374, 406) et son padlock les atteint. Les
+   * « nettoyer » casserait Paramètres.
+   */
   function validate() {
     const e: Record<string, string> = {};
-    // Au moins un des deux, comme la contrainte companies_legal_name_present.
-    if (!data.company.legalName.trim() && !data.company.legalNameEn.trim()) {
-      e.legalName = ob.legalNameAtLeastOne;
-    }
-    if (!data.company.incorporationDate) {
-      e.incorporationDate = ob.incorporationDateRequired;
-    } else if (data.company.incorporationDate > todayStr) {
+    if (data.company.incorporationDate && data.company.incorporationDate > todayStr) {
       e.incorporationDate = ob.incorporationDateFuture;
     }
     // One key, read in BOTH places. The old copy was a hardcoded FR/EN ternary
@@ -144,19 +192,22 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
     // ⚠️ THE FORMAT GUARD IS ON THE NEQ ONLY, and it was posed AFTER measuring: all 12
     // park rows are exactly ten digits, so it rejects zero existing rows. The federal
     // number gets no such guard — see the sourced comment above its field.
-    if (!data.company.incorporationNumber.trim()) {
-      e.incorporationNumber = cm.neqRequired;
-    } else if (!isValidNeq(data.company.incorporationNumber)) {
+    if (data.company.incorporationNumber.trim() && !isValidNeq(data.company.incorporationNumber)) {
       e.incorporationNumber = cm.neqInvalid;
     } else if (neqDuplicate) {
       e.incorporationNumber = ob.neqTakenByAnotherAccount;
     }
-    if (isCBCA && !data.company.corporationNumber.trim()) {
-      e.corporationNumber = cm.corporationNumberRequired;
-    }
-    if (!declared) e.declared = fr
-      ? 'Vous devez cocher cette case pour continuer.'
-      : 'You must check this box to continue.';
+    // ⚖️ LA CASE D'AUTORISATION NE REJOINT PAS LA DÉCLARATION, ET C'EST MOTIVÉ.
+    //   `lib/data-gaps.ts` déclare ce qu'un SUJET doit PORTER : ses entrées sont
+    //   des colonnes, et ses consommateurs listent les trous d'une société
+    //   enregistrée. Un consentement n'est pas une propriété de la société — il
+    //   n'a pas de colonne, et « déclaration d'autorisation manquante » n'aurait
+    //   aucun sens sur une ligne de `companies`. C'est un ACTE, à un instant.
+    // ⛔ ELLE GARDE DONC SES TROIS MARQUES À ELLE, depuis une seule source (`declared`) :
+    //   la case elle-même, ce refus, et son message juste dessous. Elle ne
+    //   désactive PAS le bouton — un bouton mort en face d'une case non cochée
+    //   laisserait l'utilisateur sans rien à lire, ce qui est le défaut qu'on ferme.
+    if (!declared) e.declared = ob.authorizedDeclarationRequired;
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -200,7 +251,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
       onSkip={onBack}
       skipLabel={fr ? 'Retour' : 'Back'}
       onContinue={handleNext}
-      continueDisabled={!incorpDateValid}
+      continueDisabled={societeIncomplete}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         {/* Legal name */}
@@ -233,7 +284,16 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           />
         </div>
 
-        <p style={{ marginTop: '-10px', fontSize: '12px', color: errors.legalName ? '#ef4444' : 'var(--text-muted)' }}>
+        {/* ★★ LA MARQUE DU GROUPE, ET ELLE EXISTAIT DÉJÀ — cette phrase est là
+            depuis toujours. Elle passe seulement de `errors.legalName`, posé au
+            clic, à la déclaration, qui la connaît en continu.
+            ⛔ AUCUN ASTÉRISQUE SUR LES DEUX CHAMPS, ET C'EST LE FOND DU GROUPE.
+            Un astérisque dit « celui-ci est requis » ; le poser sur les deux
+            dirait que les deux le sont, ce qui est FAUX — une société à
+            dénomination anglaise seule est légitime, et 16 des 27 du parc en
+            portent une. La disjonction se marque par une PHRASE, parce qu'aucun
+            symbole posé sur un champ ne sait dire « au moins un des deux ». */}
+        <p style={{ marginTop: '-10px', fontSize: '12px', color: manquants.includes('denomination') ? '#ef4444' : 'var(--text-muted)' }}>
           {ob.legalNameAtLeastOne}
         </p>
 
@@ -321,6 +381,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
             <label style={{ ...labelStyle, marginBottom: 0 }}>
               {fr ? "NEQ (Numéro d'entreprise du Québec)" : 'NEQ (Québec Enterprise Number)'}
+              {marqueSociete('neq')}
             </label>
             <div style={{ position: 'relative', display: 'inline-block' }} className="group">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'help' }}>
@@ -375,6 +436,10 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
             <label style={{ ...labelStyle, marginBottom: 0 }}>
               {ob.corporationNumber}
+              {/* ⭐ IL N'APPARAÎT QUE POUR UNE SOCIÉTÉ FÉDÉRALE, et aucune ligne
+                  d'ici ne teste le régime : `champsExigesSociete(regime)` le dit.
+                  C'est la conditionnelle de la déclaration, RENDUE VISIBLE. */}
+              {marqueSociete('corporation_number')}
             </label>
             {/* SOURCED — Corporations Canada (ISED), two primary documents for the
                 SAME corporation, one already in our own park:
@@ -484,7 +549,10 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
         <div>
           <label style={labelStyle}>
             {fr ? 'Date de constitution' : 'Incorporation date'}
-            <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
+            {/* ⚪ MÊME SIGNE, MÊME PLACE, MÊME ROUGE qu'avant ce lot — seul son
+                ORIGINE change : il était écrit à la main, il dérive maintenant de
+                `REQUIS_QUEL_QUE_SOIT_LE_REGIME`. */}
+            {marqueSociete('incorporation_date')}
           </label>
           <input
             id="incorporationDate"
@@ -552,9 +620,7 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
               color: errors.declared ? '#ef4444' : 'var(--text-body)',
               lineHeight: 1.5,
             }}>
-              {fr
-                ? 'Je déclare être autorisé(e) à gérer le livre de minutes de cette entreprise.'
-                : 'I declare that I am authorized to manage this company\'s minute book.'}
+              {ob.authorizedDeclaration}
             </span>
           </label>
           {errors.declared && (
@@ -563,6 +629,18 @@ export function StepCompany({ data, setData, onNext, onBack, locale }: StepProps
             </p>
           )}
         </div>
+
+        {/* ⛔ LA TROISIÈME PIÈCE — LE MESSAGE QUI NOMME. Les trois partent ensemble
+            ou rien ne part : l'astérisque MARQUE, le bouton REFUSE, et cette ligne
+            DIT QUOI. Un bouton mort sans elle est le refus juste et invisible que
+            `b0f44ed` a retiré avec raison.
+            ⚪ Juste au-dessus du bouton, parce que c'est là que le refus se
+            constate. Style : celui de l'étape 3, à l'identique. */}
+        {messageIncomplet && (
+          <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '-4px' }}>
+            {messageIncomplet}
+          </p>
+        )}
       </div>
     </OnboardingStepLayout>
   );

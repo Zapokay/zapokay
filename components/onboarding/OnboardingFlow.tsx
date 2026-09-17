@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Language, OnboardingData } from '@/lib/types';
 import { ADRESSE_VIERGE, adresseEnSaisie, chargeAdresse, type AdresseSaisie } from '@/lib/address';
-import { normalizeNeq, normalizeCorporationNumber } from '@/lib/identifiers';
+import { societeEnColonnes } from '@/lib/societe-colonnes';
 import { residencyApplies } from '@/lib/residency';
 import { insererPersonne, type ChargePersonne } from '@/lib/person-payload';
 import { chargeEntite, type ChargeEntite } from '@/lib/entity-payload';
@@ -234,44 +234,28 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
           ? 'LSA'
           : data.company.incorporationType;
 
-      // ⚠️ THE VALUE WRITTEN IS THE VALUE THAT WAS VALIDATED AND COMPARED. Until this
-      // lot the write took `incorporationNumber` RAW while step 2 validated the trimmed
-      // form and check-identifier compared the trimmed form — so the string asked about
-      // was not always the string stored, and the partial unique index indexed a third
-      // one. Measured 2026-08-30: no park row carries surrounding whitespace, so this
-      // closes the gap before it was ever used, it does not repair existing rows.
-      const neqCanonical = normalizeNeq(data.company.incorporationNumber);
-      const corporationNumberCanonical = normalizeCorporationNumber(data.company.corporationNumber);
+      // ★★ LA CONVERSION FLUX → COLONNES A QUITTÉ CETTE FONCTION, ET C'EST TOUT
+      // L'INTÉRÊT. Elle vivait ici en ligne ; la garde de l'étape 2 en avait besoin
+      // aussi, et l'écrire une seconde fois aurait fait DEUX correspondances pour
+      // une seule — celle de la garde divergeant en silence le jour où une colonne
+      // bouge. `lib/societe-colonnes.ts` la porte maintenant, UNE fois, et son
+      // en-tête garde les trois raisons qui vivaient dans ce bloc :
+      //   · la valeur écrite est la valeur VALIDÉE ET COMPARÉE (normalisation) ;
+      //   · vide → `null`, pour `companies_legal_name_present` ;
+      //   · le numéro fédéral est FILTRÉ PAR LE RÉGIME, et ce filtre n'est pas
+      //     redondant avec le champ désactivé de l'étape 2.
+      // ⛔ NE PAS RÉÉCRIRE UNE DE CES CINQ COLONNES ICI : celle qu'on écrirait
+      // gagnerait sur le spread et sortirait de la garde sans que rien ne le dise.
+      const colonnesSociete = societeEnColonnes(data.company);
 
       const companyPayload = {
         user_id: userId,
-        // Chaque colonne prend SA valeur. Vide -> null : la contrainte
-        // companies_legal_name_present accepte l'un vide, jamais les deux.
-        legal_name_fr: data.company.legalName.trim() || null,
-        legal_name_en: data.company.legalNameEn.trim() || null,
+        ...colonnesSociete,
         incorporation_type: dbType,
-        incorporation_number: neqCanonical || null,
-        neq: neqCanonical || null,
-        // ⚠️ GATED ON THE REGIME — DO NOT REMOVE IT AS REDUNDANT. The field is
-        // disabled for LSAQ on step 2, which is NOT enough: the two regime cards
-        // stay clickable for as long as step 2 is on screen, and this write only
-        // fires at the step 3 → 4 transition. Typing a number, clicking LSAQ, then
-        // pressing Continue twice reaches here with a number and a non-federal
-        // regime. ★ It is MORE reachable than the same case in Paramètres, where
-        // the equivalent slip first required opening a padlock.
-        //
-        // The typed value is deliberately NOT cleared when the user clicks LSAQ:
-        // it survives in the session draft, so switching back to CBCA restores it.
-        // It is simply never written while the regime is not federal.
-        //
-        // ⚠️ `=== 'CBCA'` AND NEVER `!== 'LSA'`: this flow's vocabulary is
-        // 'LSAQ' | 'CBCA' and `dbType` above is what converts LSAQ → LSA. A test
-        // against 'LSA' would match no company here and let every value through.
-        corporation_number:
-          data.company.incorporationType === 'CBCA'
-            ? corporationNumberCanonical || null
-            : null,
-        incorporation_date: data.company.incorporationDate || null,
+        // ⚠️ COLONNE HÉRITÉE, MÊME VALEUR QUE `neq` — deux colonnes pour un seul
+        // fait. Les réunir est un lot à part ; elle est alimentée depuis la
+        // conversion pour qu'elles ne puissent pas diverger d'ici là.
+        incorporation_number: colonnesSociete.neq,
         // ★ LE SIÈGE, PAR LA MÊME CONVERSION QUE LES PARAMÈTRES (lib/address.ts) : un
         //   champ laissé vide s'écrit null, jamais un défaut. Rien n'est exigé ici —
         //   l'adresse complète l'est dans l'application (décision du 2026-09-09).

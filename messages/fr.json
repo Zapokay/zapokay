@@ -40,6 +40,15 @@
       "current": "Exercice en cours",
       "lockedAlwaysTracked": "Cet exercice porte déjà des obligations : il est toujours suivi.",
       "trackedCount": "Exercices suivis : {tracked} sur {total}"
+    },
+    "societe": {
+      "incompleteFields": "Il manque des renseignements sur la société : {champs}.",
+      "fields": {
+        "denomination": "dénomination sociale",
+        "neq": "NEQ",
+        "corporation_number": "numéro de société fédéral",
+        "incorporation_date": "date de constitution"
+      }
     }
   },
   "auth": {
@@ -177,7 +186,9 @@
     "summaryRole": "Rôle",
     "letsGo": "Accéder à mon tableau de bord",
     "stepOf": "Étape {current} sur {total}",
-    "_locale": "fr"
+    "_locale": "fr",
+    "authorizedDeclaration": "Je déclare être autorisé(e) à gérer le livre de minutes de cette entreprise.",
+    "authorizedDeclarationRequired": "Vous devez cocher cette case pour continuer."
   },
   "dashboard": {
     "welcome": "Bienvenue dans ZapOkay",

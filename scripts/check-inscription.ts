@@ -32,7 +32,9 @@ Object.assign(globalThis, { React });
 import messages from '../messages/fr.json';
 import { ADRESSE_VIERGE, type AdresseSaisie } from '@/lib/address';
 import { CHAMPS_REQUIS_SIEGE } from '@/lib/data-gaps';
+import { societeEnColonnes } from '@/lib/societe-colonnes';
 import { StepSiege } from '@/components/onboarding/StepSiege';
+import { StepCompany } from '@/components/onboarding/StepCompany';
 
 let echecs = 0;
 const dire = (bon: boolean, quoi: string) => {
@@ -83,14 +85,26 @@ const SIEGE_COMPLET = {
   ...Object.fromEntries(CHAMPS_REQUIS_SIEGE.map((champ) => [champ, 'rempli'])),
 } as AdresseSaisie;
 
-function donnees(siege: AdresseSaisie) {
+/**
+ * ⚠️ LA SOCIÉTÉ DU LOT A ÉTAIT COMPLÈTE PAR HASARD, ELLE L'EST MAINTENANT PAR
+ * CONSTRUCTION. L'étape 3 se moque du contenu de `company` ; l'étape 2 en vit.
+ * `societe` porte donc les valeurs par défaut d'une société QUI PASSE l'étape 2,
+ * et chaque cas ne surcharge que ce qu'il veut mettre en défaut.
+ * ⛔ Aucune donnée d'apparence réelle : des jetons. La déclaration ne teste que
+ * le VIDE (`estVide`) — un NEQ « réaliste » laisserait croire le contraire.
+ * ⚪ `incorporationNumber` porte dix chiffres parce que `isValidNeq` est une règle
+ * d'ÉCRAN, pas de déclaration : la sonde ne la teste pas, elle ne la contredit pas.
+ */
+const SOCIETE_COMPLETE = {
+  legalName: 'Essai inc.', legalNameEn: '', incorporationType: 'LSAQ',
+  incorporationNumber: '1111111111', corporationNumber: '', incorporationDate: '2020-01-01',
+  fiscalYearEndMonth: 12, fiscalYearEndDay: 31,
+};
+
+function donnees(siege: AdresseSaisie, societe: Partial<typeof SOCIETE_COMPLETE> = {}) {
   return {
     language: 'fr',
-    company: {
-      legalName: 'Essai inc.', legalNameEn: '', incorporationType: 'LSAQ',
-      incorporationNumber: '', corporationNumber: '', incorporationDate: '2020-01-01',
-      siege, fiscalYearEndMonth: 12, fiscalYearEndDay: 31,
-    },
+    company: { ...SOCIETE_COMPLETE, ...societe, siege },
     officer: { fullName: '', role: 'director', startDate: '2026-01-01' },
   };
 }
@@ -128,9 +142,80 @@ function lotA(): void {
   dire(!boutonDesactive('<button>x</button>'), 'et il ne le voit PAS quand il n’y est pas');
 }
 
-/* ─── LOTS B, C, D : leurs écrans s'ajoutent ici, et A se rejoue à chaque fois. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT B — L'ÉTAPE 2 EXIGE CE QUI FAIT UNE SOCIÉTÉ
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const socleSociete = { locale: 'fr', setData: () => {}, onNext: () => {}, onBack: () => {} };
+
+const etape2 = (societe: Partial<typeof SOCIETE_COMPLETE>) =>
+  rendre(StepCompany, { ...socleSociete, data: donnees(SIEGE_COMPLET, societe) });
+
+/** Le message d'incomplétude, sans son préambule — ce qu'il NOMME. */
+const VIDE_TOTAL = {
+  legalName: '', legalNameEn: '', incorporationNumber: '', corporationNumber: '', incorporationDate: '',
+};
+
+function lotB(): void {
+  console.log('\n── LOT B · étape 2 · la société');
+
+  const vide = etape2(VIDE_TOTAL);
+  const complet = etape2({});
+
+  console.log('   ① état VIDE (régime provincial)');
+  // ⚪ DEUX astérisques, pas trois : le NEQ et la date. Le numéro fédéral n'en a
+  //    pas sous LSAQ — c'est la conditionnelle, et c'est le négatif ② plus bas.
+  dire(asterisques(vide) === 2, `deux astérisques rendus (obtenu ${asterisques(vide)})`);
+  dire(boutonDesactive(vide), 'le bouton « Continuer » est DÉSACTIVÉ');
+  dire(
+    ['dénomination sociale', 'NEQ', 'date de constitution'].every((mot) => vide.includes(mot)),
+    'le message NOMME les trois exigences manquantes',
+  );
+  dire(vide.includes('Il manque des renseignements'), 'et il dit que la société est incomplète');
+
+  console.log('   ② état COMPLET');
+  dire(!complet.includes('Il manque des renseignements'), 'aucun message d’incomplétude');
+  dire(!boutonDesactive(complet), '⛔ NÉGATIF ① — un formulaire COMPLET ne bloque JAMAIS');
+  dire(asterisques(complet) === 2, 'les astérisques restent (ils marquent, ils n’accusent pas)');
+
+  console.log('   ③ ⛔ NÉGATIF ② — le régime réclame le BON champ, pas les deux');
+  // ⭐ LSAQ, tout rempli SAUF le numéro fédéral : il ne doit rien réclamer.
+  dire(
+    !complet.includes('numéro de société fédéral'),
+    'une société PROVINCIALE ne réclame PAS le numéro fédéral',
+  );
+  const federalVide = etape2({ incorporationType: 'CBCA', corporationNumber: '' });
+  dire(boutonDesactive(federalVide), 'une société FÉDÉRALE sans ce numéro est bloquée');
+  dire(federalVide.includes('numéro de société fédéral'), 'et le message le NOMME');
+  dire(asterisques(federalVide) === 3, `l’astérisque fédéral APPARAÎT (3 astérisques, obtenu ${asterisques(federalVide)})`);
+  const federalRempli = etape2({ incorporationType: 'CBCA', corporationNumber: '1111111' });
+  dire(!boutonDesactive(federalRempli), '⛔ et une FÉDÉRALE complète ne bloque JAMAIS');
+
+  console.log('   ③ ⛔ NÉGATIF ③ — une dénomination ANGLAISE SEULE ne bloque PAS');
+  // ⚖️ C'est l'arbitrage de Dom rendu exécutable : « au moins un des deux ».
+  const anglaiseSeule = etape2({ legalName: '', legalNameEn: 'Trial Inc.' });
+  dire(!boutonDesactive(anglaiseSeule), 'le bouton reste ACTIF');
+  dire(!anglaiseSeule.includes('dénomination sociale'), 'et rien ne réclame la dénomination');
+  // ⛔ ET LA RÉCIPROQUE : française seule passe aussi. Un groupe qui n'accepterait
+  //    qu'un de ses deux membres ne serait pas un groupe.
+  dire(!boutonDesactive(etape2({ legalName: 'Essai inc.', legalNameEn: '' })), 'la française seule aussi');
+  dire(boutonDesactive(etape2({ legalName: '', legalNameEn: '' })), 'et les DEUX vides bloquent');
+
+  console.log('   ⭐ contrôle positif de la conversion flux → colonnes');
+  // ⛔ SANS CE CONTRÔLE, TOUT LE RESTE PEUT ÊTRE JUSTE POUR UNE MAUVAISE RAISON :
+  //    c'est cette fonction que la garde ET l'écriture emploient.
+  const lsaq = societeEnColonnes({ ...SOCIETE_COMPLETE, corporationNumber: '1111111' } as never);
+  dire(lsaq.corporation_number === null, 'un numéro fédéral saisi sous LSAQ ne SORT PAS en colonne');
+  const cbca = societeEnColonnes({ ...SOCIETE_COMPLETE, incorporationType: 'CBCA', corporationNumber: '1111111' } as never);
+  dire(cbca.corporation_number === '1111111', 'et il sort sous CBCA');
+  dire(societeEnColonnes({ ...SOCIETE_COMPLETE, legalNameEn: '   ' } as never).legal_name_en === null,
+    'un champ d’espaces s’écrit `null`, jamais une chaîne vide');
+}
+
+/* ─── LOTS C, D : leurs écrans s'ajoutent ici, et A+B se rejouent à chaque fois. */
 
 console.log('EXIGENCES DE L’INSCRIPTION — montage réel, sans navigateur');
 lotA();
+lotB();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

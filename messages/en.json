@@ -40,6 +40,15 @@
       "current": "Current year",
       "lockedAlwaysTracked": "This fiscal year already carries obligations, so it is always tracked.",
       "trackedCount": "Fiscal Years tracked: {tracked} of {total}"
+    },
+    "societe": {
+      "incompleteFields": "Some company information is missing: {champs}.",
+      "fields": {
+        "denomination": "legal name",
+        "neq": "NEQ",
+        "corporation_number": "federal corporation number",
+        "incorporation_date": "incorporation date"
+      }
     }
   },
   "auth": {
@@ -177,7 +186,9 @@
     "summaryRole": "Role",
     "letsGo": "Access my dashboard",
     "stepOf": "Step {current} of {total}",
-    "_locale": "en"
+    "_locale": "en",
+    "authorizedDeclaration": "I declare that I am authorized to manage this company's minute book.",
+    "authorizedDeclarationRequired": "You must check this box to continue."
   },
   "dashboard": {
     "welcome": "Welcome to ZapOkay",
