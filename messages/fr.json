@@ -111,6 +111,7 @@
     "forgotPasswordLink": "Mot de passe oublié ?"
   },
   "onboarding": {
+    "unsavedFiscalYearsWarning": "Vos exercices sélectionnés ne sont pas encore enregistrés. Si vous quittez maintenant, ils seront perdus.",
     "stepLabels": {
       "step1": "Langue",
       "step2": "Société",

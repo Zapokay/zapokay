@@ -111,6 +111,7 @@
     "forgotPasswordLink": "Forgot password?"
   },
   "onboarding": {
+    "unsavedFiscalYearsWarning": "Your selected fiscal years are not saved yet. If you leave now, they will be lost.",
     "stepLabels": {
       "step1": "Language",
       "step2": "Company",

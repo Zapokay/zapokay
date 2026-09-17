@@ -825,6 +825,15 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
       return false;
     }
     // ★★ LE REGISTRE A SON ORIGINE ICI, ET NULLE PART AILLEURS DANS L'INSCRIPTION.
+    // ⛔ ET UNE SECONDE LIGNE EST IMPOSSIBLE, PAR CONSTRUCTION — mesuré le
+    //    2026-09-17 parce que rien ne le disait. L'upsert ci-dessus pose
+    //    `onboarding_completed`, et `app/[locale]/onboarding/page.tsx` redirige
+    //    vers le tableau de bord dès que ce drapeau est vrai. La page qui mène
+    //    ici devient donc INATTEIGNABLE une ligne avant celle-ci : « précédent »
+    //    depuis l'étape des exercices ne ramène pas à l'étape 7. Rejouer ce
+    //    geste demanderait de remettre le drapeau à `false` en base.
+    //    ⚪ L'effacement du brouillon, plus bas, ne protège rien de cela : il
+    //    vient APRÈS. Le garde-fou est le drapeau, et lui seul.
     // Ce point n'est atteignable QUE par des succès : chaque `setStep(n+1)` vit
     // dans le chemin de succès de son gestionnaire, et l'upsert ci-dessus bloque
     // sur échec — « BLOCKING IS THE EXIT ». Une ligne ne peut donc pas naître

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
@@ -41,6 +41,9 @@ export function FiscalYearsSetup({
   const router = useRouter()
   const supabase = createClient()
   const fr = locale === 'fr'
+  // ⚪ `useTranslations` LIT LA LOCALE DE L'URL, et ici c'est la bonne : `locale`
+  //    est une prop qui vient des params de la page, donc la MÊME. Les trois
+  //    langues du produit ne divergent pas sur cet écran (§359).
   const t = useTranslations('onboarding')
   // Même forme qu'à l'étape 5 (StepShareholders) : un second lecteur pour le
   // namespace `common`, où vivent la phrase d'échec déjà employée par le produit
@@ -67,9 +70,56 @@ export function FiscalYearsSetup({
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const docYearSet = new Set(documentYears)
+
+  // ★★ UNE SEULE DÉCLARATION DE « CE QUI N'EST PAS ENREGISTRÉ », DEUX LECTEURS :
+  //    le bouton « Terminer », qui l'écrit, et l'avertissement, qui décide de
+  //    sortir ou non. Deux copies de ce calcul diverger aient un jour, et
+  //    l'avertissement mentirait dans un sens ou dans l'autre.
+  // ⭐ ET C'EST PLUS JUSTE QU'UN DRAPEAU « L'UTILISATEUR Y A TOUCHÉ ». Le dépôt
+  //    a `titleDirty`, qui se lève au premier clic et ne se baisse jamais : il
+  //    avertirait quelqu'un qui coche puis décoche et revient à l'état initial.
+  //    Celui-ci compare à la BASE — cocher puis décocher n'avertit pas.
+  // ⚪ `storedActive` ne lit que `status === 'active'` : les lignes `archived` et
+  //    `hold` restent hors de portée par construction, sans qu'un filtre ait à
+  //    les nommer. C'est la règle déjà écrite plus bas, et elle vaut ici aussi.
+  const storedActive = new Set(
+    savedFiscalYears.filter(fy => fy.status === 'active').map(fy => fy.year)
+  )
+  const aActiver = Array.from(activeYears).filter(y => !storedActive.has(y))
+  const aArchiver = Array.from(storedActive).filter(
+    y => !activeYears.has(y) && !docYearSet.has(y)
+  )
+  const riendAEnregistrer = aActiver.length === 0 && aArchiver.length === 0
+
+  // ── LA FERMETURE D'ONGLET ET LE RECHARGEMENT ───────────────────────────────
+  // ⚪⚪ LE NAVIGATEUR IGNORE NOTRE TEXTE, ET CE N'EST PAS UN DÉFAUT DU CODE.
+  //    Depuis 2017, tous les navigateurs affichent LEUR propre phrase générique
+  //    et jettent la nôtre. Ne pas passer une heure à chercher pourquoi la
+  //    chaîne du catalogue ne sort pas : elle ne sortira jamais ici. Elle sert
+  //    à l'autre sortie, celle qu'on contrôle — « Passer ».
+  // ⛔ ET LE « PRÉCÉDENT » DU NAVIGATEUR N'EST PAS COUVERT, DÉLIBÉRÉMENT. Next
+  //    n'offre pas de garde d'interruption de route pour l'App Router, et les
+  //    contournements connus — repousser `history.pushState`, écouter
+  //    `popstate` — RÉÉCRIVENT l'historique de l'utilisateur et cassent son
+  //    bouton pour de bon. Un avertissement de plus ne vaut pas un navigateur
+  //    abîmé. La sortie reste ouverte, et elle est nommée ici pour qu'on ne
+  //    croie pas l'avoir fermée.
+  useEffect(() => {
+    if (riendAEnregistrer) return
+    const avertir = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      // ⚪ Valeur héritée : `returnValue` est ignorée mais reste exigée par
+      //    certains navigateurs pour que l'invite s'affiche du tout.
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', avertir)
+    return () => window.removeEventListener('beforeunload', avertir)
+  }, [riendAEnregistrer])
   const allSelected = years.every(y => activeYears.has(y))
 
-  async function toggleYear(year: number) {
+  // ⚪ N'EST PLUS `async` : il ne reste aucune attente. Le signaler par la
+  //    signature vaut mieux qu'une promesse vide que personne n'attend.
+  function toggleYear(year: number) {
     // ⛔ Un exercice verrouillé et coché ne se décoche pas (lib/active-years.ts) : le bouton est
     // désactivé, cette ligne est la ceinture. Verrouillé mais décoché — une ligne archivée
     // d'avant ce lot —, il peut être coché, et il est alors verrouillé.
@@ -81,43 +131,27 @@ export function FiscalYearsSetup({
     } else {
       next.add(year)
     }
-    // La valeur d'AVANT, capturée pour pouvoir revenir en arrière. `next` est un
-    // Set neuf, donc `previous` garde bien l'ancien contenu.
-    const previous = activeYears
     setSaveError(null)
     setActiveYears(next)
 
-    // ⚠️ DEUX CHEMINS D'ÉCHEC, ET COUVRIR L'UN NE COUVRE PAS L'AUTRE.
-    // supabase-js RETOURNE { error } sur un échec Postgres et LÈVE sur un échec
-    // réseau. Ces deux écritures ne lisaient ni l'un ni l'autre.
-    let dbError: unknown = null
-    try {
-      const alreadySaved = savedFiscalYears.find(fy => fy.year === year)
-      if (alreadySaved) {
-        const { error } = await supabase
-          .from('company_fiscal_years')
-          .update({ status: isActive ? 'archived' : 'active' })
-          .eq('company_id', companyId)
-          .eq('year', year)
-        dbError = error
-      } else if (!isActive) {
-        const { error } = await supabase
-          .from('company_fiscal_years')
-          .upsert({ company_id: companyId, year, status: 'active' })
-        dbError = error
-      }
-    } catch (err) {
-      console.error('[onboarding] fiscal year toggle threw:', err)
-      dbError = err
-    }
-
-    // ⚠️ LA BASCULE EST ANNULÉE, PAS SEULEMENT SIGNALÉE. Une case laissée dans un
-    // état que la base ne porte pas est un mensonge que l'utilisateur emporte
-    // jusqu'au tableau de bord — il croit suivre un exercice qui n'existe pas.
-    if (dbError) {
-      setActiveYears(previous)
-      setSaveError(tCommon('saveFailed'))
-    }
+    // ⛔⛔ CETTE BASCULE N'ÉCRIT PLUS RIEN. Elle écrivait à chaque clic pendant
+    //    que `handleStart` écrivait AUSSI, au bouton — deux modèles dans le même
+    //    écran, et donc un état à moitié enregistré dès qu'on quittait sans
+    //    « Terminer ».
+    // ⚖️ DÉCISION DE DOM, 2026-09-17 : « un état à moitié enregistré est PIRE
+    //    qu'un état vide — le vide se voit, la moitié se déguise en choix. »
+    //    Les exercices décident de l'année à laquelle chaque document appartient.
+    // ★ `handleStart` COUVRE DÉJÀ LES TROIS CAS, et c'est mesuré, pas supposé :
+    //    aucune ligne → l'upsert insère ; ligne `archived` → le même upsert la
+    //    remonte, parce qu'il porte `onConflict` que celui-ci n'avait pas ;
+    //    ligne `active` décochée → l'update l'archive.
+    // ⚪ L'ÉCRAN NE PROMETTAIT RIEN : ni pastille, ni « enregistré », ni
+    //    `togglingYear`. Le retrait ne trahit donc aucune promesse visuelle — il
+    //    rend l'écran conforme à ce qu'il montrait déjà. (`SettingsClient`, lui,
+    //    a un `togglingYear` PARCE QU'il écrit au clic ; il n'est pas touché.)
+    // ⚪ ET LE REPLI EST PARTI AVEC L'ÉCRITURE. Il annulait la bascule quand la
+    //    base refusait ; sans écriture, il n'y a plus rien à annuler. L'échec se
+    //    signale désormais au seul endroit où il peut se produire : « Terminer ».
   }
 
   function toggleAll() {
@@ -155,19 +189,16 @@ export function FiscalYearsSetup({
     // construction : les deux se calculent à partir de `storedActive`. Elles
     // sont hors de portée sans qu'un filtre ait à les nommer — ce qui vaut aussi
     // pour un quatrième statut qu'on ajouterait demain.
-    const storedActive = new Set(
-      savedFiscalYears.filter(fy => fy.status === 'active').map(fy => fy.year)
-    )
-    const aActiver = Array.from(activeYears).filter(y => !storedActive.has(y))
-    // ⛔ `docYearSet` exclu par ceinture : ② rend le cas théoriquement
-    // inatteignable, mais une intersection coûte moins qu'une régression.
-    const aArchiver = Array.from(storedActive).filter(
-      y => !activeYears.has(y) && !docYearSet.has(y)
-    )
+    // ⚪ LE CALCUL EST HISSÉ : voir la déclaration en tête du composant. Il vit
+    //    là parce que l'avertissement de sortie le lit AUSSI — une seule vérité
+    //    sur « ce qui n'est pas encore enregistré ».
+    //    ⛔ `docYearSet` y est exclu de `aArchiver` par ceinture : ② rend le cas
+    //    théoriquement inatteignable, mais une intersection coûte moins qu'une
+    //    régression.
 
     // ★ RIEN À DIRE, RIEN À ÉCRIRE. Un « Terminer » sans changement n'émet
     // aucune requête.
-    if (aActiver.length === 0 && aArchiver.length === 0) {
+    if (riendAEnregistrer) {
       router.push(`/${locale}/dashboard`)
       router.refresh()
       return
@@ -496,7 +527,21 @@ export function FiscalYearsSetup({
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <button
-              onClick={() => router.push(`/${locale}/dashboard`)}
+              onClick={() => {
+                // ⛔ LA SORTIE QUI COMPTE, ET AUCUNE API NE LA COUVRE. « Passer »
+                //    est un `router.push` de NOTRE code : `beforeunload` ne le
+                //    voit pas — c'est un changement de route, pas un
+                //    déchargement. Il faut donc l'intercepter ICI, là où il est
+                //    écrit.
+                // ⚠️ ET CE BOUTON CHANGE DE SENS AVEC CE LOT. Son commentaire
+                //    d'origine disait qu'il « mène exactement où mène Terminer ».
+                //    Ce n'est plus vrai : Terminer enregistre, Passer abandonne.
+                // ⛔ LA CONFIRMATION NE SORT QUE S'IL Y A QUELQUE CHOSE À PERDRE.
+                //    Un avertissement qui sort toujours se fait ignorer en trois
+                //    jours, et il finit par avoir l'air d'un bogue.
+                if (!riendAEnregistrer && !window.confirm(t('unsavedFiscalYearsWarning'))) return
+                router.push(`/${locale}/dashboard`)
+              }}
               style={{
                 fontSize: '14px', color: 'var(--text-muted)',
                 background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0',
