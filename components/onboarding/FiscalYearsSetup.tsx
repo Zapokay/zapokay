@@ -539,6 +539,21 @@ export function FiscalYearsSetup({
                 // ⛔ LA CONFIRMATION NE SORT QUE S'IL Y A QUELQUE CHOSE À PERDRE.
                 //    Un avertissement qui sort toujours se fait ignorer en trois
                 //    jours, et il finit par avoir l'air d'un bogue.
+                //
+                // ⚠️⚠️ ET LE TEXTE NOMME LE BOUTON ET LE GESTE, VOLONTAIREMENT —
+                //    ne pas le « simplifier » en le croyant bavard.
+                //    `window.confirm` ne rend que « OK » et « Annuler » : SES
+                //    BOUTONS NE PEUVENT PAS PORTER LE REMÈDE. Une phrase qui se
+                //    contenterait de dire ce qui est perdu laisserait l'utilisateur
+                //    deviner quoi faire, devant deux boutons qui ne le disent pas
+                //    non plus. Le texte doit donc nommer le geste MANQUANT
+                //    (« Terminer ») ET ce que « continuer » fait.
+                //    ⚪ Le couplage au libellé « Terminer » est ASSUMÉ : décision
+                //    de Dom, 2026-09-17, ce libellé ne change pas.
+                //    ⚪ ET SI CET ÉCRAN GAGNE UN JOUR UNE VRAIE MODALE avec ses
+                //    propres boutons — « Revenir » / « Quitter sans enregistrer » —
+                //    alors le remède vit dans les boutons, et la phrase peut
+                //    redevenir courte : « … ne sont pas encore enregistrés. »
                 if (!riendAEnregistrer && !window.confirm(t('unsavedFiscalYearsWarning'))) return
                 router.push(`/${locale}/dashboard`)
               }}
