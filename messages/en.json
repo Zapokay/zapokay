@@ -10,6 +10,7 @@
     "neqInvalid": "The NEQ is exactly 10 digits",
     "corporationNumberRequired": "The federal corporation number is required",
     "siege": {
+      "incompleteFields": "The head office address is incomplete: {champs}.",
       "title": "Head office",
       "line1": "Address",
       "line2": "Suite / apartment",

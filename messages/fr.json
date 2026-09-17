@@ -10,6 +10,7 @@
     "neqInvalid": "Le NEQ compte exactement 10 chiffres",
     "corporationNumberRequired": "Le numéro de société fédéral est requis",
     "siege": {
+      "incompleteFields": "L'adresse du siège est incomplète : {champs}.",
       "title": "Siège social",
       "line1": "Adresse",
       "line2": "Suite / appartement",
