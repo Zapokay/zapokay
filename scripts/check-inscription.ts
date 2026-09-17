@@ -31,10 +31,11 @@ import { NextIntlClientProvider } from 'next-intl';
 Object.assign(globalThis, { React });
 import messages from '../messages/fr.json';
 import { ADRESSE_VIERGE, type AdresseSaisie } from '@/lib/address';
-import { CHAMPS_REQUIS_SIEGE } from '@/lib/data-gaps';
+import { CHAMPS_REQUIS, CHAMPS_REQUIS_SIEGE } from '@/lib/data-gaps';
 import { societeEnColonnes } from '@/lib/societe-colonnes';
 import { StepSiege } from '@/components/onboarding/StepSiege';
 import { StepCompany } from '@/components/onboarding/StepCompany';
+import StepDirectors, { type OnboardingDirector } from '@/components/onboarding/StepDirectors';
 
 let echecs = 0;
 const dire = (bon: boolean, quoi: string) => {
@@ -80,10 +81,12 @@ function boutonDesactive(html: string): boolean {
  * Les valeurs sont donc des jetons, et les champs sont NOMMÉS par la
  * déclaration elle-même — si `CHAMPS_REQUIS_SIEGE` s'étend, ce siège la suit.
  */
-const SIEGE_COMPLET = {
+const adresseRemplie = (champs: readonly string[]): AdresseSaisie => ({
   ...ADRESSE_VIERGE,
-  ...Object.fromEntries(CHAMPS_REQUIS_SIEGE.map((champ) => [champ, 'rempli'])),
-} as AdresseSaisie;
+  ...Object.fromEntries(champs.map((champ) => [champ, 'rempli'])),
+}) as AdresseSaisie;
+
+const SIEGE_COMPLET = adresseRemplie(CHAMPS_REQUIS_SIEGE);
 
 /**
  * ⚠️ LA SOCIÉTÉ DU LOT A ÉTAIT COMPLÈTE PAR HASARD, ELLE L'EST MAINTENANT PAR
@@ -212,10 +215,90 @@ function lotB(): void {
     'un champ d’espaces s’écrit `null`, jamais une chaîne vide');
 }
 
-/* ─── LOTS C, D : leurs écrans s'ajoutent ici, et A+B se rejouent à chaque fois. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT C1 — L'ÉTAPE 4 EXIGE UN ADMINISTRATEUR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⛔ AUCUNE ADRESSE FABRIQUÉE, MÊME RAISON QU'AU SIÈGE — ET A2 M'A REPRIS UNE
+ * SECONDE FOIS. `adresse: { address_city: 'rempli' }` est un LITTÉRAL AFFECTÉ À UNE
+ * ADRESSE, et A2 le refuse même quand la valeur est un jeton : elle balaie
+ * `scripts/` comme le reste et n'exempte personne. L'adresse se construit donc
+ * DEPUIS `CHAMPS_REQUIS.director`, par le même fabricant que le siège — et c'est
+ * plus juste, puisque la fixture suit la déclaration si elle change.
+ * ⚪ `appointmentDate` est remplie partout : c'est une règle d'ÉCRAN (elle refuse
+ * au clic), pas une exigence de la déclaration. La sonde ne la teste pas et ne la
+ * contredit pas.
+ */
+const ADMIN_VIDE: OnboardingDirector = {
+  fullName: '', appointmentDate: '2020-01-01',
+  adresse: { ...ADRESSE_VIERGE }, isCanadianResident: null,
+};
+const ADMIN_COMPLET: OnboardingDirector = {
+  ...ADMIN_VIDE, fullName: 'Essai', adresse: adresseRemplie(CHAMPS_REQUIS.director),
+};
+/** Un nom, mais pas de ville : le cas exact du négatif ③ du brief. */
+const ADMIN_SANS_VILLE: OnboardingDirector = {
+  ...ADMIN_VIDE,
+  fullName: 'Essai',
+  adresse: adresseRemplie(CHAMPS_REQUIS.director.filter((c) => c !== 'address_city')),
+};
+
+const etape4 = (lignes: OnboardingDirector[]) =>
+  rendre(StepDirectors, {
+    locale: 'fr', residencyApplies: false, initialDirectors: lignes,
+    onContinue: async () => true,
+  });
+
+function lotC1(): void {
+  console.log('\n── LOT C1 · étape 4 · les administrateurs');
+
+  const vide = etape4([ADMIN_VIDE]);
+  const complet = etape4([ADMIN_COMPLET]);
+
+  console.log('   ① aucune ligne complète');
+  // ⚪ TROIS astérisques par ligne : le nom, la ville, le pays — et PAS les trois
+  //    autres colonnes d'adresse, que rien n'exige.
+  dire(asterisques(vide) === 3, `trois astérisques rendus (obtenu ${asterisques(vide)})`);
+  dire(boutonDesactive(vide), 'le bouton « Continuer » est DÉSACTIVÉ');
+  dire(vide.includes('Au moins un administrateur complet'), 'le message dit la RÈGLE');
+  dire(
+    ['le nom', 'la ville du domicile', 'le pays du domicile'].every((mot) => vide.includes(mot)),
+    'et il NOMME les trois champs qui manquent',
+  );
+  dire(vide.includes('Administrateur 1'), 'et il dit à QUELLE ligne');
+
+  console.log('   ⛔ ET AUCUN BOUTON « PASSER » DANS LE RENDU');
+  dire(!vide.includes('Passer') && !vide.includes('Skip'), 'ni « Passer » ni « Skip »');
+  // ⭐ Le contrôle positif de cette assertion-là : l'étape 2 en porte un, et le
+  //    motif le voit. Sans ça, « absent » ne prouverait que l'aveuglement du motif.
+  dire(etape2({}).includes('Retour'), '⭐ et le motif SAIT voir un bouton de gauche (étape 2 : « Retour »)');
+
+  console.log('   ② une ligne complète');
+  dire(!boutonDesactive(complet), '⛔ NÉGATIF ① — une ligne complète ne bloque JAMAIS');
+  dire(!complet.includes('Au moins un administrateur'), 'aucun message de minimum');
+  dire(asterisques(complet) === 3, 'les astérisques restent (ils marquent, ils n’accusent pas)');
+
+  console.log('   ③ ⛔ NÉGATIFS');
+  const completPlusVierge = etape4([ADMIN_COMPLET, ADMIN_VIDE]);
+  dire(!boutonDesactive(completPlusVierge), 'une complète + une vierge ne bloque PAS');
+  dire(asterisques(completPlusVierge) === 6, 'et les deux lignes portent leurs marques');
+  const sansVille = etape4([ADMIN_SANS_VILLE]);
+  dire(boutonDesactive(sansVille), 'un nom SANS VILLE bloque');
+  dire(sansVille.includes('la ville du domicile'), 'et le message NOMME la ville');
+  dire(!sansVille.includes('le nom'), '⛔ et il ne réclame PAS ce qui est rempli');
+
+  console.log('   ⭐ la ligne vierge reste VISIBLE comme incomplète');
+  // ⚖️ Elle reste sautée à l'écriture (`continue`), et c'est correct — mais elle ne
+  //    doit pas être muette. Ses astérisques et le message s'en chargent.
+  dire(asterisques(completPlusVierge) > asterisques(complet), 'la seconde ligne est marquée, pas silencieuse');
+}
+
+/* ─── LOTS C2, C3, D : leurs écrans s'ajoutent ici, et A+B+C1 se rejouent. */
 
 console.log('EXIGENCES DE L’INSCRIPTION — montage réel, sans navigateur');
 lotA();
 lotB();
+lotC1();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

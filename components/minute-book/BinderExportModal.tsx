@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ChampEntite, ChampSiege, Trou } from '@/lib/data-gaps';
+import type { ChampEntite, ChampSiege, RoleAvecExigence, Trou } from '@/lib/data-gaps';
 import { useTranslations, useLocale } from 'next-intl';
 import Button from '@/components/ui/Button';
 
@@ -265,6 +265,20 @@ export default function BinderExportModal({
   } as const satisfies Record<ChampEntite, string>;
   const libelleChampsEntite = (champs: ChampEntite[]): string =>
     champs.map((c) => t(CLE_CHAMP_ENTITE[c])).join(', ');
+  /**
+   * ★ UNE PHRASE PAR RÔLE, ET `Record<RoleAvecExigence, …>` LES EXIGE TOUTES LES
+   *   QUATRE — même celles dont le minimum vaut 0 aujourd'hui. Le jour où
+   *   `MINIMUM_PAR_ROLE` en relève un, la phrase est déjà là ; l'oublier ne
+   *   compilerait pas, exactement comme pour les champs du siège au-dessus.
+   * ⚪ Ce sont des phrases entières, pas des étiquettes de champ : cette ligne ne
+   *   nomme personne, elle constate une absence.
+   */
+  const CLE_MINIMUM = {
+    director: 'gapNoDirector',
+    officer: 'gapNoOfficer',
+    shareholder: 'gapNoShareholder',
+    entity_signatory: 'gapNoEntitySignatory',
+  } as const satisfies Record<RoleAvecExigence, string>;
   const manqueSiege = trous.some((x) => x.sujet === 'societe');
   // ⚖️ DÉCISION DE DOM, 2026-09-14 — LES LIGNES DE PERSONNE N'ONT PLUS DE LIEN DE CORRECTION.
   //   « Corriger dans Administrateurs » n'était juste que pour un administrateur. Il trompait
@@ -365,11 +379,18 @@ export default function BinderExportModal({
                 <ul className="mt-2 space-y-1">
                   {trous.map((trou) => (
                     <li key={`${trou.sujet}:${trou.id}`} className="text-sm text-[var(--error-text)]">
-                      {trou.sujet === 'societe'
-                        ? `${t('gapSiege')} — ${libelleChampsSiege(trou.champs)}`
-                        : trou.sujet === 'entite'
-                          ? `${trou.nom} — ${libelleChampsEntite(trou.champs)}`
-                          : `${trou.nom} — ${libelleChampsPersonne(trou.champs)}`}
+                      {/* ⛔ QUATRE BRANCHES NOMMÉES, PAS TROIS ET UN « SINON ». Le
+                          membre `minimum` n'a ni `nom` ni `champs` — il dit qu'il
+                          MANQUE un sujet, pas qu'il manque des champs à un sujet — et
+                          le compilateur a refusé le « sinon » qui le traitait en
+                          personne. C'est la garde que l'en-tête de `Trou` réclamait. */}
+                      {trou.sujet === 'minimum'
+                        ? t(CLE_MINIMUM[trou.role])
+                        : trou.sujet === 'societe'
+                          ? `${t('gapSiege')} — ${libelleChampsSiege(trou.champs)}`
+                          : trou.sujet === 'entite'
+                            ? `${trou.nom} — ${libelleChampsEntite(trou.champs)}`
+                            : `${trou.nom} — ${libelleChampsPersonne(trou.champs)}`}
                       {trou.sujet === 'personne' && !trou.roleActif && (
                         <span className="block text-xs text-[var(--text-muted)]">{t('gapNoActiveRole')}</span>
                       )}

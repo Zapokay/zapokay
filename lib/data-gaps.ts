@@ -102,15 +102,23 @@ export type PorteeExigence =
  *
  * ⛔ `entity_signatory` RESTE VIDE, et ce n'est pas un oubli : aucun dépôt ne
  * porte le domicile d'un signataire, et ce n'est pas ce qui a été décidé.
- * ⛔ L'INSCRIPTION N'EST PAS CONCERNÉE : elle ne monte aucun formulaire de
- * rôle et ses écritures restent libres.
+ *
+ * ⚖️ L'INSCRIPTION EST CONCERNÉE DEPUIS LE 2026-09-17, ET CETTE LIGNE DISAIT LE
+ * CONTRAIRE. Elle disait : « L'INSCRIPTION N'EST PAS CONCERNÉE : elle ne monte
+ * aucun formulaire de rôle et ses écritures restent libres. » C'était vrai le
+ * 2026-09-11 et faux depuis la décision de Dom du 2026-09-17 : l'étape 4 lit
+ * cette déclaration, marque ses champs et refuse de continuer sans eux.
+ * ⛔ ELLE EST RÉÉCRITE, PAS CONSERVÉE « PARCE QU'ELLE EST HISTORIQUE ». Une règle
+ * dont la raison n'est plus vraie se fait supprimer plus tard par quelqu'un qui
+ * la croit morte — §357, payé trois fois cette semaine. L'historique garde
+ * l'ancienne phrase ; le fichier porte celle qui est vraie.
  */
-export const CHAMPS_REQUIS: Record<RoleAvecExigence, readonly ChampPersonne[]> = {
+export const CHAMPS_REQUIS = {
   director: ['address_city', 'address_country'],
   officer: ['address_city', 'address_country'],
   shareholder: ['address_city', 'address_country'],
   entity_signatory: [],
-};
+} as const satisfies Record<RoleAvecExigence, readonly ChampPersonne[]>;
 
 /**
  * ⚠️ REQUIS PAR LE COMPOSANT LUI-MÊME, QUEL QUE SOIT LE RÔLE — y compris hors
@@ -129,7 +137,7 @@ export const CHAMPS_REQUIS: Record<RoleAvecExigence, readonly ChampPersonne[]> =
  * aucun rôle. L'y mettre aurait contredit ces trois décisions pour sauver un
  * astérisque.
  */
-export const REQUIS_PAR_LE_COMPOSANT: readonly ChampPersonne[] = ['full_name'];
+export const REQUIS_PAR_LE_COMPOSANT = ['full_name'] as const satisfies readonly ChampPersonne[];
 
 /**
  * LA DÉCLARATION DU SIÈGE SOCIAL — ce qu'une adresse de société doit porter.
@@ -336,6 +344,113 @@ export function exigencesManquantesSociete(
 }
 
 /**
+ * ★★ LE MINIMUM — « AU MOINS UN », ET C'EST LA QUATRIÈME FORME DE CE FICHIER.
+ *
+ * ⚖️ DÉCISION DE DOM, 2026-09-17 : l'étape 4 exige au moins UN administrateur
+ * complet.
+ *
+ * ⛔ POURQUOI AUCUNE DES TROIS AUTRES NE POUVAIT LE DIRE. La liste plate et le
+ * `Record` par discriminant jugent des CHAMPS d'UN sujet ; le groupe disjonctif
+ * juge « au moins un champ rempli » sur UN sujet. Un minimum est une propriété
+ * d'une COLLECTION, et une collection n'est pas un sujet. ★ La forme est
+ * pourtant la même que celle du groupe — un existentiel sur un ensemble ; seul
+ * l'ATOME change : `estVide(champ)` d'un côté, « cette ligne est complète » de
+ * l'autre.
+ *
+ * ★ ET ELLE N'INTRODUIT AUCUN MÉCANISME ÉTRANGER : elle s'indexe par
+ * `RoleAvecExigence`, LE discriminant que `CHAMPS_REQUIS` porte déjà. `Record`
+ * force les quatre rôles à figurer, pour la même raison qu'au-dessus — un zéro
+ * dit « ce rôle a été considéré et n'exige aucun minimum aujourd'hui », une
+ * entrée manquante dirait « personne n'y a pensé ».
+ *
+ * ⛔ ELLE SERT DEUX CONSOMMATEURS DÈS SON PREMIER JOUR, et c'est ce qui la
+ * justifie : l'étape 4, et `trousDeLaSociete`. Sans elle, la liste des trous ne
+ * peut pas dire « cette société n'a aucun administrateur » — mesuré le
+ * 2026-09-17 : 8 sociétés du parc sur 27 sont dans cet état, et 8 n'ont NI
+ * administrateur, NI actionnaire, NI dirigeant.
+ *
+ * ⚠️ UN NOMBRE, PAS UN BOOLÉEN. « Au moins un » est la règle d'aujourd'hui ;
+ * une société ouverte en régime fédéral en exige TROIS (LCSA art. 102(2)). Le
+ * jour où ce produit les servira, c'est ce chiffre qui change, pas la forme.
+ * ⛔ Mais rien ici ne connaît ce cas : la valeur est 1, et la déclarer 3
+ * aujourd'hui inventerait une règle que personne n'a décidée.
+ */
+export const MINIMUM_PAR_ROLE: Record<RoleAvecExigence, number> = {
+  director: 1,
+  officer: 0,
+  shareholder: 0,
+  entity_signatory: 0,
+};
+
+/**
+ * Les champs qu'une LIGNE doit porter pour compter : son NOM, plus ce que son
+ * rôle exige.
+ *
+ * ⛔ LE NOM VIENT DE `REQUIS_PAR_LE_COMPOSANT`, ET N'EST PAS RECOPIÉ ICI. Il n'a
+ * jamais pu entrer dans `CHAMPS_REQUIS` — trois de ses quatre entrées sont vides
+ * par décision — mais il est requis PAR CONSTRUCTION sur tout formulaire de
+ * personne. Même concaténation, même raison et même forme que
+ * `champsExigesSociete` : une seule définition, que l'astérisque, la garde et le
+ * message lisent tous les trois.
+ */
+/**
+ * ★ CE QU'UNE SURFACE DOIT SAVOIR NOMMER POUR UNE LIGNE, ET RIEN DE PLUS — la
+ * même leçon que `ExigenceSociete` au lot B. `ChampPersonne` est `keyof
+ * CompanyPerson`, soit une quarantaine de colonnes ; un écran qui devrait porter
+ * un libellé pour chacune n'en porterait aucun de juste. Ce type-ci est DÉRIVÉ
+ * des deux déclarations, donc il vaut exactement ce qui peut être réclamé.
+ * ⛔ C'est le compilateur qui l'a exigé : le premier message de l'étape 4 ne
+ * compilait pas, faute de libellé pour `address_line1` — un champ que rien
+ * n'exige. La bonne réponse n'était pas d'écrire trente libellés morts.
+ */
+export type ChampExigeDeLaLigne =
+  | (typeof REQUIS_PAR_LE_COMPOSANT)[number]
+  | (typeof CHAMPS_REQUIS)[RoleAvecExigence][number];
+
+export function champsExigesDeLaLigne(role: RoleAvecExigence): readonly ChampExigeDeLaLigne[] {
+  return [...REQUIS_PAR_LE_COMPOSANT, ...CHAMPS_REQUIS[role]];
+}
+
+/** Ce qui manque à UNE ligne pour compter. `[]` = elle compte. */
+export function champsManquantsDeLaLigne(
+  role: RoleAvecExigence,
+  ligne: { [K in ChampPersonne]?: unknown },
+): ChampExigeDeLaLigne[] {
+  return champsExigesDeLaLigne(role).filter((champ) => estVide(ligne[champ]));
+}
+
+/**
+ * COMBIEN DE LIGNES COMPLÈTES MANQUENT AU MINIMUM. `0` = il est atteint.
+ *
+ * ⛔ CE QUE LE MINIMUM COMPTE N'EST PAS LE MÊME OBJET SUR LES DEUX SURFACES, ET
+ * CE N'EST PAS UNE DIVERGENCE — C'EST LA PROJECTION. Le NOMBRE est déclaré une
+ * fois, ci-dessus ; ce que chaque surface a sous la main diffère :
+ *
+ *   · UNE SURFACE DE SAISIE compte ses lignes COMPLÈTES. Une ligne vierge n'est
+ *     pas un administrateur, et l'écriture la saute (`continue`) : la compter
+ *     ferait passer une étape qui n'écrit rien.
+ *   · LA LISTE DES TROUS compte les personnes qui TIENNENT le rôle, complètes ou
+ *     non. Une personne incomplète y a DÉJÀ sa ligne, qui nomme ce qui lui
+ *     manque ; la recompter ici ferait deux lignes pour un seul manque, et la
+ *     seconde dirait « aucun administrateur » d'une société qui en a un.
+ *
+ * ★ LES DEUX SONT ÉCRITES CÔTE À CÔTE, DANS CE FICHIER, EXPRÈS. Cachée dans un
+ * écran, la première serait une règle hors déclaration ; ici, les deux se lisent
+ * ensemble et leur différence s'explique.
+ */
+export function minimumManquant(role: RoleAvecExigence, lignesQuiComptent: number): number {
+  return Math.max(0, MINIMUM_PAR_ROLE[role] - lignesQuiComptent);
+}
+
+/** Les lignes d'une SAISIE qui comptent : celles à qui rien ne manque. */
+export function lignesCompletes<P extends { [K in ChampPersonne]?: unknown }>(
+  role: RoleAvecExigence,
+  lignes: readonly P[],
+): P[] {
+  return lignes.filter((ligne) => champsManquantsDeLaLigne(role, ligne).length === 0);
+}
+
+/**
  * ⛔ UNE SEULE DÉFINITION DU VIDE, ET ELLE NE SE RECOPIE PAS. « Absent » vaut
  * `null`, `undefined`, ou une chaîne vide APRÈS trim — trois états qu'une
  * comparaison naïve `!== null` laisserait passer, alors qu'une ville faite de
@@ -507,7 +622,20 @@ export type Trou =
        */
       roleActif: boolean;
     }
-  | { sujet: 'entite'; id: string; nom: string; champs: ChampEntite[] };
+  | { sujet: 'entite'; id: string; nom: string; champs: ChampEntite[] }
+  /**
+   * ★★ LE QUATRIÈME MEMBRE — UN MANQUE QUI N'APPARTIENT À PERSONNE. Les trois
+   * autres nomment un sujet à qui il manque des champs ; celui-ci dit qu'il
+   * manque un SUJET. Aucune ligne de `company_people` ne peut le porter, par
+   * définition : il n'y en a pas.
+   * ⚠️ `id` EST CELUI DE LA SOCIÉTÉ, pour que la clé de rendu reste unique — il
+   * ne désigne pas le manquant, qui n'existe pas.
+   * ⛔ ET IL N'A PAS DE `champs`. Un consommateur qui teste un sujet puis traite
+   * « sinon » comme une personne lirait `trou.nom` et `trou.champs` sur celui-ci :
+   * les deux sont ABSENTS, donc le compilateur l'arrête. C'est voulu — c'est la
+   * garde que l'en-tête de ce type réclame depuis le lot des entités.
+   */
+  | { sujet: 'minimum'; id: string; role: RoleAvecExigence; manque: number };
 
 /**
  * Les trous d'une société — SON SIÈGE, PUIS LES TROIS FAMILLES DE RÔLES, UNE
@@ -587,7 +715,25 @@ export async function trousDeLaSociete(
     })
     .filter((t): t is Extract<Trou, { sujet: 'personne' }> => t !== null);
 
-  return [...trouSiege, ...trousPersonnes, ...trousEntites];
+  /**
+   * ★ LE MINIMUM, MESURÉ SUR LES RÔLES ACTIFS — pas sur les rôles imprimés.
+   * Une société dont le seul mandat d'administrateur est CLOS n'a pas
+   * d'administrateur : elle en a EU un. `porteeDeLaPersonne(…, 'actif')` est la
+   * même lecture que celle qui décide ce qu'une correction ne peut pas vider.
+   * ⛔ ET IL COMPTE LES PERSONNES QUI TIENNENT LE RÔLE, COMPLÈTES OU NON — voir
+   * l'en-tête de `minimumManquant` : une personne incomplète a déjà SA ligne
+   * au-dessus, et la recompter ici dirait « aucun administrateur » d'une société
+   * qui en a un.
+   */
+  const trousMinima: Trou[] = ROLES_LUS.flatMap((role) => {
+    const tenants = personnes.filter((p) => TIENT_LE_ROLE[role](p, 'actif')).length;
+    const manque = minimumManquant(role, tenants);
+    return manque > 0 ? [{ sujet: 'minimum' as const, id: companyId, role, manque }] : [];
+  });
+
+  // ⚪ LES MINIMA EN TÊTE, AVANT MÊME LE SIÈGE : « il n'y a aucun administrateur »
+  //   se lit avant « il manque la ville d'un tel ». L'absence prime le détail.
+  return [...trousMinima, ...trouSiege, ...trousPersonnes, ...trousEntites];
 }
 
 /**

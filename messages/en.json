@@ -480,7 +480,7 @@
     "errorCity": "Home address city is required.",
     "errorCountry": "Home address country is required.",
     "errorCityAndCountry": "Home address city and country are required.",
-    "domicileNoticeForExport": "These addresses will be required to export your minute book.",
+    "domicileNoticeForExport": "These addresses are required to export your minute book, and to continue.",
     "errorSave": "Saving the directors failed. Check your information and try again.",
     "viewHistory": "View history",
     "hideHistory": "Hide history",
@@ -502,7 +502,14 @@
     "generateResolution": "Generate resolution",
     "viewDocument": "View document",
     "generateAppointmentResolution": "Generate appointment resolution",
-    "viewInCompleteness": "View in Completeness"
+    "viewInCompleteness": "View in Completeness",
+    "minimumRequired": "At least one complete director is required to continue.",
+    "minimumMissingFields": "Director {index}: missing {champs}.",
+    "champs": {
+      "full_name": "the name",
+      "address_city": "the home city",
+      "address_country": "the home country"
+    }
   },
   "officers": {
     "_locale": "en",
@@ -827,7 +834,11 @@
         "retry": "Retry"
       },
       "gapsFixShareholdersLink": "Fix in Shareholders",
-      "gapNoActiveRole": "This person no longer holds an active role."
+      "gapNoActiveRole": "This person no longer holds an active role.",
+      "gapNoDirector": "No director is on record.",
+      "gapNoOfficer": "No officer is on record.",
+      "gapNoShareholder": "No shareholder is on record.",
+      "gapNoEntitySignatory": "No signatory is on record."
     },
     "registers": {
       "directors": "Director Register",

@@ -2,7 +2,14 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ADRESSE_VIERGE, type AdresseSaisie } from '@/lib/address';
+import { ADRESSE_VIERGE, type AdresseSaisie, type ChampAdresse } from '@/lib/address';
+import {
+  champsExigesDeLaLigne,
+  champsManquantsDeLaLigne,
+  lignesCompletes,
+  minimumManquant,
+  type ChampExigeDeLaLigne,
+} from '@/lib/data-gaps';
 import BlocAdresse from '@/components/ui/BlocAdresse';
 import { OnboardingStepLayout } from './OnboardingStepLayout';
 
@@ -55,7 +62,6 @@ interface StepDirectorsProps {
   // anything was saved. That was the second half of the bceb84d defect at step 5,
   // and tsc reports NOTHING for it. Keep the return type.
   onContinue: (directors: OnboardingDirector[]) => Promise<boolean>;
-  onSkip: () => void;
 }
 
 // =============================================================================
@@ -85,7 +91,6 @@ export default function StepDirectors({
   userFullName = '',
   initialDirectors,
   onContinue,
-  onSkip,
   residencyApplies,
 }: StepDirectorsProps) {
 
@@ -156,6 +161,50 @@ export default function StepDirectors({
     setDirectors((prev) => prev.filter((_, i) => i !== index));
   }
 
+  /**
+   * ★★ LA PROJECTION — ET ELLE VIT ICI, PAS DANS LA DÉCLARATION. `lib/` ne dépend
+   *   pas de `components/` (voir l'en-tête de `lib/person-payload.ts`), donc
+   *   `data-gaps` ne peut pas connaître `OnboardingDirector`. Elle ne coûte presque
+   *   rien : `AdresseSaisie` est DÉJÀ nommée en colonnes, si bien que la projection
+   *   est un étalement et un champ. Même idée que `societeEnColonnes` au lot B — la
+   *   garde juge l'objet EN COLONNES, celui que la base recevra.
+   */
+  const enColonnes = (d: OnboardingDirector) => ({ full_name: d.fullName, ...d.adresse });
+
+  // ⛔ LE MINIMUM SE MESURE SUR LES LIGNES COMPLÈTES, PAS SUR `length`. La liste
+  //   porte TOUJOURS au moins une ligne — le retrait est masqué à un — et une ligne
+  //   vierge n'est pas un administrateur : l'écriture la saute (`continue`).
+  const manquantsParLigne = directors.map((d) => champsManquantsDeLaLigne('director', enColonnes(d)));
+  const complets = lignesCompletes('director', directors.map(enColonnes)).length;
+  const minimumNonAtteint = minimumManquant('director', complets) > 0;
+
+  /**
+   * ⛔ LE MESSAGE NOMME LA LIGNE LA PLUS PROCHE D'ÊTRE COMPLÈTE, ET CE N'EST PAS UNE
+   *   HEURISTIQUE DE JUSTESSE. Le minimum est UN : il suffit d'en compléter une, et
+   *   c'est celle-là qui demande le moins de gestes. Les nommer toutes ferait un mur
+   *   pour une exigence qui n'en réclame qu'une.
+   * ⚪ À égalité, la première — l'ordre de l'écran.
+   * ⚪ Chaque ligne garde par ailleurs SES astérisques : le message dit quoi faire,
+   *   les astérisques disent où.
+   */
+  const laPlusProche = minimumNonAtteint
+    ? manquantsParLigne.reduce(
+        (meilleure, champs, index) =>
+          champs.length < meilleure.champs.length ? { index, champs } : meilleure,
+        { index: 0, champs: manquantsParLigne[0] ?? ([] as ChampExigeDeLaLigne[]) },
+      )
+    : null;
+
+  // ★ L'ASTÉRISQUE DÉRIVE DE LA DÉCLARATION — forme des étapes 2 et 3. La position
+  //   ne bouge pas : « en haut à droite » reste un lot à part.
+  // ⚠️ ÉLARGI EN `string[]` POUR LA COMPARAISON, comme `marqueSiege` à l'étape 3 :
+  //    `BlocAdresse.marque` est appelée sur LES SIX colonnes d'adresse, dont trois
+  //    que rien n'exige. La question posée est « celui-ci est-il exigé ? », et elle
+  //    doit pouvoir être posée d'un champ qui ne l'est pas.
+  const exigesDeLaLigne: readonly string[] = champsExigesDeLaLigne('director');
+  const marqueLigne = (champ: ChampAdresse | 'full_name') =>
+    exigesDeLaLigne.includes(champ) ? <span style={{ color: '#ef4444' }}>*</span> : null;
+
   async function handleContinue() {
     // Reentrancy belt. MEASURED 2026-08-28: it cannot fire today —
     // the only invoker is the layout's continue button, which is
@@ -213,6 +262,18 @@ export default function StepDirectors({
     </svg>
   );
 
+  /**
+   * ⚖️ « PASSER » A DISPARU — DÉCISION DE DOM, 2026-09-17, ET C'EST LA MOITIÉ DE CE
+   * LOT. Il était câblé `() => setStep(5)` : il avançait SANS RIEN ÉCRIRE, juste à
+   * côté du bouton qu'on vient de désactiver. Les trois pièces n'auraient rien
+   * gardé — le refus à gauche, la porte grande ouverte à droite.
+   * ⚠️ CE QUE ÇA LAISSE, DIT PLUTÔT QUE MASQUÉ : cette étape n'a plus AUCUN bouton
+   * à gauche. Il n'y avait pas de « Retour » ici — celui-là allait en AVANT, pas en
+   * arrière — donc rien n'est perdu ; mais en offrir un est une décision de produit,
+   * non prise, donc non inventée ici.
+   * ⛔ ET LA PROP EST PARTIE AVEC LE BOUTON, des deux côtés. Une prop qui ne sert
+   * plus se fait rebrancher un jour par quelqu'un qui la croit oubliée.
+   */
   // ---- Render ---------------------------------------------------------------
   return (
     <OnboardingStepLayout
@@ -228,9 +289,9 @@ export default function StepDirectors({
         ? "Les administrateurs supervisent la gestion de l'entreprise. Dans la plupart des petites entreprises, le fondateur est le seul administrateur."
         : 'Directors oversee company management. In most small businesses, the founder is the sole director.'}
       locale={locale}
-      onSkip={onSkip}
       onContinue={handleContinue}
       saving={saving}
+      continueDisabled={minimumNonAtteint}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {directors.map((director, index) => (
@@ -267,9 +328,13 @@ export default function StepDirectors({
 
             {/* Full name */}
             <div style={{ marginBottom: '12px' }}>
+              {/* ⚪ MÊME SIGNE, MÊME PLACE, MÊME ROUGE — seule son ORIGINE change.
+                  ⛔ ET IL CESSE D'ÊTRE UN MENSONGE : jusqu'à ce lot il annonçait un
+                     refus qui n'avait jamais lieu, la ligne sans nom étant
+                     silencieusement sautée à l'écriture. */}
               <label style={fieldLabelStyle}>
                 {fr ? 'Nom complet' : 'Full name'}{' '}
-                <span style={{ color: '#ef4444' }}>*</span>
+                {marqueLigne('full_name')}
               </label>
               <input
                 type="text"
@@ -346,12 +411,17 @@ export default function StepDirectors({
             </div>
 
             {/* ★ LE DOMICILE, LES SIX CHAMPS — deux jusqu'au 2026-09-15.
-                ⛔ AUCUNE PROP `marque` : cette etape n'exige rien, donc elle ne
-                marque rien. Voir l'en-tete d'OnboardingDirector.
+                ⚖️ LA PROP `marque` ENTRE, DÉCISION DE DOM DU 2026-09-17. Le
+                commentaire d'hier disait « AUCUNE PROP marque : cette étape n'exige
+                rien, donc elle ne marque rien » — c'était vrai et c'est faux
+                maintenant. ⭐ Rien n'est inventé : la prop existe, l'étape 3 s'en
+                sert, et les champs marqués sont ceux de `CHAMPS_REQUIS.director`,
+                déclarés depuis le 2026-09-11 et jusqu'ici invisibles ici.
                 ★ `idPrefixe` porte l'index : plusieurs administrateurs montent
                 plusieurs blocs, et deux `id` identiques casseraient les `htmlFor`. */}
             <div style={{ marginTop: '12px' }}>
               <BlocAdresse
+                marque={marqueLigne}
                 valeur={director.adresse}
                 onChange={(adresse) => updateDirector(index, 'adresse', adresse)}
                 locale={locale}
@@ -362,12 +432,16 @@ export default function StepDirectors({
               />
             </div>
 
-            {/* ⛔ NI ASTERISQUE NI GARDE ICI, ET C'EST LE POINT. Un asterisque qui
-                ne bloque rien est un mensonge — le defaut mesure ailleurs dans le
-                depot (EditShareholdingModal:110 marque un champ qu'aucune garde ne
-                protege). L'inscription DEMANDE ces adresses ; c'est l'export qui
-                les EXIGE, et cette phrase prepare ce refus au lieu de le surprendre.
-                ★ Ton neutre : ce n'est pas une faute, c'est ce qui viendra. */}
+            {/* ⚖️ CETTE PHRASE ÉTAIT AU FUTUR, ET LE FUTUR EST ARRIVÉ. Elle disait
+                « Ces adresses SERONT requises pour exporter votre livre » — juste tant
+                que l'inscription n'exigeait rien. Depuis la décision du 2026-09-17
+                elles sont requises ICI, et une phrase au futur au-dessus d'un bouton
+                désactivé serait exactement le défaut que ce lot ferme : une exigence
+                affichée qui ne dit pas la vérité sur ce qu'elle fait (§362).
+                ⛔ Le commentaire d'hier disait aussi « NI ASTERISQUE NI GARDE ICI, ET
+                C'EST LE POINT ». Il avait raison de son temps : un astérisque qui ne
+                bloque rien est un mensonge. On n'a pas retiré l'astérisque — on a
+                ajouté la garde qui le rend vrai. */}
             <p
               style={{
                 fontSize: '12px',
@@ -399,6 +473,27 @@ export default function StepDirectors({
           <span style={{ color: '#F5B91E', fontSize: '18px', lineHeight: 1 }}>+</span>
           {fr ? 'Ajouter un administrateur' : 'Add a director'}
         </button>
+
+        {/* ⛔ LA TROISIÈME PIÈCE — LE MESSAGE QUI NOMME. Les trois partent ensemble
+            ou rien ne part : l'astérisque MARQUE, le bouton REFUSE, cette ligne DIT
+            QUOI et OÙ. Un bouton mort sans elle est le refus juste et invisible que
+            `b0f44ed` a retiré avec raison.
+            ⚪ Deux phrases : la RÈGLE, puis le GESTE qui la satisfait. La règle seule
+            laisserait chercher laquelle des lignes compléter.
+            ⚪ Juste au-dessus du bouton, comme aux étapes 2 et 3, et au même style. */}
+        {laPlusProche && (
+          <div style={{ marginTop: '4px' }}>
+            <p style={{ fontSize: '12px', color: '#ef4444', margin: 0 }}>
+              {t('minimumRequired')}
+            </p>
+            <p style={{ fontSize: '12px', color: '#ef4444', margin: 0 }}>
+              {t('minimumMissingFields', {
+                index: laPlusProche.index + 1,
+                champs: laPlusProche.champs.map((c) => t(`champs.${c}`)).join(', '),
+              })}
+            </p>
+          </div>
+        )}
 
         {error && (
           <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>

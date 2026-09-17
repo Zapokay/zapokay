@@ -654,7 +654,13 @@ async function verifierA3(): Promise<boolean> {
     ...act.entries.map((e) => e.full_name),
     ...(act.former_holdings?.entries ?? []).map((e) => e.full_name),
   ]);
-  const listes = new Set(trous.flatMap((t) => (t.sujet === 'societe' ? [] : [t.nom])));
+  // ⚠️ A3 COMPARE DES NOMS DE FICHES. Le siège n'en porte pas, et la ligne de
+  //    MINIMUM non plus — elle dit qu'il MANQUE un sujet, elle n'en nomme aucun.
+  //    ⛔ Les deux s'écartent par leur `sujet`, jamais par « sinon » : le type de
+  //    `Trou` refuse désormais de lire `.nom` sur un membre qui n'en a pas.
+  const listes = new Set(
+    trous.flatMap((t) => (t.sujet === 'societe' || t.sujet === 'minimum' ? [] : [t.nom])),
+  );
   let vrai = true;
   const ecart = IMPRIMES_ATTENDUS.filter((n) => !imprimes.has(n)).concat(Array.from(imprimes).filter((n) => !IMPRIMES_ATTENDUS.includes(n)));
   if (ecart.length > 0) {
@@ -672,7 +678,22 @@ async function verifierA3(): Promise<boolean> {
    5. A4a ET A4b — LES FORMULAIRES DE RÔLE : recensement, lecture du refus, montages
    ═══════════════════════════════════════════════════════════════════════════ */
 
-type Refus = 'champsManquants' | 'champsManquantsEntite' | 'champsVidesParLaCorrection';
+type Refus =
+  | 'champsManquants'
+  | 'champsManquantsEntite'
+  | 'champsVidesParLaCorrection'
+  /** ⚖️ AJOUTÉ LE 2026-09-17 : le refus d'une COLLECTION. Les trois autres refusent
+   *  un sujet incomplet ; celui-ci refuse qu'il n'y en ait AUCUN de complet. */
+  | 'minimumManquant'
+  /**
+   * ⚠️ AJOUTÉ LE 2026-09-17, ET IL CORRIGE UN MENSONGE DU LOT PRÉCÉDENT. L'étape 3
+   * refuse un siège incomplet depuis le 2026-09-17 (`continueDisabled` →
+   * `champsManquantsSiege`), et l'entrée de StepSiege ci-dessous a continué de dire
+   * « exigé dans l'application, pas ici ». La garde n'a rien vu pour DEUX raisons
+   * cumulées, toutes deux réparées ici : elle ne lisait pas `continueDisabled`, et
+   * elle ne vérifie que la PRÉSENCE des refus attendus, jamais l'absence des autres.
+   */
+  | 'champsManquantsSiege';
 interface Formulaire {
   /**
    * ⚖️ DEUX RÈGLES DEPUIS LE 2026-09-13 (décision de Dom) : une CRÉATION exige de remplir,
@@ -723,9 +744,20 @@ const FORMULAIRES = new Map<string, Formulaire>([
   // et l'en-tête l'avouait — « un formulaire d'adresse écrit à côté de ces deux
   // composants lui échappe ». Deux d'entre eux montaient déjà leur bloc à la main ;
   // les deux autres le montent depuis ce lot. Aucun n'exige quoi que ce soit.
+  // ⚖️ STEPDIRECTORS A CHANGÉ DE GENRE LE 2026-09-17, ET CETTE GARDE PORTAIT LA
+  //    DÉCISION D'HIER. Son entrée disait : « offre le domicile à l'étape 4 — six
+  //    champs, aucun exigé (décision de Dom, 2026-09-15) », et l'assertion des
+  //    `offre` exigeait ZÉRO astérisque sur ses six champs. Les deux étaient justes
+  //    et sont devenues fausses le jour où l'étape 4 a exigé un administrateur.
+  // ⛔ LA GARDE EST RÉÉDUQUÉE, PAS DESSERRÉE : l'écran passe du genre `offre` au
+  //    genre `création`, et ses astérisques sont désormais comparés à la
+  //    DÉCLARATION, exactement comme ceux de PersonSelector. Elle en exige plus
+  //    qu'avant, pas moins.
+  // ⚪ `exigences: []` reste juste : cette étape ne monte AUCUN <PersonSelector> —
+  //    ce champ lit les portées déclarées sur ce composant-là, et il n'y en a pas.
   ['components/onboarding/StepDirectors.tsx', {
-    genre: 'offre', raison: "offre le domicile à l'étape 4 — six champs, aucun exigé (décision de Dom, 2026-09-15)",
-    exigences: [], refus: [],
+    genre: 'création', raison: "exige un administrateur complet à l'étape 4 (décision de Dom, 2026-09-17)",
+    exigences: [], refus: ['minimumManquant'],
   }],
   ['components/onboarding/StepShareholders.tsx', {
     genre: 'offre', raison: "offre le domicile à l'étape 5, SUR SES DEUX BRANCHES — personne et société (la nature du détenteur, 2026-09-15)",
@@ -735,9 +767,14 @@ const FORMULAIRES = new Map<string, Formulaire>([
     genre: 'offre', raison: "offre le domicile d'un dirigeant SAISI à l'étape 6 — « Une autre personne… », 2026-09-15",
     exigences: [], refus: [],
   }],
+  // ⚖️ STEPSIEGE A CHANGÉ DE GENRE LE 2026-09-17 ET CETTE LIGNE NE L'A PAS SUIVI —
+  //    dette du lot précédent, trouvée en rééduquant A4a pour l'étape 4. Elle
+  //    affirmait une décision RENVERSÉE ce jour-là : « exigé dans l'application, pas
+  //    ici (2026-09-09) ». C'est §357 exactement — une règle dont la raison est
+  //    périmée, laissée en place parce qu'elle passait.
   ['components/onboarding/StepSiege.tsx', {
-    genre: 'offre', raison: "offre le siège à l'étape 3 — exigé dans l'application, pas ici (décision de Dom, 2026-09-09)",
-    exigences: [], refus: [],
+    genre: 'création', raison: "exige le siège complet à l'étape 3 (décision de Dom, 2026-09-17, qui renverse celle du 2026-09-09)",
+    exigences: [], refus: ['champsManquantsSiege'],
   }],
   ['components/dashboard/SettingsClient.tsx', {
     genre: 'offre',
@@ -798,7 +835,20 @@ function lireFormulaire(sf: ts.SourceFile): { exigences: string[]; refus: Set<st
       else if (ts.isIdentifier(expr)) exigences.push(derivee && lectureDesRoles ? '(dérivée)' : `{${expr.text}}`);
       else exigences.push(`{${expr.getText(sf)}}`);
     }
-    if (ts.isJsxAttribute(n) && n.name.getText(sf) === 'disabled' && n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression) {
+    // ⚠️ DEUX NOMS D'ATTRIBUT, ET LE SECOND ENTRE LE 2026-09-17. La garde ne lisait
+    //    que `disabled` — le nom que portent les boutons des modales. Les étapes
+    //    d'inscription passent leur refus au layout sous le nom `continueDisabled`,
+    //    si bien qu'un écran d'inscription pouvait refuser sans que cette garde le
+    //    voie : elle aurait dit « aucun disabled n'atteint … » d'un écran qui refuse.
+    // ⭐ CONTRÔLE POSITIF DE L'EXTENSION : les cinq refus par `disabled` déjà
+    //    recensés (AddDirectorModal, AddOfficerModal, ReplaceOfficerModal,
+    //    TransferShareholdingModal, IssueSharesModal) doivent continuer d'être lus.
+    //    S'ils tombent, c'est l'extension qui est fausse, pas eux.
+    if (
+      ts.isJsxAttribute(n) &&
+      (n.name.getText(sf) === 'disabled' || n.name.getText(sf) === 'continueDisabled') &&
+      n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression
+    ) {
       for (const appel of appelsAtteints(sf, n.initializer.expression)) {
         const nom = (appel.expression as ts.Identifier).text;
         refus.add(nom);
@@ -955,7 +1005,9 @@ function lireLesFormulaires(genre: Formulaire['genre'], porteurs: string[]): boo
 }
 
 function verifierA4a(): boolean {
-  console.log('\n━━ A4a — CRÉER UN PORTEUR DE RÔLE EXIGE VILLE ET PAYS, ET LE MARQUE ━━');
+  // ⚠️ LE TITRE A ÉLARGI LE 2026-09-17 : deux écrans d'inscription exigent désormais,
+  //    et l'un d'eux exige un SIÈGE, qui n'est le porteur d'aucun rôle.
+  console.log("\n━━ A4a — CE QUI CRÉE EXIGE CE QU'IL DÉCLARE, ET LE MARQUE ━━");
   let vrai = true;
   const porteurs = recenser();
   console.log(`  RECENSEMENT — ${porteurs.length} fichiers montent PersonSelector, EntityForm ou BlocAdresse`);
@@ -996,9 +1048,8 @@ function verifierA4a(): boolean {
       entite: { ...VALEUR_ENTITE_VIDE },
     };
     const offres: [string, React.ReactElement][] = [
-      ['StepDirectors (étape 4)', el(StepDirectors, {
-        locale: 'fr', userFullName: 'Ana Martin', residencyApplies: true, onContinue: accepte, onSkip: rien,
-      })],
+      // ⚠️ STEPDIRECTORS N'EST PLUS ICI — il est monté plus bas, contre la
+      //    déclaration. Le laisser aurait exigé qu'il ne marque RIEN.
       ['StepShareholders (étape 5, branche personne)', el(StepShareholders, {
         locale: 'fr', directors: [], onContinue: accepte, onSkip: rien,
       })],
@@ -1036,6 +1087,19 @@ function verifierA4a(): boolean {
       const rendus = libellesMarques(html);
       vrai = dire(memes(rendus, attendus), `PersonSelector, portée ${JSON.stringify(portee)} — astérisques [${rendus.join(', ')}]${memes(rendus, attendus) ? '' : ` ≠ déclarés [${attendus.join(', ')}]`}`) && vrai;
     }
+    // ⭐ L'ÉTAPE 4 EST MONTÉE CONTRE LA MÊME DÉCLARATION QUE PERSONSELECTOR. Deux
+    //    surfaces, une source : si `CHAMPS_REQUIS.director` bouge, les deux montages
+    //    le disent ensemble, ou cette garde tombe.
+    const htmlEtape4 = rendre(el(StepDirectors, {
+      locale: 'fr', userFullName: 'Ana Martin', residencyApplies: true, onContinue: accepte,
+    }));
+    const rendusEtape4 = libellesMarques(htmlEtape4);
+    const attendusEtape4 = marquesDeclarees('director');
+    vrai = dire(
+      memes(rendusEtape4, attendusEtape4),
+      `StepDirectors (étape 4) — astérisques [${rendusEtape4.join(', ')}]${memes(rendusEtape4, attendusEtape4) ? '' : ` ≠ déclarés [${attendusEtape4.join(', ')}]`}`,
+    ) && vrai;
+
     const adresses = new Set(Object.values(LIBELLE_ENTITE));
     const rendusEntite = libellesMarques(rendre(el(EntityForm, { value: VALEUR_ENTITE_VIDE, onChange: rien }))).filter((l) => adresses.has(l));
     const attendusEntite = CHAMPS_REQUIS_ENTITE.map((c) => libelle(LIBELLE_ENTITE, c)).sort();
@@ -1084,6 +1148,19 @@ function verifierA4b(): boolean {
     }
     const htmlEntite = rendre(el(EditEntityModal, { entity: ENTITE_SANS_ADRESSE, companyId: 'c1', onClose: rien, onSuccess: rien }));
     const entite = boutonDesactive(htmlEntite, messages.shareholders.save);
+    // ⭐ L'ÉTAPE 4 EST MONTÉE CONTRE LA MÊME DÉCLARATION QUE PERSONSELECTOR. Deux
+    //    surfaces, une source : si `CHAMPS_REQUIS.director` bouge, les deux montages
+    //    le disent ensemble, ou cette garde tombe.
+    const htmlEtape4 = rendre(el(StepDirectors, {
+      locale: 'fr', userFullName: 'Ana Martin', residencyApplies: true, onContinue: accepte,
+    }));
+    const rendusEtape4 = libellesMarques(htmlEtape4);
+    const attendusEtape4 = marquesDeclarees('director');
+    vrai = dire(
+      memes(rendusEtape4, attendusEtape4),
+      `StepDirectors (étape 4) — astérisques [${rendusEtape4.join(', ')}]${memes(rendusEtape4, attendusEtape4) ? '' : ` ≠ déclarés [${attendusEtape4.join(', ')}]`}`,
+    ) && vrai;
+
     const adresses = new Set(Object.values(LIBELLE_ENTITE));
     const rendusEntite = libellesMarques(htmlEntite).filter((l) => adresses.has(l));
     const attendusEntite = CHAMPS_REQUIS_ENTITE.map((c) => libelle(LIBELLE_ENTITE, c)).sort();

@@ -480,7 +480,7 @@
     "errorCity": "La ville du domicile est requise.",
     "errorCountry": "Le pays du domicile est requis.",
     "errorCityAndCountry": "La ville et le pays du domicile sont requis.",
-    "domicileNoticeForExport": "Ces adresses seront requises pour exporter votre livre.",
+    "domicileNoticeForExport": "Ces adresses sont requises pour l'export de votre livre, et pour continuer.",
     "errorSave": "L'enregistrement des administrateurs a échoué. Vérifiez vos informations et réessayez.",
     "viewHistory": "Voir l'historique",
     "hideHistory": "Masquer l'historique",
@@ -502,7 +502,14 @@
     "generateResolution": "Générer la résolution",
     "viewDocument": "Voir le document",
     "generateAppointmentResolution": "Générer la résolution de nomination",
-    "viewInCompleteness": "Voir dans Complétude"
+    "viewInCompleteness": "Voir dans Complétude",
+    "minimumRequired": "Au moins un administrateur complet est requis pour continuer.",
+    "minimumMissingFields": "Administrateur {index} : il manque {champs}.",
+    "champs": {
+      "full_name": "le nom",
+      "address_city": "la ville du domicile",
+      "address_country": "le pays du domicile"
+    }
   },
   "officers": {
     "_locale": "fr",
@@ -827,7 +834,11 @@
         "retry": "Réessayer"
       },
       "gapsFixShareholdersLink": "Corriger dans Actionnaires",
-      "gapNoActiveRole": "Cette personne n'a plus de rôle actif."
+      "gapNoActiveRole": "Cette personne n'a plus de rôle actif.",
+      "gapNoDirector": "Aucun administrateur n'est inscrit.",
+      "gapNoOfficer": "Aucun dirigeant n'est inscrit.",
+      "gapNoShareholder": "Aucun actionnaire n'est inscrit.",
+      "gapNoEntitySignatory": "Aucun signataire n'est inscrit."
     },
     "registers": {
       "directors": "Registre des administrateurs",

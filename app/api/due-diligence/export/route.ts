@@ -528,7 +528,15 @@ export async function GET(request: NextRequest) {
      * l'astérisque et que la liste du modal.
      */
     const trous = await trousDeLaSociete(supabase, companyId);
-    const donneesManquantes = trous.reduce((n, t) => n + t.champs.length, 0);
+    // ⚠️ LE MINIMUM NE COMPTE PAS ICI, ET C'EST DÉLIBÉRÉ. Cette mention chiffre des
+    // CHAMPS absents sur des fiches qui existent ; « aucun administrateur » n'est pas
+    // un champ, et l'ajouter comme « 1 » mélangerait deux unités sur la page de garde.
+    // ⛔ Le dire autrement sur la couverture est une décision de produit, pas une
+    // conséquence de ce lot — non prise, donc non appliquée.
+    const donneesManquantes = trous.reduce(
+      (n, t) => n + (t.sujet === 'minimum' ? 0 : t.champs.length),
+      0,
+    );
     const mentionIncomplet = getCoverIncompleteNotice(donneesManquantes, docLanguage);
 
     // ★ LE SIÈGE, SUR LA PAGE DE GARDE SEULEMENT (décision du 2026-09-13) : datée du
