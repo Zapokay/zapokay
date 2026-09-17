@@ -38,6 +38,10 @@ import { StepCompany } from '@/components/onboarding/StepCompany';
 import StepDirectors, { type OnboardingDirector } from '@/components/onboarding/StepDirectors';
 import StepShareholders, { type OnboardingShareholder } from '@/components/onboarding/StepShareholders';
 import StepOfficers, { DIRIGEANT_VIDE, type OnboardingOfficers, type SaisieDirigeant } from '@/components/onboarding/StepOfficers';
+import { declarationDesExercices } from '@/lib/active-years';
+import * as ts from 'typescript';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, valeurAvecAdresse } from '@/lib/entity-payload';
 
 let echecs = 0;
@@ -468,7 +472,128 @@ function lotC3(): void {
   dire(!dit(sansVille, 'il manque le nom'), 'et ne réclame PAS ce qui est rempli');
 }
 
-/* ─── LOT D : son écran s'ajoute ici, et A+B+C1+C2+C3 se rejouent. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT D — L'EXERCICE EN COURS EST DÉJÀ COCHÉ
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Une société d'essai : constituée en 2020, exercice clos au 31 décembre. */
+const SOCIETE_EXERCICES = {
+  incorporation_date: '2020-03-15',
+  fiscal_year_end_month: 12,
+  fiscal_year_end_day: 31,
+};
+/** ⛔ UNE HORLOGE FIXE. Une sonde qui lit l'heure réelle change de verdict le
+ *  1ᵉʳ janvier — c'est le défaut que `lib/active-years.ts` a fermé en sortant
+ *  l'horloge des écrans ; elle ne revient pas ici. */
+const AUJOURDHUI = new Date('2026-09-17T12:00:00-04:00');
+
+/**
+ * ⛔⛔ CET ÉCRAN NE SE MONTE PAS ICI, ET IL FAUT LE DIRE PLUTÔT QUE LE CONTOURNER.
+ * `FiscalYearsSetup` appelle `useRouter()` à sa première ligne ; hors d'un app
+ * router, React lève « invariant expected app router to be mounted ». Les cinq
+ * écrans d'inscription, eux, montent — mesuré au lot A. Celui-ci est le seul du
+ * parcours qui ne le fasse pas.
+ *
+ * ★ CE QU'ON PROUVE À LA PLACE, ET C'EST DEUX CHOSES, PAS UNE :
+ *   ① LA RÈGLE, PAR EXÉCUTION — `declarationDesExercices` est pure, sans horloge
+ *      imposée ni lecture de base, et c'est elle qui décide de ce qui est coché.
+ *   ② LE BRANCHEMENT, PAR STRUCTURE — que l'état des cases NAISSE de `suivis` et
+ *      de rien d'autre, lu à l'AST du fichier. Sans ②, prouver ① ne dirait rien de
+ *      l'écran ; sans ①, ② ne dirait rien de la règle.
+ *
+ * ⚠️ CE QUE ÇA NE PROUVE PAS : le rendu. Une case dont `checked` serait câblé
+ * ailleurs qu'à `activeYears` échapperait à ②. C'est la limite, elle est écrite.
+ */
+function brancheLesCasesSurSuivis(): { initial: boolean; checked: boolean } {
+  const chemin = join(__dirname, '..', 'components', 'onboarding', 'FiscalYearsSetup.tsx');
+  const sf = ts.createSourceFile(chemin, readFileSync(chemin, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let initial = false;
+  let checked = false;
+  const parcourir = (n: ts.Node) => {
+    // ① `useState(() => new Set(suivis))` — l'état naît de la prop, et d'elle seule.
+    if (ts.isCallExpression(n) && n.expression.getText(sf) === 'useState') {
+      const arg = n.arguments[0];
+      if (arg && /new Set\(\s*suivis\s*\)/.test(arg.getText(sf))) initial = true;
+    }
+    // ② L'ÉTAT VISUEL D'UN EXERCICE SORT DE `activeYears`.
+    // ⚠️ PAS D'ATTRIBUT `checked` À CHERCHER, ET MA PREMIÈRE ASSERTION LE CHERCHAIT.
+    //    Cet écran n'a AUCUN `<input type="checkbox">` : chaque exercice est un
+    //    `<button>` dont la bordure, le fond et la pastille dérivent d'un
+    //    `isActive`. La sonde avait tort, pas l'écran — et elle l'a dit en
+    //    échouant, ce qui est exactement ce qu'on lui demande.
+    if (
+      ts.isVariableDeclaration(n) &&
+      n.name.getText(sf) === 'isActive' &&
+      /^activeYears\.has\(/.test(n.initializer?.getText(sf) ?? '')
+    ) {
+      checked = true;
+    }
+    n.forEachChild(parcourir);
+  };
+  parcourir(sf);
+  return { initial, checked };
+}
+
+function lotD(): void {
+  console.log('\n── LOT D · étape 8 · les exercices');
+
+  console.log('   ⚠️ cet écran NE MONTE PAS (useRouter) — voir l’en-tête ci-dessus');
+  const branchement = brancheLesCasesSurSuivis();
+  dire(branchement.initial, "l'état des cases NAÎT de `suivis`, et de rien d'autre");
+  dire(branchement.checked, "et l'état visuel d'un exercice sort de `activeYears`");
+
+  console.log('   ① écran neuf, aucune ligne enregistrée');
+  const neuf = declarationDesExercices(SOCIETE_EXERCICES, [], AUJOURDHUI);
+  dire(neuf.suivis.includes(neuf.enCours), `l'exercice en cours (${neuf.enCours}) est COCHÉ`);
+
+  console.log('   ② ⛔ NÉGATIF — aucune AUTRE année que les verrouillées');
+  dire(neuf.suivis.length === neuf.verrouilles.length, 'suivis = verrouillés, rien de plus');
+  dire(!neuf.suivis.includes(2021), "2021 n'est PAS coché");
+  dire(!neuf.suivis.includes(2020), "2020 non plus — deux cochés sur sept exercices");
+
+  console.log('   ③ ⛔ LE PLUS IMPORTANT — AUCUNE DOUBLE ÉCRITURE');
+  // ⛔ `aActiver` est exactement ce que « Terminer » écrit. Si l'exercice en cours
+  //    est DÉJÀ enregistré actif, il ne doit pas y figurer — sinon chaque passage
+  //    réécrit une ligne qui existe.
+  const dejaSuivi = declarationDesExercices(SOCIETE_EXERCICES, [2026], AUJOURDHUI);
+  const storedActive = new Set([2026]);
+  const aActiver = dejaSuivi.suivis.filter((y) => !storedActive.has(y));
+  dire(!aActiver.includes(2026), "l'exercice en cours déjà suivi n'est PAS réécrit");
+  dire(aActiver.length === 0, `et rien d'autre ne l'est (aActiver = [${aActiver}])`);
+
+  console.log("   ⭐ ET IL EST COCHÉ DANS TOUS LES CAS, PAS SEULEMENT À NEUF");
+  const cas: [string, number[]][] = [
+    ['aucune ligne', []],
+    ['une ancienne seule', [2021]],
+    ['en cours déjà suivi', [2026]],
+    ['en cours + anciennes', [2021, 2022, 2026]],
+    ['le dernier terminé seul', [2025]],
+    /**
+     * ⭐⭐ LE CAS QUI MANQUAIT, ET C'EST UNE MUTATION QUI L'A RÉVÉLÉ. Retirer le
+     * `push(enCours)` explicite de `declarationDesExercices` ne faisait tomber
+     * AUCUNE assertion : dans les cinq cas ci-dessus, l'exercice en cours arrive
+     * déjà par les verrouillés ou par la prolongation vers l'avant. La règle
+     * paraissait donc prouvée alors que sa dernière ligne ne l'était pas.
+     * ⛔ CE CAS-CI EST LE SEUL OÙ ELLE SEULE TRAVAILLE : une ligne active pour un
+     * exercice AU-DESSUS de la liste déclarée. `fiscalYearSet` n'étend que vers
+     * l'AVANT du plus haut enregistré, donc il ne rend RIEN, et sans le `push`
+     * l'exercice en cours ne serait pas suivi.
+     * ⚪ L'état est réel, pas inventé : l'en-tête de `declarationDesExercices` dit
+     * qu'une ligne hors de la règle « reste lue », par décision de Dom du
+     * 2026-09-13.
+     */
+    ['une ligne AU-DESSUS de la liste déclarée', [2030]],
+  ];
+  for (const [quoi, actifs] of cas) {
+    const d = declarationDesExercices(SOCIETE_EXERCICES, actifs, AUJOURDHUI);
+    dire(d.suivis.includes(d.enCours), `${quoi} → ${d.enCours} coché`);
+  }
+  // ⭐ CONTRÔLE POSITIF : la sonde sait dire NON. L'extension est vers l'AVANT, donc
+  //    un exercice ANTÉRIEUR à la plus haute ligne active n'est pas ramené — sans
+  //    ça, « toujours coché » ne prouverait que son aveuglement.
+  const avecAncienne = declarationDesExercices(SOCIETE_EXERCICES, [2021], AUJOURDHUI);
+  dire(!avecAncienne.suivis.includes(2020), '⭐ et 2020 ne revient PAS (extension vers l’avant)');
+}
 
 console.log('EXIGENCES DE L’INSCRIPTION — montage réel, sans navigateur');
 lotA();
@@ -476,5 +601,6 @@ lotB();
 lotC1();
 lotC2();
 lotC3();
+lotD();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

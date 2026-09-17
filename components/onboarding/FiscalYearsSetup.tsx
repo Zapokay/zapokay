@@ -540,6 +540,25 @@ export function FiscalYearsSetup({
                 //    Un avertissement qui sort toujours se fait ignorer en trois
                 //    jours, et il finit par avoir l'air d'un bogue.
                 //
+                // ⚠️⚠️ ET SUR UNE INSCRIPTION NEUVE, IL Y A TOUJOURS QUELQUE CHOSE À
+                //    PERDRE — DONC IL SORTIRA TOUJOURS. CE N'EST PAS UN BOGUE.
+                //    Sans ligne enregistrée, `declarationDesExercices` rend les
+                //    exercices VERROUILLÉS — l'exercice en cours et le dernier
+                //    terminé —, l'écran ouvre avec eux cochés, et `storedActive` est
+                //    vide : `aActiver` vaut donc ces deux-là dès le premier rendu,
+                //    sans que personne ait cliqué.
+                // ★ ET C'EST JUSTE, PAS UN EFFET DE BORD À CORRIGER : sauter cette
+                //    étape fait réellement perdre l'exercice en cours, que rien
+                //    n'aura enregistré. L'avertissement dit la vérité.
+                // ⛔ NE PAS « RÉPARER » ÇA EN COMPARANT À `suivis` PLUTÔT QU'À LA
+                //    BASE. `aActiver` est la liste que « Terminer » ÉCRIT : la
+                //    rendre vide quand elle ne l'est pas ferait taire
+                //    l'avertissement ET n'écrirait rien, ce qui est exactement
+                //    l'état qu'on veut signaler.
+                // ⚪ Une société qui repasse ici après avoir enregistré ne le voit
+                //    PAS : `storedActive` contient alors l'exercice en cours, et
+                //    `aActiver` l'exclut. Vérifié par `check:inscription`, lot D.
+                //
                 // ⚠️⚠️ ET LE TEXTE NOMME LE BOUTON ET LE GESTE, VOLONTAIREMENT —
                 //    ne pas le « simplifier » en le croyant bavard.
                 //    `window.confirm` ne rend que « OK » et « Annuler » : SES
