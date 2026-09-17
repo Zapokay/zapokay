@@ -699,7 +699,9 @@
       "address_city": "the city",
       "address_country": "the country",
       "numberOfShares": "the number of shares"
-    }
+    },
+    "discardedLines": "The number of shares must be at least 1: {lignes}.",
+    "lineLabel": "shareholder {index}"
   },
   "nav": {
     "group": {

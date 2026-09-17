@@ -392,6 +392,25 @@ function lotC2(): void {
   dire(!dit(sansVille, 'il manque le nom'), 'et ne réclame PAS ce qui est rempli');
   dire(!boutonDesactive(etape5([PERSONNE_COMPLETE, ACTIONNAIRE_VIDE])), 'complète + vierge ne bloque PAS');
 
+  console.log('   ⛔ LOT E2 — RIEN DE NOMMÉ NE SE JETTE EN SILENCE');
+  // ⛔ LA RÈGLE EST DISTINCTE DU MINIMUM : une ligne complète ne la satisfait pas.
+  const uneCompleteUneJetee = etape5([PERSONNE_COMPLETE, { ...PERSONNE_COMPLETE, numberOfShares: 0 }]);
+  dire(boutonDesactive(uneCompleteUneJetee), '⭐ une COMPLÈTE + une NOMMÉE à 0 action → BLOQUE quand même');
+  dire(dit(uneCompleteUneJetee, 'actionnaire 2'), 'et le message nomme la ligne 2');
+  // ⭐ TOUTES les lignes jetées, pas la plus proche.
+  const deuxJetees = etape5([
+    { ...PERSONNE_COMPLETE, numberOfShares: 0 },
+    { ...PERSONNE_COMPLETE, numberOfShares: 0 },
+  ]);
+  dire(
+    dit(deuxJetees, 'actionnaire 1') && dit(deuxJetees, 'actionnaire 2'),
+    'deux lignes jetées → les DEUX sont nommées',
+  );
+  // ⛔ NÉGATIF : une ligne VIERGE n'est pas « jetée » — elle n'a jamais existé.
+  const completePlusVierge = etape5([PERSONNE_COMPLETE, ACTIONNAIRE_VIDE]);
+  dire(!boutonDesactive(completePlusVierge), '⛔ NÉGATIF — une ligne VIERGE ne bloque PAS');
+  dire(!dit(completePlusVierge, "Le nombre d'actions doit être"), 'et rien ne lui est reproché');
+
   console.log('   ⭐ LE NOMBRE D’ACTIONS COMPTE, ET CE N’ÉTAIT PAS AU BRIEF');
   // ⛔ La boucle d'écriture saute sur `nom vide OU numberOfShares <= 0`. Une ligne
   //    nommée et domiciliée à ZÉRO action passerait le bouton et n'écrirait RIEN.
@@ -632,7 +651,7 @@ function lotD(): void {
   dire(!aActiver.includes(2026), "l'exercice en cours déjà suivi n'est PAS réécrit");
   dire(aActiver.length === 0, `et rien d'autre ne l'est (aActiver = [${aActiver}])`);
 
-  console.log("   ⭐ ET IL EST COCHÉ DANS TOUS LES CAS, PAS SEULEMENT À NEUF");
+  console.log('   ⭐ ET IL EST COCHÉ DANS TOUS LES CAS, PAS SEULEMENT À NEUF');
   const cas: [string, number[]][] = [
     ['aucune ligne', []],
     ['une ancienne seule', [2021]],

@@ -699,7 +699,9 @@
       "address_city": "la ville",
       "address_country": "le pays",
       "numberOfShares": "le nombre d'actions"
-    }
+    },
+    "discardedLines": "Le nombre d'actions doit être d'au moins 1 : {lignes}.",
+    "lineLabel": "actionnaire {index}"
   },
   "nav": {
     "group": {

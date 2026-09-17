@@ -212,11 +212,27 @@ export default function StepShareholders({
   const [saving, setSaving] = useState(false);
 
   // ---- Handlers -------------------------------------------------------------
+  /**
+   * ⛔⛔ L'ERREUR POSÉE AU CLIC S'EFFACE À LA SAISIE — ET SANS CETTE LIGNE ELLE
+   *   SURVIVAIT À SA PROPRE CORRECTION. Mesuré : `setError` n'était remis à `null`
+   *   qu'au DÉBUT de `handleContinue`, c'est-à-dire au clic SUIVANT. « La date
+   *   d'émission est requise » restait donc affichée sous un champ rempli, jusqu'à ce
+   *   qu'on reclique — et le bouton étant désactivé dans certains états, ce clic
+   *   pouvait ne jamais venir.
+   * ★ C'EST LE MÊME DÉFAUT QUE `b0f44ed`, RETOURNÉ : là un refus juste et invisible,
+   *   ici un refus visible qui n'est plus vrai. Les deux mentent sur l'état réel.
+   * ⚪ La forme est celle de l'étape 2, qui efface déjà son erreur à la frappe
+   *   (`if (errors[field]) setErrors(...)`) — on ne l'invente pas.
+   * ⚠️ L'ERREUR DE SAUVEGARDE S'EFFACE AUSSI, et c'est voulu : elle décrit une
+   *   tentative, pas un champ. Une saisie qui suit un échec réseau rend la phrase
+   *   caduque au même titre.
+   */
   function updateShareholder(
     index: number,
     field: keyof OnboardingShareholder,
     value: any
   ) {
+    setError(null);
     setShareholders((prev) =>
       prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
     );
@@ -227,7 +243,9 @@ export default function StepShareholders({
    * la valeur entière. Même forme que `maj` dans EntityForm — et la valeur reste
    * `ValeurEntite`, donc `chargeEntite` la reçoit sans conversion.
    */
+  /** ⛔ MÊME EFFACEMENT QUE `updateShareholder` : la branche société saisit aussi. */
   function majEntite<K extends keyof ValeurEntite>(index: number, champ: K, v: ValeurEntite[K]) {
+    setError(null);
     setShareholders((prev) =>
       prev.map((s, i) => (i === index ? { ...s, entite: { ...s.entite, [champ]: v } } : s)),
     );
@@ -286,6 +304,44 @@ export default function StepShareholders({
 
   const complets = manquantsParLigne.filter((m) => m.length === 0).length;
   const minimumNonAtteint = minimumManquant('shareholder', complets) > 0;
+
+  /**
+   * ⛔⛔ UNE LIGNE NOMMÉE QUE L'ÉCRITURE SAUTERAIT DOIT BLOQUER — ET C'EST UNE RÈGLE
+   *   DISTINCTE DU MINIMUM, pas un cas particulier de lui.
+   *
+   * ⚖️ DÉCISION DE DOM, 2026-09-17, plus générale que sa plainte d'origine. Il
+   *   demandait « au moins une action par actionnaire » ; la règle qui couvre son cas
+   *   ET davantage est : rien de nommé ne se jette en silence.
+   *
+   * ★ LES DEUX RÈGLES NE SE RECOUVRENT PAS. « Au moins une ligne complète » laisse
+   *   passer un second actionnaire à zéro action — nommé, visible à l'écran, et JETÉ
+   *   par la boucle d'écriture (`!nomActionnaire(s).trim() || s.numberOfShares <= 0`).
+   *   L'utilisateur voit deux actionnaires et en obtient un. C'est §362 exactement :
+   *   l'écran montre ce qu'il n'applique pas.
+   *
+   * ⛔ LA CONDITION EST CELLE DE L'ÉCRITURE, RECOPIÉE — pas une règle inventée ici.
+   *   Si la boucle change, celle-ci doit changer avec elle.
+   * ⚪ UNE LIGNE ENTIÈREMENT VIERGE N'EST PAS « JETÉE » : elle n'a jamais existé. Le
+   *   filtre porte sur les lignes NOMMÉES, et c'est ce qui permet d'en ajouter une
+   *   sans bloquer aussitôt.
+   */
+  const lignesJetees = shareholders
+    .map((s, index) => ({ s, index }))
+    .filter(({ s }) => nomActionnaire(s).trim() !== '' && s.numberOfShares <= 0)
+    .map(({ index }) => index);
+
+  /**
+   * ⛔ LE MESSAGE NOMME TOUTES LES LIGNES JETÉES, PAS LA PLUS PROCHE. La règle « la
+   *   plus proche » reste juste pour le MINIMUM — il suffit d'en compléter une — et
+   *   elle est FAUSSE ici : chaque ligne jetée est une perte distincte, et n'en nommer
+   *   qu'une laisserait l'autre disparaître en silence après correction de la première.
+   */
+  const messageJetees =
+    lignesJetees.length > 0
+      ? t('discardedLines', {
+          lignes: lignesJetees.map((i) => t('lineLabel', { index: i + 1 })).join(', '),
+        })
+      : null;
 
   // ⚪ LA LIGNE LA PLUS PROCHE D'ÊTRE COMPLÈTE — même raison qu'à l'étape 4 : le
   //   minimum est UN, il suffit d'en compléter une, et c'est celle-là qui demande le
@@ -404,7 +460,7 @@ export default function StepShareholders({
 
       onContinue={handleContinue}
       saving={saving}
-      continueDisabled={minimumNonAtteint}
+      continueDisabled={minimumNonAtteint || lignesJetees.length > 0}
       extraAboveCard={
         <div style={{
           width: '100%', maxWidth: '560px',
@@ -742,6 +798,12 @@ export default function StepShareholders({
               })}
             </p>
           </div>
+        )}
+
+        {messageJetees && (
+          <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>
+            {messageJetees}
+          </p>
         )}
 
         {error && (
