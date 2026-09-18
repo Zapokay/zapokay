@@ -155,6 +155,8 @@ export default function StepShareholders({
   // ★ La seule etiquette que ce fichier passe au bloc d'adresse : la ligne 1, qui
   //   differe d'une surface a l'autre. Les cinq autres vivent dans BlocAdresse.
   const tPeople = useTranslations('people');
+  // ⚪ `common.*` : le libellé du numéro fédéral est partagé avec `EntityForm`.
+  const tCommun = useTranslations('common');
 
   // ⛔ THE ISSUE DATE STARTS EMPTY — no incorporation date, no today (Dom's
   // decision, 2026-09-12): when shares were issued is a fact only the user
@@ -612,8 +614,15 @@ export default function StepShareholders({
                       <option value="trust">{t('entityTypeTrust')}</option>
                     </select>
                   </div>
-                  {/* ⚪ LE NUMÉRO NE VAUT QUE POUR UNE SOCIÉTÉ — même condition que
-                      l'application : `chargeEntite` le vide pour une fiducie. */}
+                  {/* ⚪ LES NUMÉROS NE VALENT QUE POUR UNE SOCIÉTÉ — même condition que
+                      l'application : `chargeEntite` les vide pour une fiducie.
+                      ⚠️⚠️ ET CE BLOC EXISTE EN DOUBLE, C'EST SA DETTE, ÉCRITE ICI ET
+                      DANS `components/shareholders/EntityForm.tsx`. L'application
+                      saisit LA MÊME entité par `EntityForm` (IssueSharesModal,
+                      EditEntityModal) ; cette étape la redessine à la main. Le coût
+                      est mesuré : tout champ d'identité neuf s'ajoute DEUX fois, et
+                      celui qui n'est ajouté qu'une fois fait diverger deux surfaces
+                      sur un même objet. La consolidation est EN FILE. */}
                   {shareholder.entite.entityType === 'corporation' && (
                     <div>
                       <label style={fieldLabelStyle}>{t('neq')}</label>
@@ -626,6 +635,25 @@ export default function StepShareholders({
                         }
                         maxLength={10}
                         placeholder="1234567890"
+                        style={inputStyle}
+                      />
+                      {/* ⚖️ LE NUMÉRO FÉDÉRAL — OFFERT, JAMAIS EXIGÉ (Dom, 2026-09-17).
+                          ⛔ AUCUN ASTÉRISQUE, ET C'EST LA DÉCISION : à l'étape 2 les
+                          deux numéros sont EXIGÉS parce que c'est LA société de
+                          l'utilisateur ; ici c'est un TIERS, dont le numéro n'est pas
+                          toujours sous la main.
+                          ⛔ ET AUCUN DÉCAPAGE DES NON-CHIFFRES, contrairement au NEQ
+                          juste au-dessus : 1709431-1 porte un trait d'union que le
+                          certificat imprime. */}
+                      <label style={{ ...fieldLabelStyle, marginTop: '12px' }}>
+                        {tCommun('corporationNumberLabel')}
+                      </label>
+                      <input
+                        type="text"
+                        value={shareholder.entite.corporationNumber}
+                        onChange={(e) => majEntite(index, 'corporationNumber', e.target.value)}
+                        maxLength={12}
+                        placeholder="1709431-1"
                         style={inputStyle}
                       />
                     </div>

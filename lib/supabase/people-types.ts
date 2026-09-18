@@ -156,6 +156,11 @@ export interface ShareholderEntity {
   legal_name: string;
   jurisdiction: string | null;
   entity_number: string | null;
+  /**
+   * LE NUMÉRO DE SOCIÉTÉ FÉDÉRAL — colonne ajoutée le 2026-09-17, nullable.
+   * ⛔ OFFERTE, JAMAIS EXIGÉE : voir le commentaire de la colonne en base.
+   */
+  corporation_number: string | null;
   date_constituted: string | null;
   date_incorporated: string | null;
   address_line1: string | null;

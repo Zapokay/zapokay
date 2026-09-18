@@ -49,7 +49,8 @@
         "corporation_number": "federal corporation number",
         "incorporation_date": "incorporation date"
       }
-    }
+    },
+    "corporationNumberLabel": "Federal corporation number"
   },
   "auth": {
     "login": {

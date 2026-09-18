@@ -53,6 +53,9 @@ export default function EntityForm({ value, onChange, error }: EntityFormProps) 
    * « Adresse du domicile », ce qu'une societe n'a pas.
    */
   const tAdresse = useTranslations('people');
+  // ⚪ `common.*` : le libellé du numéro fédéral est rendu par DEUX surfaces —
+  //    celle-ci et l'étape 5 —, donc il n'appartient à aucune des deux.
+  const tCommun = useTranslations('common');
   // Canada en tete, puis l'ordre alphabetique de la locale — meme source que
   // la personne.
   const paysOptions = useMemo(() => countryOptions(locale), [locale]);
@@ -138,6 +141,32 @@ export default function EntityForm({ value, onChange, error }: EntityFormProps) 
               onChange={(e) => maj('entityNumber', e.target.value.replace(/\D/g, '').slice(0, 10))}
               maxLength={10}
               placeholder="1234567890"
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          </div>
+          <div>
+            {/* ⚖️ LE NUMÉRO FÉDÉRAL, ENTRÉ LE 2026-09-17 — OFFERT, JAMAIS EXIGÉ.
+                ⛔ AUCUN ASTÉRISQUE, ET C'EST LA DÉCISION, PAS UN OUBLI. À l'étape 2
+                les deux numéros sont EXIGÉS parce que c'est LA société de
+                l'utilisateur ; ici c'est un TIERS, dont le numéro n'est pas toujours
+                sous la main. Quiconque « alignera » un jour les deux étapes doit lire
+                cette ligne d'abord.
+                ⛔ ET AUCUN `replace(/\D/g,'')` : un numéro fédéral s'écrit 1709431-1
+                OU 17094311 — le trait d'union est de la PRÉSENTATION, et le certificat
+                le porte. Recopier le décapage du NEQ, dix lignes plus haut, le
+                mangerait en silence. Même raison qu'à l'étape 2, qui le dit déjà.
+                ⚪ Le libellé vit dans `common.*` : DEUX surfaces le rendent — celle-ci
+                et l'étape 5 — et un message que deux écrans rendent n'appartient à
+                aucun des deux. */}
+            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              {tCommun('corporationNumberLabel')}
+            </label>
+            <input
+              type="text"
+              value={value.corporationNumber}
+              onChange={(e) => maj('corporationNumber', e.target.value)}
+              maxLength={12}
+              placeholder="1709431-1"
               className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
           </div>

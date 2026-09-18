@@ -49,7 +49,8 @@
         "corporation_number": "numéro de société fédéral",
         "incorporation_date": "date de constitution"
       }
-    }
+    },
+    "corporationNumberLabel": "Numéro de société fédéral"
   },
   "auth": {
     "login": {

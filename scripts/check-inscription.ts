@@ -37,12 +37,13 @@ import { StepSiege } from '@/components/onboarding/StepSiege';
 import { StepCompany } from '@/components/onboarding/StepCompany';
 import StepDirectors, { type OnboardingDirector } from '@/components/onboarding/StepDirectors';
 import StepShareholders, { type OnboardingShareholder } from '@/components/onboarding/StepShareholders';
+import EntityForm from '@/components/shareholders/EntityForm';
 import StepOfficers, { DIRIGEANT_VIDE, nomDirigeant, type OnboardingOfficers, type SaisieDirigeant } from '@/components/onboarding/StepOfficers';
 import { declarationDesExercices } from '@/lib/active-years';
 import * as ts from 'typescript';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { VALEUR_ENTITE_VIDE, valeurAvecAdresse } from '@/lib/entity-payload';
+import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
 
 let echecs = 0;
 const dire = (bon: boolean, quoi: string) => {
@@ -420,6 +421,66 @@ function lotC2(): void {
   const completePlusVierge = etape5([PERSONNE_COMPLETE, ACTIONNAIRE_VIDE]);
   dire(!boutonDesactive(completePlusVierge), '⛔ NÉGATIF — une ligne VIERGE ne bloque PAS');
   dire(!dit(completePlusVierge, "Le nombre d'actions doit être"), 'et rien ne lui est reproché');
+
+  console.log('   ⛔ LOT F — LE NUMÉRO FÉDÉRAL EST OFFERT, JAMAIS EXIGÉ');
+  // ① LE CHAMP EST RENDU SUR LES DEUX FICHIERS — trois surfaces.
+  const etape5Societe = etape5([SOCIETE_ACTIONNAIRE_COMPLETE]);
+  dire(dit(etape5Societe, 'Numéro de société fédéral'), "l'étape 5 rend le champ");
+  const formulaireEntite = rendre(EntityForm, { value: VALEUR_ENTITE_VIDE, onChange: () => {} });
+  dire(
+    dit(formulaireEntite, 'Numéro de société fédéral'),
+    "`EntityForm` aussi — il sert IssueSharesModal ET EditEntityModal",
+  );
+
+  // ② ⛔ NÉGATIF : AUCUN astérisque de plus. La branche société en portait TROIS
+  //    au lot C2 — nom légal, ville, pays — et elle doit en porter TROIS encore.
+  dire(
+    asterisques(etape5Societe) === 3,
+    `aucun astérisque de plus sur la branche société (obtenu ${asterisques(etape5Societe)})`,
+  );
+  // ⭐ Et sur `EntityForm`, le NEQ garde le sien, le fédéral n'en prend pas.
+  dire(
+    (formulaireEntite.match(/text-red-500/g) ?? []).length ===
+      (rendre(EntityForm, { value: { ...VALEUR_ENTITE_VIDE, entityType: 'trust' }, onChange: () => {} }).match(/text-red-500/g) ?? []).length + 1,
+    "`EntityForm` ne gagne QU'UN astérisque en passant société → celui du NEQ",
+  );
+
+  // ③ LA CHARGE ÉCRIT LA COLONNE, ET VIDE → `null` / `''`.
+  const avec = chargeEntite('c1', { ...VALEUR_ENTITE_VIDE, legalName: 'X', corporationNumber: '1709431-1' });
+  dire(avec.corporation_number === '1709431-1', "la charge de CRÉATION transporte le numéro, trait d'union compris");
+  const sans = chargeEntite('c1', { ...VALEUR_ENTITE_VIDE, legalName: 'X' });
+  dire(sans.corporation_number === '', "vide → `''`, que le NULLIF de la fonction ramène à NULL");
+  const fiducie = chargeEntite('c1', { ...VALEUR_ENTITE_VIDE, entityType: 'trust', legalName: 'X', corporationNumber: '1709431-1' });
+  dire(fiducie.corporation_number === '', '⛔ une FIDUCIE n’en porte pas — filtré par type, comme le NEQ');
+  const correctif = correctifEntite({ ...VALEUR_ENTITE_VIDE, legalName: 'X' });
+  dire(correctif.corporation_number === null, 'la charge de CORRECTION écrit `null` quand le champ est vidé');
+
+  // ⛔ ET LE TRAIT D'UNION SURVIT À LA FRAPPE, SUR LES DEUX SURFACES — lu à la
+  //    source, parce que la sonde ne tape pas. Une mutation qui recopiait le
+  //    `replace(/\D/g,'')` du NEQ sur le champ fédéral ne faisait tomber AUCUNE
+  //    assertion : la charge, elle, reçoit déjà une valeur décapée. Le défaut naît
+  //    à la FRAPPE, donc c'est la frappe qu'il faut lire.
+  for (const [quoi, chemin] of [
+    ["l'étape 5", ['components', 'onboarding', 'StepShareholders.tsx']],
+    ['`EntityForm`', ['components', 'shareholders', 'EntityForm.tsx']],
+  ] as [string, string[]][]) {
+    const src = readFileSync(join(__dirname, '..', ...chemin), 'utf8');
+    const ligne = src
+      .split('\n')
+      .find((l) => /corporationNumber'?,\s*e\.target\.value/.test(l) || /maj\('corporationNumber'/.test(l));
+    dire(
+      ligne !== undefined && !/replace\(\/\\D/.test(ligne),
+      `${quoi} n'ampute PAS le numéro fédéral — le trait d'union survit`,
+    );
+  }
+
+  // ④ ⭐ UNE ENTITÉ SANS NUMÉRO FÉDÉRAL RESTE VALIDE PARTOUT — tout le sens d'« offert ».
+  dire(!boutonDesactive(etape5Societe), "une société actionnaire SANS numéro fédéral ne bloque PAS");
+  dire(
+    !dit(etape5Societe, 'Numéro de société fédéral est requis') &&
+      !dit(etape5Societe, 'il manque le numéro'),
+    'et rien ne le réclame nulle part',
+  );
 
   console.log('   ⛔ LOT E4 — CHAQUE FAIT A UN SEUL PROPRIÉTAIRE');
   // ⛔ Le verdict ne change pas : une ligne à zéro action bloque toujours. Ce qui

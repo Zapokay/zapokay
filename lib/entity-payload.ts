@@ -39,6 +39,8 @@ export interface ChargeEntite {
    * de la fonction les ramène à NULL. Comportement d'origine, inchangé.
    */
   entity_number: string;
+  /** Le numéro fédéral, même règle de `''` que ses trois voisins. */
+  corporation_number: string;
   entity_descriptor: string;
   date_incorporated: string;
   date_constituted: string;
@@ -94,6 +96,30 @@ export interface ValeurEntite {
   legalName: string;
   entityNumber: string;
   /**
+   * LE NUMÉRO DE SOCIÉTÉ FÉDÉRAL — entré le 2026-09-17.
+   *
+   * ⚖️ OFFERT, JAMAIS EXIGÉ (décision de Dom) : à l'étape 2 les deux numéros
+   * sont exigés parce que c'est LA société de l'utilisateur ; sur une entité
+   * actionnaire, c'est un TIERS, dont le numéro n'est pas toujours sous la main.
+   * ⛔ AUCUN ASTÉRISQUE, DONC, ET AUCUNE GARDE. Le contraire serait un refus
+   * pour une donnée qu'on ne peut pas raisonnablement réclamer d'un tiers.
+   *
+   * ⛔ ET AUCUN DÉCAPAGE DES NON-CHIFFRES, CONTRAIREMENT AU NEQ. Un numéro
+   * fédéral s'écrit `1709431-1` OU `17094311` — le trait d'union est de la
+   * PRÉSENTATION, et le certificat le porte. Recopier ici le
+   * `replace(/\D/g,'')` du NEQ mangerait le trait d'union en silence. Même
+   * raison et même forme qu'à l'étape 2 (StepCompany), qui le dit déjà.
+   *
+   * ⚠️ LA DETTE DE NOMMAGE, ÉCRITE ICI PARCE QU'ELLE SE LIT ICI. `entity_number`
+   * a été CONÇU pour porter « le NEQ d'une société québécoise OU le numéro
+   * fédéral d'une société fédérale » (doc du 2026-05-14). Les quatre surfaces
+   * l'ont depuis réduit au NEQ — libellé, refus, dix chiffres — et le parc le
+   * confirme. Le renommer `neq` est une dette RECONNUE, non payée le
+   * 2026-09-17 : un recensement mécanique a trouvé ce cas ambigu, et la règle
+   * de Dom était « un seul cas ambigu → on s'arrête et on ajoute seul ».
+   */
+  corporationNumber: string;
+  /**
    * ⚠️ `''` EST ADMIS, ET C'EST UNE GARDE. La contrainte de la table autorise
    * un descripteur NULL pour n'importe quel type. Pré-remplir un NULL par
    * 'corporation' ferait écrire, au premier enregistrement, un descripteur que
@@ -123,6 +149,7 @@ export const VALEUR_ENTITE_VIDE: ValeurEntite = {
   entityType: 'corporation',
   legalName: '',
   entityNumber: '',
+  corporationNumber: '',
   entityDescriptor: 'corporation',
   entityDate: '',
   addressLine1: '',
@@ -147,6 +174,8 @@ export function chargeEntite(companyId: string, v: ValeurEntite): ChargeEntite {
     entity_type: v.entityType,
     legal_name: v.legalName.trim(),
     entity_number: v.entityType === 'corporation' ? v.entityNumber.trim() : '',
+    // ⚪ FILTRÉ PAR TYPE COMME LE NEQ : une fiducie n'a ni l'un ni l'autre.
+    corporation_number: v.entityType === 'corporation' ? v.corporationNumber.trim() : '',
     entity_descriptor: v.entityType === 'corporation' ? v.entityDescriptor : '',
     date_incorporated: v.entityType === 'corporation' ? v.entityDate : '',
     date_constituted: v.entityType === 'trust' ? v.entityDate : '',
@@ -170,6 +199,7 @@ export function valeurDepuisEntite(e: ShareholderEntity): ValeurEntite {
     entityType: e.entity_type,
     legalName: e.legal_name,
     entityNumber: e.entity_number ?? '',
+    corporationNumber: e.corporation_number ?? '',
     entityDescriptor: e.entity_descriptor ?? '',
     entityDate: (e.entity_type === 'corporation' ? e.date_incorporated : e.date_constituted) ?? '',
     addressLine1: e.address_line1 ?? '',
@@ -246,6 +276,7 @@ export interface CorrectifEntite {
   entity_type: ShareholderEntityType;
   legal_name: string;
   entity_number: string | null;
+  corporation_number: string | null;
   entity_descriptor: EntityDescriptor | null;
   date_incorporated: string | null;
   date_constituted: string | null;
@@ -275,6 +306,7 @@ export function correctifEntite(v: ValeurEntite): CorrectifEntite {
     entity_type: v.entityType,
     legal_name: v.legalName.trim(),
     entity_number: societe ? nullSiVide(v.entityNumber) : null,
+    corporation_number: societe ? nullSiVide(v.corporationNumber) : null,
     entity_descriptor: societe && v.entityDescriptor !== '' ? v.entityDescriptor : null,
     date_incorporated: societe ? nullSiVide(v.entityDate) : null,
     date_constituted: v.entityType === 'trust' ? nullSiVide(v.entityDate) : null,
