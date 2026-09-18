@@ -154,6 +154,54 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
                     {!item.comingSoon ? (
                       <Link
                         href={item.href === 'dashboard' ? `/${locale}/dashboard` : `/${locale}/dashboard/${item.href}`}
+                        /**
+                         * ⛔⛔ LE PRÉCHARGEMENT EST COUPÉ ICI, ET CE N'EST PAS UNE
+                         *   PRÉFÉRENCE : mesuré au navigateur le 2026-09-18, chaque
+                         *   chargement d'une page du tableau de bord émettait HUIT
+                         *   requêtes serveur avant que l'utilisateur ne clique nulle
+                         *   part — les NEUF entrées de cette barre moins la page
+                         *   courante, toutes avec le même initiateur (le runtime du
+                         *   routeur, `chunks/23-…`). Coût relevé : 533 ms à 1,08 s
+                         *   CHACUNE.
+                         *
+                         * ★★ POURQUOI SI CHER ICI, ALORS QUE LE PRÉCHARGEMENT EST UNE
+                         *   BONNE CHOSE EN GÉNÉRAL — DEUX RAISONS QUI SE CUMULENT, ET
+                         *   C'EST LEUR CONJONCTION QUI EST PATHOLOGIQUE :
+                         *
+                         *   ① LES ROUTES SONT DYNAMIQUES (`ƒ` à la sortie de build,
+                         *      les dix). En Next 14, le préchargement d'une route
+                         *      dynamique est « automatique » : il ne prend que la
+                         *      disposition partagée, « down the rendered tree of
+                         *      components until the first `loading.js` file ».
+                         *   ② ⛔ IL N'EXISTE AUCUN `loading.tsx` DANS CE DÉPÔT —
+                         *      mesuré : 0 fichier. Rien n'arrête donc la descente, et
+                         *      le préchargement REND LA PAGE ENTIÈRE au serveur :
+                         *      `getUserWithProfile()` (deux requêtes) +
+                         *      `companies.select('*')` + toute cette coquille.
+                         *
+                         * ⚠️ ET C'EST POURQUOI LE SYMPTÔME EST UNIVERSEL : toute page
+                         *   qui monte cette coquille paie les huit, pas une page en
+                         *   particulier.
+                         *
+                         * ⚪ CE QUE DOM PERD, DIT PLUTÔT QUE TU. La documentation de
+                         *   Next 14 ne décrit AUCUN préchargement au survol pour l'App
+                         *   Router — elle dit seulement « Routes are automatically
+                         *   prefetched as they become visible in the user's viewport »
+                         *   et « You can disable prefetching by setting the `prefetch`
+                         *   prop to `false` ». ⛔ Ne pas affirmer que le survol
+                         *   subsiste : ce n'est pas écrit, et je ne l'ai pas mesuré.
+                         *   La navigation reste DOUCE — seul le pré-rendu disparaît.
+                         *
+                         * ⛔⛔ SA PÉREMPTION, §369 — ET ELLE EST PRÉCISE. Cette ligne
+                         *   ne dit PAS « le préchargement est mauvais ». Elle tient
+                         *   par ① ET ② ensemble. Le jour où l'une des deux tombe :
+                         *     · un `loading.tsx` apparaît → la descente s'arrête à lui,
+                         *       le préchargement redevient bon marché ;
+                         *     · ou ces routes deviennent statiques / cachées → idem.
+                         *   Alors CETTE LIGNE DOIT PARTIR, et la garder coûterait la
+                         *   navigation instantanée sans rien protéger.
+                         */
+                        prefetch={false}
                         onClick={() => setSidebarOpen(false)}
                         className={cn(
                           'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors no-underline',
