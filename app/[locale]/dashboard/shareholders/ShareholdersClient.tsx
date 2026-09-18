@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { donnees } from '@/lib/requetes-groupees';
 import { useTranslations } from 'next-intl';
 import { Zap, PieChart, Info, Loader2, Plus } from 'lucide-react';
 import CapTableChart from '@/components/shareholders/CapTableChart';
@@ -109,19 +110,77 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
     setJurisdiction(company.incorporation_type);
     const cid = company.id;
 
-    const { data: classesRaw } = await supabase
-      .from('share_classes').select('*').eq('company_id', cid).order('created_at', { ascending: true });
-    setShareClasses((classesRaw as ShareClass[]) || []);
+    /**
+     * ★★ CINQ REQUÊTES QUI NE DÉPENDENT QUE DE `cid` PARTENT ENSEMBLE.
+     *
+     * ⛔ CE QUI N'A PAS CHANGÉ : leur NOMBRE, leur FORME, leur ORDRE d'écriture
+     * dans l'état. Aucune requête n'est fusionnée, aucune colonne n'est ajoutée ni
+     * retirée, aucune jointure n'est déplacée — `shareholdings` embarque toujours
+     * `share_classes`, et cet embarquement ne dépend PAS de la requête
+     * `share_classes` voisine. Seul l'ORDONNANCEMENT change : cinq allers-retours
+     * en file deviennent cinq allers-retours simultanés.
+     *
+     * ⚠️ ET CHACUN DE CES ALLERS-RETOURS TRAVERSE DEUX PAYS. Mesuré le 2026-09-17 :
+     * les fonctions vivent en `iad1` (Virginie) et la base en `ca-central-1`
+     * (Montréal) — un défaut de Vercel que personne n'a jamais choisi. Le coût de
+     * la sérialisation est donc multiplié par cette distance, et c'est pourquoi le
+     * regroupement compte ici plus qu'ailleurs.
+     * ⛔ ET CE PARAGRAPHE A UNE PÉREMPTION : un déplacement vers `yul1` est EN
+     * FILE. Le jour où la région change, ces deux lignes deviennent fausses et se
+     * réécrivent — le REGROUPEMENT, lui, reste juste sans elles. Ne pas laisser la
+     * distance justifier le lot après qu'elle a disparu.
+     *
+     * ⛔⛔ `allSettled` ET NON `all`, ET LA RAISON EST UN CONTRAT À PRÉSERVER :
+     * chacune de ces requêtes POUVAIT échouer seule AVANT le regroupement — son
+     * erreur n'était jamais lue, `|| []` rendait une liste vide, et les quatre
+     * autres sections s'affichaient quand même. `Promise.all` aurait fait tomber
+     * les cinq pour une seule, ce qui est une régression déguisée en optimisation.
+     *
+     * ⚪ LE SILENCE EST REPRODUIT À L'IDENTIQUE, DÉLIBÉRÉMENT. `donnees()` rend
+     * `null` pour une promesse rejetée, et le `|| []` qui suit fait exactement ce
+     * qu'il faisait : une liste vide, sans un mot. Rendre l'erreur visible est le
+     * lot K, décidé séparément ; l'anticiper ici mélangerait deux changements dans
+     * un diff qui doit rester un pur réordonnancement.
+     *
+     * ⚠️ UNE SEULE CHOSE CHANGE VRAIMENT, ET ELLE EST DITE : avant, un REJET (une
+     * panne réseau, pas une erreur Postgres) sortait de `fetchData` et laissait la
+     * page en chargement pour toujours, puisque `setLoading(false)` n'était jamais
+     * atteint. Désormais la page se rend avec la section vide. C'est meilleur, et
+     * ce n'est pas identique — le dire vaut mieux que le taire.
+     */
+    const [classesRes, shRes, mandatesRes, officersRes, transfersRes] = await Promise.allSettled([
+      supabase
+        .from('share_classes').select('*').eq('company_id', cid).order('created_at', { ascending: true }),
+      // Atom 2: holder identity lives on shareholding_holders. SELECT embeds the
+      // join with both polymorphic targets (person + entity). Transitional
+      // `person` field is hydrated from holders[0]?.person per Q-R-G2-C — null
+      // for entity holders / joint holdings; deprecated, slated for removal in
+      // atom 3. Downstream consumers should read `holders` directly.
+      supabase
+        .from('shareholdings')
+        .select('*, holders:shareholding_holders(*, person:company_people(*), entity:shareholder_entities(*)), share_class:share_classes(*)')
+        .eq('company_id', cid).order('issue_date', { ascending: true }),
+      supabase
+        .from('director_mandates').select('*').eq('company_id', cid).eq('is_active', true),
+      supabase
+        .from('officer_appointments').select('*').eq('company_id', cid).eq('is_active', true),
+      // #19d Phase 3 close — pull share_transfers + embed to-side holders so
+      // the former-holdings per-row dispatch can resolve transferee at render.
+      // Keyed by from_shareholding_id (the source holding that appears in the
+      // former-holdings view). Disambiguated embed via !to_shareholding_id.
+      supabase
+        .from('share_transfers')
+        .select('id, from_shareholding_id, transfer_date, to_sh:shareholdings!to_shareholding_id(holders:shareholding_holders(holder_type, person:company_people(full_name), entity:shareholder_entities(legal_name)))')
+        .eq('company_id', cid),
+    ]);
 
-    // Atom 2: holder identity lives on shareholding_holders. SELECT embeds the
-    // join with both polymorphic targets (person + entity). Transitional
-    // `person` field is hydrated from holders[0]?.person per Q-R-G2-C — null
-    // for entity holders / joint holdings; deprecated, slated for removal in
-    // atom 3. Downstream consumers should read `holders` directly.
-    const { data: shRaw } = await supabase
-      .from('shareholdings')
-      .select('*, holders:shareholding_holders(*, person:company_people(*), entity:shareholder_entities(*)), share_class:share_classes(*)')
-      .eq('company_id', cid).order('issue_date', { ascending: true });
+    const classesRaw = donnees(classesRes);
+    const shRaw = donnees(shRes);
+    const mandatesRaw = donnees(mandatesRes);
+    const officersRaw = donnees(officersRes);
+    const transfersRaw = donnees(transfersRes);
+
+    setShareClasses((classesRaw as ShareClass[]) || []);
     setShareholdings((shRaw || []).map((row: any) => {
       const holders = ((row.holders ?? []) as ShareholdingHolderWithDetails[])
         .slice()
@@ -134,22 +193,9 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
       } as ShareholdingWithDetails;
     }));
 
-    const { data: mandatesRaw } = await supabase
-      .from('director_mandates').select('*').eq('company_id', cid).eq('is_active', true);
     setDirectorMandates((mandatesRaw as DirectorMandate[]) || []);
-
-    const { data: officersRaw } = await supabase
-      .from('officer_appointments').select('*').eq('company_id', cid).eq('is_active', true);
     setOfficerAppointments((officersRaw as OfficerAppointment[]) || []);
 
-    // #19d Phase 3 close — pull share_transfers + embed to-side holders so
-    // the former-holdings per-row dispatch can resolve transferee at render.
-    // Keyed by from_shareholding_id (the source holding that appears in the
-    // former-holdings view). Disambiguated embed via !to_shareholding_id.
-    const { data: transfersRaw } = await supabase
-      .from('share_transfers')
-      .select('id, from_shareholding_id, transfer_date, to_sh:shareholdings!to_shareholding_id(holders:shareholding_holders(holder_type, person:company_people(full_name), entity:shareholder_entities(legal_name)))')
-      .eq('company_id', cid);
     const trMap = new Map<string, { id: string; transfer_date: string; to_holders: RawHolder[] | null }>();
     for (const tr of ((transfersRaw ?? []) as unknown) as Array<{ id: string; from_shareholding_id: string; transfer_date: string; to_sh: { holders: RawHolder[] | null } | null }>) {
       trMap.set(tr.from_shareholding_id, { id: tr.id, transfer_date: tr.transfer_date, to_holders: tr.to_sh?.holders ?? null });
