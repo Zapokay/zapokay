@@ -480,7 +480,7 @@
     "errorCity": "Home address city is required.",
     "errorCountry": "Home address country is required.",
     "errorCityAndCountry": "Home address city and country are required.",
-    "domicileNoticeForExport": "These addresses are required to export your minute book, and to continue.",
+    "domicileNoticeForExport": "These addresses are required to export your minute book.",
     "errorSave": "Saving the directors failed. Check your information and try again.",
     "viewHistory": "View history",
     "hideHistory": "Hide history",
@@ -697,8 +697,7 @@
       "full_name": "the name",
       "legal_name": "the legal name",
       "address_city": "the city",
-      "address_country": "the country",
-      "numberOfShares": "the number of shares"
+      "address_country": "the country"
     },
     "discardedLines": "The number of shares must be at least 1: {lignes}.",
     "lineLabel": "shareholder {index}"

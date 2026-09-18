@@ -432,7 +432,15 @@ export default function StepDirectors({
               />
             </div>
 
-            {/* ⚖️ CETTE PHRASE ÉTAIT AU FUTUR, ET LE FUTUR EST ARRIVÉ. Elle disait
+            {/* ⛔ §360, DE MA MAIN, TROUVÉ EN BALAYANT LES CINQ ÉCRANS. Au lot C1
+                j'ai ajouté « et pour continuer » à cette phrase — et le message du
+                minimum, six lignes plus bas, dit DÉJÀ « requis pour continuer » et
+                NOMME les champs. Deux phrases pour un fait, dans le même état.
+                ★ CHAQUE FAIT A UN PROPRIÉTAIRE : l'astérisque et le message
+                possèdent « requis POUR CONTINUER » ; cette phrase possède « requis
+                POUR L'EXPORT », qu'aucune autre ne dit. Elle revient donc à son
+                fait, au présent.
+                ⚖️ CETTE PHRASE ÉTAIT AU FUTUR, ET LE FUTUR EST ARRIVÉ. Elle disait
                 « Ces adresses SERONT requises pour exporter votre livre » — juste tant
                 que l'inscription n'exigeait rien. Depuis la décision du 2026-09-17
                 elles sont requises ICI, et une phrase au futur au-dessus d'un bouton

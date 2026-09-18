@@ -314,6 +314,16 @@ function lotC1(): void {
   dire(dit(sansVille, 'la ville du domicile'), 'et le message NOMME la ville');
   dire(!dit(sansVille, 'le nom'), '⛔ et il ne réclame PAS ce qui est rempli');
 
+  console.log('   ⛔ LOT E4 — UN FAIT, UN PROPRIÉTAIRE (balayage des cinq écrans)');
+  // ⛔ « requis POUR CONTINUER » appartient à l'astérisque et au message du minimum.
+  //    La phrase du domicile possède « requis POUR L'EXPORT », qu'aucune autre ne dit.
+  dire(dit(vide, "requises pour l'export de votre livre"), "la phrase du domicile parle de l'EXPORT");
+  dire(
+    !dit(vide, "l'export de votre livre, et pour continuer"),
+    '⛔ et elle ne redit PLUS « et pour continuer » — le minimum le dit déjà',
+  );
+  dire(dit(vide, 'est requis pour continuer'), 'le minimum, lui, possède « pour continuer »');
+
   console.log('   ⭐ la ligne vierge reste VISIBLE comme incomplète');
   // ⚖️ Elle reste sautée à l'écriture (`continue`), et c'est correct — mais elle ne
   //    doit pas être muette. Ses astérisques et le message s'en chargent.
@@ -411,13 +421,26 @@ function lotC2(): void {
   dire(!boutonDesactive(completePlusVierge), '⛔ NÉGATIF — une ligne VIERGE ne bloque PAS');
   dire(!dit(completePlusVierge, "Le nombre d'actions doit être"), 'et rien ne lui est reproché');
 
-  console.log('   ⭐ LE NOMBRE D’ACTIONS COMPTE, ET CE N’ÉTAIT PAS AU BRIEF');
-  // ⛔ La boucle d'écriture saute sur `nom vide OU numberOfShares <= 0`. Une ligne
-  //    nommée et domiciliée à ZÉRO action passerait le bouton et n'écrirait RIEN.
+  console.log('   ⛔ LOT E4 — CHAQUE FAIT A UN SEUL PROPRIÉTAIRE');
+  // ⛔ Le verdict ne change pas : une ligne à zéro action bloque toujours. Ce qui
+  //    change, c'est QUI le dit — les jetées, jamais le minimum.
   const zeroActions = etape5([{ ...PERSONNE_COMPLETE, numberOfShares: 0 }]);
-  dire(boutonDesactive(zeroActions), 'une ligne complète à ZÉRO action bloque');
-  dire(dit(zeroActions, "le nombre d'actions"), 'et le message le NOMME');
-}
+  dire(boutonDesactive(zeroActions), 'une ligne complète à ZÉRO action bloque toujours');
+  dire(dit(zeroActions, "Le nombre d'actions doit être"), 'et ce sont les JETÉES qui le disent');
+  dire(
+    !dit(zeroActions, 'Au moins un actionnaire complet'),
+    '⛔ le message du MINIMUM ne sort pas — il ne possède pas ce fait',
+  );
+  // ⭐ LE CAS LIMITE DU BRIEF : une phrase vide.
+  dire(!dit(zeroActions, 'il manque .'), '⭐ et aucune phrase vide « il manque . »');
+  // ⛔ ET LE MINIMUM POSSÈDE TOUJOURS LE SIEN : une ligne sans ville le réveille.
+  const zeroEtSansVille = etape5([{ ...PERSONNE_SANS_VILLE, numberOfShares: 0 }]);
+  dire(dit(zeroEtSansVille, 'Au moins un actionnaire complet'), 'le minimum parle quand la VILLE manque');
+  dire(dit(zeroEtSansVille, 'la ville'), 'et il nomme la ville');
+  dire(
+    !dit(zeroEtSansVille, "Au moins un actionnaire complet : il manque le nombre"),
+    "⛔ et il ne nomme JAMAIS le nombre d'actions",
+  );}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    LOT C3 — L'ÉTAPE 6 EXIGE UN PRÉSIDENT, PAS « UN DIRIGEANT »

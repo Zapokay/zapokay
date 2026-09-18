@@ -480,7 +480,7 @@
     "errorCity": "La ville du domicile est requise.",
     "errorCountry": "Le pays du domicile est requis.",
     "errorCityAndCountry": "La ville et le pays du domicile sont requis.",
-    "domicileNoticeForExport": "Ces adresses sont requises pour l'export de votre livre, et pour continuer.",
+    "domicileNoticeForExport": "Ces adresses sont requises pour l'export de votre livre.",
     "errorSave": "L'enregistrement des administrateurs a échoué. Vérifiez vos informations et réessayez.",
     "viewHistory": "Voir l'historique",
     "hideHistory": "Masquer l'historique",
@@ -697,8 +697,7 @@
       "full_name": "le nom",
       "legal_name": "le nom légal",
       "address_city": "la ville",
-      "address_country": "le pays",
-      "numberOfShares": "le nombre d'actions"
+      "address_country": "le pays"
     },
     "discardedLines": "Le nombre d'actions doit être d'au moins 1 : {lignes}.",
     "lineLabel": "actionnaire {index}"

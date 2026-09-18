@@ -109,7 +109,7 @@ export function nomActionnaire(s: OnboardingShareholder): string {
  * C1 : le catalogue porte CINQ libellés, et le compilateur refuse qu'on en réclame
  * un sixième. L'union DÉRIVE des deux déclarations, plus la condition d'écriture.
  */
-type ChampNommeActionnaire = ChampExigeDeLaLigne | ChampExigeDeLEntite | 'numberOfShares';
+type ChampNommeActionnaire = ChampExigeDeLaLigne | ChampExigeDeLEntite;
 
 interface StepShareholdersProps {
   locale: string;
@@ -283,23 +283,25 @@ export default function StepShareholders({
    *   déclaration dit combien ; la ligne dit ce qu'elle a à offrir, selon ce qu'elle
    *   EST. Même partage qu'au lot C1.
    *
-   * ⛔⛔ ET LE NOMBRE D'ACTIONS EN FAIT PARTIE, CE QUI N'ÉTAIT PAS PRÉVU. La boucle
-   *   d'écriture saute une ligne sur `!nomActionnaire(s).trim() || s.numberOfShares
-   *   <= 0` — DEUX conditions, pas une. Une ligne nommée, domiciliée, mais à zéro
-   *   action passerait donc le bouton et ne s'écrirait PAS : l'étape serait franchie
-   *   sans aucun actionnaire, ce que ce lot existe pour empêcher. Et zéro est
-   *   atteignable : `min="1"` ne contraint que le navigateur, et `parseInt(…) || 0`
-   *   ramène un champ vidé à zéro.
-   * ⚪ Ce n'est pas une exigence de la DÉCLARATION — ce n'est pas la présence d'un
-   *   champ, c'est la condition de saut de l'écriture, recopiée ici pour que les deux
-   *   disent la même chose. Si elle bouge là-bas, elle doit bouger ici.
+   * ⛔⛔ LE NOMBRE D'ACTIONS N'EST PAS ICI, ET IL L'A ÉTÉ — §360, DE MA MAIN.
+   *   Ce calcul l'ajoutait aux manques d'une ligne, si bien que le message du MINIMUM
+   *   réclamait « le nombre d'actions » alors que le message des lignes JETÉES le
+   *   réclamait déjà, et mieux : de TOUTES les lignes concernées, pas de la plus
+   *   proche. Deux phrases pour un seul fait, dans le même état d'écran.
+   * ★ CHAQUE FAIT A UN PROPRIÉTAIRE, ET C'EST LA RÈGLE À GARDER : les lignes JETÉES
+   *   possèdent les actions ; le MINIMUM possède le nom, la ville et le pays.
+   * ⚪ LE VERDICT DU BOUTON NE CHANGE PAS : une ligne à zéro action bloque toujours,
+   *   par la règle des jetées. Ce qui change, c'est QUI le dit.
+   * ⭐ ET ÇA FERME LE CAS LIMITE : une ligne qui ne manque QUE d'actions compte
+   *   désormais comme complète pour le minimum, donc le message du minimum ne sort
+   *   pas — il aurait dit « Actionnaire 1 : il manque . », une phrase vide.
    */
   const manquantsParLigne: ChampNommeActionnaire[][] = shareholders.map((s) => {
     const champs =
       s.nature === 'entity'
         ? champsManquantsDeLEntite({ legal_name: s.entite.legalName, ...adresseDeLaValeur(s.entite) })
         : champsManquantsDeLaLigne('shareholder', { full_name: s.fullName, ...s.adresse });
-    return s.numberOfShares > 0 ? [...champs] : [...champs, 'numberOfShares'];
+    return champs;
   });
 
   const complets = manquantsParLigne.filter((m) => m.length === 0).length;
