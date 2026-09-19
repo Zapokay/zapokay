@@ -3,8 +3,8 @@ export const revalidate = 0
 
 import { createClient } from '@/lib/supabase/server';
 import { getUserWithProfile } from '@/lib/auth';
+import { getActiveCompany } from '@/lib/company';
 import { redirect } from 'next/navigation';
-import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { GapAnalysisPanel } from '@/components/ai/GapAnalysisPanel';
 import { parseLocalDate } from '@/lib/utils';
 // ── A3 board engine (ported from the former /dashboard-wip dev route). parseLocalDate already imported above. ──
@@ -34,12 +34,12 @@ export default async function DashboardPage({
   if (!user) redirect(`/${locale}/login`);
   if (!profile?.onboarding_completed) redirect(`/${locale}/onboarding`);
 
-  const { data: company } = await supabase
-    .from('companies')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .single();
+  /* ⛔ LA COQUILLE A QUITTÉ CETTE PAGE le 2026-09-19 : elle vit dans
+     `app/[locale]/dashboard/layout.tsx`. La lecture de `companies` reste —
+     cette page s'en sert pour SON contenu — mais passe par
+     `getActiveCompany()`, mémoïsée par requête : layout et page partagent
+     le même aller-retour. */
+  const company = await getActiveCompany();
 
 
   // ─── A3 board assembly ────────────────────────────────────────────────────
@@ -218,9 +218,10 @@ export default async function DashboardPage({
   const fr = locale === 'fr';
   const firstName = profile.full_name?.split(' ')[0] ?? '';
 
+  /* ⚪ `urgentCount={0}` est parti avec la coquille : la valeur par défaut de la
+     prop EST `0`, mesuré au recensement du 2026-09-19. */
   return (
-    <DashboardShell locale={locale} profile={profile} company={company} urgentCount={0}>
-      <div className="space-y-8">
+    <div className="space-y-8">
 
         {/* Greeting */}
         <div>
@@ -260,7 +261,6 @@ export default async function DashboardPage({
         )}
 
 
-      </div>
-    </DashboardShell>
+    </div>
   );
 }

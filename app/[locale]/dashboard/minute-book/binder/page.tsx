@@ -1,35 +1,34 @@
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-import { createClient } from '@/lib/supabase/server'
 import { getUserWithProfile } from '@/lib/auth'
+import { getActiveCompany } from '@/lib/company'
 import { redirect } from 'next/navigation'
-import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import BinderPage from '@/components/minute-book/BinderPage'
 
+/**
+ * ⛔ LA COQUILLE A QUITTÉ CETTE PAGE le 2026-09-19 : elle vit dans
+ * `app/[locale]/dashboard/layout.tsx`. Voir son en-tête pour la raison.
+ *
+ * ⚪ LA LECTURE DE `companies` RESTE : cette page a besoin de `company.id` pour
+ * son contenu. Elle passe par `getActiveCompany()`, mémoïsée par requête —
+ * layout et page partagent le même aller-retour.
+ *
+ * ⚠️ ET SA TROISIÈME REDIRECTION LUI EST PROPRE — `if (!company)` —, celle-là
+ * n'est PAS dans le layout : une société absente n'empêche pas la coquille de
+ * s'afficher, mais empêche CE contenu d'exister. Ne pas la remonter.
+ */
 export default async function BinderRoute({
   params: { locale },
 }: {
   params: { locale: string }
 }) {
-  const supabase = createClient()
-
   const { user, profile } = await getUserWithProfile()
   if (!user) redirect(`/${locale}/login`)
   if (!profile?.onboarding_completed) redirect(`/${locale}/onboarding`)
 
-  const { data: company } = await supabase
-    .from('companies')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .single()
-
+  const company = await getActiveCompany()
   if (!company) redirect(`/${locale}/onboarding`)
 
-  return (
-    <DashboardShell locale={locale} profile={profile} company={company}>
-      <BinderPage locale={locale} companyId={company.id} />
-    </DashboardShell>
-  )
+  return <BinderPage locale={locale} companyId={company.id} />
 }

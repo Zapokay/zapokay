@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserWithProfile } from '@/lib/auth'
+import { getActiveCompany } from '@/lib/company'
 import { redirect } from 'next/navigation'
-import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { SettingsClient } from '@/components/dashboard/SettingsClient'
 import { declarationDesExercices } from '@/lib/active-years'
 import { adresseEnSaisie } from '@/lib/address'
@@ -20,12 +20,12 @@ export default async function SettingsPage({
   // Get auth user email
   const email = user.email ?? ''
 
-  const { data: company } = await supabase
-    .from('companies')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .single()
+  /* ⛔ LA COQUILLE A QUITTÉ CETTE PAGE le 2026-09-19 : elle vit dans
+     `app/[locale]/dashboard/layout.tsx`. ⚪ `urgentCount={0}` est parti avec
+     elle — la valeur par défaut de la prop EST `0`.
+     ⚪ La lecture de `companies` reste : cette page en tire quatorze valeurs.
+     Elle passe par `getActiveCompany()`, mémoïsée par requête. */
+  const company = await getActiveCompany()
 
   if (!company) redirect(`/${locale}/onboarding`)
 
@@ -44,9 +44,17 @@ export default async function SettingsPage({
     .map((d: { document_year: number | null }) => d.document_year)
     .filter((y): y is number => y !== null)
 
-  const companyAny = company as Record<string, unknown>
-  const fyEndMonth = (companyAny.fiscal_year_end_month as number | null) ?? 12
-  const fyEndDay = (companyAny.fiscal_year_end_day as number | null) ?? 31
+  /* ⛔ LE CAST D'ÉCHAPPEMENT `company as Record<string, unknown>` EST PARTI, ET
+     C'EST LE LOT QUE `lib/types.ts` ANNONÇAIT. Son commentaire disait, à propos
+     de `corporation_number` : « settings/page.tsx le lisait par un cast
+     d'échappement. Ce cast devient superflu — il n'est PAS retiré ici, c'est un
+     autre lot. » C'est celui-ci : les quatre colonnes qu'il servait à atteindre
+     — les deux de fin d'exercice, le NEQ, le numéro fédéral — sont maintenant
+     DÉCLARÉES sur `Company`.
+     ⚪ LES REPLIS `?? 12` / `?? 31` NE BOUGENT PAS : ils protègent le signal que
+     deux générateurs de PDF refusent de défauter. Les retirer est un lot à part. */
+  const fyEndMonth = (company.fiscal_year_end_month as number | null) ?? 12
+  const fyEndDay = (company.fiscal_year_end_day as number | null) ?? 31
 
   // ★ LA SEULE DÉCLARATION (lib/active-years.ts). Les Réglages calculaient leur propre
   // liste — en ANNÉES CIVILES, avec une fin d'exercice reçue et jamais lue — et
@@ -65,13 +73,7 @@ export default async function SettingsPage({
   const fr = locale === 'fr'
 
   return (
-    <DashboardShell
-      locale={locale}
-      profile={profile}
-      company={company}
-      urgentCount={0}
-    >
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1
             className="text-2xl font-bold text-[var(--text-heading)]"
@@ -96,8 +98,8 @@ export default async function SettingsPage({
           incorporationType={company.incorporation_type}
           initialLegalName={company.legal_name_fr ?? ''}
           initialLegalNameEn={company.legal_name_en ?? ''}
-          initialNeq={(companyAny.neq as string | null) ?? ''}
-          initialCorporationNumber={(companyAny.corporation_number as string | null) ?? ''}
+          initialNeq={company.neq ?? ''}
+          initialCorporationNumber={company.corporation_number ?? ''}
           initialSiege={adresseEnSaisie(company)}
           incorporationDate={company.incorporation_date}
           initialFyMonth={fyEndMonth}
@@ -109,7 +111,6 @@ export default async function SettingsPage({
           suivis={declaration.suivis}
           initialPreferredTheme={initialPreferredTheme}
         />
-      </div>
-    </DashboardShell>
+    </div>
   )
 }

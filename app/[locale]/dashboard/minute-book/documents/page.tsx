@@ -3,8 +3,8 @@ export const revalidate = 0;
 
 import { createClient } from '@/lib/supabase/server';
 import { getUserWithProfile } from '@/lib/auth';
+import { getActiveCompany } from '@/lib/company';
 import { redirect } from 'next/navigation';
-import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { YearPicker } from '@/components/ui/YearPicker';
 import { DocumentsClient } from '@/app/[locale]/dashboard/minute-book/documents/DocumentsClient';
 import type { VaultDocument } from '@/components/documents/DocumentRow';
@@ -21,12 +21,12 @@ export default async function DocumentsPage({
   if (!user) redirect(`/${locale}/login`);
   if (!profile?.onboarding_completed) redirect(`/${locale}/onboarding`);
 
-  const { data: company } = await supabase
-    .from('companies')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .single();
+  /* ⛔ LA COQUILLE A QUITTÉ CETTE PAGE le 2026-09-19 : elle vit dans
+     `app/[locale]/dashboard/layout.tsx`. La lecture de `companies` reste —
+     cette page s'en sert pour SON contenu — mais passe par
+     `getActiveCompany()`, mémoïsée par requête : layout et page partagent
+     le même aller-retour. */
+  const company = await getActiveCompany();
 
   const { data: documents } = await supabase
     .from('documents')
@@ -105,7 +105,7 @@ export default async function DocumentsPage({
   }
 
   return (
-    <DashboardShell locale={locale} profile={profile} company={company}>
+    <>
       {/*
         ⛔ LE SÉLECTEUR D'EXERCICE EST RENDU ICI DEPUIS LE 2026-09-19, ET PLUS
         DANS LA BARRE DU HAUT DE LA COQUILLE.
@@ -117,7 +117,8 @@ export default async function DocumentsPage({
 
         ⚪ SA PLACE EST PROVISOIRE, ET C'EST ÉCRIT POUR ARIA. « En tête du
         contenu » est un choix de MOINDRE SURPRISE, pas un choix étudié : il
-        était en haut à droite, il est maintenant en haut à gauche du contenu.
+        était en haut à droite de la BARRE, il est maintenant en haut à droite du
+        CONTENU (`justifyContent: 'flex-end'`).
         Le bon endroit est une question de design, et ce lot ne prétend pas
         l'avoir tranchée.
 
@@ -141,6 +142,6 @@ export default async function DocumentsPage({
         // (vault offers archive years); the prop rename is a Tier-4 follow-up.
         preferredLanguage={(profile?.preferred_language as 'fr' | 'en') ?? 'fr'}
       />
-    </DashboardShell>
+    </>
   );
 }
