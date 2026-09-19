@@ -93,6 +93,62 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+
+    /**
+     * ★★ `event-completeness` PART ICI, AU MONTAGE — DOM, 2026-09-19, lot U.
+     *
+     * ⛔ ELLE NE DÉPEND DE RIEN DE CETTE FONCTION, ET C'EST VÉRIFIÉ, PAS
+     *   SUPPOSÉ : l'appel ne porte AUCUN argument — ni chaîne de requête, ni
+     *   corps — et la route `app/api/minute-book/event-completeness/route.ts`
+     *   relit `user` (l.22) puis `companies` (l.31) DE SON CÔTÉ. Elle ne peut
+     *   donc pas attendre `cid`, ni la société, ni le groupe : elle n'en a
+     *   jamais rien reçu. Revérifié au lot U — trois lots ont touché ce
+     *   fichier depuis la mesure d'origine.
+     *
+     * ⭐ ELLE PART PLUS TÔT, ELLE NE PART PAS AVEC. Pas de `Promise.all` avec
+     *   le groupe : elle court PENDANT `getUser()`, PENDANT la lecture de la
+     *   société, et PENDANT les cinq requêtes du groupe. Son résultat n'est
+     *   attendu qu'au moment de s'en servir, tout en bas.
+     *   ⚪ Elle ne devient pas plus rapide — relevés 466 ms à 1,61 s, et une
+     *   excursion à 4,82 s. Elle cesse d'attendre son tour.
+     *
+     * ⛔ LE COMPORTEMENT D'ERREUR EST REPRODUIT À L'IDENTIQUE, et le
+     *   `try/catch` est DANS la promesse, pas autour du `await` : sans ça, un
+     *   rejet survenu avant que quiconque l'attende deviendrait un rejet non
+     *   géré — un défaut NEUF, introduit par le déplacement lui-même. Les
+     *   deux `console.warn` sont mot pour mot ceux d'avant ; seul leur
+     *   INSTANT change, puisque la requête se termine plus tôt.
+     *   ⚪ Rendre ces erreurs VISIBLES est le lot K, décidé séparément.
+     *
+     * ⚠️ UNE SEULE CHOSE CHANGE VRAIMENT, ET ELLE EST DITE : les deux sorties
+     *   anticipées ci-dessous — `!user` et `!company` — empêchaient cet appel
+     *   de partir. Désormais il part quand même. ⚪ Deux cas de session
+     *   perdue, sur une page que le layout serveur protège déjà ; la route
+     *   répond 401 ou 404, la promesse rend `null`, et rien ne s'affiche de
+     *   toute façon. ⛔ Mais si cette requête devient un jour coûteuse ou
+     *   observable, c'est CE déplacement qu'il faut défaire en premier.
+     *
+     * ⚪ `DirectorsClient` ET `OfficersClient` PORTENT LE MÊME APPEL, ET CE
+     *   LOT N'Y TOUCHE PAS : leurs requêtes sont encore en file, c'est J-2,
+     *   suspendu. Les déplacer ici sans les regrouper ne rendrait presque
+     *   rien. Recensé, pas oublié.
+     */
+    const actesEnVol = (async () => {
+      try {
+        const res = await fetch('/api/minute-book/event-completeness');
+        if (!res.ok) {
+          console.warn('[ShareholdersClient] event-completeness fetch non-OK:', res.status);
+          return null;
+        }
+        return (await res.json()) as {
+          acts?: Array<{ event_type: string; event_id: string; event_phase: string; satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>;
+        };
+      } catch (e) {
+        console.warn('[ShareholdersClient] event-completeness fetch failed:', e);
+        return null;
+      }
+    })();
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -205,27 +261,25 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
     // #19d Phase 3 — pull per-act satisfaction map for cessation acts.
     // Non-fatal: if it 404s / 500s, rows render as if no acts are satisfied.
-    try {
-      const res = await fetch('/api/minute-book/event-completeness');
-      if (res.ok) {
-        const payload = (await res.json()) as {
-          acts?: Array<{ event_type: string; event_id: string; event_phase: string; satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>;
-        };
-        const m = new Map<string, { satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>();
-        for (const a of payload.acts ?? []) {
-          m.set(`${a.event_type}|${a.event_id}|${a.event_phase}`, {
-            satisfied: a.satisfied,
-            documentId: a.documentId,
-            documentSource: a.documentSource,
-            documentIsFinalized: a.documentIsFinalized,
-          });
-        }
-        setActsMap(m);
-      } else {
-        console.warn('[ShareholdersClient] event-completeness fetch non-OK:', res.status);
+    //
+    /**
+     * ⛔ ON N'ATTEND SON RÉSULTAT QU'ICI, MAIS ELLE EST PARTIE TOUT EN HAUT.
+     * Elle a couru pendant `getUser()`, pendant la lecture de la société, et
+     * pendant les cinq requêtes du groupe. Si elle est déjà revenue, ce
+     * `await` ne coûte rien.
+     */
+    const payload = await actesEnVol;
+    if (payload) {
+      const m = new Map<string, { satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>();
+      for (const a of payload.acts ?? []) {
+        m.set(`${a.event_type}|${a.event_id}|${a.event_phase}`, {
+          satisfied: a.satisfied,
+          documentId: a.documentId,
+          documentSource: a.documentSource,
+          documentIsFinalized: a.documentIsFinalized,
+        });
       }
-    } catch (e) {
-      console.warn('[ShareholdersClient] event-completeness fetch failed:', e);
+      setActsMap(m);
     }
 
     setLoading(false);
