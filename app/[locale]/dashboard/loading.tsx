@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react';
+import { AttenteDePage } from '@/components/ui/AttenteDePage';
 
 /**
  * LE REPLI DE CHARGEMENT DES ONZE ROUTES DU TABLEAU DE BORD.
@@ -10,51 +10,18 @@ import { Loader2 } from 'lucide-react';
  * la PAGE. Tant que `DashboardShell` vivait DANS les pages, ce fichier aurait
  * fait disparaître la barre latérale à chaque navigation.
  *
- * ═══════════════════════════════════════════════════════════════════════
- * ⛔ RIEN N'EST INVENTÉ ICI — CE TRAITEMENT EXISTE DÉJÀ, MOT POUR MOT
- * ═══════════════════════════════════════════════════════════════════════
+ * ⛔ IL NE DESSINE RIEN — il CONSOMME la déclaration unique de l'attente.
+ * `components/ui/AttenteDePage.tsx` en porte la seule définition, et son
+ * en-tête porte la raison : UNE attente, UNE image, même quand elle est
+ * produite à DEUX endroits — ce repli côté serveur, puis l'indicateur du
+ * composant client qui charge ensuite ses données.
  *
- * Il est copié de `DirectorsClient`, `OfficersClient` et `ShareholdersClient`,
- * qui portent tous les trois exactement :
- *
- *     <div className="flex h-[60vh] items-center justify-center">
- *       <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
- *     </div>
- *
- * ★ ET C'EST DÉLIBÉRÉ, PAS PAR COMMODITÉ : sur ces trois pages, le repli et
- * l'indicateur de la page sont VISUELLEMENT IDENTIQUES, donc l'utilisateur voit
- * UNE seule attente continue là où il en verrait autrement deux à la suite.
- * Le relais est invisible parce que les deux images le sont.
- *
- * ⚠️⚠️ ET SUR DEUX PAGES, IL RESTERA VISIBLE — MESURÉ, PAS SUPPOSÉ.
- * `ActivityPage` et `BinderView` portent un AUTRE indicateur :
- *
- *     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
- *     dans un conteneur `py-20`, et non `h-[60vh]`
- *
- * Sur ces deux-là, l'utilisateur verra donc le repli (rond plein de 24 px,
- * centré à 60 % de hauteur) PUIS leur rond ajouré de 32 px, plus haut dans la
- * page. Deux images pour une attente.
- * ⛔ LE REMÈDE N'EST PAS ICI, MAIS IL N'ATTEND PERSONNE. DEUX définitions de
- * l'attente coexistent dans ce dépôt (voir `ActivityPage` et `BinderView`). Ce
- * fichier reprend la majoritaire. L'unification est une CONSOLIDATION au sens
- * des déclarations uniques du dépôt — pas une question de design : Aria tranche
- * à quoi l'attente RESSEMBLE, pas le fait qu'il y en ait DEUX.
- * ⚪ Choisir le traitement MAJORITAIRE (trois pages contre deux) minimise le
- * nombre d'écrans où le relais se voit ; il ne le supprime pas.
- *
- * ⚪ SUR LES AUTRES PAGES — Paramètres, Tableau de bord, Documents — il n'y a
- * AUCUN indicateur de page aujourd'hui : leur contenu est rendu au serveur. Ce
- * fichier leur en donne un là où elles n'avaient rien. Pour elles, c'est un
- * gain sans contrepartie.
- *
- * ⛔ AUCUN RAFFINEMENT VISUEL DANS CE LOT. Pas de squelette, pas de titre
- * pré-rendu, pas de couleur nouvelle. On DÉPLACE un indicateur existant.
+ * ⚠️ ET CE FICHIER A PORTÉ SA PROPRE COPIE, ENTRE `0e90757` ET LA
+ * CONSOLIDATION. C'est elle qui a mis deux images bout à bout sur Historique —
+ * vu à la caméra, en production. La leçon complète est dans l'autre fichier ;
+ * celle d'ici tient en une ligne : un quatrième littéral aurait suffi à
+ * recréer le défaut.
  */
 export default function DashboardLoading() {
-  return (
-    <div className="flex h-[60vh] items-center justify-center">
-      <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-    </div>
-  );
+  return <AttenteDePage />;
 }

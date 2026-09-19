@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { AttenteDePage } from '@/components/ui/AttenteDePage';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
-import { Zap, Briefcase, Info, Loader2 } from 'lucide-react';
+import { Zap, Briefcase, Info} from 'lucide-react';
 import OfficerCard from '@/components/officers/OfficerCard';
 import { LegalTerm } from '@/components/ui/LegalTerm';
 import AddOfficerModal from '@/components/officers/AddOfficerModal';
@@ -202,7 +203,7 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
   }
 
   if (loading) {
-    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-amber-500" /></div>;
+    return <AttenteDePage />;
   }
 
   return (

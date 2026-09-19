@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { AttenteDePage } from '@/components/ui/AttenteDePage';
 import { createClient } from '@/lib/supabase/client';
 import { donnees } from '@/lib/requetes-groupees';
 import { useTranslations } from 'next-intl';
-import { Zap, PieChart, Info, Loader2, Plus } from 'lucide-react';
+import { Zap, PieChart, Info, Plus} from 'lucide-react';
 import CapTableChart from '@/components/shareholders/CapTableChart';
 import { LegalTerm } from '@/components/ui/LegalTerm';
 import ShareClassCard from '@/components/shareholders/ShareClassCard';
@@ -288,7 +289,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
   function getOfficerAppointmentsForPerson(personId: string) { return officerAppointments.filter((oa) => oa.person_id === personId); }
 
   if (loading) {
-    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-amber-500" /></div>;
+    return <AttenteDePage />;
   }
 
   const hasShareholders = currentShareholdings.length > 0;

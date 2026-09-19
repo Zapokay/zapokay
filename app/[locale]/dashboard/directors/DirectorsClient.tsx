@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { AttenteDePage } from '@/components/ui/AttenteDePage';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import {
@@ -10,7 +11,6 @@ import {
   ShieldCheck,
   AlertTriangle,
   HelpCircle,
-  Loader2,
 } from 'lucide-react';
 import DirectorCard from '@/components/directors/DirectorCard';
 import { LegalTerm } from '@/components/ui/LegalTerm';
@@ -256,7 +256,7 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
   }
 
   if (loading) {
-    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-amber-500" /></div>;
+    return <AttenteDePage />;
   }
 
   return (

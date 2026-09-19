@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { AttenteDePage } from '@/components/ui/AttenteDePage';
 import { useLocale, useTranslations } from 'next-intl'
 import { Info } from 'lucide-react'
 import ActivityGroup from './ActivityGroup'
@@ -115,11 +116,7 @@ export default function ActivityPage({ registerOpenedAt, incorporationDate }: Ac
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
-      </div>
-    )
+    return <AttenteDePage />
   }
 
   const groups = groupByDate(events, locale, t('today'), t('yesterday'))

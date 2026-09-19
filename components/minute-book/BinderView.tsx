@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useEffect, useState } from 'react'
+import { AttenteDePage } from '@/components/ui/AttenteDePage';
 import { useLocale, useTranslations } from 'next-intl'
 import BinderSection from './BinderSection'
 import RegisterCard from './RegisterCard'
@@ -144,11 +145,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
   }, [onTotalDocuments])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
-      </div>
-    )
+    return <AttenteDePage />
   }
 
   // Les lignes du registre des actionnaires — UNE construction, pour le
