@@ -86,8 +86,53 @@ export async function middleware(request: NextRequest) {
   // risks a redirect loop. Best-effort: a thrown refresh (the A5 auth-service
   // saturation signature) must NOT 500 every page — degrade to "not refreshed
   // this pass"; the page's own getUser()/redirect still gates.
+  /**
+   * ⚖️ `getSession()` ET NON `getUser()` — DOM, 2026-09-19, lot Q.
+   *
+   * ★★ CE FICHIER NE SE SERT PAS DE L'UTILISATEUR. La valeur de retour était
+   *   jetée : le bloc ci-dessus le dit lui-même, « No auth GATE here ». Cet
+   *   appel est là pour son EFFET DE BORD — la rotation du jeton.
+   *
+   * ⭐ ET `getSession()` PRODUIT EXACTEMENT CET EFFET, SANS RÉSEAU QUAND LE
+   *   JETON EST VALIDE. Chaîne lue dans la source, pas supposée
+   *   (@supabase/auth-js 2.100.0) :
+   *     getSession()            GoTrueClient.js:1267
+   *       → _useSession → __loadSession
+   *         · session lue dans les cookies ........... AUCUN réseau
+   *         · non expirée → elle est renvoyée ........ AUCUN réseau
+   *         · expirée → _callRefreshToken() ......... :1407
+   *             → _refreshAccessToken() ............. :2151  ← le SEUL réseau
+   *             → _saveSession() .................... :2156
+   *                 → setItemAsync(this.storage, …) . :2239
+   *                   → @supabase/ssr cookies.js:186 → setAll(allToSet)
+   *                     → le `setAll` ci-dessus → response.cookies.set
+   *             → _notifyAllSubscribers('TOKEN_REFRESHED') :2157
+   *   `getUser()` (:1425) fait TOUT CE QUI PRÉCÈDE, puis ajoute un
+   *   `GET /auth/v1/user` INCONDITIONNEL dont personne ici ne lit la réponse.
+   *
+   * ⛔⛔ ET `getClaims()` SERAIT FAUX ICI — C'EST L'INVERSE D'UNE PÉREMPTION,
+   *   UNE RAISON QUI INTERDIT UN REMÈDE VOISIN. Il vérifie la signature
+   *   localement et NE RAFRAÎCHIT RIEN : la rotation ne partirait jamais, et
+   *   ce middleware n'existe QUE pour elle. Le remplacer par `getClaims()`
+   *   « pour aller plus vite » supprimerait le seul travail de ce fichier —
+   *   et la panne serait DIFFÉRÉE d'une heure, jusqu'à la première expiration.
+   *   ⚪ `getClaims()` a sa place ailleurs (les routes de LECTURE), avec son
+   *   arbitrage : fenêtre de révocation d'une heure, mesurée sur
+   *   `auth.refresh_tokens` — grappe de 8 intervalles entre 3481 et 3500 s,
+   *   plus la marge de 90 s du SDK.
+   *
+   * ⚠️ CE QUI N'EST PAS PROUVÉ, ET QUI NE PEUT PAS L'ÊTRE AUJOURD'HUI : une
+   *   rotation RÉELLE exige un jeton expiré, donc une session d'une heure. La
+   *   chaîne ci-dessus est établie par la source ; son exécution est la caméra
+   *   de Dom, plus tard. ⛔ Si la connexion se met à désynchroniser après une
+   *   heure d'usage continu, c'est ICI qu'il faut revenir en premier.
+   *
+   * ⚪ GAIN ATTENDU, DIT PETIT : un aller-retour d'authentification en moins
+   *   par affichage — le plancher passe de 3 `getUser()` à 2. Environ 50 ms.
+   *   Ce n'est pas le remède à la lenteur, c'est l'arrêt d'un gaspillage.
+   */
   try {
-    await supabase.auth.getUser()
+    await supabase.auth.getSession()
   } catch {
     // swallow — refresh simply didn't happen this pass
   }
