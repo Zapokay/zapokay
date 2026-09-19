@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { YearPicker } from '@/components/ui/YearPicker';
 import { DocumentsClient } from '@/app/[locale]/dashboard/minute-book/documents/DocumentsClient';
 import type { VaultDocument } from '@/components/documents/DocumentRow';
 import { exercicesDeLaSociete } from '@/lib/active-years';
@@ -104,13 +105,30 @@ export default async function DocumentsPage({
   }
 
   return (
-    <DashboardShell
-      locale={locale}
-      profile={profile}
-      company={company}
-      fiscalYears={fiscalYears}
-      yearPickerIncludeUnclassified={true}
-    >
+    <DashboardShell locale={locale} profile={profile} company={company}>
+      {/*
+        ⛔ LE SÉLECTEUR D'EXERCICE EST RENDU ICI DEPUIS LE 2026-09-19, ET PLUS
+        DANS LA BARRE DU HAUT DE LA COQUILLE.
+
+        ★ POURQUOI IL A DÛ DESCENDRE : cette page était la SEULE des neuf à
+        passer `fiscalYears` à `DashboardShell`. Un layout ne recevant rien de
+        sa page, cette prop empêchait la coquille de devenir un `layout.tsx` —
+        et sans layout, pas de `loading.tsx`, donc pas de préchargement.
+
+        ⚪ SA PLACE EST PROVISOIRE, ET C'EST ÉCRIT POUR ARIA. « En tête du
+        contenu » est un choix de MOINDRE SURPRISE, pas un choix étudié : il
+        était en haut à droite, il est maintenant en haut à gauche du contenu.
+        Le bon endroit est une question de design, et ce lot ne prétend pas
+        l'avoir tranchée.
+
+        ⚪ `includeUnclassifiedOption` reste à `true` — même valeur qu'avant, au
+        même endroit logique, simplement plus près de la page qui la décide.
+      */}
+      {fiscalYears.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+          <YearPicker locale={locale} years={fiscalYears} includeUnclassifiedOption />
+        </div>
+      )}
       <DocumentsClient
         locale={locale}
         company={company}

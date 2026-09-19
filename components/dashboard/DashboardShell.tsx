@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CompanySwitcher } from '@/components/dashboard/CompanySwitcher';
-import { YearPicker } from '@/components/ui/YearPicker';
 import LanguageToggle from '@/components/ui/LanguageToggle';
 import type { UserProfile, Company } from '@/lib/types';
 import Link from 'next/link';
@@ -21,8 +20,6 @@ interface DashboardShellProps {
   children: React.ReactNode;
   urgentCount?: number;
   topbarSubtitle?: string;
-  fiscalYears?: number[];
-  yearPickerIncludeUnclassified?: boolean;
 }
 
 type NavItem = {
@@ -72,7 +69,7 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-export function DashboardShell({ locale, profile, company, children, urgentCount = 0, topbarSubtitle, fiscalYears, yearPickerIncludeUnclassified }: DashboardShellProps) {
+export function DashboardShell({ locale, profile, company, children, urgentCount = 0, topbarSubtitle }: DashboardShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -320,16 +317,30 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
             </div>
           </div>
 
-          {/* Right: YearPicker (compliance/documents only) + lang toggle */}
-          <div className="topbar-right">
-            {fiscalYears !== undefined && fiscalYears.length > 0 && (
-              <YearPicker
-                locale={locale}
-                years={fiscalYears}
-                includeUnclassifiedOption={yearPickerIncludeUnclassified}
-              />
-            )}
+          {/*
+            ⛔ LE SÉLECTEUR D'EXERCICE A QUITTÉ CETTE BARRE — DÉCISION DE DOM,
+            2026-09-19, ET C'EST UN PRÉALABLE D'ARCHITECTURE, PAS UN GOÛT.
 
+            ★ LE FAIT QUI L'A DÉCIDÉ : sur les NEUF pages qui montent cette
+            coquille, UNE SEULE lui passait `fiscalYears` —
+            `minute-book/documents`. Le sélecteur n'apparaissait donc que là,
+            piloté par une prop que la coquille ne pouvait pas deviner.
+
+            ⛔ ET C'EST CE QUI BLOQUAIT LA MIGRATION EN LAYOUT. Un layout ne
+            reçoit RIEN de sa page : il n'aurait pas pu savoir qu'il devait
+            afficher ce sélecteur. Tant qu'il vivait ici, la coquille ne pouvait
+            pas devenir un `layout.tsx` — et sans layout, pas de `loading.tsx`,
+            et sans `loading.tsx`, le préchargement reste coupé (voir le
+            commentaire du `<Link>` plus haut). Une prop d'une page sur neuf
+            tenait toute cette chaîne.
+
+            ⚪ ET SA PLACE DÉFINITIVE EST UNE QUESTION DE DESIGN, PAS
+            D'ARCHITECTURE — pour Aria. Ce lot le SORT de la coquille ; il ne
+            prétend pas avoir trouvé son bon endroit. Il est rendu en tête du
+            contenu de sa page, ce qui est un choix de moindre surprise, pas un
+            choix étudié.
+          */}
+          <div className="topbar-right">
             <LanguageToggle />
           </div>
         </div>
