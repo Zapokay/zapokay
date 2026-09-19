@@ -149,14 +149,91 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
                 {group.items.map(item => (
                   <div key={item.key}>
                     {!item.comingSoon ? (
-                      /* ⚪ LE PRÉCHARGEMENT A ÉTÉ COUPÉ ICI LE 2026-09-18 ET RALLUMÉ
-                         LE 2026-09-19, une fois `loading.tsx` posé pour borner la
-                         descente. Sans lui, précharger une route dynamique la rendait
-                         ENTIÈRE au serveur — huit requêtes par affichage de page,
-                         533 ms à 1,08 s chacune. La borne existe désormais : le
-                         préchargement ne prend plus que la disposition partagée. */
                       <Link
                         href={item.href === 'dashboard' ? `/${locale}/dashboard` : `/${locale}/dashboard/${item.href}`}
+                        /**
+                         * ⛔⛔ LE PRÉCHARGEMENT EST COUPÉ ICI, ET IL L'EST UNE
+                         *   SECONDE FOIS. Coupé le 2026-09-18 (`bad0ed2`),
+                         *   rallumé le 2026-09-19 (`f1a4945`) parce qu'un
+                         *   `loading.tsx` venait d'être posé, RECOUPÉ le même
+                         *   jour : la caméra de Dom, en production, a relevé
+                         *   QUATRE appels au-dessus de 500 ms, dont un à 1,06
+                         *   s. Le seuil était écrit d'avance, il est franchi.
+                         *
+                         * ★★ CE QUI EST MESURÉ, ET C'EST TOUT CE QUI EST SÛR
+                         *   : chaque chargement d'une page du tableau de bord
+                         *   émet HUIT requêtes serveur avant que
+                         *   l'utilisateur ne clique nulle part — les NEUF
+                         *   entrées de cette barre moins la page courante,
+                         *   toutes avec le même initiateur (le runtime du
+                         *   routeur, `chunks/23-…`). Coût relevé le
+                         *   2026-09-18 : 533 ms à 1,08 s CHACUNE. Coût relevé
+                         *   le 2026-09-19, `loading.tsx` EN PLACE : INCHANGÉ,
+                         *   jusqu'à 1,06 s.
+                         *
+                         * ⚠️ ET C'EST POURQUOI LE SYMPTÔME EST UNIVERSEL :
+                         *   toute page qui monte cette coquille paie les
+                         *   huit, pas une page en particulier.
+                         *
+                         ══════════════════════════════════════════════════
+                         * ⛔⛔ UNE PÉREMPTION QUI NE S'EST PAS RÉALISÉE — §369,
+                         *   ET C'EST LE CŒUR DE CETTE NOTE. LIS-LA AVANT DE
+                         *   REFAIRE CE LOT.
+                         ══════════════════════════════════════════════════
+                         *   La version du 2026-09-18 tenait par DEUX raisons
+                         *   cumulées :
+                         *
+                         *   ① LES ROUTES SONT DYNAMIQUES (`ƒ` à la sortie de
+                         *      build, les dix). En Next 14, le préchargement
+                         *      d'une route dynamique descend « the rendered
+                         *      tree of components until the first
+                         *      `loading.js` file ».
+                         *   ② ⛔ IL N'EXISTAIT AUCUN `loading.tsx` DANS CE
+                         *      DÉPÔT — mesuré : 0 fichier. Rien n'arrêtait
+                         *      donc la descente.
+                         *
+                         *   Et elle annonçait sa propre fin : « un
+                         *   `loading.tsx` apparaît → la descente s'arrête à
+                         *   lui → CETTE LIGNE DOIT PARTIR ».
+                         *
+                         *   ⛔ ② EST TOMBÉE LE 2026-09-19 — `0e90757` pose un
+                         *   `loading.tsx` au segment `dashboard` —, LA LIGNE
+                         *   EST PARTIE (`f1a4945`), ET LE COÛT N'A PAS BOUGÉ.
+                         *   La condition a cessé d'être vraie sans que
+                         *   l'effet suive.
+                         *
+                         *   ★ DONC CETTE LIGNE NE REPOSE PLUS SUR ②. Elle
+                         *   repose sur une mesure qui CONTREDIT le mécanisme
+                         *   documenté, et ce mécanisme n'est pas compris à ce
+                         *   jour.
+                         *
+                         *   ⛔ NE PAS REFAIRE CE LOT SUR LA SEULE EXISTENCE
+                         *   D'UN `loading.tsx`. Ça a été essayé, en
+                         *   production, et ça a échoué. Hypothèse ouverte, à
+                         *   MESURER et non à croire : Next bornerait au
+                         *   premier `loading.js` de la ROUTE CIBLE et non
+                         *   d'un ancêtre partagé ; il en faudrait alors un
+                         *   par segment.
+                         *
+                         *   ⭐ LA NOUVELLE CONDITION DE DÉPART EST DOUBLE, et
+                         *   les deux moitiés sont exigées : une EXPLICATION
+                         *   mesurée de l'écart, PUIS une cascade qui montre
+                         *   les huit appels sous 500 ms. Pas l'une sans
+                         *   l'autre.
+                         *
+                         * ⚪ CE QUE DOM PERD, DIT PLUTÔT QUE TU. La
+                         *   documentation de Next 14 ne décrit AUCUN
+                         *   préchargement au survol pour l'App Router — elle
+                         *   dit seulement « Routes are automatically
+                         *   prefetched as they become visible in the user's
+                         *   viewport » et « You can disable prefetching by
+                         *   setting the `prefetch` prop to `false` ». ⛔ Ne
+                         *   pas affirmer que le survol subsiste : ce n'est
+                         *   pas écrit, et je ne l'ai pas mesuré. La
+                         *   navigation reste DOUCE — seul le pré-rendu
+                         *   disparaît.
+                         */
+                        prefetch={false}
                         onClick={() => setSidebarOpen(false)}
                         className={cn(
                           'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors no-underline',
