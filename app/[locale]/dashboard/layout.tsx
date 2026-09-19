@@ -46,11 +46,58 @@ export default async function DashboardLayout({
   children: React.ReactNode;
   params: { locale: string };
 }) {
-  const { user, profile } = await getUserWithProfile();
+  /**
+   * ⚖️ LES DEUX LECTURES PARTENT ENSEMBLE — DOM, 2026-09-19, lot S.
+   *
+   * ★ LE GRAPHE, VÉRIFIÉ DANS LE CODE ET NON SUPPOSÉ : les deux ne dépendent
+   *   que de `user.id`, jamais l'une de l'autre.
+   *     getClaims() ................ local, ~0 ms, donne `user.id`
+   *     users.select(profil) ....... `lib/auth.ts:149` → .eq('id', user.id)
+   *     companies.select ........... `lib/company.ts:43` → .eq('user_id', …)
+   *   Elles étaient pourtant en FILE : `getActiveCompany()` n'était appelée
+   *   qu'après le `await` du profil. DEUX vagues vers Montréal, une seule
+   *   nécessaire.
+   *
+   * ⛔ `Promise.all` ET NON `allSettled`, ET C'EST L'INVERSE DE L'ARBITRAGE DU
+   *   LOT J — pour une raison mesurée. Aujourd'hui, ni l'une ni l'autre ne
+   *   LÈVE sur une erreur PostgREST : `lib/auth.ts:146` et `lib/company.ts:40`
+   *   jettent le champ `error` (et `throwOnError()` n'est configuré nulle part
+   *   — vérifié, il n'apparaît que dans un commentaire). Une lecture en échec
+   *   rend donc `null`, et le rendu continue. En revanche une PANNE RÉSEAU
+   *   lève, et elle fait aujourd'hui échouer tout le rendu. `allSettled`
+   *   l'avalerait : ce serait un comportement NEUF, pas un regroupement.
+   *   ⚪ Au lot J chaque section avait sa propre surface d'erreur visible ;
+   *   ici il n'y en a aucune. Même outil, arbitrage opposé, parce que le
+   *   comportement d'origine est opposé.
+   *
+   * ⚠️ CE QUI CHANGE VRAIMENT, ET IL FAUT LE DIRE : les deux redirections
+   *   ci-dessous GARDAIENT la lecture de `companies`. Un utilisateur sans
+   *   `onboarding_completed` ne la déclenchait pas ; désormais si. ⚪ Une
+   *   lecture de plus sur un chemin qui redirige aussitôt — le coût est nul et
+   *   la donnée n'est jamais affichée. ⛔ Mais si un jour cette lecture devient
+   *   chère ou observable, c'est CETTE ligne qu'il faut défaire en premier.
+   *
+   * ★★ ET LE PARTAGE `cache()` EST PRÉSERVÉ, C'EST TOUT L'INTÉRÊT : on groupe
+   *   les APPELS aux deux fonctions mémoïsées, pas des copies de leurs
+   *   requêtes. Les 13 appelants de `getUserWithProfile()` et les 7 de
+   *   `getActiveCompany()` continuent de partager le même aller-retour. ⛔ Y
+   *   recopier les requêtes ferait repasser le rendu à DEUX opérations — le
+   *   piège nommé au lot R-1①.
+   *
+   * ⚪ MESURÉ AVANT D'ÉCRIRE, parce que ça aurait pu annuler le lot : les
+   *   layouts imbriqués rendent EN PARALLÈLE. Sonde locale, build de
+   *   production — trois `DÉBUT` à la même milliseconde et 0,316 s au total
+   *   pour deux attentes de 300 ms. `app/[locale]/layout.tsx` appelle lui
+   *   aussi `getUserWithProfile()`, mais il ne s'exécute PAS avant celui-ci :
+   *   la première vague est bien ici, et elle est bien la première.
+   */
+  const [{ user, profile }, company] = await Promise.all([
+    getUserWithProfile(),
+    getActiveCompany(),
+  ]);
+
   if (!user) redirect(`/${locale}/login`);
   if (!profile?.onboarding_completed) redirect(`/${locale}/onboarding`);
-
-  const company = await getActiveCompany();
 
   return (
     <DashboardShell locale={locale} profile={profile} company={company}>
