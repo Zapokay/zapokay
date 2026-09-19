@@ -149,91 +149,105 @@ export function DashboardShell({ locale, profile, company, children, urgentCount
                 {group.items.map(item => (
                   <div key={item.key}>
                     {!item.comingSoon ? (
+                      /**
+                       * ⭐ LE PRÉCHARGEMENT EST RALLUMÉ — DOM, 2026-09-19,
+                       *   lot T. Et il l'est pour la RAISON ÉCRITE
+                       *   D'AVANCE, pas pour une autre : le coût d'un point
+                       *   d'entrée a baissé.
+                       *
+                       * ══════════════════════════════════════════════════════
+                       * ⛔ CE FICHIER A ÉTÉ COUPÉ DEUX FOIS. LIS L'HISTOIRE
+                       *   AVANT DE LE RETOUCHER, ELLE TIENT EN QUATRE
+                       *   DATES.
+                       * ══════════════════════════════════════════════════════
+                       *   · 2026-09-18 (`bad0ed2`) COUPÉ. Huit requêtes
+                       *     serveur par affichage, 533 ms à 1,08 s chacune
+                       *     — les neuf entrées de cette barre moins la page
+                       *     courante.
+                       *   · 2026-09-19 (`f1a4945`) RALLUMÉ, à tort : un
+                       *     `loading.tsx` venait d'être posé et on a cru
+                       *     que la frontière suffirait.
+                       *   · 2026-09-19 (`d8bb4b5`) RECOUPÉ le même jour. Le
+                       *     seuil était écrit d'avance, quatre appels le
+                       *     franchissaient, dont un à 1,06 s.
+                       *   · 2026-09-19 (ce commit) RALLUMÉ. Voir pourquoi
+                       *     c'est différent.
+                       *
+                       * ★★ POURQUOI LA PREMIÈRE TENTATIVE A ÉCHOUÉ — ET
+                       *   C'EST CE QUI A ÉTÉ RÉPARÉ DEPUIS. La
+                       *   documentation de Next 14 dit « ONLY THE SHARED
+                       *   LAYOUT, down the rendered tree of components
+                       *   until the first `loading.js` file, is prefetched
+                       *   ». Le `loading.tsx` faisait donc bien son travail
+                       *   — il retirait la PAGE — mais il gardait le
+                       *   LAYOUT, qui portait presque tout le coût. Borner
+                       *   la descente ne pouvait pas rendre le
+                       *   préchargement bon marché tant que le layout
+                       *   coûtait quatre allers-retours sérialisés vers
+                       *   Montréal.
+                       *
+                       * ⭐ CE QUE CHAQUE PRÉCHARGEMENT PAIE MAINTENANT, ET
+                       *   C'EST LA CONDITION SATISFAITE :
+                       *   · lot Q — le middleware appelait `getUser()` pour
+                       *     un résultat qu'il jetait ; `getSession()` ne
+                       *     touche pas le réseau. −1
+                       *   · lot R — le rendu vérifie le jeton LOCALEMENT
+                       *     (`getClaims()` + un cache de JWKS au niveau du
+                       *     module). −1
+                       *   · lot S — profil et société partaient en FILE ;
+                       *     elles partent ensemble. 2 vagues → 1
+                       *   ⇒ QUATRE allers-retours sérialisés deviennent UNE
+                       *     vague de deux requêtes parallèles.
+                       *
+                       * ⚠️ ET LA CONDITION ÉTAIT DOUBLE — LA SECONDE MOITIÉ
+                       *   N'EST PAS ENCORE SATISFAITE, ELLE EST MISE À
+                       *   L'ÉPREUVE PAR CE COMMIT. La note précédente
+                       *   exigeait « une EXPLICATION mesurée de l'écart,
+                       *   PUIS une cascade qui montre les huit appels sous
+                       *   500 ms ». L'explication est acquise ; la cascade
+                       *   est ce que ce lot va chercher. ⛔ Ce n'est donc
+                       *   pas une victoire déclarée, c'est un essai armé.
+                       *
+                       * ⛔ CE QUI NE JUSTIFIE PAS DE ROUVRIR, ET QUI RESTE
+                       *   FAUX : la seule existence d'un `loading.tsx`. Ça
+                       *   a été essayé le 2026-09-19 et ça a échoué en
+                       *   production. Si quelqu'un recoupe cette ligne
+                       *   demain, la rouvrir exigera À NOUVEAU une baisse
+                       *   MESURÉE du coût d'un point d'entrée — pas un
+                       *   fichier de plus dans l'arborescence.
+                       *
+                       * ══════════════════════════════════════════════════════
+                       * ⛔⛔ LES DEUX SEUILS QUI DÉFONT CE COMMIT, POSÉS
+                       *   AVANT DE REGARDER
+                       * ══════════════════════════════════════════════════════
+                       *   ① UN SEUL appel de préchargement au-dessus de 500
+                       *     ms ⇒ on recoupe. Repère de la tentative
+                       *     précédente : 364 ms à 1,06 s.
+                       *   ② ⭐ ET LE VRAI, celui qui manquait la première
+                       *     fois : LE DOCUMENT NE DOIT PAS REMONTER. Repère
+                       *     575 ms, mesuré par Dom après le lot S (1,11 s
+                       *     avant). Huit préchargements bon marché restent
+                       *     huit préchargements : au-dessus de ~700 ms sur
+                       *     le document, on recoupe aussi.
+                       *   ⛔ Pas d'ajustement, pas de « c'est presque bon ».
+                       *     Le but n'est pas que les préchargements soient
+                       *     rapides, c'est que la PAGE ne ralentisse pas.
+                       *
+                       * ⛔ AUCUNE SONDE NE PEUT COUVRIR CECI : Next ne
+                       *   précharge qu'en production. La caméra de Dom est
+                       *   la seule preuve, et elle rend DEUX chiffres — un
+                       *   appel de préchargement, et le document.
+                       *
+                       * ⚪ CE QUE DOM PERD SI ON RECOUPE, DIT PLUTÔT QUE TU.
+                       *   La documentation de Next 14 ne décrit AUCUN
+                       *   préchargement au survol pour l'App Router —
+                       *   seulement « Routes are automatically prefetched
+                       *   as they become visible in the user's viewport ».
+                       *   ⛔ Ne pas affirmer que le survol subsiste : ce
+                       *   n'est pas écrit, et je ne l'ai pas mesuré.
+                       */
                       <Link
                         href={item.href === 'dashboard' ? `/${locale}/dashboard` : `/${locale}/dashboard/${item.href}`}
-                        /**
-                         * ⛔⛔ LE PRÉCHARGEMENT EST COUPÉ ICI, ET IL L'EST UNE
-                         *   SECONDE FOIS. Coupé le 2026-09-18 (`bad0ed2`),
-                         *   rallumé le 2026-09-19 (`f1a4945`) parce qu'un
-                         *   `loading.tsx` venait d'être posé, RECOUPÉ le même
-                         *   jour : la caméra de Dom, en production, a relevé
-                         *   QUATRE appels au-dessus de 500 ms, dont un à 1,06
-                         *   s. Le seuil était écrit d'avance, il est franchi.
-                         *
-                         * ★★ CE QUI EST MESURÉ, ET C'EST TOUT CE QUI EST SÛR
-                         *   : chaque chargement d'une page du tableau de bord
-                         *   émet HUIT requêtes serveur avant que
-                         *   l'utilisateur ne clique nulle part — les NEUF
-                         *   entrées de cette barre moins la page courante,
-                         *   toutes avec le même initiateur (le runtime du
-                         *   routeur, `chunks/23-…`). Coût relevé le
-                         *   2026-09-18 : 533 ms à 1,08 s CHACUNE. Coût relevé
-                         *   le 2026-09-19, `loading.tsx` EN PLACE : INCHANGÉ,
-                         *   jusqu'à 1,06 s.
-                         *
-                         * ⚠️ ET C'EST POURQUOI LE SYMPTÔME EST UNIVERSEL :
-                         *   toute page qui monte cette coquille paie les
-                         *   huit, pas une page en particulier.
-                         *
-                         ══════════════════════════════════════════════════
-                         * ⛔⛔ UNE PÉREMPTION QUI NE S'EST PAS RÉALISÉE — §369,
-                         *   ET C'EST LE CŒUR DE CETTE NOTE. LIS-LA AVANT DE
-                         *   REFAIRE CE LOT.
-                         ══════════════════════════════════════════════════
-                         *   La version du 2026-09-18 tenait par DEUX raisons
-                         *   cumulées :
-                         *
-                         *   ① LES ROUTES SONT DYNAMIQUES (`ƒ` à la sortie de
-                         *      build, les dix). En Next 14, le préchargement
-                         *      d'une route dynamique descend « the rendered
-                         *      tree of components until the first
-                         *      `loading.js` file ».
-                         *   ② ⛔ IL N'EXISTAIT AUCUN `loading.tsx` DANS CE
-                         *      DÉPÔT — mesuré : 0 fichier. Rien n'arrêtait
-                         *      donc la descente.
-                         *
-                         *   Et elle annonçait sa propre fin : « un
-                         *   `loading.tsx` apparaît → la descente s'arrête à
-                         *   lui → CETTE LIGNE DOIT PARTIR ».
-                         *
-                         *   ⛔ ② EST TOMBÉE LE 2026-09-19 — `0e90757` pose un
-                         *   `loading.tsx` au segment `dashboard` —, LA LIGNE
-                         *   EST PARTIE (`f1a4945`), ET LE COÛT N'A PAS BOUGÉ.
-                         *   La condition a cessé d'être vraie sans que
-                         *   l'effet suive.
-                         *
-                         *   ★ DONC CETTE LIGNE NE REPOSE PLUS SUR ②. Elle
-                         *   repose sur une mesure qui CONTREDIT le mécanisme
-                         *   documenté, et ce mécanisme n'est pas compris à ce
-                         *   jour.
-                         *
-                         *   ⛔ NE PAS REFAIRE CE LOT SUR LA SEULE EXISTENCE
-                         *   D'UN `loading.tsx`. Ça a été essayé, en
-                         *   production, et ça a échoué. Hypothèse ouverte, à
-                         *   MESURER et non à croire : Next bornerait au
-                         *   premier `loading.js` de la ROUTE CIBLE et non
-                         *   d'un ancêtre partagé ; il en faudrait alors un
-                         *   par segment.
-                         *
-                         *   ⭐ LA NOUVELLE CONDITION DE DÉPART EST DOUBLE, et
-                         *   les deux moitiés sont exigées : une EXPLICATION
-                         *   mesurée de l'écart, PUIS une cascade qui montre
-                         *   les huit appels sous 500 ms. Pas l'une sans
-                         *   l'autre.
-                         *
-                         * ⚪ CE QUE DOM PERD, DIT PLUTÔT QUE TU. La
-                         *   documentation de Next 14 ne décrit AUCUN
-                         *   préchargement au survol pour l'App Router — elle
-                         *   dit seulement « Routes are automatically
-                         *   prefetched as they become visible in the user's
-                         *   viewport » et « You can disable prefetching by
-                         *   setting the `prefetch` prop to `false` ». ⛔ Ne
-                         *   pas affirmer que le survol subsiste : ce n'est
-                         *   pas écrit, et je ne l'ai pas mesuré. La
-                         *   navigation reste DOUCE — seul le pré-rendu
-                         *   disparaît.
-                         */
-                        prefetch={false}
                         onClick={() => setSidebarOpen(false)}
                         className={cn(
                           'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors no-underline',
