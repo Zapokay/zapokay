@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
+import { YearPicker } from '@/components/ui/YearPicker';
 import { DocumentRow, type VaultDocument } from '@/components/documents/DocumentRow';
 import { UploadZone } from '@/components/documents/UploadZone';
 import { useToasts } from '@/components/ui/Toasts';
@@ -24,6 +25,28 @@ interface DocumentsClientProps {
   requirementTitles?: Record<string, { fr: string; en: string }>;
   fiscalYearsConfigured?: boolean;
   activeFiscalYears?: number[];
+  /**
+   * LES EXERCICES SUIVIS — ceux que le sélecteur offre.
+   *
+   * ⚖️ DÉCISION DE DOM, 2026-09-19 : le sélecteur d'exercice se place ENTRE le
+   * champ « Rechercher… » et « Plus récent ». ★ PARCE QUE C'EST UN FILTRE, et
+   * que la rangée est l'endroit des filtres. Le haut de page, où il a passé
+   * une journée, était un choix de MOINDRE SURPRISE en attendant celui-ci.
+   *
+   * ⛔ IL A DÛ DESCENDRE D'UN CRAN DE PLUS QUE PRÉVU : la rangée vit ici, pas
+   * dans `page.tsx`. La page continue de lire `company_fiscal_years` — c'est
+   * une lecture serveur — et passe la liste en prop.
+   *
+   * ⭐ ET CE DÉPLACEMENT RÉUNIT LE CONTRÔLE AVEC CE QU'IL PILOTE. Le filtre
+   * d'année vivait DÉJÀ ici : `searchParams.get('year')` le lit, `filtered` le
+   * calcule, le sous-titre le résume. Seul le contrôle était ailleurs.
+   * ⚠️ MAIS ÇA NE SIMPLIFIE PAS LE MÉCANISME, ET IL NE FAUT PAS LE PRÉTENDRE :
+   * le sélecteur écrit toujours `?year=` dans l'URL, et ce composant l'y relit.
+   * Le canal reste l'URL — et il DOIT le rester, pour qu'un lien mis en signet
+   * continue de fonctionner. Ce qui gagne, c'est la LOCALITÉ, pas le nombre de
+   * pièces.
+   */
+  fiscalYears?: number[];
   /** User's preferred language from users.preferred_language — seeds the upload form's Language field. */
   preferredLanguage?: 'fr' | 'en';
 }
@@ -45,7 +68,7 @@ const LANG_OPTIONS = [
   { value: 'bilingual', labelFr: 'Bilingue',           labelEn: 'Bilingual' },
 ];
 
-function DocumentsClientInner({ locale, company, initialDocuments, requirementKeysByDocument, requirementTitles = {}, fiscalYearsConfigured = true, activeFiscalYears = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
+function DocumentsClientInner({ locale, company, initialDocuments, requirementKeysByDocument, requirementTitles = {}, fiscalYearsConfigured = true, activeFiscalYears = [], fiscalYears = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
   const fr = locale === 'fr';
   const tDocs = useTranslations('documents');
   const supabase = createClient();
@@ -279,6 +302,14 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
             className="w-full pl-9 pr-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
           />
         </div>
+        {/* ⚖️ LE SÉLECTEUR D'EXERCICE, ENTRE « Rechercher… » ET « Plus récent » —
+            décision de Dom, 2026-09-19. C'est un FILTRE, et voici la rangée des
+            filtres ; il y est maintenant à côté du filtrage qu'il pilote.
+            ⚪ Il garde sa propre `<Suspense>` interne (voir YearPicker) et écrit
+            dans l'URL, comme avant : rien de son mécanisme ne change. */}
+        {fiscalYears.length > 0 && (
+          <YearPicker locale={locale} years={fiscalYears} includeUnclassifiedOption />
+        )}
         <select value={sortOrder} onChange={e => setSortOrder(e.target.value as 'desc' | 'asc')} className={selectClass}>
           <option value="desc">{fr ? 'Plus récent' : 'Newest first'}</option>
           <option value="asc">{fr ? 'Plus ancien' : 'Oldest first'}</option>

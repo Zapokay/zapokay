@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserWithProfile } from '@/lib/auth';
 import { getActiveCompany } from '@/lib/company';
 import { redirect } from 'next/navigation';
-import { YearPicker } from '@/components/ui/YearPicker';
 import { DocumentsClient } from '@/app/[locale]/dashboard/minute-book/documents/DocumentsClient';
 import type { VaultDocument } from '@/components/documents/DocumentRow';
 import { exercicesDeLaSociete } from '@/lib/active-years';
@@ -106,32 +105,19 @@ export default async function DocumentsPage({
 
   return (
     <>
-      {/*
-        ⛔ LE SÉLECTEUR D'EXERCICE EST RENDU ICI DEPUIS LE 2026-09-19, ET PLUS
-        DANS LA BARRE DU HAUT DE LA COQUILLE.
-
-        ★ POURQUOI IL A DÛ DESCENDRE : cette page était la SEULE des neuf à
-        passer `fiscalYears` à `DashboardShell`. Un layout ne recevant rien de
-        sa page, cette prop empêchait la coquille de devenir un `layout.tsx` —
-        et sans layout, pas de `loading.tsx`, donc pas de préchargement.
-
-        ⚪ SA PLACE EST PROVISOIRE, ET C'EST ÉCRIT POUR ARIA. « En tête du
-        contenu » est un choix de MOINDRE SURPRISE, pas un choix étudié : il
-        était en haut à droite de la BARRE, il est maintenant en haut à droite du
-        CONTENU (`justifyContent: 'flex-end'`).
-        Le bon endroit est une question de design, et ce lot ne prétend pas
-        l'avoir tranchée.
-
-        ⚪ `includeUnclassifiedOption` reste à `true` — même valeur qu'avant, au
-        même endroit logique, simplement plus près de la page qui la décide.
-      */}
-      {fiscalYears.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-          <YearPicker locale={locale} years={fiscalYears} includeUnclassifiedOption />
-        </div>
-      )}
+      {/* ⚖️ LE SÉLECTEUR D'EXERCICE EST DESCENDU D'UN CRAN DE PLUS le 2026-09-19 :
+          il vit maintenant DANS la rangée de filtres de `DocumentsClient`, entre
+          « Rechercher… » et « Plus récent » — décision de Dom. C'est un FILTRE, et
+          la rangée est l'endroit des filtres.
+          ★ CETTE PAGE GARDE SA LECTURE de `company_fiscal_years` : c'est une
+          lecture SERVEUR, elle n'a rien à faire dans un composant client. Elle
+          passe la liste en prop, et le contrôle se retrouve à côté du filtrage
+          qu'il pilote — lequel vivait déjà là.
+          ⚪ Son passage par le haut de page aura duré un jour : c'était le choix
+          de moindre surprise pendant que la coquille migrait. */}
       <DocumentsClient
         locale={locale}
+        fiscalYears={fiscalYears}
         company={company}
         initialDocuments={(documents ?? []) as VaultDocument[]}
         requirementKeysByDocument={requirementKeysByDocument}
