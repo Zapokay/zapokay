@@ -799,6 +799,68 @@ function lotD(): void {
   dire(!avecAncienne.suivis.includes(2020), '⭐ et 2020 ne revient PAS (extension vers l’avant)');
 }
 
+function lotK1() {
+  console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
+
+  /* ⛔ LUE À LA SOURCE, ET C'EST LE SEUL ENDROIT POSSIBLE. La sonde ne monte
+     pas ces trois clients : leur `fetchData` est un effet qui interroge
+     Supabase, et `window.location.assign` n'existe pas sous Node. Ce qui se
+     vérifie ici est la FORME du garde — qu'il redirige au lieu de rendre la
+     main —, pas son exécution.
+     ★ ET C'EST EXACTEMENT LE DÉFAUT QU'ON RÉPARE : `if (!user) return` était
+     un chargement éternel, muet. Une régression le réécrirait de la même
+     façon, et cette assertion la verrait. */
+  const PAGES: [string, string[]][] = [
+    ['actionnaires', ['app', '[locale]', 'dashboard', 'shareholders', 'ShareholdersClient.tsx']],
+    ['administrateurs', ['app', '[locale]', 'dashboard', 'directors', 'DirectorsClient.tsx']],
+    ['dirigeants', ['app', '[locale]', 'dashboard', 'officers', 'OfficersClient.tsx']],
+  ];
+
+  for (const [quoi, chemin] of PAGES) {
+    const src = readFileSync(join(__dirname, '..', ...chemin), 'utf8');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    dire(
+      /if \(!user\)\s*\{\s*redirigeVersConnexion\(locale\);\s*return;\s*\}/.test(code),
+      `${quoi} : une session perdue RENVOIE à la connexion`,
+    );
+    // ⛔ L'ANCIENNE FORME NE DOIT PLUS EXISTER — sinon les deux coexisteraient
+    //    et l'assertion ci-dessus passerait pour la mauvaise raison.
+    dire(!/if \(!user\) return;/.test(code), `${quoi} : plus aucun \`return\` muet`);
+    dire(
+      /from '@\/lib\/session-perdue'/.test(code),
+      `${quoi} : la redirection vient de la déclaration unique`,
+    );
+  }
+
+  /* ⭐ CONTRÔLE POSITIF : la sonde sait dire NON. On lui donne les deux formes
+     fautives et elle doit les refuser — sans ça, les trois assertions
+     ci-dessus ne prouveraient que sa complaisance. */
+  const MUET = 'if (!user) return;';
+  const BON = 'if (!user) { redirigeVersConnexion(locale); return; }';
+  dire(!/if \(!user\)\s*\{\s*redirigeVersConnexion\(locale\);\s*return;\s*\}/.test(MUET),
+    '⭐ et la forme muette est REFUSÉE par la même expression');
+  dire(/if \(!user\)\s*\{\s*redirigeVersConnexion\(locale\);\s*return;\s*\}/.test(BON),
+    '⭐ et la bonne forme est ACCEPTÉE');
+
+  /* ⛔ ET LA PREUVE DE NON-BOUCLE, LUE AUSSI À LA SOURCE : `/login` ne doit
+     porter AUCUNE redirection. Le jour où quelqu'un y ajoute un « si déjà
+     connecté, va au tableau de bord », l'aller-retour devient possible —
+     parce que le layout du tableau de bord rend une session RÉVOQUÉE (lot R),
+     et que cette page-ci la renvoie ici. Cette assertion est le seul endroit
+     du dépôt qui garde ce couple. */
+  const login = readFileSync(join(__dirname, '..', 'app', '[locale]', 'login', 'page.tsx'), 'utf8')
+    // ⚠️ Les commentaires sont ôtés : une note disant « ne pas rediriger ici »
+    //    aurait fait tomber la garde, et une garde qu'un commentaire casse est
+    //    une garde qu'on finit par supprimer.
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  dire(
+    !/redirect\(|router\.(push|replace)|window\.location/.test(login),
+    '⛔ `/login` ne redirige NULLE PART — la boucle est impossible',
+  );
+}
+
 console.log('EXIGENCES DE L’INSCRIPTION — montage réel, sans navigateur');
 lotA();
 lotB();
@@ -807,5 +869,6 @@ lotC2();
 lotC3();
 lotE1();
 lotD();
+lotK1();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

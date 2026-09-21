@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AttenteDePage } from '@/components/ui/AttenteDePage';
 import { createClient } from '@/lib/supabase/client';
 import { donnees } from '@/lib/requetes-groupees';
+import { redirigeVersConnexion } from '@/lib/session-perdue';
 import { useTranslations } from 'next-intl';
 import { Zap, PieChart, Info, Plus} from 'lucide-react';
 import CapTableChart from '@/components/shareholders/CapTableChart';
@@ -150,7 +151,11 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
     })();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    /* ⛔ LA SESSION EST TOMBÉE — ON NE RESTE PAS SUR UN ÉCRAN VIDE.
+       C'était `return` : un chargement éternel, sans un mot. La raison
+       complète, et son lien avec la vérification locale du lot R, vit dans
+       `lib/session-perdue.ts` — une seule déclaration pour les trois pages. */
+    if (!user) { redirigeVersConnexion(locale); return; }
 
     // Aligned with the ten server pages: status='active' + single(), and NO
     // .limit(1). It was limit(1) — not the missing sort — that made this silent:
@@ -283,7 +288,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
     }
 
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, locale]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
