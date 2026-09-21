@@ -6,6 +6,8 @@ import { useTranslations } from 'next-intl';
 import { X, Loader2 } from 'lucide-react';
 import type { ShareholdingWithDetails, ShareClass } from '@/lib/supabase/people-types';
 import { holderName } from '@/lib/minute-book/holder-name';
+import { logActivity } from '@/lib/activity-log';
+import { titresDeCorrectionDetention } from '@/lib/journal-correction-detention';
 
 interface EditShareholdingModalProps {
   shareholding: ShareholdingWithDetails;
@@ -63,13 +65,79 @@ export default function EditShareholdingModal({
         .eq('id', shareholding.id);
 
       if (err) throw err;
+
+      /**
+       * ⛔ LA CORRECTION ENTRE AU REGISTRE — lot Z-B, 2026-09-21.
+       *
+       * C'était le SEUL chemin de correction du dépôt qui se taisait : on
+       * pouvait changer la QUANTITÉ D'ACTIONS et la DATE D'ÉMISSION d'une
+       * détention sans que rien ne le note. ⚠️ Or la date d'émission est un
+       * contenu PRESCRIT — art. 33 par. 3° LSAQ, « la date et les détails de
+       * l'émission ».
+       *
+       * ★ LE TEXTE VIENT DE `lib/journal-correction-detention.ts`, jamais
+       * d'ici : une modale rend `null` hors navigateur, donc sa règle serait
+       * invérifiable à la sonde. Même patron que `journal-charge.ts`.
+       *
+       * ⚪ LES NOMS DE CATÉGORIE SONT RÉSOLUS ICI parce que c'est ici qu'on a
+       * la liste. Le module ne connaît pas la base et n'écrira jamais un UUID
+       * au registre.
+       */
+      const nomCategorie = (id: string) =>
+        shareClasses.find((sc) => sc.id === id)?.name ?? '';
+      const titres = titresDeCorrectionDetention(
+        holderName(shareholding.holders) ?? '',
+        {
+          issue_date: shareholding.issue_date,
+          share_class: nomCategorie(shareholding.share_class_id),
+          quantity: String(shareholding.quantity),
+          issue_price_per_share:
+            shareholding.issue_price_per_share != null
+              ? String(shareholding.issue_price_per_share)
+              : '',
+          certificate_number: shareholding.certificate_number ?? '',
+        },
+        {
+          issue_date: issueDate,
+          share_class: nomCategorie(shareClassId),
+          quantity: String(qty),
+          issue_price_per_share: pricePerShare.trim(),
+          certificate_number: certificateNumber.trim(),
+        },
+      );
+
+      /* ⚠️ `titres` VAUT `null` QUAND RIEN N'A CHANGÉ, et c'est voulu : ouvrir
+         la modale et enregistrer sans rien toucher ne doit pas inscrire une
+         correction imaginaire au registre. */
+      if (titres) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await logActivity(
+            supabase,
+            shareholding.company_id,
+            user.id,
+            /* ⭐ LA VALEUR EXISTE DÉJÀ DANS `activity_log_event_type_check`, ET
+               N'AVAIT AUCUNE LIGNE : la contrainte avait été élargie pour un
+               chemin qu'on n'a jamais câblé. ⛔ Donc AUCUNE migration — et pas
+               de `shareholding_corrected` inventé à côté, qui aurait exigé
+               d'élargir la contrainte une seconde fois pour le même fait.
+               ⚪ Le CODE dit « edited », comme son voisin
+               `shareholder_entity_edited` ; ce que l'utilisateur LIT dit
+               « corrigée », et c'est le titre qui compte pour Z-B3. */
+            'shareholding_edited',
+            titres.titleFr,
+            titres.titleEn,
+            { shareholding_id: shareholding.id, champs_corriges: titres.champs },
+          );
+        }
+      }
+
       onSuccess();
     } catch (err: any) {
       setError(err.message || 'An error occurred');
       setSaving(false);
     }
   }, [
-    shareholding.id,
     shareClassId,
     quantity,
     pricePerShare,
@@ -78,6 +146,8 @@ export default function EditShareholdingModal({
     supabase,
     onSuccess,
     t,
+    shareClasses,
+    shareholding,
   ]);
 
   return (

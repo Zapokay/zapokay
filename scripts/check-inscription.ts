@@ -43,6 +43,7 @@ import { declarationDesExercices } from '@/lib/active-years';
 import * as ts from 'typescript';
 import { readFileSync } from 'fs';
 import { aEchoue, etatDeSection } from '../lib/requetes-groupees';
+import { titresDeCorrectionDetention } from '../lib/journal-correction-detention';
 import { SectionEnEchec } from '../components/ui/SectionEnEchec';
 import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
@@ -1005,6 +1006,67 @@ function lotK3Administrateurs() {
     'l’avis lit la clé dont la page se sert DÉJÀ pour se nommer');
 }
 
+function lotZB() {
+  console.log('\n   ⛔ LOT Z-B — LA CORRECTION D’UNE DÉTENTION ENTRE AU REGISTRE');
+
+  const AVANT = {
+    issue_date: '2024-03-15', share_class: 'Catégorie A', quantity: '100',
+    issue_price_per_share: '1.00', certificate_number: 'C-7',
+  };
+
+  /* ① RIEN N'A CHANGÉ → PAS DE LIGNE. ⛔ Sans ce cas, ouvrir la modale et
+     enregistrer sans rien toucher inscrirait une correction imaginaire. */
+  dire(titresDeCorrectionDetention('Jean Tremblay', AVANT, { ...AVANT }) === null,
+    '⛔ aucune correction → AUCUNE ligne, pas un titre creux');
+
+  /* ② UN SEUL CHAMP → il est NOMMÉ, avec ancienne → nouvelle. */
+  const q = titresDeCorrectionDetention('Jean Tremblay', AVANT, { ...AVANT, quantity: '150' });
+  dire(q !== null && q.champs.length === 1 && q.champs[0] === 'quantity',
+    'un seul champ corrigé → un seul champ nommé');
+  dire(q !== null && q.titleFr.includes('Détention corrigée : Jean Tremblay'),
+    'le titre dit QUI, et dit « corrigée »');
+  dire(q !== null && q.titleFr.includes('nombre d’actions 100 → 150'.replace('’', "'")),
+    'et il porte ANCIENNE → NOUVELLE');
+  dire(q !== null && q.titleEn.includes('Holding corrected: Jean Tremblay')
+    && q.titleEn.includes('number of shares 100 → 150'),
+    'les deux langues, rendues à l’écriture');
+
+  /* ③ ⛔ LE VERBE — Z-B3. Une correction ne doit JAMAIS se lire comme un acte
+     neuf : dans un registre de valeurs mobilières, une émission fantôme est
+     pire que le silence qu'on remplace. */
+  dire(q !== null && !/émise|émission de|Actions émises|issued|created/i.test(q.titleFr + q.titleEn),
+    '⛔ et il ne se lit PAS comme une émission neuve');
+
+  /* ④ ⚠️ `issue_date` EST UN CONTENU PRESCRIT — art. 33 par. 3° LSAQ. Quand il
+     change, il vient EN TÊTE de la liste : il ne se noie pas derrière quatre
+     autres champs. */
+  const tout = titresDeCorrectionDetention('Jean Tremblay', AVANT, {
+    issue_date: '2024-04-01', share_class: 'Catégorie B', quantity: '150',
+    issue_price_per_share: '2.00', certificate_number: 'C-8',
+  });
+  dire(tout !== null && tout.champs.length === 5, 'cinq champs corrigés → les cinq sont nommés');
+  dire(tout !== null && tout.champs[0] === 'issue_date',
+    '⚠️ et la DATE D’ÉMISSION vient en TÊTE — art. 33 par. 3° LSAQ');
+  dire(tout !== null && tout.titleFr.indexOf("date d'émission") <
+       tout.titleFr.indexOf("nombre d'actions"),
+    'elle précède les autres dans le titre rendu, pas seulement dans la liste');
+
+  /* ⭐ CONTRÔLE POSITIF : la fonction sait dire NON. Un champ INCHANGÉ ne doit
+     pas apparaître — sinon « cinq champs nommés » ne prouverait que sa
+     complaisance. */
+  dire(q !== null && !q.titleFr.includes("date d'émission"),
+    '⭐ et un champ INCHANGÉ n’est PAS nommé');
+
+  /* ⑤ LA MODALE APPELLE BIEN, et avec la valeur que la contrainte admet. */
+  const src = readFileSync(
+    join(__dirname, '..', 'components', 'shareholders', 'EditShareholdingModal.tsx'), 'utf8',
+  ).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  dire(/titresDeCorrectionDetention\(/.test(src), 'la modale compose son titre par la déclaration');
+  dire(/logActivity\(/.test(src) && /'shareholding_edited'/.test(src),
+    'et elle écrit au journal, sous la valeur que la contrainte admet déjà');
+  dire(/if \(titres\) \{/.test(src), 'et elle n’écrit RIEN quand rien n’a changé');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1080,5 +1142,6 @@ lotK2();
 lotK2d();
 lotK3Dirigeants();
 lotK3Administrateurs();
+lotZB();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);
