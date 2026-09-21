@@ -23,6 +23,8 @@ import { residencyApplies, residencyVerdict } from '@/lib/residency';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { formatDate } from '@/lib/utils';
 import { redirigeVersConnexion } from '@/lib/session-perdue';
+import { donnees, aEchoue, etatDeSection } from '@/lib/requetes-groupees';
+import { SectionEnEchec } from '@/components/ui/SectionEnEchec';
 import type {
   CompanyPerson,
   DirectorMandate,
@@ -55,6 +57,10 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
   const [endedMandates, setEndedMandates] = useState<DirectorWithPerson[]>([]);
   const [officerAppointments, setOfficerAppointments] = useState<OfficerAppointment[]>([]);
   const [shareholdings, setShareholdings] = useState<(Shareholding & { share_class: ShareClass; holders: ShareholdingHolder[] })[]>([]);
+  /** ⛔ LOT K-3 — vrai seulement si la requête des mandats a ÉCHOUÉ, jamais si
+   *  elle est revenue vide. Voir `aEchoue()` dans
+   *  `lib/requetes-groupees.ts`. */
+  const [administrateursEnEchec, setAdministrateursEnEchec] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -104,34 +110,68 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
     setJurisdiction(companies.incorporation_type);
     const cid = companies.id;
 
-    // Phase 1B-view: fetch ALL mandates (active + ended). Active rows remain
-    // the default display list (`directors`); ended rows feed the per-card
-    // history disclosure via `endedMandates` filtered by person_id.
-    // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted rows from both partitions
-    // (audit §8d row 1 — leak filter into former section).
-    const { data: mandatesRaw } = await supabase
-      .from('director_mandates')
-      .select('*, person:company_people(*)')
-      .eq('company_id', cid)
-      .is('deleted_at', null)
-      .order('appointment_date', { ascending: true });
+    /**
+     * ★★ TROIS REQUÊTES QUI NE DÉPENDENT QUE DE `cid` PARTENT ENSEMBLE — J-2,
+     *   ressuscité au lot K-3.
+     *
+     * ⛔ J-2 NE REVIENT PAS POUR LA VITESSE. Suspendu au lot J parce que le
+     *   gain ne la valait pas ; il revient parce que `allSettled` rend
+     *   `{ status, value, reason }` PAR REQUÊTE — LA FORME qu'un état d'erreur
+     *   par section exige. Le regroupement devient le prérequis de ㊴.
+     *
+     * ⛔ LE GRAPHE, REFAIT DE ZÉRO POUR CETTE PAGE et non recopié d'`officers`
+     *   malgré des noms de tables identiques. Les trois ne lisent que `cid` :
+     *     `director_mandates`    .eq('company_id', cid)
+     *     `officer_appointments` .eq('company_id', cid)
+     *     `shareholdings`        .eq('company_id', cid)
+     *   Aucune ne lit le résultat d'une autre.
+     *
+     * ⛔⛔ `allSettled` ET NON `all` — même contrat qu'au lot J : chacune
+     *   pouvait échouer SEULE, son erreur n'était jamais lue, et le reste de
+     *   la page s'affichait. `Promise.all` ferait tomber les trois pour une.
+     *
+     * ⚠️ UNE SEULE CHOSE CHANGE VRAIMENT : avant, un REJET sortait de
+     *   `fetchData` et laissait la page en chargement pour toujours,
+     *   `setLoading(false)` n'étant jamais atteint. Désormais elle se rend.
+     */
+    const [mandatesRes, officersRes, sharesRes] = await Promise.allSettled([
+      // Phase 1B-view: fetch ALL mandates (active + ended). Active rows remain
+      // the default display list (`directors`); ended rows feed the per-card
+      // history disclosure via `endedMandates` filtered by person_id.
+      // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted rows from both partitions
+      // (audit §8d row 1 — leak filter into former section).
+      supabase
+        .from('director_mandates')
+        .select('*, person:company_people(*)')
+        .eq('company_id', cid)
+        .is('deleted_at', null)
+        .order('appointment_date', { ascending: true }),
+      supabase
+        .from('officer_appointments').select('*').eq('company_id', cid).eq('is_active', true),
+      // Atom 2: embed shareholding_holders so getShareholdingsForPerson can
+      // join through the polymorphic holder table. Minimal embed (no person /
+      // entity hydration) — only holder_type + person_id are consumed here.
+      supabase
+        .from('shareholdings')
+        .select('*, share_class:share_classes(*), holders:shareholding_holders(*)')
+        .eq('company_id', cid).is('end_date', null),
+    ]);
+
+    /* ⛔ L'ÉCHEC EST RETENU. `aEchoue()` lit le MÊME résultat que `donnees()`
+       juste après ; il distingue une requête TOMBÉE d'une section VIDE. */
+    setAdministrateursEnEchec(aEchoue(mandatesRes));
+
+    const mandatesRaw = donnees(mandatesRes);
+    const officersRaw = donnees(officersRes);
+    const sharesRaw = donnees(sharesRes);
 
     const activeRows = (mandatesRaw || []).filter((row: any) => row.is_active);
     const endedRows = (mandatesRaw || []).filter((row: any) => !row.is_active);
     setDirectors(activeRows.map((row: any) => ({ ...row, person: row.person as CompanyPerson })));
     setEndedMandates(endedRows.map((row: any) => ({ ...row, person: row.person as CompanyPerson })));
 
-    const { data: officersRaw } = await supabase
-      .from('officer_appointments').select('*').eq('company_id', cid).eq('is_active', true);
     setOfficerAppointments((officersRaw as OfficerAppointment[]) || []);
 
-    // Atom 2: embed shareholding_holders so getShareholdingsForPerson can
-    // join through the polymorphic holder table. Minimal embed (no person /
-    // entity hydration) — only holder_type + person_id are consumed here.
-    const { data: sharesRaw } = await supabase
-      .from('shareholdings')
-      .select('*, share_class:share_classes(*), holders:shareholding_holders(*)')
-      .eq('company_id', cid).is('end_date', null);
     setShareholdings((sharesRaw || []).map((row: any) => ({
       ...row,
       share_class: row.share_class as ShareClass,
@@ -178,6 +218,10 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
   //   s'applique pas, et la pastille reste fermee.
   const residencyApplicable = jurisdiction !== null && residencyApplies(jurisdiction);
   const totalDirectors = directors.length;
+
+  /** ⛔ LOT K-3 — LES TROIS CAS, NOMMÉS UNE FOIS. La déclaration et sa raison
+   *  vivent dans `lib/requetes-groupees.ts` ; on ne les recopie pas. */
+  const etatDesAdministrateurs = etatDeSection(administrateursEnEchec, totalDirectors > 0);
   // ⚠️ `=== true`, PAS LA VERITE DE LA VALEUR. Un `null` est FALSY : le filtre
   //    nu le comptait comme non-resident, donc une absence de declaration
   //    faisait CHUTER le pourcentage et virer la pastille au rouge. Compter
@@ -352,8 +396,21 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
         </div>
       )}
 
-      {/* Director cards / Empty state */}
-      {totalDirectors > 0 ? (
+      {/* ⛔ LOT K-3 — TROIS CAS, ET DEUX ÉTAIENT CONFONDUS.
+          Une requête TOMBÉE rendait `[]`, donc `totalDirectors > 0` était faux,
+          donc la page affichait « aucun administrateur » à une société qui en a
+          peut-être trois. Sur un registre d'administrateurs, cette phrase est
+          une information juridique.
+          ⚠️ ET ICI ELLE EMPORTE PLUS QU'AILLEURS : le bandeau de résidence
+          (`totalDirectors > 0 && residencyApplicable`) disparaît avec elle. Il
+          se TAIT, il ne ment pas — aucun verdict de conformité n'est affiché
+          sur des données qu'on n'a pas —, mais c'est une raison de plus pour
+          que l'avis, lui, parle.
+          ⚪ `directors.title` est la clé dont la page se sert déjà pour se
+          nommer ; l'avis lit la MÊME, il n'en invente pas une seconde. */}
+      {etatDesAdministrateurs === 'echec' ? (
+        <SectionEnEchec section={t('title')} onRetry={fetchData} />
+      ) : etatDesAdministrateurs === 'garnie' ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {directors.map((director) => (
             <DirectorCard

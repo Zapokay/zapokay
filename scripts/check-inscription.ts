@@ -962,6 +962,49 @@ function lotK3Dirigeants() {
     'l’avis lit la clé dont la page se sert DÉJÀ pour se nommer');
 }
 
+function lotK3Administrateurs() {
+  console.log('\n   ⛔ LOT K-3 · ADMINISTRATEURS — MÊME FORME, VÉRIFIÉE ET NON SUPPOSÉE');
+
+  const src = readFileSync(
+    join(__dirname, '..', 'app', '[locale]', 'dashboard', 'directors', 'DirectorsClient.tsx'),
+    'utf8',
+  ).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  /* ① J-2 — LES TROIS REQUÊTES PARTENT ENSEMBLE, ET EN `allSettled`. */
+  dire(/await Promise\.allSettled\(\[/.test(src), 'les trois requêtes partent ENSEMBLE');
+  dire(!/await Promise\.all\(\[/.test(src), '⛔ et en `allSettled`, jamais `all`');
+  dire((src.match(/const \{ data: [a-zA-Z]+ \} = await supabase/g) ?? []).length === 1,
+    'il ne reste QU’UNE lecture en file : la société, dont `cid` dépend');
+
+  /* ② LE CÂBLAGE PASSE PAR LA DÉCLARATION PARTAGÉE. */
+  dire(/etatDeSection\(administrateursEnEchec, totalDirectors > 0\)/.test(src),
+    'la page DÉRIVE son état de la déclaration partagée');
+  dire(/etatDesAdministrateurs === 'echec' \?/.test(src)
+    && /etatDesAdministrateurs === 'garnie' \?/.test(src),
+    'et elle branche sur les trois cas');
+  dire(/setAdministrateursEnEchec\(aEchoue\(mandatesRes\)\)/.test(src),
+    'et l’échec vient de `aEchoue`, pas d’une liste vide');
+
+  /* ③ ⛔ K-3d — LE BALAYAGE, CHERCHÉ ET NON ATTENDU. Aucun bloc de rendu de
+     cette page n'est gardé par une négation : toutes ses gardes lisent
+     `> 0`, donc elles s'ÉTEIGNENT quand la requête tombe au lieu de
+     s'allumer en plus de la branche d'échec. */
+  dire(!/\{\s*!\s*[a-zA-Z]+\s*&&/.test(src),
+    '⛔ aucun bloc gardé par une négation — pas de doublon possible ici');
+
+  /* ④ ⭐ CE QUI DISTINGUE CETTE PAGE D'`officers`, ET QUI JUSTIFIE LE TRI
+     REFAIT DE ZÉRO : le bandeau de RÉSIDENCE est un verdict de conformité
+     (art. 105(3) LCSA) dérivé de la MÊME requête. Il est gardé par
+     `totalDirectors > 0`, donc il se TAIT quand elle tombe. ⛔ Il ne doit
+     JAMAIS juger sur des données absentes — cette assertion garde ce fait. */
+  dire(/\{totalDirectors > 0 && residencyApplicable &&/.test(src),
+    '⭐ le verdict de résidence se TAIT quand la requête tombe — il ne juge pas à vide');
+
+  /* ⑤ LE NOM DE LA SECTION VIENT DU CATALOGUE. */
+  dire(/<SectionEnEchec section=\{t\('title'\)\}/.test(src),
+    'l’avis lit la clé dont la page se sert DÉJÀ pour se nommer');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1036,5 +1079,6 @@ lotK1();
 lotK2();
 lotK2d();
 lotK3Dirigeants();
+lotK3Administrateurs();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);
