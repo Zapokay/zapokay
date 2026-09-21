@@ -60,3 +60,33 @@ export function aEchoue<T>(resultat: PromiseSettledResult<Reponse<T>>): boolean 
   if (resultat.status === 'rejected') return true;
   return resultat.value?.error != null;
 }
+
+/** Ce qu'une section a le droit de montrer. Trois cas, jamais deux. */
+export type EtatDeSection = 'echec' | 'garnie' | 'vide';
+
+/**
+ * LE TROISIÈME LECTEUR — CELUI QUI CHOISIT CE QUE LA SECTION MONTRE.
+ *
+ * ⚖️ LOT K-2d, 2026-09-21. L'en-tête de ce fichier annonçait « trois lecteurs »
+ * depuis le lot J ; voici le troisième, et il ferme la série.
+ *
+ * ⛔⛔ TROIS CAS, ET DEUX D'ENTRE EUX ÉTAIENT CONFONDUS — C'EST TOUT LE LOT :
+ *   'echec'  · la requête est tombée. On ne sait pas s'il y a des lignes.
+ *   'garnie' · elle a réussi et rapporté des lignes.
+ *   'vide'   · elle a réussi et n'a rien rapporté. C'est une RÉPONSE.
+ *
+ * ★★ AVANT, 'echec' ET 'vide' RENDAIENT LE MÊME ÉCRAN, et c'était un mensonge :
+ * une requête tombée donne `[]`, donc « aucune ligne », donc la page annonçait
+ * « aucun actionnaire » à quelqu'un qui en a peut-être cent. ⛔ La distinction
+ * n'est pas cosmétique — c'est la différence entre « il n'y en a pas » et « je
+ * n'ai pas pu regarder ».
+ *
+ * ⚪ POURQUOI UNE FONCTION POUR UN TERNAIRE : parce qu'un ternaire dans le JSX
+ * ne se met pas sous sonde. Celle-ci se teste dans ses quatre combinaisons, et
+ * une mutation qui échange 'echec' et 'vide' fait tomber des assertions au lieu
+ * de passer inaperçue — ce qui est exactement ce qui s'est produit avant K-2d.
+ */
+export function etatDeSection(enEchec: boolean, aDesLignes: boolean): EtatDeSection {
+  if (enEchec) return 'echec';
+  return aDesLignes ? 'garnie' : 'vide';
+}

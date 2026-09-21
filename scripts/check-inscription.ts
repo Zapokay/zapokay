@@ -42,7 +42,7 @@ import StepOfficers, { DIRIGEANT_VIDE, nomDirigeant, type OnboardingOfficers, ty
 import { declarationDesExercices } from '@/lib/active-years';
 import * as ts from 'typescript';
 import { readFileSync } from 'fs';
-import { aEchoue } from '../lib/requetes-groupees';
+import { aEchoue, etatDeSection } from '../lib/requetes-groupees';
 import { SectionEnEchec } from '../components/ui/SectionEnEchec';
 import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
@@ -853,17 +853,75 @@ function lotK2() {
 
   dire(/classesEnEchec \? \(\s*<SectionEnEchec/.test(src),
     'la section des classes bascule sur l’avis quand elle échoue');
-  // ⛔ ET RIEN D'AUTRE N'EST CONDITIONNÉ PAR CET ÉCHEC. Une seule occurrence en
-  //    garde JSX : si une seconde apparaissait, une autre section disparaîtrait
-  //    avec celle-ci — exactement ce que la décision de Dom interdit.
-  dire((src.match(/\{classesEnEchec \?/g) ?? []).length === 1,
-    '⛔ et RIEN d’autre ne disparaît avec elle — une seule garde');
+  /* ⛔ ET RIEN D'AUTRE N'EST CONDITIONNÉ PAR CET ÉCHEC — le COMPTE de gardes
+     est la sentinelle. ⚠️ Il valait 1 au lot K-2 et vaut 2 depuis K-2d, et ce
+     n'est PAS un relâchement : la seconde garde est le bloc « Classes d'actions
+     disponibles » de l'état vide, qui était MUET quand la requête tombait. Deux
+     surfaces montrent les classes, donc deux gardes.
+     ★ L'assertion a ÉCHOUÉ quand K-2d a ajouté la seconde, et c'est ce qu'on lui
+     demande : forcer une relecture plutôt que laisser une garde apparaître sans
+     que personne ne la remarque. Une TROISIÈME devra se justifier de même. */
+  dire((src.match(/\{classesEnEchec \?/g) ?? []).length === 2,
+    '⛔ exactement DEUX gardes de classes — les deux surfaces qui les montrent');
   dire(/<CapTableChart/.test(src) && !/classesEnEchec[^\n]*CapTableChart/.test(src),
     'le graphique n’est pas conditionné par cet échec');
   dire(/shareholderGroups\.map/.test(src) && !/classesEnEchec[^\n]*shareholderGroups/.test(src),
     'la liste des actionnaires non plus');
   dire(/section=\{t\('sectionShareClasses'\)\}/.test(src) && /\{t\('sectionShareClasses'\)\}/.test(src),
     'le titre et l’avis lisent la MÊME clé de catalogue');
+}
+
+function lotK2d() {
+  console.log('\n   ⛔ LOT K-2d — « AUCUN ACTIONNAIRE » ET « JE N’AI PAS PU REGARDER »');
+
+  /* ① LES TROIS CAS, ET LES QUATRE COMBINAISONS QUI LES PRODUISENT.
+     ★★ LES DEUX DU MILIEU SONT LE LOT : même absence de lignes, deux écrans
+     différents, parce que la RAISON de l'absence n'est pas la même. */
+  dire(etatDeSection(false, true) === 'garnie', 'réussie avec des lignes → la liste');
+  dire(etatDeSection(false, false) === 'vide', '⭐ réussie SANS ligne → « aucun actionnaire »');
+  dire(etatDeSection(true, false) === 'echec', '⭐ TOMBÉE sans ligne → l’avis, PAS l’état vide');
+  dire(etatDeSection(true, true) === 'echec', 'tombée prime, même si des lignes traînent');
+
+  /* ⭐ CONTRÔLE POSITIF : les deux cas sans ligne doivent DIFFÉRER. Si la
+     déclaration les confondait — ce qu'elle faisait avant ce lot —, cette
+     assertion est la seule qui le dirait. */
+  dire(etatDeSection(true, false) !== etatDeSection(false, false),
+    '⛔ et les deux absences ne rendent PAS le même écran');
+
+  const src = readFileSync(
+    join(__dirname, '..', 'app', '[locale]', 'dashboard', 'shareholders', 'ShareholdersClient.tsx'),
+    'utf8',
+  ).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  /* ② LA PAGE CONSOMME LA DÉCLARATION, elle ne refait pas le ternaire. */
+  dire(/etatDeSection\(detentionsEnEchec, hasShareholders\)/.test(src),
+    'la page DÉRIVE son état de la déclaration');
+  dire(/etatDesDetentions === 'echec' \?/.test(src) && /etatDesDetentions === 'garnie' \?/.test(src),
+    'et elle branche sur les trois cas');
+
+  /* ③ LE BLOC DES CLASSES EST UNE VARIABLE, PAS UNE COPIE — §360. Deux
+     références, une seule définition : le recopier ferait deux surfaces pour un
+     fait, et l'une finirait par diverger. */
+  dire((src.match(/const blocClasses = \(/g) ?? []).length === 1, 'le bloc des classes est DÉFINI une fois');
+  dire((src.match(/\{blocClasses\}/g) ?? []).length === 2, 'et RÉFÉRENCÉ deux fois, jamais recopié');
+
+  /* ④ ⛔ LE DOUBLON QUE K-2d A FAILLI INTRODUIRE. Quand les détentions
+     échouent, `hasShareholders` est faux : le bloc « Classes d'actions
+     disponibles » de l'état vide s'allumait EN PLUS du `blocClasses` de la
+     branche d'échec. Cette garde est la seule chose qui l'empêche. */
+  dire(/\{!detentionsEnEchec && !hasShareholders &&/.test(src),
+    '⛔ les classes ne s’affichent pas DEUX fois quand les détentions tombent');
+  dire(/\(classesEnEchec \|\| shareClasses\.length > 0\)/.test(src),
+    'et une requête de classes tombée n’est pas MUETTE dans l’état vide');
+
+  /* ⑤ LE CAS NORMAL NE BOUGE PAS D'UN PIXEL — l'ordre du balisage est le même
+     qu'avant : graphique, classes, actionnaires. */
+  const normale = src.slice(src.indexOf("etatDesDetentions === 'garnie'"));
+  const iGraphe = normale.indexOf('<CapTableChart');
+  const iClasses = normale.indexOf('{blocClasses}');
+  const iActionnaires = normale.indexOf("{t('sectionShareholders')}");
+  dire(iGraphe > -1 && iClasses > iGraphe && iActionnaires > iClasses,
+    '⛔ l’ordre du cas normal est inchangé : graphique → classes → actionnaires');
 }
 
 function lotK1() {
@@ -938,5 +996,6 @@ lotE1();
 lotD();
 lotK1();
 lotK2();
+lotK2d();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

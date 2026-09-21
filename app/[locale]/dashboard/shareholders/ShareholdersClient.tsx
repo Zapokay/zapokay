@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AttenteDePage } from '@/components/ui/AttenteDePage';
 import { createClient } from '@/lib/supabase/client';
-import { donnees, aEchoue } from '@/lib/requetes-groupees';
+import { donnees, aEchoue, etatDeSection } from '@/lib/requetes-groupees';
 import { SectionEnEchec } from '@/components/ui/SectionEnEchec';
 import { redirigeVersConnexion } from '@/lib/session-perdue';
 import { useTranslations } from 'next-intl';
@@ -95,6 +95,10 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
   /** ⛔ LOT K-2 — vrai seulement si la requête des classes a ÉCHOUÉ, jamais si
    *  elle est revenue vide. Voir `aEchoue()` dans `lib/requetes-groupees.ts`. */
   const [classesEnEchec, setClassesEnEchec] = useState(false);
+  /** ⛔ LOT K-2d — idem pour les détentions, et c'est ICI que la distinction
+   *  compte le plus : sans elle, une requête TOMBÉE se lisait « aucun
+   *  actionnaire ». Voir la garde de rendu plus bas. */
+  const [detentionsEnEchec, setDetentionsEnEchec] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -246,6 +250,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
        distingue une requête TOMBÉE d'une section VIDE — `data: []` sans erreur
        n'est pas une panne, et le dire serait un mensonge dans l'autre sens. */
     setClassesEnEchec(aEchoue(classesRes));
+    setDetentionsEnEchec(aEchoue(shRes));
 
     const classesRaw = donnees(classesRes);
     const shRaw = donnees(shRes);
@@ -364,6 +369,59 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
   const hasShareholders = currentShareholdings.length > 0;
 
+  /** ⛔ LOT K-2d — LES TROIS CAS, NOMMÉS UNE FOIS. `lib/requetes-groupees.ts`
+   *  porte la déclaration et sa raison : 'echec' et 'vide' rendaient le même
+   *  écran, et c'était un mensonge. */
+  const etatDesDetentions = etatDeSection(detentionsEnEchec, hasShareholders);
+
+  /**
+   * ⛔ LOT K-2d — LE BLOC DES CLASSES SORT DU TERNAIRE, SANS BOUGER D'UN PIXEL.
+   *
+   * ★★ POURQUOI IL FALLAIT LE SORTIR : il vivait DANS la branche
+   * `hasShareholders ? … : …`. Or `hasShareholders` est faux quand la requête
+   * des détentions a ÉCHOUÉ — donc l'échec d'UNE section emportait l'AUTRE,
+   * exactement ce que la décision de Dom interdit.
+   *
+   * ⛔ ET C'EST UNE VARIABLE, PAS UNE COPIE. Le même JSX est référencé par les
+   * deux branches ; le recopier ferait deux surfaces pour un seul fait (§360),
+   * et l'une des deux finirait par diverger.
+   *
+   * ⚪ LE CAS NORMAL NE BOUGE PAS : même balisage, même ordre — graphique,
+   * classes, actionnaires. C'est un déplacement de déclaration, pas de mise en
+   * page.
+   */
+  const blocClasses = (
+    <div>
+      <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
+        {t('sectionShareClasses')}
+      </h3>
+      {/* ⛔ L'AVIS REMPLACE LA LISTE, PAS LA PAGE. Le titre reste.
+          ⚪ Le nom passé à l'avis est la MÊME clé que le titre ci-dessus : le
+          titre et l'avis ne peuvent pas diverger. */}
+      {classesEnEchec ? (
+        <SectionEnEchec section={t('sectionShareClasses')} onRetry={fetchData} />
+      ) : (
+        <div className="space-y-2">
+          {shareClasses.map((sc) => (
+            <ShareClassCard
+              key={sc.id}
+              shareClass={sc}
+              onEdit={(sc) => { setEditingShareClass(sc); setShowShareClassModal(true); }}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => { setEditingShareClass(null); setShowShareClassModal(true); }}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-[var(--card-border)] px-4 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--amber-400)] hover:bg-[rgba(245,185,30,0.06)] hover:text-[var(--text-body)]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {locale === 'fr' ? 'Ajouter une classe' : 'Add a class'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Page heading */}
@@ -410,47 +468,32 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
         </button>
       </div>
 
-      {hasShareholders ? (
+      {/* ⛔ LOT K-2d — TROIS CAS, ET L'ORDRE DES DEUX PREMIERS EST LE LOT.
+          ① la requête a ÉCHOUÉ  → l'avis, et les classes restent à côté ;
+          ② elle a réussi, pleine → l'écran normal, inchangé ;
+          ③ elle a réussi, VIDE   → l'état vide, « aucun actionnaire », inchangé.
+          ★★ ② et ③ existaient déjà. ① était confondu avec ③ : une requête
+          tombée rendait `[]`, donc `hasShareholders` était faux, donc la page
+          disait « aucun actionnaire » à quelqu'un qui en a peut-être cent.
+          C'était un mensonge, et c'est lui qu'on retire. */}
+      {etatDesDetentions === 'echec' ? (
+        <>
+          <SectionEnEchec section={t('sectionShareholders')} onRetry={fetchData} />
+          {/* ⛔ ET LES CLASSES RESTENT. C'est toute la décision de Dom : une
+              section qui échoue n'est pas une page qui échoue. ⚪ Le graphique,
+              lui, ne s'affiche pas — il se CALCULE sur les détentions qu'on n'a
+              pas ; le rendre vide serait inventer un zéro. */}
+          {blocClasses}
+        </>
+      ) : etatDesDetentions === 'garnie' ? (
         <>
           <CapTableChart key={`${totalIssued}-${currentShareholdings.length}`} shareholdings={currentShareholdings} totalIssued={totalIssued} />
 
-          <div>
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
-              {t('sectionShareClasses')}
-            </h3>
-            {/* ⛔ LOT K-2 — L'AVIS REMPLACE LA LISTE, PAS LA PAGE.
-                Le titre reste, et TOUT LE RESTE de l'écran — le graphique, les
-                actionnaires, les anciennes détentions — s'affiche normalement.
-                C'est la décision de Dom, littéralement : une section qui échoue
-                n'est pas une page qui échoue.
-                ⚪ Le nom passé à l'avis est la MÊME clé que le titre ci-dessus :
-                le titre et l'avis ne peuvent pas diverger. */}
-            {classesEnEchec ? (
-              <SectionEnEchec section={t('sectionShareClasses')} onRetry={fetchData} />
-            ) : (
-            <div className="space-y-2">
-              {shareClasses.map((sc) => (
-                <ShareClassCard
-                  key={sc.id}
-                  shareClass={sc}
-                  onEdit={(sc) => { setEditingShareClass(sc); setShowShareClassModal(true); }}
-                />
-              ))}
-              <button
-                type="button"
-                onClick={() => { setEditingShareClass(null); setShowShareClassModal(true); }}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-[var(--card-border)] px-4 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--amber-400)] hover:bg-[rgba(245,185,30,0.06)] hover:text-[var(--text-body)]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {locale === 'fr' ? 'Ajouter une classe' : 'Add a class'}
-              </button>
-            </div>
-            )}
-          </div>
+          {blocClasses}
 
           <div>
             <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
-              {locale === 'fr' ? 'Actionnaires' : 'Shareholders'}
+              {t('sectionShareholders')}
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
               {shareholderGroups.map((group) => (
@@ -634,20 +677,32 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
         </section>
       )}
 
-      {!hasShareholders && shareClasses.length > 0 && (
+      {/* ⛔⛔ `!detentionsEnEchec` EST LOAD-BEARING, ET LE DÉFAUT QU'IL ÉVITE A
+          ÉTÉ TROUVÉ EN ÉCRIVANT K-2d. Quand les détentions échouent,
+          `hasShareholders` est faux — donc CE bloc s'allumait EN PLUS du
+          `blocClasses` de la branche d'échec, et les classes s'affichaient DEUX
+          FOIS. Une assertion de `check:inscription` garde ce compte.
+          ⚪ La seconde condition accepte désormais `classesEnEchec` : sans elle,
+          une requête de classes tombée dans l'état vide ne montrait RIEN —
+          silencieuse, ni liste ni avis. */}
+      {!detentionsEnEchec && !hasShareholders && (classesEnEchec || shareClasses.length > 0) && (
         <div className="mt-4">
           <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
             {locale === 'fr' ? "Classes d'actions disponibles" : 'Available Share Classes'}
           </h3>
-          <div className="space-y-2">
-            {shareClasses.map((sc) => (
-              <ShareClassCard
-                key={sc.id}
-                shareClass={sc}
-                onEdit={(sc) => { setEditingShareClass(sc); setShowShareClassModal(true); }}
-              />
-            ))}
-          </div>
+          {classesEnEchec ? (
+            <SectionEnEchec section={t('sectionShareClasses')} onRetry={fetchData} />
+          ) : (
+            <div className="space-y-2">
+              {shareClasses.map((sc) => (
+                <ShareClassCard
+                  key={sc.id}
+                  shareClass={sc}
+                  onEdit={(sc) => { setEditingShareClass(sc); setShowShareClassModal(true); }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
