@@ -924,6 +924,44 @@ function lotK2d() {
     '⛔ l’ordre du cas normal est inchangé : graphique → classes → actionnaires');
 }
 
+function lotK3Dirigeants() {
+  console.log('\n   ⛔ LOT K-3 · DIRIGEANTS — UNE SEULE SECTION, ET ELLE CESSE DE MENTIR');
+
+  const src = readFileSync(
+    join(__dirname, '..', 'app', '[locale]', 'dashboard', 'officers', 'OfficersClient.tsx'),
+    'utf8',
+  ).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  /* ① J-2 — LES TROIS REQUÊTES PARTENT ENSEMBLE, ET EN `allSettled`. */
+  dire(/await Promise\.allSettled\(\[/.test(src), 'les trois requêtes partent ENSEMBLE');
+  dire(!/await Promise\.all\(\[/.test(src), '⛔ et en `allSettled`, jamais `all` — une seule ne doit pas tout emporter');
+  dire((src.match(/const \{ data: [a-zA-Z]+ \} = await supabase/g) ?? []).length === 1,
+    'il ne reste QU’UNE lecture en file : la société, dont `cid` dépend');
+
+  /* ② LE CÂBLAGE PASSE PAR LA DÉCLARATION, il n'est pas recopié. */
+  dire(/etatDeSection\(dirigeantsEnEchec, sortedOfficers\.length > 0\)/.test(src),
+    'la page DÉRIVE son état de la déclaration partagée');
+  dire(/etatDesDirigeants === 'echec' \?/.test(src) && /etatDesDirigeants === 'garnie' \?/.test(src),
+    'et elle branche sur les trois cas');
+  dire(/setDirigeantsEnEchec\(aEchoue\(officersRes\)\)/.test(src),
+    'et l’échec vient de `aEchoue`, pas d’une liste vide');
+
+  /* ③ ⛔ K-3d — LE PIÈGE CHERCHÉ, PAS ATTENDU. Un bloc gardé par une NÉGATION
+     s'allumerait quand la requête tombe, donc EN PLUS de la branche d'échec.
+     ★ Sur Actionnaires je l'avais trouvé par accident ; ici je le cherche, et
+     il n'y en a pas : les trois gardes de cette page lisent `.length > 0`,
+     donc elles s'ÉTEIGNENT quand la requête tombe au lieu de s'allumer. */
+  dire(!/\{\s*!\s*[a-zA-Z]+\s*&&/.test(src),
+    '⛔ aucun bloc gardé par une négation — pas de doublon possible ici');
+  dire((src.match(/\.length > 0 &&/g) ?? []).length === 2,
+    'les deux blocs annexes lisent `.length > 0` — ils s’éteignent, ils ne doublent pas');
+
+  /* ④ LE NOM DE LA SECTION VIENT DU CATALOGUE, et c'est celui que la page
+     emploie déjà pour se nommer — pas une seconde clé pour le même mot. */
+  dire(/<SectionEnEchec section=\{t\('title'\)\}/.test(src),
+    'l’avis lit la clé dont la page se sert DÉJÀ pour se nommer');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -997,5 +1035,6 @@ lotD();
 lotK1();
 lotK2();
 lotK2d();
+lotK3Dirigeants();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

@@ -17,6 +17,8 @@ import { residencyApplies } from '@/lib/residency';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { formatDate } from '@/lib/utils';
 import { redirigeVersConnexion } from '@/lib/session-perdue';
+import { donnees, aEchoue, etatDeSection } from '@/lib/requetes-groupees';
+import { SectionEnEchec } from '@/components/ui/SectionEnEchec';
 import type {
   CompanyPerson,
   OfficerAppointment,
@@ -54,6 +56,10 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
   const [endedAppointments, setEndedAppointments] = useState<OfficerWithPerson[]>([]);
   const [directorMandates, setDirectorMandates] = useState<DirectorMandate[]>([]);
   const [shareholdings, setShareholdings] = useState<(Shareholding & { share_class: ShareClass; holders: ShareholdingHolder[] })[]>([]);
+  /** ⛔ LOT K-3 — vrai seulement si la requête des nominations a ÉCHOUÉ, jamais
+   *  si elle est revenue vide. Voir `aEchoue()` dans
+   *  `lib/requetes-groupees.ts`. */
+  const [dirigeantsEnEchec, setDirigeantsEnEchec] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -101,32 +107,71 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
     setJurisdiction(company.incorporation_type);
     const cid = company.id;
 
-    // Phase 1B-view: fetch ALL appointments (active + ended). Active rows remain
-    // the default display list (`officers`); ended rows feed the per-card
-    // history disclosure via `endedAppointments` filtered by person_id.
-    // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted rows from both partitions
-    // (audit §8d row 2 — leak filter into former section).
-    const { data: officersRaw } = await supabase
-      .from('officer_appointments').select('*, person:company_people(*)')
-      .eq('company_id', cid).is('deleted_at', null)
-      .order('appointment_date', { ascending: true });
+    /**
+     * ★★ TROIS REQUÊTES QUI NE DÉPENDENT QUE DE `cid` PARTENT ENSEMBLE — J-2,
+     *   ressuscité au lot K-3.
+     *
+     * ⛔ ET J-2 NE REVIENT PAS POUR LA VITESSE. Il avait été suspendu au lot J
+     *   parce que le gain ne la valait pas — trois allers-retours au lieu d'un,
+     *   sur des données minuscules. Il revient parce que `allSettled` rend
+     *   `{ status, value, reason }` PAR REQUÊTE, et que c'est LA FORME qu'un
+     *   état d'erreur par section exige. Le regroupement cesse d'être une
+     *   optimisation ; il devient le prérequis de ㊴.
+     *
+     * ⛔ LE GRAPHE, REVÉRIFIÉ AU LOT K-3 et non repris du lot J-1 — quatre lots
+     *   ont touché ce fichier depuis. Les trois ne lisent que `cid` :
+     *     `officer_appointments` .eq('company_id', cid)
+     *     `director_mandates`    .eq('company_id', cid)
+     *     `shareholdings`        .eq('company_id', cid)
+     *   Aucune ne lit le résultat d'une autre.
+     *
+     * ⛔⛔ `allSettled` ET NON `all`, ET C'EST LE MÊME CONTRAT QU'AU LOT J :
+     *   chacune pouvait échouer SEULE avant le regroupement — son erreur
+     *   n'était jamais lue, le `|| []` rendait une liste vide, et le reste de
+     *   la page s'affichait. `Promise.all` ferait tomber les trois pour une.
+     *
+     * ⚠️ UNE SEULE CHOSE CHANGE VRAIMENT, comme au lot J : avant, un REJET —
+     *   panne réseau, pas erreur Postgres — sortait de `fetchData` et laissait
+     *   la page en chargement pour toujours, `setLoading(false)` n'étant jamais
+     *   atteint. Désormais elle se rend.
+     */
+    const [officersRes, mandatesRes, sharesRes] = await Promise.allSettled([
+      // Phase 1B-view: fetch ALL appointments (active + ended). Active rows remain
+      // the default display list (`officers`); ended rows feed the per-card
+      // history disclosure via `endedAppointments` filtered by person_id.
+      // Phase 1B-CAPTURE Bundle 2: exclude soft-deleted rows from both partitions
+      // (audit §8d row 2 — leak filter into former section).
+      supabase
+        .from('officer_appointments').select('*, person:company_people(*)')
+        .eq('company_id', cid).is('deleted_at', null)
+        .order('appointment_date', { ascending: true }),
+      supabase
+        .from('director_mandates').select('*').eq('company_id', cid).eq('is_active', true),
+      // Atom 2: embed shareholding_holders so getShareholdingsForPerson can
+      // join through the polymorphic holder table. Minimal embed (no person /
+      // entity hydration) — only holder_type + person_id are consumed here.
+      supabase
+        .from('shareholdings')
+        .select('*, share_class:share_classes(*), holders:shareholding_holders(*)')
+        .eq('company_id', cid).is('end_date', null),
+    ]);
+
+    /* ⛔ L'ÉCHEC EST RETENU. `aEchoue()` lit le MÊME résultat que `donnees()`
+       juste après : l'un en tire la donnée, l'autre le fait qu'il n'y en a pas
+       eu. ⚠️ Et il distingue une requête TOMBÉE d'une section VIDE. */
+    setDirigeantsEnEchec(aEchoue(officersRes));
+
+    const officersRaw = donnees(officersRes);
+    const mandatesRaw = donnees(mandatesRes);
+    const sharesRaw = donnees(sharesRes);
 
     const activeRows = (officersRaw || []).filter((row: any) => row.is_active);
     const endedRows = (officersRaw || []).filter((row: any) => !row.is_active);
     setOfficers(activeRows.map((row: any) => ({ ...row, person: row.person as CompanyPerson })));
     setEndedAppointments(endedRows.map((row: any) => ({ ...row, person: row.person as CompanyPerson })));
 
-    const { data: mandatesRaw } = await supabase
-      .from('director_mandates').select('*').eq('company_id', cid).eq('is_active', true);
     setDirectorMandates((mandatesRaw as DirectorMandate[]) || []);
 
-    // Atom 2: embed shareholding_holders so getShareholdingsForPerson can
-    // join through the polymorphic holder table. Minimal embed (no person /
-    // entity hydration) — only holder_type + person_id are consumed here.
-    const { data: sharesRaw } = await supabase
-      .from('shareholdings')
-      .select('*, share_class:share_classes(*), holders:shareholding_holders(*)')
-      .eq('company_id', cid).is('end_date', null);
     setShareholdings((sharesRaw || []).map((row: any) => ({
       ...row,
       share_class: row.share_class as ShareClass,
@@ -188,6 +233,10 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
         return acc;
       }, {} as Record<string, { person_id: string; person: CompanyPerson; appointments: OfficerAppointment[] }>)
   );
+
+  /** ⛔ LOT K-3 — LES TROIS CAS, NOMMÉS UNE FOIS. `lib/requetes-groupees.ts`
+   *  porte la déclaration et sa raison ; on ne la recopie pas ici. */
+  const etatDesDirigeants = etatDeSection(dirigeantsEnEchec, sortedOfficers.length > 0);
 
   function getDirectorMandatesForPerson(personId: string) { return directorMandates.filter((dm) => dm.person_id === personId); }
   function getEndedAppointmentsForPerson(personId: string) { return endedAppointments.filter((ea) => ea.person_id === personId); }
@@ -269,7 +318,17 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
         </p>
       )}
 
-      {sortedOfficers.length > 0 ? (
+      {/* ⛔ LOT K-3 — TROIS CAS, ET DEUX ÉTAIENT CONFONDUS.
+          Une requête TOMBÉE rendait `[]`, donc `sortedOfficers.length > 0`
+          était faux, donc la page affichait son état vide : « aucun
+          dirigeant ». À une société qui en a peut-être quatre. C'est ce
+          mensonge qu'on retire, et rien d'autre : le cas plein et le cas
+          réellement vide sont inchangés.
+          ⚪ `officers.title` est la clé que la page emploie déjà pour se
+          nommer ; l'avis lit la MÊME, il n'en invente pas une seconde. */}
+      {etatDesDirigeants === 'echec' ? (
+        <SectionEnEchec section={t('title')} onRetry={fetchData} />
+      ) : etatDesDirigeants === 'garnie' ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {sortedOfficers.map((officer) => (
             <OfficerCard
