@@ -16,7 +16,8 @@
     "check:significant-control": "tsx scripts/check-significant-control.ts",
     "check:inscription": "tsx scripts/check-inscription.ts",
     "porte:identite": "sh scripts/porte-identite.sh",
-    "export:registry": "tsx scripts/export-registry.ts"
+    "export:registry": "tsx scripts/export-registry.ts",
+    "porte:message": "node scripts/porte-message.mjs"
   },
   "dependencies": {
     "@sparticuz/chromium": "^147.0.0",
