@@ -42,6 +42,8 @@ import StepOfficers, { DIRIGEANT_VIDE, nomDirigeant, type OnboardingOfficers, ty
 import { declarationDesExercices } from '@/lib/active-years';
 import * as ts from 'typescript';
 import { readFileSync } from 'fs';
+import { aEchoue } from '../lib/requetes-groupees';
+import { SectionEnEchec } from '../components/ui/SectionEnEchec';
 import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
 
@@ -799,6 +801,71 @@ function lotD(): void {
   dire(!avecAncienne.suivis.includes(2020), '⭐ et 2020 ne revient PAS (extension vers l’avant)');
 }
 
+function lotK2() {
+  console.log('\n   ⛔ LOT K-2 — UNE SECTION QUI ÉCHOUE N’EST PAS UNE PAGE QUI ÉCHOUE');
+
+  /* ① LE LECTEUR D'ÉCHEC — les quatre formes qu'un résultat peut prendre.
+     ★★ LA TROISIÈME EST LA SEULE QUI COMPTE VRAIMENT : une section VIDE n'est
+     pas une section TOMBÉE. Si `aEchoue` la disait tombée, chaque société sans
+     classe d'actions verrait « je n'ai pas pu charger » sur une page
+     parfaitement chargée — un mensonge dans l'autre sens, et l'avis ne vaudrait
+     plus rien. */
+  dire(aEchoue({ status: 'rejected', reason: new Error('réseau') } as never),
+    'une promesse REJETÉE est un échec');
+  dire(aEchoue({ status: 'fulfilled', value: { data: null, error: { message: 'RLS' } } } as never),
+    'une réponse TENUE qui porte `error` est un échec (supabase ne lève pas)');
+  dire(!aEchoue({ status: 'fulfilled', value: { data: [] } } as never),
+    '⭐ une section VIDE n’est PAS un échec');
+  dire(!aEchoue({ status: 'fulfilled', value: { data: [{ id: 'x' }] } } as never),
+    'une réponse pleine n’est pas un échec');
+
+  /* ② CE QUE L'AVIS DIT À L'ÉCRAN. Rendu pour de vrai, avec le catalogue. */
+  const avis = rendre(SectionEnEchec, { section: 'Classes d’actions', onRetry: () => {} });
+  dire(dit(avis, 'Classes d’actions'), 'l’avis NOMME la section touchée');
+  dire(dit(avis, 'n’a pas pu être chargée'), 'et il dit qu’il n’a pas pu charger');
+  dire(/role="alert"/.test(avis), 'il est annoncé aux lecteurs d’écran (`role="alert"`)');
+  /* ⛔ §366 — RENDU N'EST PAS ATTEIGNABLE, et cette assertion a d'abord été
+     TROP FAIBLE : une mutation qui ajoutait `hidden` au bouton ne faisait rien
+     tomber. On lit donc la balise elle-même, pas seulement sa présence. */
+  const bouton = avis.match(/<button[^>]*>/)?.[0] ?? '';
+  dire(
+    bouton !== '' && !/\shidden/.test(bouton) && !/\sdisabled/.test(bouton) && dit(avis, 'Réessayer'),
+    'et il offre une REPRISE ATTEIGNABLE, pas une consigne',
+  );
+  // ⛔ ③ LE COMPTE D'ASTÉRISQUES NE BOUGE PAS : un échec de chargement n'est pas
+  //    une exigence de saisie, et l'astérisque appartient aux champs requis.
+  dire(asterisques(avis) === 0, '⛔ et il n’introduit AUCUN astérisque');
+
+  /* ⭐ CONTRÔLE POSITIF : la sonde sait dire NON. Le même rendu avec un autre
+     nom de section ne doit PAS satisfaire l'assertion du nom. */
+  const autre = rendre(SectionEnEchec, { section: 'Actionnaires', onRetry: () => {} });
+  dire(!dit(autre, 'Classes d’actions'), '⭐ et un autre nom de section n’est PAS accepté');
+
+  /* ③ LES AUTRES SECTIONS S'AFFICHENT — lu à la source, commentaires ÔTÉS.
+     ⛔ C'EST LA LEÇON DU LOT K-1 : ma sonde de `/login` lisait le fichier brut,
+     si bien qu'une NOTE parlant de redirection aurait satisfait — ou fait
+     tomber — une assertion. Une garde qu'un commentaire décide n'est pas une
+     garde. */
+  const src = readFileSync(
+    join(__dirname, '..', 'app', '[locale]', 'dashboard', 'shareholders', 'ShareholdersClient.tsx'),
+    'utf8',
+  ).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  dire(/classesEnEchec \? \(\s*<SectionEnEchec/.test(src),
+    'la section des classes bascule sur l’avis quand elle échoue');
+  // ⛔ ET RIEN D'AUTRE N'EST CONDITIONNÉ PAR CET ÉCHEC. Une seule occurrence en
+  //    garde JSX : si une seconde apparaissait, une autre section disparaîtrait
+  //    avec celle-ci — exactement ce que la décision de Dom interdit.
+  dire((src.match(/\{classesEnEchec \?/g) ?? []).length === 1,
+    '⛔ et RIEN d’autre ne disparaît avec elle — une seule garde');
+  dire(/<CapTableChart/.test(src) && !/classesEnEchec[^\n]*CapTableChart/.test(src),
+    'le graphique n’est pas conditionné par cet échec');
+  dire(/shareholderGroups\.map/.test(src) && !/classesEnEchec[^\n]*shareholderGroups/.test(src),
+    'la liste des actionnaires non plus');
+  dire(/section=\{t\('sectionShareClasses'\)\}/.test(src) && /\{t\('sectionShareClasses'\)\}/.test(src),
+    'le titre et l’avis lisent la MÊME clé de catalogue');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -870,5 +937,6 @@ lotC3();
 lotE1();
 lotD();
 lotK1();
+lotK2();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

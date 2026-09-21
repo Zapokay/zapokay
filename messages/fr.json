@@ -50,7 +50,9 @@
         "incorporation_date": "date de constitution"
       }
     },
-    "corporationNumberLabel": "Numéro de société fédéral"
+    "corporationNumberLabel": "Numéro de société fédéral",
+    "sectionUnavailable": "La section « {section} » n’a pas pu être chargée.",
+    "retry": "Réessayer"
   },
   "auth": {
     "login": {
@@ -701,7 +703,9 @@
       "address_country": "le pays"
     },
     "discardedLines": "Le nombre d'actions doit être d'au moins 1 : {lignes}.",
-    "lineLabel": "actionnaire {index}"
+    "lineLabel": "actionnaire {index}",
+    "sectionShareClasses": "Classes d’actions",
+    "sectionShareholders": "Actionnaires"
   },
   "nav": {
     "group": {

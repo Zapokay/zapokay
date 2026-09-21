@@ -50,7 +50,9 @@
         "incorporation_date": "incorporation date"
       }
     },
-    "corporationNumberLabel": "Federal corporation number"
+    "corporationNumberLabel": "Federal corporation number",
+    "sectionUnavailable": "The “{section}” section could not be loaded.",
+    "retry": "Retry"
   },
   "auth": {
     "login": {
@@ -701,7 +703,9 @@
       "address_country": "the country"
     },
     "discardedLines": "The number of shares must be at least 1: {lignes}.",
-    "lineLabel": "shareholder {index}"
+    "lineLabel": "shareholder {index}",
+    "sectionShareClasses": "Share Classes",
+    "sectionShareholders": "Shareholders"
   },
   "nav": {
     "group": {

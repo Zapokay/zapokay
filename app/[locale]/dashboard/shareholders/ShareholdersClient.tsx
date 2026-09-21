@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AttenteDePage } from '@/components/ui/AttenteDePage';
 import { createClient } from '@/lib/supabase/client';
-import { donnees } from '@/lib/requetes-groupees';
+import { donnees, aEchoue } from '@/lib/requetes-groupees';
+import { SectionEnEchec } from '@/components/ui/SectionEnEchec';
 import { redirigeVersConnexion } from '@/lib/session-perdue';
 import { useTranslations } from 'next-intl';
 import { Zap, PieChart, Info, Plus} from 'lucide-react';
@@ -91,6 +92,9 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
   // has been generated for a given act.
   const [actsMap, setActsMap] = useState<Map<string, { satisfied: boolean; documentId: string | null; documentSource: 'uploaded' | 'generated' | null; documentIsFinalized: boolean | null }>>(new Map());
   const [showTooltip, setShowTooltip] = useState(false);
+  /** ⛔ LOT K-2 — vrai seulement si la requête des classes a ÉCHOUÉ, jamais si
+   *  elle est revenue vide. Voir `aEchoue()` dans `lib/requetes-groupees.ts`. */
+  const [classesEnEchec, setClassesEnEchec] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -235,6 +239,13 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
         .select('id, from_shareholding_id, transfer_date, to_sh:shareholdings!to_shareholding_id(holders:shareholding_holders(holder_type, person:company_people(full_name), entity:shareholder_entities(legal_name)))')
         .eq('company_id', cid),
     ]);
+
+    /* ⛔ LOT K-2 — L'ÉCHEC EST RETENU, IL N'EST PLUS JETÉ.
+       `aEchoue()` lit le MÊME résultat que `donnees()` juste en dessous : l'un
+       en tire la donnée, l'autre le fait qu'il n'y en a pas eu. ⚠️ Et il
+       distingue une requête TOMBÉE d'une section VIDE — `data: []` sans erreur
+       n'est pas une panne, et le dire serait un mensonge dans l'autre sens. */
+    setClassesEnEchec(aEchoue(classesRes));
 
     const classesRaw = donnees(classesRes);
     const shRaw = donnees(shRes);
@@ -405,8 +416,18 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
 
           <div>
             <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
-              {locale === 'fr' ? "Classes d'actions" : 'Share Classes'}
+              {t('sectionShareClasses')}
             </h3>
+            {/* ⛔ LOT K-2 — L'AVIS REMPLACE LA LISTE, PAS LA PAGE.
+                Le titre reste, et TOUT LE RESTE de l'écran — le graphique, les
+                actionnaires, les anciennes détentions — s'affiche normalement.
+                C'est la décision de Dom, littéralement : une section qui échoue
+                n'est pas une page qui échoue.
+                ⚪ Le nom passé à l'avis est la MÊME clé que le titre ci-dessus :
+                le titre et l'avis ne peuvent pas diverger. */}
+            {classesEnEchec ? (
+              <SectionEnEchec section={t('sectionShareClasses')} onRetry={fetchData} />
+            ) : (
             <div className="space-y-2">
               {shareClasses.map((sc) => (
                 <ShareClassCard
@@ -424,6 +445,7 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                 {locale === 'fr' ? 'Ajouter une classe' : 'Add a class'}
               </button>
             </div>
+            )}
           </div>
 
           <div>
