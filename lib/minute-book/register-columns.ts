@@ -132,6 +132,22 @@ export interface ColonneRegistre {
    */
   cleSecondaire?: string;
   /**
+   * ★ LA TROISIÈME LIGNE — ajoutée au lot AA pour le registre des valeurs
+   * mobilières, qui porte désormais TROIS faits datés sur une détention :
+   * l'émission du titre, son acquisition par transfert, et la fin de la
+   * détention. Les trois peuvent coexister sur une même ligne, et une
+   * détention re-transférée en est la preuve — il y en a une au parc.
+   *
+   * ⛔ ABSENTE = RIEN, exactement comme `cleSecondaire`. Les trois registres
+   * qui n'en déclarent pas sortent identiques à l'octet : les deux rendus
+   * sautent une valeur vide sans `<br>` ni espace réservé.
+   *
+   * ⚪ ET L'ORDRE EST CELUI DE LA VIE DU TITRE : émis, acquis, terminé. Ce
+   * n'est pas cosmétique — inverser l'acquisition et la fin ferait lire une
+   * cessation avant l'entrée qui la précède.
+   */
+  cleTertiaire?: string;
+  /**
    * Le traitement de coupure de la CELLULE. Absent = défaut du navigateur,
    * c'est-à-dire renvoi sur les espaces.
    *
@@ -243,7 +259,29 @@ export const COLONNES_ACTIONNAIRES: readonly ColonneRegistre[] = [
    * ⚠️ `insecable` TIENT SUR LES DEUX LIGNES : le traitement va sur la CELLULE,
    * donc la date de fin ne se coupe pas plus que la date d'émission.
    */
-  { key: 'issue_date', cleSecondaire: 'fin', cleEtiquette: 'issueDate', traitement: 'insecable' },
+  /**
+   * ★ TROIS FAITS DATÉS, ET CHACUN N'APPARAÎT QUE S'IL EXISTE — arbitrage de
+   * Max, 2026-09-21, lot AA.
+   *
+   *   ligne 1  `issue_date`      l'émission du titre — toujours présente, et
+   *                              nommée par l'en-tête de la colonne ;
+   *   ligne 2  `acquisition`     « Acquis par transfert le … » — seulement
+   *                              pour les détentions nées d'un transfert ;
+   *   ligne 3  `fin`             « Motif · date » — seulement si terminée.
+   *
+   * ⛔ CHAQUE LIGNE AJOUTÉE PORTE SES MOTS. « 2024-03-15 · 2026-05-29 » sans
+   * étiquette serait PIRE que le défaut qu'on répare : deux dates nues dont
+   * le lecteur doit deviner la nature.
+   *
+   * ⚠️ `insecable` TIENT SUR LES TROIS : le traitement va sur la CELLULE.
+   */
+  {
+    key: 'issue_date',
+    cleSecondaire: 'acquisition',
+    cleTertiaire: 'fin',
+    cleEtiquette: 'issueDate',
+    traitement: 'insecable',
+  },
 ];
 
 export const COLONNES_CAPITAL: readonly ColonneRegistre[] = [
@@ -266,12 +304,14 @@ export function resoudre(
   key: string;
   label: string;
   cleSecondaire?: string;
+  cleTertiaire?: string;
   traitement?: TraitementCellule;
 }[] {
   return colonnes.map((c) => ({
     key: pourEcran ? c.cleEcran ?? c.key : c.key,
     label: etiquette(c.cleEtiquette),
     cleSecondaire: c.cleSecondaire,
+    cleTertiaire: c.cleTertiaire,
     traitement: c.traitement,
   }));
 }

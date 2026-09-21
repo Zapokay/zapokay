@@ -39,6 +39,7 @@ export interface BinderRegistersData {
       label: string;
       /** La seconde ligne de la cellule, si la declaration en prevoit une. */
       cleSecondaire?: string;
+      cleTertiaire?: string;
       traitement?: TraitementCellule;
     }[];
     /** Valeurs DÉJÀ formatées en chaînes — dates, devises, oui/non. */
@@ -88,7 +89,12 @@ export function binderRegistersHTML(data: BinderRegistersData): string {
                 // ⛔ AUCUNE REDUCTION DE TAILLE, AUCUN GRIS. L'adresse est un
                 //    contenu exige par la loi, pas une note de bas de page.
                 const secondaire = brut ? `<br>${escapeHtml(brut)}` : '';
-                return `<td${s ? ` style="${s}"` : ''}>${principal}${secondaire}</td>`;
+                // ⛔ TERTIAIRE — meme regle que le secondaire, mot pour mot :
+                //    vide = RIEN, et la valeur passe par escapeHtml. Seul le
+                //    <br> vient de nous.
+                const brut3 = c.cleTertiaire ? row[c.cleTertiaire] ?? '' : '';
+                const tertiaire = brut3 ? `<br>${escapeHtml(brut3)}` : '';
+                return `<td${s ? ` style="${s}"` : ''}>${principal}${secondaire}${tertiaire}</td>`;
               })
               .join('')}</tr>`
         )

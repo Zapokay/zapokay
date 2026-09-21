@@ -897,7 +897,8 @@
       "holdingEnd": "{reason} · {date}",
       "holdingEndWithoutReason": "Ended",
       "formerHoldings": "Former holdings",
-      "missingConsideration": "{count, plural, =0 {No issuances missing consideration} =1 {1 issuance missing consideration} other {# issuances missing consideration}}"
+      "missingConsideration": "{count, plural, =0 {No issuances missing consideration} =1 {1 issuance missing consideration} other {# issuances missing consideration}}",
+      "holdingAcquired": "Acquired by transfer on {date}"
     },
     "bulkCatchUp": {
       "button": {

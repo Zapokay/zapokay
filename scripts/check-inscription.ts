@@ -44,6 +44,7 @@ import * as ts from 'typescript';
 import { readFileSync } from 'fs';
 import { aEchoue, etatDeSection } from '../lib/requetes-groupees';
 import { titresDeCorrectionDetention } from '../lib/journal-correction-detention';
+import { ligneDAcquisition } from '../lib/minute-book/registers';
 import { SectionEnEchec } from '../components/ui/SectionEnEchec';
 import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
@@ -1067,6 +1068,61 @@ function lotZB() {
   dire(/if \(titres\) \{/.test(src), 'et elle n’écrit RIEN quand rien n’a changé');
 }
 
+function lotAA() {
+  console.log('\n   ⛔ LOT AA — LE CESSIONNAIRE PORTE ENFIN SA PROPRE DATE');
+
+  /* ① LES 47 ÉMISSIONS DIRECTES NE GAGNENT RIEN. ⛔ C'est la moitié de la
+     preuve : une ligne ajoutée à une détention jamais transférée serait un
+     FAIT INVENTÉ au registre — pire que le défaut qu'on répare. */
+  dire(ligneDAcquisition({ transferts_entrants: [] }, 'fr') === '',
+    '⛔ aucune acquisition → AUCUNE ligne (les 47 du parc)');
+  dire(ligneDAcquisition({ transferts_entrants: null }, 'fr') === '',
+    'et une jointure absente n’en invente pas non plus');
+
+  /* ② LES 5 DÉTENTIONS TRANSFÉRÉES GAGNENT LA LEUR, dans les deux langues, et
+     ELLE PORTE SES MOTS — « 2026-05-29 » nu serait pire que rien. */
+  const fr = ligneDAcquisition({ transferts_entrants: [{ transfer_date: '2026-05-29' }] }, 'fr');
+  const en = ligneDAcquisition({ transferts_entrants: [{ transfer_date: '2026-05-29' }] }, 'en');
+  dire(fr.includes('2026-05-29') && en.includes('2026-05-29'), 'la date d’acquisition paraît');
+  dire(/transfert/i.test(fr) && /transfer/i.test(en), '⛔ et elle porte SES MOTS, pas une date nue');
+  dire(fr !== en, 'les deux langues diffèrent — rien n’est figé dans le code');
+
+  /* ③ ⛔ PLUSIEURS TRANSFERTS ENTRANTS → ON LÈVE. Le schéma le permet (aucune
+     unicité sur `to_shareholding_id`), le produit ne peut pas le produire.
+     ★ Un cas impossible doit ÉCHOUER, pas être rendu déterministe — la même
+     règle que le motif de fin inconnu et que le `single()` de company.ts. */
+  let aLeve = false;
+  try {
+    ligneDAcquisition(
+      { transferts_entrants: [{ transfer_date: '2026-05-29' }, { transfer_date: '2026-06-01' }] },
+      'fr',
+    );
+  } catch { aLeve = true; }
+  dire(aLeve, '⛔ deux transferts entrants → la lecture LÈVE, elle ne choisit pas');
+
+  /* ④ AA-8 — `issue_date` N'EST PAS TOUCHÉE. La colonne la rend toujours en
+     ligne PRINCIPALE ; l'acquisition et la fin sont des lignes AJOUTÉES. */
+  const colActionnaires = readFileSync(
+    join(__dirname, '..', 'lib', 'minute-book', 'register-columns.ts'), 'utf8',
+  );
+  dire(/key: 'issue_date',/.test(colActionnaires),
+    '⛔ `issue_date` reste la ligne PRINCIPALE — on ajoute, on ne corrige pas');
+  dire(/cleSecondaire: 'acquisition',\s*\n\s*cleTertiaire: 'fin',/.test(colActionnaires),
+    'l’acquisition précède la fin — l’ordre de la vie du titre');
+
+  /* ⑤ ⛔ LES DEUX SURFACES FOURNISSENT LA CLÉ. C'est le défaut que
+     register-columns.ts existe pour empêcher : une clé déclarée d'un côté et
+     absente de l'autre rend une CELLULE VIDE, sans erreur ni diagnostic. */
+  for (const [quoi, chemin] of [
+    ['l’écran', ['components', 'minute-book', 'BinderView.tsx']],
+    ['le PDF', ['app', 'api', 'due-diligence', 'export', 'route.ts']],
+  ] as [string, string[]][]) {
+    const src = readFileSync(join(__dirname, '..', ...chemin), 'utf8');
+    dire(/acquisition: (locale|docLanguage) === 'en' \? e\.acquisition_en : e\.acquisition_fr/.test(src),
+      `${quoi} fournit la clé \`acquisition\``);
+  }
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1143,5 +1199,6 @@ lotK2d();
 lotK3Dirigeants();
 lotK3Administrateurs();
 lotZB();
+lotAA();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

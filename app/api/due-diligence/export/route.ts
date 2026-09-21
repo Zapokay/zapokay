@@ -654,6 +654,13 @@ export async function GET(request: NextRequest) {
         share_class: e.share_class,
         quantity: String(e.quantity), certificate_number: e.certificate_number ?? '—',
         issue_date: e.issue_date,
+        // L'ACQUISITION PAR TRANSFERT, dans la langue du DOCUMENT — même
+        // règle que `fin` : le lecteur la compose dans les deux. Vide = le
+        // titre a été émis directement à ce détenteur, pas transféré.
+        // ⛔ SANS CETTE CLÉ LA LIGNE NE SORTIRAIT PAS AU PDF, et l'écran
+        //    l'aurait seul : c'est le défaut exact que register-columns.ts
+        //    existe pour empêcher, et il ne se voit à aucune porte.
+        acquisition: docLanguage === 'en' ? e.acquisition_en : e.acquisition_fr,
         // La fin, dans la langue du DOCUMENT — le lecteur la compose dans
         // les deux, comme les titres. Vide = détention en cours.
         fin: docLanguage === 'en' ? e.fin_en : e.fin_fr,

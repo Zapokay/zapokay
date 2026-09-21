@@ -155,6 +155,12 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
     entries.map((e: any) => ({
       ...e,
       certificate_number: e.certificate_number || '—',
+      // L'ACQUISITION PAR TRANSFERT, dans la langue de l'ECRAN — meme choix
+      // que `fin` juste dessous. Vide = titre emis directement, aucune
+      // seconde ligne. ⛔ La cle est fournie ICI comme au PDF : les deux
+      // surfaces lisent la meme declaration de colonnes, elles doivent donc
+      // fournir les memes cles.
+      acquisition: locale === 'en' ? e.acquisition_en : e.acquisition_fr,
       fin: locale === 'en' ? e.fin_en : e.fin_fr,
     }))
 

@@ -21,6 +21,7 @@ interface RegisterCardProps {
     label: string
     /** La seconde ligne de la cellule, si la declaration en prevoit une. */
     cleSecondaire?: string
+    cleTertiaire?: string
     traitement?: TraitementCellule
   }[]
   rows: Record<string, any>[]
@@ -86,6 +87,15 @@ export default function RegisterCard({
                         <>
                           <br />
                           {row[col.cleSecondaire]}
+                        </>
+                      ) : null}
+                      {/* ⛔ TERTIAIRE VIDE = RIEN DU TOUT, comme le secondaire :
+                          ni <br>, ni espace réservé. Les trois registres qui
+                          n'en déclarent pas rendent ce qu'ils rendaient. */}
+                      {col.cleTertiaire && row[col.cleTertiaire] ? (
+                        <>
+                          <br />
+                          {row[col.cleTertiaire]}
                         </>
                       ) : null}
                     </td>

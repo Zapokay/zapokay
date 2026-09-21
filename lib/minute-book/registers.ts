@@ -302,6 +302,24 @@ export interface ShareholderRegisterEntry {
    */
   fin_fr: string;
   fin_en: string;
+  /**
+   * L'ENTRÉE PAR TRANSFERT — « Acquis par transfert le {date} », composée ici
+   * dans les DEUX langues, comme `fin_*`. Chaîne VIDE pour une détention
+   * ÉMISE directement, c'est-à-dire pour 47 des 52 du parc.
+   *
+   * ⛔ ELLE S'AJOUTE, ELLE NE CORRIGE RIEN. `issue_date` reste la date
+   * d'ÉMISSION DU TITRE, et elle est VRAIE : le titre a bien été émis à cette
+   * date-là, chez le cédant. Le défaut n'était pas qu'elle soit fausse —
+   * c'est que la ligne du cessionnaire ne disait pas QUAND il a acquis. Un
+   * fait de plus, aucun d'effacé.
+   *
+   * ⚖️ ART. 33 PAR. 3° LSAQ : le registre porte « la date et les détails de
+   * l'émission ET DU TRANSFERT ». La date du transfert paraissait déjà côté
+   * CÉDANT (« Transfert · date ») et manquait côté ACQUÉREUR — mesuré sur le
+   * parc le 2026-09-21 : cinq détentions, écarts de 0,3 à 8,1 ans.
+   */
+  acquisition_fr: string;
+  acquisition_en: string;
 }
 
 /**
@@ -346,6 +364,38 @@ function ligneDeFin(sh: DetentionAvecDetenteurs, locale: ServerLocale): string {
   return getServerMessage('minuteBook.registers.holdingEnd', locale, { reason: motif, date: sh.end_date });
 }
 
+/**
+ * « Acquis par transfert le {date} », dans une langue. Chaîne vide quand la
+ * détention n'est pas née d'un transfert.
+ *
+ * ⛔⛔ PLUSIEURS TRANSFERTS ENTRANTS → ON LÈVE, ET C'EST ÉCRIT PLUTÔT QUE
+ *   LAISSÉ AU HASARD. Le schéma le PERMET — aucune unicité sur
+ *   `to_shareholding_id`, seulement une clé étrangère — alors que le produit
+ *   ne peut pas le produire : `transfer_shares()` crée UNE détention
+ *   destinataire par transfert. Vérifié sur le parc le 2026-09-21 : zéro
+ *   destination en porte deux.
+ *   ★ UN CAS IMPOSSIBLE DOIT ÉCHOUER, PAS ÊTRE RENDU DÉTERMINISTE. C'est la
+ *   règle déjà appliquée au motif de fin inconnu deux fonctions plus haut, à
+ *   la catégorie absente, et au `single()` de `lib/company.ts`. Prendre « le
+ *   premier » afficherait une date d'acquisition arbitraire au registre sans
+ *   que personne ne l'apprenne.
+ */
+export function ligneDAcquisition(
+  sh: Pick<DetentionAvecDetenteurs, 'transferts_entrants'>,
+  locale: ServerLocale,
+): string {
+  const transferts = sh.transferts_entrants ?? [];
+  if (transferts.length === 0) return '';
+  if (transferts.length > 1) {
+    throw new Error(
+      `readShareholderRegister: ${transferts.length} incoming transfers for one holding`,
+    );
+  }
+  return getServerMessage('minuteBook.registers.holdingAcquired', locale, {
+    date: transferts[0].transfer_date,
+  });
+}
+
 /** Les six colonnes d'adresse, telles que `*` les rend des deux tables. */
 type AdresseLue = { [K in ChampAdresse]: string | null };
 
@@ -378,6 +428,19 @@ interface DetentionAvecDetenteurs {
   end_reason: ShareholdingEndReason | null;
   share_classes?: { name: string } | null;
   shareholding_holders?: DetenteurLu[];
+  /**
+   * ⛔ LA DATE D'ACQUISITION VIENT DE `share_transfers`, JAMAIS D'UNE DÉDUCTION.
+   *
+   * Elle pourrait se déduire de la fin de la détention du CÉDANT — `end_date`
+   * y vaut `transfer_date`. ⛔ On ne le fait pas, et la raison est la
+   * PROPRIÉTÉ, pas la fragilité : `EditFormerShareholdingModal:99` dit
+   * lui-même que « end_date/end_reason are OWNED by the share_transfers
+   * record ». Lire le miroir quand la colonne propriétaire est à un saut
+   * indexé (`idx_share_transfers_to_shareholding_id`) serait choisir la
+   * mauvaise source. ⚪ Et la déduction passerait de toute façon par
+   * `share_transfers.from_shareholding_id` : deux sauts au lieu d'un.
+   */
+  transferts_entrants?: { transfer_date: string }[] | null;
 }
 
 /**
@@ -427,7 +490,8 @@ export async function readShareholderRegister(
         holder_type, display_order,
         person:company_people(*),
         entity:shareholder_entities(*)
-      )
+      ),
+      transferts_entrants:share_transfers!to_shareholding_id(transfer_date)
     `)
     .eq('company_id', companyId);
 
@@ -455,6 +519,8 @@ export async function readShareholderRegister(
       }
       const fin_fr = ligneDeFin(sh, 'fr');
       const fin_en = ligneDeFin(sh, 'en');
+      const acquisition_fr = ligneDAcquisition(sh, 'fr');
+      const acquisition_en = ligneDAcquisition(sh, 'en');
       const terminee = Boolean(sh.end_date);
       return sortedHolders.map((h) => ({
         terminee,
@@ -467,6 +533,8 @@ export async function readShareholderRegister(
           issue_price_per_share: sh.issue_price_per_share ?? null,
           fin_fr,
           fin_en,
+          acquisition_fr,
+          acquisition_en,
         },
       }));
     });

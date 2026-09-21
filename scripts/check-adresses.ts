@@ -506,6 +506,17 @@ const LIENS: Record<string, { cle: string; sens: 'enfants' | 'parent' }> = {
   'shareholding_holders>shareholdings': { cle: 'shareholding_id', sens: 'parent' },
   'shareholding_holders>company_people': { cle: 'person_id', sens: 'parent' },
   'shareholding_holders>shareholder_entities': { cle: 'entity_id', sens: 'parent' },
+  /**
+   * ⚠️ AJOUTÉ AU LOT AA, ET LA GARDE L'A EXIGÉ ELLE-MÊME. `readShareholderRegister`
+   * embarque désormais `share_transfers!to_shareholding_id` pour porter la date
+   * d'acquisition du cessionnaire (art. 33 par. 3° LSAQ). Sans cette entrée, le
+   * faux client LÈVE et A3 refuse de conclure — ce qu'elle a fait, plutôt que de
+   * passer en silence. ⭐ C'est la garde qui a trouvé le lien manquant, pas moi.
+   * ⚪ `enfants` : plusieurs transferts PEUVENT pointer la même détention au
+   * schéma (aucune unicité sur `to_shareholding_id`) ; le lecteur lève dans ce
+   * cas, et c'est à LUI de le faire, pas au faux client de le rendre impossible.
+   */
+  'shareholdings>share_transfers': { cle: 'to_shareholding_id', sens: 'enfants' },
 };
 
 interface Noeud {
@@ -631,6 +642,15 @@ const JEU: Base = {
     { id: 'e1', company_id: SOCIETE, legal_name: 'Société détentrice', entity_type: 'corporation', ...SANS_ADRESSE },
     { id: 'e2', company_id: SOCIETE, legal_name: 'Société sortie', entity_type: 'corporation', ...SANS_ADRESSE },
   ],
+  /**
+   * ⚪ VIDE, ET C'EST LE CAS QUI COMPTE POUR A3 : aucune des quatre détentions
+   * du jeu n'est née d'un transfert, donc aucune ne gagne de ligne
+   * d'acquisition. A3 continue de mesurer EXACTEMENT ce qu'elle mesurait — les
+   * fiches sans ville ni pays — et ce lot ne déplace pas son sujet.
+   * ⛔ Le comportement du transfert est éprouvé ailleurs, dans `lotAA()` de
+   * `check:inscription`, où il a ses quatre cas et ses mutations.
+   */
+  share_transfers: [],
 };
 
 async function verifierA3(): Promise<boolean> {
