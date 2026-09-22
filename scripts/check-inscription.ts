@@ -41,10 +41,11 @@ import EntityForm from '@/components/shareholders/EntityForm';
 import StepOfficers, { DIRIGEANT_VIDE, nomDirigeant, type OnboardingOfficers, type SaisieDirigeant } from '@/components/onboarding/StepOfficers';
 import { declarationDesExercices } from '@/lib/active-years';
 import * as ts from 'typescript';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { aEchoue, etatDeSection } from '../lib/requetes-groupees';
 import { titresDeCorrectionDetention } from '../lib/journal-correction-detention';
 import { ligneDAcquisition } from '../lib/minute-book/registers';
+import { DATE_DE_L_ACTE } from '../lib/journal-date-acte';
 import { SectionEnEchec } from '../components/ui/SectionEnEchec';
 import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
@@ -1123,6 +1124,69 @@ function lotAA() {
   }
 }
 
+/**
+ * LES VALEURS QUE LA CONTRAINTE `activity_log_event_type_check` ADMET, TELLES
+ * QUE LES MIGRATIONS DU DÉPÔT LA DÉCLARENT — rejouées dans l'ordre des noms,
+ * ce qui est l'ordre d'application. Un ADD pose l'ensemble, un DROP le retire.
+ * ⛔ La base VIVANTE n'est pas lue : voir l'en-tête de `lib/journal-date-acte.ts`.
+ */
+function valeursDeLaContrainte(): string[] | null {
+  const dir = join(__dirname, '..', 'supabase', 'migrations');
+  let courant: string[] | null = null;
+  for (const nom of readdirSync(dir).filter((n) => n.endsWith('.sql')).sort()) {
+    const sql = readFileSync(join(dir, nom), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
+    const re = /(ADD|DROP)\s+CONSTRAINT\s+(?:IF\s+EXISTS\s+)?activity_log_event_type_check\b([\s\S]*?);/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sql)) !== null) {
+      if (m[1].toUpperCase() === 'DROP') { courant = null; continue; }
+      const valeurs: string[] = [];
+      const lit = /'([a-z_]+)'/g;
+      let v: RegExpExecArray | null;
+      while ((v = lit.exec(m[2])) !== null) valeurs.push(v[1]);
+      courant = valeurs;
+    }
+  }
+  return courant;
+}
+
+function lotAC() {
+  console.log('\n   ⛔ LOT AC — LA TABLE DES DATES D’ACTE ET LA CONTRAINTE, ENSEMBLE PAR ENSEMBLE');
+
+  const base = valeursDeLaContrainte();
+  const table = Object.keys(DATE_DE_L_ACTE);
+  dire(base !== null && base.length > 0, 'la contrainte est déclarée dans les migrations');
+  if (base === null) return;
+
+  /* ⛔ ÉGALITÉ D'ENSEMBLES, PAS DE COMPTES. Un compte égal avec des ensembles
+     différents est exactement le cas qu'on a passé trois lots à débusquer. Les
+     manquants sont NOMMÉS, de chaque côté. */
+  const absentsDeLaTable = base.filter((v) => !table.includes(v));
+  const absentsDeLaBase = table.filter((v) => !base.includes(v));
+  dire(absentsDeLaTable.length === 0,
+    absentsDeLaTable.length === 0
+      ? 'chaque valeur de la contrainte a sa ligne dans la table'
+      : `⛔ la contrainte admet, la table ignore : ${absentsDeLaTable.join(', ')}`);
+  dire(absentsDeLaBase.length === 0,
+    absentsDeLaBase.length === 0
+      ? 'et la table ne décrit aucun type que la contrainte refuse'
+      : `⛔ la table décrit, la contrainte refuse : ${absentsDeLaBase.join(', ')}`);
+
+  /* ⚪ PAS DE CONTRÔLE POSITIF SYNTHÉTIQUE ICI, ET C'EST VOULU. Un premier jet
+     comparait deux tableaux inventés : il ne testait que `Array.filter` et ne
+     pouvait pas échouer. La preuve est faite par MUTATION des vraies entrées —
+     une migration ajoutée, un membre renommé à compte égal —, rapportée au
+     message du lot. */
+
+  /* ⛔ Le cœur d'AC-2 : aucune clé globale. Les deux types dont `details` porte
+     une date qui N'EST PAS celle de l'acte ne doivent JAMAIS la lire. */
+  dire(DATE_DE_L_ACTE.director_added === 'non_consignee'
+    && DATE_DE_L_ACTE.officer_added === 'non_consignee',
+    '⛔ les nominations rétroactives ne lisent pas leur `end_date` (la FIN du mandat)');
+  dire(DATE_DE_L_ACTE.director_edited === 'saisie' && DATE_DE_L_ACTE.officer_edited === 'saisie',
+    '⛔ les corrections ne lisent pas leur `appointment_date` (le contenu CORRIGÉ)');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1200,5 +1264,6 @@ lotK3Dirigeants();
 lotK3Administrateurs();
 lotZB();
 lotAA();
+lotAC();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);
