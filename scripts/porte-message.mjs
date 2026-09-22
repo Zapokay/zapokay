@@ -19,6 +19,23 @@
  *
  * USAGE, et il se chaîne :
  *   npm run -s porte:message -- <fichier> && git commit -F <fichier>
+ *
+ * ★★★ CETTE PORTE VÉRIFIE CE QUE GIT SAIT. ELLE NE VÉRIFIE PAS CE QU'UN BUILD
+ *   SAIT. ★★★ — Dom, 2026-09-22, lot AB-4.
+ *   Un fait qui exige un artefact de build appartient à la porte qui le
+ *   PRODUIT. « ROUTES : 40 » est vérifié par `next build` ; « Avertissements
+ *   lint : 6 » par `next lint`. ⛔ Les lire ici ferait dépendre cette porte de
+ *   l'artefact d'une AUTRE, donc de l'ORDRE dans lequel elles ont tourné — et
+ *   un ordre différent la désactiverait en silence. C'est le défaut exact qui
+ *   a produit deux faux échecs de `tsc` cette semaine : lancé avant
+ *   `next build`, il lisait un `.next/types` PÉRIMÉ. Une porte qui lit
+ *   l'artefact d'une autre hérite de sa fraîcheur, et un artefact périmé
+ *   produit une porte qui ment DANS LES DEUX SENS.
+ *   ⛔ Qui voudra ajouter ici un fait de build doit relire ce paragraphe.
+ *
+ * ⚪ LES REFUS SONT TOUS DITS, PAS SEULEMENT LE PREMIER. Chaque contrôle
+ *   inscrit son refus, et la porte sort en erreur à la fin s'il y en a au
+ *   moins un : une faute de longueur ne doit pas cacher un parent faux.
  */
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -42,12 +59,26 @@ const trop = lignes
   .map((l, i) => ({ n: i + 1, len: [...l].length, l }))
   .filter((x) => x.n > 1 && x.len > LARGEUR);
 
+/** Les refus, dans l'ordre. La porte sort en erreur à la fin s'il y en a. */
+const refus = [];
+
 if (trop.length > 0) {
-  console.error(`⛔ porte:message — ${trop.length} ligne(s) au-delà de ${LARGEUR} caractères :`);
-  for (const x of trop) console.error(`   l.${x.n} (${x.len}) ${x.l.slice(0, 72)}…`);
-  console.error('   Le commit ne doit PAS partir. Raccourcis, puis relance.');
-  process.exit(1);
+  refus.push(`longueur — ${trop.length} ligne(s) au-delà de ${LARGEUR} caractères :`);
+  for (const x of trop) refus.push(`   l.${x.n} (${x.len}) ${x.l.slice(0, 72)}…`);
 }
+
+/** Git, en lecture. `null` si le dépôt n'est pas lisible — on se tait alors
+ *  plutôt que d'inventer une comparaison. */
+function git(...args) {
+  try {
+    return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return null;
+  }
+}
+const indexe = (git('diff', '--cached', '--name-only') ?? '')
+  .split('\n')
+  .filter((l) => l.trim() !== '');
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -108,33 +139,80 @@ function compteAnnonce(texte) {
   return distincts[0];
 }
 
-const annonce = compteAnnonce(lignes.join('\n'));
+const texte = lignes.join('\n');
+const annonce = compteAnnonce(texte);
 if (annonce !== null && typeof annonce === 'object') {
-  console.error(
-    `⛔ porte:message — le message annonce DEUX comptes différents : ${annonce.contradiction.join(' et ')}.`,
-  );
-  process.exit(1);
+  refus.push(`compte — le message annonce DEUX comptes différents : ${annonce.contradiction.join(' et ')}`);
+} else if (annonce !== null && indexe.length > 0 && indexe.length !== annonce) {
+  refus.push(`compte — le message annonce ${annonce} fichier(s) au diff, l'index en porte ${indexe.length}`);
 }
-if (annonce !== null) {
-  let reel = null;
-  try {
-    const sortie = execFileSync('git', ['diff', '--cached', '--name-only'], {
-      encoding: 'utf8',
-    });
-    reel = sortie.split('\n').filter((l) => l.trim() !== '').length;
-  } catch {
-    // ⚪ Pas de dépôt lisible : on ne compare pas, on ne refuse pas non plus.
-  }
-  if (reel !== null && reel > 0 && reel !== annonce) {
-    console.error(
-      `⛔ porte:message — le message annonce ${annonce} fichier(s) au diff, l'index en porte ${reel}.`,
-    );
-    console.error("   Corrige le compte, puis relance. Le commit ne doit PAS partir.");
-    process.exit(1);
-  }
-  if (reel !== null && reel > 0) {
-    console.log(`✔ porte:message — compte annoncé ${annonce} = ${reel} fichier(s) indexés`);
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════
+ * LE PARENT — lot AB-4, 2026-09-22.
+ * ═══════════════════════════════════════════════════════════════════════
+ * `Parent: <sha>` doit être le HEAD au moment où la porte tourne, c'est-à-dire
+ * le parent du commit qu'on s'apprête à écrire. Un parent faux fait décrire au
+ * message une LIGNÉE QUI N'EST PAS LA SIENNE — l'erreur qu'on ne découvre qu'en
+ * reconstituant l'histoire, des mois plus tard.
+ *
+ * ⚠️ MESURÉ AVANT DE L'ÉCRIRE, ET DIT : sur 95 commits de l'historique qui
+ * portent une ligne `Parent:`, AUCUN n'annonce un parent faux. Cette garde n'a
+ * donc encore rien attrapé ; elle ferme un risque, pas un incident.
+ *
+ * ⛔ `--amend` N'EST PAS LE RITUEL : HEAD y est le commit qu'on remplace, pas
+ * son parent. La porte refuserait un parent pourtant juste. On ne l'y adapte
+ * pas — le rituel est `porte:message && git commit`, sans amendement.
+ */
+const parentAnnonce = texte.match(/^Parent:\s*([0-9a-f]{7,40})\s*$/m)?.[1] ?? null;
+if (parentAnnonce !== null) {
+  const head = (git('rev-parse', 'HEAD') ?? '').trim();
+  if (head !== '' && !head.startsWith(parentAnnonce)) {
+    refus.push(`parent — le message annonce ${parentAnnonce}, HEAD est ${head.slice(0, 7)}`);
   }
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════
+ * « AUCUNE MIGRATION » — lot AB-4, 2026-09-22.
+ * ═══════════════════════════════════════════════════════════════════════
+ * Si le message l'AFFIRME, l'index ne doit porter aucun fichier sous
+ * `supabase/migrations/`. Un schéma qui change sans que le message le dise est
+ * le défaut que la règle « elle passe par db push et entre au MÊME commit »
+ * existe pour empêcher.
+ *
+ * ⛔⛔ AFFIRMATION, PAS MENTION — ET C'EST LE RÉTROSPECTIF QUI L'A IMPOSÉ. La
+ *   lecture naïve de la phrase trouvait UN fautif dans l'historique :
+ *   `aed7f5c`, qui porte bien une migration… et qui écrivait « AUCUNE
+ *   MIGRATION N'EST POSSIBLE DE CE CÔTÉ-LÀ » — une migration de DONNÉES jugée
+ *   impossible, pas une affirmation sur le schéma. La porte naïve aurait
+ *   REFUSÉ un message juste, et n'aurait rien attrapé d'autre.
+ *   ★ Sont donc ôtés avant lecture : les citations « … » et les mentions en
+ *   `code`. Et la phrase ne compte que si elle se CLÔT — suivie d'un point,
+ *   d'une virgule, d'un tiret, d'un deux-points ou d'une fin de ligne —, pas
+ *   si elle se poursuit en proposition (« … N'EST POSSIBLE »).
+ *
+ * ⚠️ MESURÉ AUSSI : sur 10 commits qui l'affirment, AUCUN ne porte de
+ * migration. Comme le parent, cette garde n'a encore rien attrapé.
+ */
+const sansMentions = texte.replace(/«[^»]*»/g, ' ').replace(/`[^`]*`/g, ' ');
+const afficheAucuneMigration = /AUCUNE\s+MIGRATION(?=\s*(?:$|[.,:—]))/m.test(sansMentions);
+if (afficheAucuneMigration) {
+  const migrations = indexe.filter((f) => f.startsWith('supabase/migrations/'));
+  if (migrations.length > 0) {
+    refus.push(`migration — le message affirme AUCUNE MIGRATION, l'index en porte ${migrations.length} : ${migrations.join(', ')}`);
+  }
+}
+
+if (refus.length > 0) {
+  console.error('⛔ porte:message — le commit ne doit PAS partir :');
+  for (const r of refus) console.error(`   ${r}`);
+  process.exit(1);
+}
+
+if (annonce !== null && indexe.length > 0) {
+  console.log(`✔ porte:message — compte annoncé ${annonce} = ${indexe.length} fichier(s) indexés`);
+}
+if (parentAnnonce !== null) console.log(`✔ porte:message — parent ${parentAnnonce} = HEAD`);
+if (afficheAucuneMigration) console.log('✔ porte:message — aucune migration à l’index, comme affirmé');
 console.log(`✔ porte:message — ${lignes.length} lignes, aucune au-delà de ${LARGEUR}`);
