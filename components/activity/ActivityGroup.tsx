@@ -1,8 +1,11 @@
 'use client'
 
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import ActivityRow from './ActivityRow'
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label'
+import { formatDate } from '@/lib/utils'
+import { lireDateDeLActe } from '@/lib/journal-date-acte'
 
 interface Event {
   id: string
@@ -14,6 +17,10 @@ interface Event {
   doc_title?: string | null
   author_name?: string | null
   doc_year?: number | null
+  details?: Record<string, unknown> | null
+  /** Lot AC-2 — les deux personnes d'un remplacement, résolues par la route. */
+  nom_sortant?: string | null
+  nom_entrant?: string | null
 }
 
 interface ActivityGroupProps {
@@ -84,12 +91,54 @@ export default function ActivityGroup({ label, events, locale }: ActivityGroupPr
           const auteur = event.author_name?.trim()
             ? t('byAuthor', { name: event.author_name.trim() })
             : t('authorUnknown')
+          /* ★ LA DATE DE L'ACTE — lot AC-2. La TABLE décide (`lireDateDeLActe`),
+             ce rendu ne fait que la dire. ⛔ Aucune clé de `details` n'est lue
+             ici directement : la même clé change de sens selon l'événement, et
+             c'est précisément ce que la table existe pour trancher. */
+          const lecture = lireDateDeLActe(event.event_type, event.details ?? null)
+          let acte: React.ReactNode
+          if (lecture.forme === 'saisie') {
+            acte = t('acteALaSaisie')
+          } else if (lecture.forme === 'non_consignee') {
+            /* ⛔ PAS UN TIRET MUET — le silence tué au lot K. La phrase dit que
+               la date existe AILLEURS, et nomme le registre qui la porte. */
+            acte = lecture.registre
+              ? t.rich('acteNonConsigneeRegistre', {
+                  registre: lecture.registre,
+                  lien: (chunks) => (
+                    <Link href={`/${locale}/dashboard/minute-book/binder`} className="underline">
+                      {chunks}
+                    </Link>
+                  ),
+                })
+              : t('acteNonConsignee')
+          } else {
+            /* ⚖️ UNE LIGNE PAR EFFET, ÉTIQUETÉE PAR PERSONNE — jamais deux dates
+               nues l'une sous l'autre. Un remplacement rend « Fin — X » puis
+               « Nomination — Y ». */
+            acte = lecture.lignes.map((l) => {
+              const date = l.date ? formatDate(l.date, locale) : t('acteDateNonConsignee')
+              const nom =
+                l.personne === 'sortant' ? event.nom_sortant
+                : l.personne === 'entrant' ? event.nom_entrant
+                : null
+              const texte = l.personne
+                ? t('acteEffetPersonne', {
+                    effet: l.effet,
+                    personne: nom?.trim() || t('actePersonneInconnue', { role: l.personne }),
+                    date,
+                  })
+                : t('acteEffet', { effet: l.effet, date })
+              return <span key={l.effet} className="block">{texte}</span>
+            })
+          }
           return (
             <ActivityRow
               key={event.id}
               time={formatTime(event.created_at, locale)}
               title={title}
               author={auteur}
+              acte={acte}
             />
           )
         })}

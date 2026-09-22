@@ -8,6 +8,7 @@ import PersonSelector, {
   type PersonSelectorValue,
 } from '@/components/people/PersonSelector';
 import { logActivity } from '@/lib/activity-log';
+import { titresDeJournalAdministrateur } from '@/lib/journal-charge';
 import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
 import { chargePersonne, insererPersonne } from '@/lib/person-payload';
 import type { DirectorEndReason } from '@/lib/supabase/people-types';
@@ -201,12 +202,13 @@ export default function AddDirectorModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // Option A: single _added event; retroactive carries end metadata in details.
-        const titleFr = stillInOffice
-          ? `Administrateur ajouté : ${fullName}`
-          : `Administrateur ajouté (rétroactif) : ${fullName}`;
-        const titleEn = stillInOffice
-          ? `Director added: ${fullName}`
-          : `Director added (retroactive): ${fullName}`;
+        // ⚖️ « NOMMÉ », PAS « AJOUTÉ » — lot AC-1. Le texte vient de
+        // `lib/journal-charge.ts`, comme celui des dirigeants ; la raison, et
+        // celle de ne PAS réécrire les 8 lignes déjà stockées, y sont écrites.
+        const { titleFr, titleEn } = titresDeJournalAdministrateur(
+          stillInOffice ? 'nomme' : 'nomme_retroactif',
+          fullName,
+        );
         const details: Record<string, unknown> = { person_id: personId };
         if (!stillInOffice) {
           details.ended = true;

@@ -974,7 +974,14 @@
     "yesterday": "Yesterday",
     "eventsCount": "{count, plural, =0 {No events recorded} =1 {1 event recorded} other {# events recorded}}",
     "documentUploaded": "Document uploaded: {name}{yearSuffix}",
-    "documentGenerated": "Document generated: {name}{yearSuffix}"
+    "documentGenerated": "Document generated: {name}{yearSuffix}",
+    "acteALaSaisie": "Date of the act: at entry",
+    "acteEffet": "{effet, select, fin {End} nomination {Appointment} other {Transfer}}: {date}",
+    "acteEffetPersonne": "{effet, select, fin {End} nomination {Appointment} other {Transfer}} — {personne}: {date}",
+    "acteNonConsignee": "Date of the act: not recorded",
+    "acteNonConsigneeRegistre": "Date of the act: not recorded — <lien>see the register of {registre, select, administrateurs {directors} dirigeants {officers} other {shareholders}}</lien>",
+    "acteDateNonConsignee": "not recorded",
+    "actePersonneInconnue": "{role, select, sortant {unidentified outgoing officer} other {unidentified incoming officer}}"
   },
   "lifecycle": {
     "_locale": "en",

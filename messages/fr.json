@@ -974,7 +974,14 @@
     "yesterday": "Hier",
     "eventsCount": "{count, plural, =0 {Aucun événement enregistré} =1 {1 événement enregistré} other {# événements enregistrés}}",
     "documentUploaded": "Document téléversé : {name}{yearSuffix}",
-    "documentGenerated": "Document généré : {name}{yearSuffix}"
+    "documentGenerated": "Document généré : {name}{yearSuffix}",
+    "acteALaSaisie": "Date de l'acte : à la saisie",
+    "acteEffet": "{effet, select, fin {Fin} nomination {Nomination} other {Transfert}} : {date}",
+    "acteEffetPersonne": "{effet, select, fin {Fin} nomination {Nomination} other {Transfert}} — {personne} : {date}",
+    "acteNonConsignee": "Date de l'acte : non consignée",
+    "acteNonConsigneeRegistre": "Date de l'acte : non consignée — <lien>voir le registre {registre, select, administrateurs {des administrateurs} dirigeants {des dirigeants} other {des actionnaires}}</lien>",
+    "acteDateNonConsignee": "non consignée",
+    "actePersonneInconnue": "{role, select, sortant {sortant non identifié} other {entrant non identifié}}"
   },
   "lifecycle": {
     "_locale": "fr",

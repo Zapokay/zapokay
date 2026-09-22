@@ -45,7 +45,9 @@ import { readFileSync, readdirSync } from 'fs';
 import { aEchoue, etatDeSection } from '../lib/requetes-groupees';
 import { titresDeCorrectionDetention } from '../lib/journal-correction-detention';
 import { ligneDAcquisition } from '../lib/minute-book/registers';
-import { DATE_DE_L_ACTE } from '../lib/journal-date-acte';
+import { DATE_DE_L_ACTE, lireDateDeLActe } from '../lib/journal-date-acte';
+import { titresDeJournalAdministrateur } from '../lib/journal-charge';
+import ActivityGroup from '../components/activity/ActivityGroup';
 import { SectionEnEchec } from '../components/ui/SectionEnEchec';
 import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
@@ -1180,11 +1182,98 @@ function lotAC() {
 
   /* ⛔ Le cœur d'AC-2 : aucune clé globale. Les deux types dont `details` porte
      une date qui N'EST PAS celle de l'acte ne doivent JAMAIS la lire. */
-  dire(DATE_DE_L_ACTE.director_added === 'non_consignee'
-    && DATE_DE_L_ACTE.officer_added === 'non_consignee',
+  dire(typeof DATE_DE_L_ACTE.director_added === 'object' && 'nonConsignee' in DATE_DE_L_ACTE.director_added
+    && typeof DATE_DE_L_ACTE.officer_added === 'object' && 'nonConsignee' in DATE_DE_L_ACTE.officer_added,
     '⛔ les nominations rétroactives ne lisent pas leur `end_date` (la FIN du mandat)');
   dire(DATE_DE_L_ACTE.director_edited === 'saisie' && DATE_DE_L_ACTE.officer_edited === 'saisie',
     '⛔ les corrections ne lisent pas leur `appointment_date` (le contenu CORRIGÉ)');
+}
+
+function lotACRendu() {
+  console.log('\n   ⛔ LOT AC-1 · AC-2 — LE VERBE, ET LA DATE DE L’ACTE À L’HISTORIQUE');
+
+  /* ── AC-1 · « nommé », pas « ajouté » ── */
+  const n = titresDeJournalAdministrateur('nomme', 'Ben Harpez');
+  const r = titresDeJournalAdministrateur('nomme_retroactif', 'Ben Harpez');
+  dire(n.titleFr === 'Administrateur nommé : Ben Harpez' && n.titleEn === 'Director appointed: Ben Harpez',
+    'un administrateur est NOMMÉ, dans les deux langues');
+  dire(r.titleFr.includes('nommé (rétroactif)') && r.titleEn.includes('appointed (retroactive)'),
+    'et la variante rétroactive garde son mot');
+  dire(!/ajout|added/i.test(n.titleFr + n.titleEn + r.titleFr + r.titleEn),
+    '⛔ plus aucun « ajouté / added » dans la nomination');
+  const modale = readFileSync(join(__dirname, '..', 'components', 'directors', 'AddDirectorModal.tsx'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  dire(/titresDeJournalAdministrateur\(/.test(modale) && !/Administrateur ajouté/.test(modale),
+    'la modale compose par la déclaration, et n’écrit plus le gabarit en dur');
+
+  /* ── AC-2 · la table, lue ── */
+  const retro = lireDateDeLActe('director_added', { end_date: '2025-06-30', retroactive: true });
+  dire(retro.forme === 'non_consignee' && retro.registre === 'administrateurs',
+    'nomination rétroactive → « non consignée », registre des administrateurs NOMMÉ');
+  dire(!JSON.stringify(retro).includes('2025-06-30'),
+    '⛔ et sa FIN de mandat n’est jamais lue comme sa nomination');
+  const corr = lireDateDeLActe('director_edited', { appointment_date: '2019-01-01', end_date: '2024-02-02' });
+  dire(corr.forme === 'saisie', '⛔ une correction est datée « à la saisie », pas par son contenu corrigé');
+  const tr = lireDateDeLActe('share_transfer_created', { transfer_date: '2026-05-29' });
+  dire(tr.forme === 'dates' && tr.lignes.length === 1 && tr.lignes[0].effet === 'transfert'
+    && tr.lignes[0].date === '2026-05-29', 'un transfert porte UNE date, étiquetée « transfert »');
+  const rp = lireDateDeLActe('officer_replaced', { end_date: '2026-09-17', start_date: '2026-09-18' });
+  dire(rp.forme === 'dates' && rp.lignes.length === 2,
+    '⚖️ un remplacement porte ses DEUX dates — aucune n’est choisie en silence');
+  dire(rp.forme === 'dates' && rp.lignes[0].effet === 'fin' && rp.lignes[0].personne === 'sortant'
+    && rp.lignes[0].date === '2026-09-17' && rp.lignes[1].effet === 'nomination'
+    && rp.lignes[1].personne === 'entrant' && rp.lignes[1].date === '2026-09-18',
+    'la fin va au SORTANT, la nomination à l’ENTRANT, dans cet ordre');
+  const rpSans = lireDateDeLActe('officer_replaced', { end_date: '2026-09-17' });
+  dire(rpSans.forme === 'dates' && rpSans.lignes.length === 2 && rpSans.lignes[1].date === null,
+    'une date absente reste NOMMÉE — l’effet ne disparaît pas avec sa date');
+  const cat = lireDateDeLActe('share_class_created', {});
+  dire(cat.forme === 'non_consignee' && cat.registre === null,
+    '⛔ une catégorie ne renvoie à AUCUN registre — aucun ne porte sa date');
+  let leve = false;
+  try { lireDateDeLActe('zz_inconnu', {}); } catch { leve = true; }
+  dire(leve, '⛔ un type inconnu LÈVE — un cas impossible n’est pas rendu déterministe');
+
+  /* ── AC-2 · l'écran, rendu pour de vrai ── */
+  const ecran = rendre(ActivityGroup, {
+    label: 'Aujourd’hui',
+    locale: 'fr',
+    events: [
+      { id: 'a', event_type: 'officer_replaced', title_fr: 'Dirigeant remplacé', title_en: 'x',
+        created_at: '2026-09-17T12:00:00Z', author_name: 'Joey',
+        details: { end_date: '2026-09-17', start_date: '2026-09-18' },
+        nom_sortant: 'Phil The Bill', nom_entrant: 'Fak Que' },
+      { id: 'b', event_type: 'director_added', title_fr: 'Administrateur nommé', title_en: 'x',
+        created_at: '2026-08-26T12:00:00Z', author_name: 'Joey',
+        details: { end_date: '2025-06-30', retroactive: true } },
+      { id: 'c', event_type: 'document_generated', title_fr: 'Document généré', title_en: 'x',
+        created_at: '2026-09-16T12:00:00Z', author_name: 'Joey', details: {} },
+      { id: 'd', event_type: 'officer_replaced', title_fr: 'Dirigeant remplacé', title_en: 'x',
+        created_at: '2026-09-17T12:00:00Z', author_name: 'Joey',
+        details: { end_date: '2026-09-17', start_date: '2026-09-17' }, nom_sortant: null, nom_entrant: null },
+    ],
+  });
+  const iFin = ecran.indexOf('Fin — Phil The Bill');
+  const iNom = ecran.indexOf('Nomination — Fak Que');
+  dire(iFin > -1 && iNom > iFin, '⚖️ à l’écran : « Fin — sortant » puis « Nomination — entrant »');
+  dire(dit(ecran, 'non consignée') && dit(ecran, 'voir le registre des administrateurs'),
+    '« non consignée » NOMME le registre des administrateurs');
+  dire(/href="\/fr\/dashboard\/minute-book\/binder"/.test(ecran), 'et il est cliquable, vers le Livre');
+  dire(!ecran.includes('2025'), '⛔ la fin de mandat 2025 n’apparaît NULLE PART à l’écran');
+  dire(dit(ecran, 'à la saisie'), 'un acte fait dans ZapOkay est daté « à la saisie »');
+  dire(dit(ecran, 'sortant non identifié') && dit(ecran, 'entrant non identifié'),
+    'sans nom connu, chaque date reste étiquetée par RÔLE — jamais une date nue');
+
+  /* ⛔ LE CAS SANS REGISTRE, RENDU SEUL. Une première version de la sonde ne
+     l'affichait pas : une mutation qui rendait la catégorie MUETTE ne faisait
+     rien tomber. Rendu à part, pour qu'aucun autre texte ne le satisfasse. */
+  const categorie = rendre(ActivityGroup, {
+    label: 'Hier', locale: 'fr',
+    events: [{ id: 'e', event_type: 'share_class_created', title_fr: 'Catégorie créée', title_en: 'x',
+      created_at: '2026-08-11T12:00:00Z', author_name: 'Joey', details: {} }],
+  });
+  dire(dit(categorie, "Date de l'acte : non consignée") && !/<a /.test(categorie),
+    '⛔ une catégorie DIT « non consignée », sans renvoi vers un registre qui ne la porte pas');
 }
 
 function lotK1() {
@@ -1265,5 +1354,6 @@ lotK3Administrateurs();
 lotZB();
 lotAA();
 lotAC();
+lotACRendu();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

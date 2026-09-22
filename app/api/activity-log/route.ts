@@ -83,17 +83,54 @@ export async function GET(request: Request) {
     }
   }
 
+  // ★ LES DEUX PERSONNES D'UN REMPLACEMENT — lot AC-2, 2026-09-22. La date de
+  // l'acte d'un `officer_replaced` s'affiche en DEUX lignes étiquetées par
+  // personne : « Fin — <sortant> », « Nomination — <entrant> ». Même forme que
+  // l'auteur juste au-dessus : un `in()`, une Map, et le nom COURANT d'abord,
+  // le nom GELÉ ensuite (`outgoing_full_name` / `incoming_full_name`, écrits
+  // par `ReplaceOfficerModal` depuis ce lot). Ni l'un ni l'autre → null, et le
+  // rendu dit « non identifié » plutôt que rien.
+  const personIds = Array.from(
+    new Set(
+      rows.flatMap((r) => {
+        const d = r.details as { outgoing_person_id?: string; incoming_person_id?: string } | null
+        return [d?.outgoing_person_id, d?.incoming_person_id].filter(
+          (id): id is string => typeof id === 'string',
+        )
+      }),
+    ),
+  )
+  const nomParPersonne = new Map<string, string>()
+  if (personIds.length > 0) {
+    const { data: personnes } = await supabase
+      .from('company_people')
+      .select('id, full_name')
+      .in('id', personIds)
+    for (const p of personnes || []) {
+      const nom = (p.full_name as string | null)?.trim()
+      if (nom) nomParPersonne.set(p.id as string, nom)
+    }
+  }
+
   const enriched = rows.map((r) => {
     const details = r.details as { document_id?: string; author_full_name?: string } | null
     const docId = details?.document_id
     const doc = docId ? docById.get(docId) : undefined
     const nomCourant = typeof r.user_id === 'string' ? nomCourantParUser.get(r.user_id) : undefined
     const nomGele = details?.author_full_name?.trim() || undefined
+    const rempl = r.details as {
+      outgoing_person_id?: string; incoming_person_id?: string
+      outgoing_full_name?: string; incoming_full_name?: string
+    } | null
+    const nomDe = (id?: string, gele?: string) =>
+      (id ? nomParPersonne.get(id) : undefined) ?? (gele?.trim() || null)
     return {
       ...r,
       doc_title: doc?.title ?? null,
       doc_year: doc?.document_year ?? null,
       author_name: nomCourant ?? nomGele ?? null,
+      nom_sortant: nomDe(rempl?.outgoing_person_id, rempl?.outgoing_full_name),
+      nom_entrant: nomDe(rempl?.incoming_person_id, rempl?.incoming_full_name),
     }
   })
 

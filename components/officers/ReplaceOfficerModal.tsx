@@ -184,15 +184,24 @@ export default function ReplaceOfficerModal({
       //    que la nomination a échoué serait un mensonge.
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const nomSortant = officer.person.full_name;
+        const nomEntrant =
+          personValue.mode === 'new' ? personValue.fullName : personValue.person.full_name;
         const { titleFr, titleEn } = titresDeJournalRemplacement(
-          officer.person.full_name,
-          personValue.mode === 'new' ? personValue.fullName : personValue.person.full_name,
+          nomSortant,
+          nomEntrant,
           { title: officer.title, custom_title: officer.custom_title ?? null },
         );
         await logActivity(supabase, companyId, user.id, 'officer_replaced', titleFr, titleEn, {
           outgoing_person_id: officer.person_id,
           outgoing_appointment_id: officer.id,
           incoming_person_id: incomingPersonId,
+          /* ★ LES DEUX NOMS SONT GELÉS, COMME CELUI DE L'AUTEUR — lot AC-2.
+             L'Historique étiquette chaque date par personne (« Fin — X »,
+             « Nomination — Y ») ; le nom courant sert d'abord, et celui-ci
+             prend le relais si la fiche disparaît. */
+          outgoing_full_name: nomSortant,
+          incoming_full_name: nomEntrant,
           title: officer.title,
           end_date: endDate,
           end_reason: endReason,

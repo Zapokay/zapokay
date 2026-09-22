@@ -37,6 +37,38 @@ const TOURNURES: Record<EvenementCharge, { fr: string; en: string }> = {
 };
 
 /**
+ * ⚖️ L'ADMINISTRATEUR EST « NOMMÉ », PAS « AJOUTÉ » — lot AC-1, 2026-09-22.
+ *
+ * `AddDirectorModal` écrivait « Administrateur ajouté : X » en dur, alors que
+ * les dirigeants disaient déjà « Dirigeant nommé » par ce module depuis le
+ * 2026-09-16. « Ajouté » se lit comme un geste d'interface ; l'acte, lui, est
+ * une NOMINATION. Consigne d'Harvey sur le verbe.
+ * ⚪ C'EST UN TRI, PAS UN REMPLACEMENT EN BLOC. Mesuré : 5 clés du catalogue
+ * par langue portent « ajouté / added », et TOUTES sont justes — un document
+ * ajouté, une ligne de signature ajoutée. Aucune n'est une nomination. Ce
+ * gabarit en dur était le seul site à corriger.
+ *
+ * ⛔⛔ LES 8 LIGNES DÉJÀ ÉCRITES « Administrateur ajouté » NE SE RÉÉCRIVENT
+ *   PAS. Ce sont des enregistrements datés, et l'Historique affiche le titre
+ *   STOCKÉ. ⚖️ Harvey, sur l'art. 21 C-1.1 : un journal qui réécrit son passé
+ *   est pire qu'un journal incohérent. L'Historique montrera donc « ajouté »
+ *   sur les anciennes lignes et « nommé » sur les nouvelles — et c'est juste.
+ */
+const TOURNURES_ADMINISTRATEUR = {
+  nomme: { fr: 'Administrateur nommé', en: 'Director appointed' },
+  nomme_retroactif: { fr: 'Administrateur nommé (rétroactif)', en: 'Director appointed (retroactive)' },
+} as const;
+
+/** Les deux titres d'une nomination d'administrateur — pas de poste à nommer. */
+export function titresDeJournalAdministrateur(
+  evenement: keyof typeof TOURNURES_ADMINISTRATEUR,
+  nomComplet: string,
+): { titleFr: string; titleEn: string } {
+  const t = TOURNURES_ADMINISTRATEUR[evenement];
+  return { titleFr: `${t.fr} : ${nomComplet}`, titleEn: `${t.en}: ${nomComplet}` };
+}
+
+/**
  * ⚠️ POURQUOI `remplace` A SA PROPRE FONCTION PLUS BAS, ET PAS LA MÊME.
  * Les trois premières tournures nomment UNE personne ; celle-ci en nomme DEUX.
  * Les faire entrer dans une signature commune demanderait une union sur le

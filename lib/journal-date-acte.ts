@@ -72,13 +72,35 @@ export type TypeEvenement =
   | 'fiscal_years_defined'
   | 'fiscal_years_updated';
 
+/** Le registre du livre où l'acte EST daté, quand le journal ne l'a pas noté. */
+export type Registre = 'administrateurs' | 'dirigeants' | 'actionnaires';
+
+/** Ce qu'une date d'acte ACCOMPLIT — chaque date affichée porte le sien. */
+export type Effet = 'fin' | 'nomination' | 'transfert';
+
+/**
+ * UNE DATE, SON EFFET, ET LA PERSONNE QU'ELLE TOUCHE.
+ * ⛔ JAMAIS UNE DATE NUE. Un acte à deux effets affichait sinon deux dates
+ * l'une sous l'autre, et le lecteur devait deviner laquelle est l'entrée et
+ * laquelle la sortie — le défaut vu au registre, où « transfert » paraissait
+ * deux fois sans dire lequel.
+ */
+export interface EffetDate {
+  cle: string;
+  effet: Effet;
+  /** `sortant` / `entrant` : quel nom de la ligne porte cet effet. `null`
+   *  quand l'acte ne touche pas une personne nommée (un transfert). */
+  personne: 'sortant' | 'entrant' | null;
+}
+
 export type DateDeLActe =
   | 'saisie'
-  | 'non_consignee'
-  | { cles: readonly string[] };
+  | { effets: readonly EffetDate[] }
+  /** `registre` null : l'acte n'est daté dans AUCUN registre du livre. */
+  | { nonConsignee: Registre | null };
 
 const SAISIE = 'saisie' as const;
-const NON_CONSIGNEE = 'non_consignee' as const;
+const nonConsignee = (registre: Registre | null) => ({ nonConsignee: registre });
 
 export const DATE_DE_L_ACTE: Record<TypeEvenement, DateDeLActe> = {
   // ── Actes faits DANS ZapOkay : l'acte et la ligne coïncident. ──
@@ -109,21 +131,80 @@ export const DATE_DE_L_ACTE: Record<TypeEvenement, DateDeLActe> = {
   // ── Actes datés ailleurs, dont le journal PORTE la date. ──
   /* `transfer_shares()` écrit `p_transfer_date` ; mesuré 5/5 identique à
      `share_transfers.transfer_date`. */
-  share_transfer_created: { cles: ['transfer_date'] },
-  /* ⚠️ DEUX dates, deux champs INDÉPENDANTS dans `ReplaceOfficerModal`
-     (l.295 et 306) : la fin du sortant et la nomination de l'entrant. Elles
-     peuvent différer ; on n'en choisit pas une en silence. */
-  officer_replaced: { cles: ['end_date', 'start_date'] },
+  share_transfer_created: {
+    effets: [{ cle: 'transfer_date', effet: 'transfert', personne: null }],
+  },
+  /**
+   * ⚖️ UN ACTE À DEUX EFFETS, ET LES DEUX DATES S'AFFICHENT — DOM, 2026-09-22.
+   * « Fin — <sortant> » et « Nomination — <entrant> », chacune étiquetée par
+   * PERSONNE. ⛔ En choisir une en silence perdrait la moitié de l'acte : c'est
+   * ce qui a tué l'hypothèse du déclencheur au lot W, et c'est la forme de la
+   * phrase d'Harvey sur la conversion — « si votre modèle la traite comme un
+   * simple mouvement, la seconde moitié se perd ».
+   * ★ LA PREUVE EST L'ÉCRIVAIN : `ReplaceOfficerModal` a deux champs de date
+   * INDÉPENDANTS (l.295 et 306), et écrit `end_date` et `start_date` à partir
+   * des MÊMES variables qu'il écrit dans `officer_appointments` (l.158/197 et
+   * l.174/199). Elles peuvent différer.
+   */
+  officer_replaced: {
+    effets: [
+      { cle: 'end_date', effet: 'fin', personne: 'sortant' },
+      { cle: 'start_date', effet: 'nomination', personne: 'entrant' },
+    ],
+  },
 
   // ── Actes datés ailleurs, que le journal N'A PAS notés. Le registre, oui. ──
   /* ⛔ `appointment_date` est ABSENTE de leurs `details`, et le `end_date` des
-     rétroactifs est la FIN du mandat (`AddDirectorModal:212`) — jamais lu. */
-  director_added: NON_CONSIGNEE,
-  officer_added: NON_CONSIGNEE,
-  director_removed: NON_CONSIGNEE,
-  officer_removed: NON_CONSIGNEE,
-  shareholder_added: NON_CONSIGNEE,
-  shares_issued: NON_CONSIGNEE,
-  share_class_created: NON_CONSIGNEE,
-  shareholding_ended: NON_CONSIGNEE,
+     rétroactifs est la FIN du mandat (`AddDirectorModal:212`) — jamais lu.
+     ⚠️ ET `officer_added` RECOUVRE AUSSI UN REMPLACEMENT : la branche
+     `replaceConflict` d'`AddOfficerModal` écrit un titre « Dirigeant
+     remplacé » sous ce type, SANS aucune des deux dates. Il y en a une au
+     parc. Ici elle dit « non consignée », ce qui est vrai ; la corriger
+     demande de changer l'écrivain, pas cette table. */
+  director_added: nonConsignee('administrateurs'),
+  director_removed: nonConsignee('administrateurs'),
+  officer_added: nonConsignee('dirigeants'),
+  officer_removed: nonConsignee('dirigeants'),
+  shareholder_added: nonConsignee('actionnaires'),
+  shares_issued: nonConsignee('actionnaires'),
+  shareholding_ended: nonConsignee('actionnaires'),
+  /* ⛔ AUCUN REGISTRE : la date de création d'une catégorie n'est PAS une
+     colonne des registres exportés — elle vit dans les statuts. Renvoyer à un
+     registre qui ne la porte pas serait un faux chemin. */
+  share_class_created: nonConsignee(null),
 };
+
+/** Ce que la ligne affichera, décidé ICI et nulle part dans le rendu. */
+export type LectureDateDeLActe =
+  | { forme: 'saisie' }
+  | {
+      forme: 'dates';
+      lignes: { effet: Effet; personne: 'sortant' | 'entrant' | null; date: string | null }[];
+    }
+  | { forme: 'non_consignee'; registre: Registre | null };
+
+/**
+ * LIT LA DATE DE L'ACTE D'UNE LIGNE — par la table, jamais par la clé.
+ *
+ * ⛔ UN TYPE INCONNU LÈVE. La contrainte `activity_log_event_type_check` rend
+ * le cas impossible en base, et `lotAC()` tient la table égale à la contrainte.
+ * Un cas impossible doit échouer, pas être rendu déterministe.
+ * ⚪ UNE CLÉ DÉCLARÉE MAIS ABSENTE rend `date: null` pour CETTE ligne, pas pour
+ * l'acte entier : l'effet reste nommé, et le rendu dit « non consignée ».
+ */
+export function lireDateDeLActe(
+  eventType: string,
+  details: Record<string, unknown> | null,
+): LectureDateDeLActe {
+  const regle = (DATE_DE_L_ACTE as Record<string, DateDeLActe | undefined>)[eventType];
+  if (regle === undefined) throw new Error(`lireDateDeLActe: unknown event type "${eventType}"`);
+  if (regle === 'saisie') return { forme: 'saisie' };
+  if ('nonConsignee' in regle) return { forme: 'non_consignee', registre: regle.nonConsignee };
+  return {
+    forme: 'dates',
+    lignes: regle.effets.map((e) => {
+      const v = details?.[e.cle];
+      return { effet: e.effet, personne: e.personne, date: typeof v === 'string' && v ? v : null };
+    }),
+  };
+}
