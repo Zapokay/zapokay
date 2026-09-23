@@ -1,0 +1,84 @@
+# LE PARCOURS ROULE TOUT SEUL, ET QUELQU'UN EST PRÉVENU — lot T-2, 2026-09-23.
+#
+# ⚖️ PHASE 1, DÉCIDÉE PAR DOM : le test roule JUSTE APRÈS chaque déploiement en
+# production, et une fois par jour.
+#
+# ⛔ POURQUOI PAS L'ÉVÉNEMENT DE VERCEL — C'EST MESURÉ, PAS SUPPOSÉ. Les
+# déploiements partent de la CLI (`vercel ls` : les quinze derniers portent
+# l'usager `zapokay`, aucun n'est déclenché par git), et GitHub ne reçoit RIEN :
+# `gh api repos/Zapokay/zapokay/deployments` rend **0**. Il n'existe donc aucun
+# `deployment_status` à écouter. Le déclencheur est une ÉTAPE DU RITUEL :
+#
+#     npx vercel --prod --yes && gh workflow run parcours.yml
+#
+# ⭐ ET LE FILET QUOTIDIEN EXISTE POUR DEUX PANNES QUE LA PREMIÈRE NE VOIT PAS :
+#   · ce qui casse SANS qu'on déploie — une clé qui périme, un réglage Supabase
+#     changé à la main, un mot de passe révoqué ;
+#   · le jour où l'étape du rituel est oubliée. Un déclencheur qui dépend de la
+#     mémoire d'un humain n'est pas un déclencheur.
+#
+# ⛔ AUCUN RETOUR EN ARRIÈRE AUTOMATIQUE, ET C'EST UNE DÉCISION DE DOM. Rouge =
+# on prévient. Défaire un déploiement sain parce qu'un test a eu un hoquet
+# coûterait plus cher que la panne qu'on cherche : revenir en arrière reste un
+# geste humain.
+
+name: parcours
+
+on:
+  # Le rituel de déploiement l'appelle ; Dom peut aussi le lancer à la main.
+  workflow_dispatch:
+  # 12:00 UTC = 08:00 à Montréal l'été, 07:00 l'hiver. ⚪ GitHub ne connaît que
+  # l'UTC : une heure locale fixe demanderait deux crons et une bascule à
+  # entretenir deux fois l'an, pour un filet dont l'heure n'a aucune importance.
+  schedule:
+    - cron: '0 12 * * *'
+
+# ⛔ UN SEUL PARCOURS À LA FOIS, ET LE NOUVEAU NE TUE PAS L'ANCIEN. Chaque
+# passage écrit un PDF dans la société de test ; deux exécutions simultanées
+# généreraient deux documents pour la même exigence, et l'un périmerait l'autre
+# en plein vol — un rouge qui ne dirait rien du produit.
+concurrency:
+  group: parcours
+  cancel-in-progress: false
+
+jobs:
+  parcours:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Le navigateur
+        # ⚪ Playwright 1.63 n'a AUCUN script d'installation : le navigateur ne
+        # descend que sur cette commande. C'est mesuré, pas supposé.
+        run: npx playwright install --with-deps chromium
+
+      - name: Le parcours
+        env:
+          # ⛔ LES IDENTIFIANTS VIENNENT DES SECRETS DU DÉPÔT, jamais du dépôt.
+          # `.env.test.local` n'existe pas ici ; la configuration laisse gagner
+          # ce qui est déjà dans l'environnement, et c'est exactement ce cas.
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          # ⚪ Pas un secret : c'est l'adresse publique du produit.
+          E2E_BASE_URL: https://zapokay.vercel.app
+        run: npm run e2e
+
+      - name: La trace, quand c'est rouge
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trace-parcours
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
