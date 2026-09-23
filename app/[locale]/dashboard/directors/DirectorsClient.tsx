@@ -333,6 +333,16 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
           </button>
         </div>
         <p className="text-sm text-[var(--text-muted)] mt-1">
+        {/* ⚖️ ICI, CARTES = PERSONNES — ET NON PAR LA DONNÉE, PAR LE DROIT.
+            On n'occupe qu'UN siège au conseil : une même personne ne peut pas
+            porter deux mandats d'administrateur actifs. Le compte des cartes
+            et celui des personnes coïncident donc par construction, et le mot
+            « administrateurs » est exact au-dessus de cette liste.
+            ⛔ NE PAS ALIGNER CE LIBELLÉ SUR CELUI DES DIRIGEANTS. Là-bas les
+            cartes sont des POSTES, qu'une personne peut cumuler (lot AG-3) ;
+            ici elles sont des personnes. Deux écrans voisins, deux unités.
+            ⚪ Le pluriel bricolé ci-dessous enfreint la règle §1 et reste à
+            corriger — recensé au lot AG-3, avec trois autres. */}
           {totalDirectors > 0
             ? locale === 'fr'
               ? `${totalDirectors} administrateur${totalDirectors > 1 ? 's' : ''} actif${totalDirectors > 1 ? 's' : ''}`

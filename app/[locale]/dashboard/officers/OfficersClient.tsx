@@ -290,13 +290,23 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
             Mesuré le 2026-09-22 — DOUZE sociétés du parc ont plus de cartes que
             de personnes, ce n'est pas un cas d'école.
             ★ ET C'EST LE MOT QUI CHANGE, PAS SEULEMENT LE NOMBRE : « 3
-            dirigeants » aurait affirmé trois PERSONNES. Les cartes sont des
-            postes ; une même personne peut en occuper deux.
+            dirigeants » aurait affirmé trois PERSONNES.
+            ⛔ LES CARTES SONT DES POSTES — UNE PERSONNE PEUT EN CUMULER DEUX
+            (président ET trésorier). Ce n'est pas un état du parc, c'est ce
+            que la charge de dirigeant permet.
             ⚪ Pluriel ICU au catalogue, zéro compris — le ternaire bricolé
             enfreignait la règle §1 du CLAUDE.md, ici même. */}
-        <p className="text-sm text-[var(--text-muted)] mt-1">
-          {t('positionsFilled', { count: sortedOfficers.length })}
-        </p>
+        {/* ⚖️ À ZÉRO, LE COMPTEUR SE TAIT — DOM, 2026-09-22. L'état vide, juste
+            dessous, le dit déjà en grand et avec son explication : deux
+            surfaces pour un seul fait. C'est l'argument rendu pour AG-2, et il
+            vaut ici.
+            ⛔ CE N'EST PAS UN SILENCE : ce qui disparaît est le CHIFFRE, pas le
+            fait — l'état vide parle, et il parle mieux. */}
+        {sortedOfficers.length > 0 && (
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            {t('positionsFilled', { count: sortedOfficers.length })}
+          </p>
+        )}
       </div>
 
       {/* Action bar */}

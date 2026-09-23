@@ -203,7 +203,93 @@ function fichiers(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════
+ * LES FORMES INCLUSIVES — lot AH, 2026-09-22.
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ * ⛔ CETTE GARDE ÉTAIT VERTE SUR « Trésorier·ière ». Elle vérifiait D'OÙ vient
+ * un libellé de titre — la déclaration unique — jamais COMMENT il est écrit.
+ * Une faute de forme passait donc indéfiniment, et elle est passée.
+ *
+ * ★ LA RÈGLE EST DÉRIVÉE, PAS RECOPIÉE. Une forme inclusive s'obtient du
+ * masculin et du féminin : le masculin ENTIER, un point médian, puis ce que le
+ * féminin ajoute À PARTIR DU POINT OÙ LES DEUX DIVERGENT.
+ *   Président / Présidente          → Président·e
+ *   Trésorier / Trésorière          → Trésorier·ère  (divergence après « Trésori »)
+ *   Administrateur / Administratrice → Administrateur·rice
+ * ⛔ « Trésorier·ière » recollait « ièr » sur une racine finissant déjà par
+ * « ier » : le féminin reconstitué aurait été « Trésorierière ».
+ *
+ * ⚠️ LE COUPLE EST DÉCLARÉ ICI, ET C'EST ASSUMÉ : c'est une donnée de LANGUE,
+ * pas d'application. Un mot inconnu fait ÉCHOUER la garde — elle ne devine
+ * aucun féminin, et elle ne se tait pas non plus.
+ */
+const FEMININS = new Map<string, string>([
+  ['Président', 'Présidente'],
+  ['Vice-président', 'Vice-présidente'],
+  ['Trésorier', 'Trésorière'],
+  ['Secrétaire', 'Secrétaire'],
+  ['Administrateur', 'Administratrice'],
+  ['Dirigeant', 'Dirigeante'],
+  ['Nommé', 'Nommée'],
+  ['Retiré', 'Retirée'],
+]);
+
+/** La forme attendue, DÉRIVÉE du couple — aucune table de formes toutes faites. */
+function formeInclusive(masculin: string, feminin: string): string {
+  let i = 0;
+  while (i < masculin.length && i < feminin.length && masculin[i] === feminin[i]) i += 1;
+  return `${masculin}·${feminin.slice(i)}`;
+}
+
+/** Des lettres, un point médian, des lettres — jamais un séparateur « · ». */
+const FORME_INCLUSIVE = /([A-Za-zÀ-ÿ-]+)·([A-Za-zÀ-ÿ]+)/g;
+
+function verifierFormesInclusives(): boolean {
+  console.log('\n━━ LES FORMES INCLUSIVES DU CATALOGUE ━━');
+  let bon = true;
+  let vues = 0;
+  for (const langue of ['fr', 'en']) {
+    const plat: Record<string, string> = {};
+    const aplatir = (o: Record<string, unknown>, p = '') => {
+      for (const [k, v] of Object.entries(o)) {
+        const q = p ? `${p}.${k}` : k;
+        if (v && typeof v === 'object') aplatir(v as Record<string, unknown>, q);
+        else if (typeof v === 'string') plat[q] = v;
+      }
+    };
+    aplatir(JSON.parse(readFileSync(join(RACINE, 'messages', `${langue}.json`), 'utf8')));
+    for (const [cle, valeur] of Object.entries(plat)) {
+      FORME_INCLUSIVE.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = FORME_INCLUSIVE.exec(valeur)) !== null) {
+        const forme = m[0];
+        const racine = m[1];
+        const suffixe = m[2];
+        vues += 1;
+        const feminin = FEMININS.get(racine);
+        if (feminin === undefined) {
+          console.log(`  ⛔ ${langue}.${cle} — « ${forme} » : féminin de « ${racine} » INCONNU.`);
+          console.log('     Ajoute le couple à FEMININS ; la garde ne devine pas.');
+          bon = false;
+          continue;
+        }
+        const attendue = formeInclusive(racine, feminin);
+        if (forme !== attendue) {
+          console.log(`  ⛔ ${langue}.${cle} — « ${forme} » devrait s'écrire « ${attendue} »`);
+          console.log(`     (${racine} / ${feminin} — le féminin reconstitué serait « ${racine}${suffixe} »)`);
+          bon = false;
+        }
+      }
+    }
+  }
+  console.log(`  ${bon ? '✔' : '⛔'} ${vues} forme(s) inclusive(s), dérivée(s) de leur couple`);
+  return bon;
+}
+
 function main(): void {
+  if (!verifierFormesInclusives()) process.exitCode = 1;
   console.log("AUTO-TEST — ce script a-t-il le droit de dire « une seule » ?");
   const sain = autoTest();
   console.log(

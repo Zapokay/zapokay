@@ -161,8 +161,14 @@ export default function EditShareholdingModal({
         <div className="sticky top-0 z-10 flex items-center justify-between modal-header modal-surface px-6 py-4">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             {locale === 'fr' ? 'Modifier les actions' : 'Edit shareholding'}
+            {/* ⚪ L'ESPACE EST DANS LE TEXTE, PAS SEULEMENT DANS LA MARGE.
+                `ml-2` écartait la BOÎTE ; le tiret restait collé au titre dans
+                tout ce qui lit le texte sans le style — copier-coller, lecteur
+                d'écran, capture. « Modifier les actions— Jean » se lisait à
+                l'œil comme une faute de frappe. */}
             <span className="ml-2 text-sm font-normal text-zinc-500">
-              — {holderName(shareholding.holders) ?? '(unknown holder)'}
+              {' — '}
+              {holderName(shareholding.holders) ?? '(unknown holder)'}
             </span>
           </h2>
           <button

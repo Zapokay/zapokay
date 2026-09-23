@@ -960,8 +960,12 @@ function lotK3Dirigeants() {
      donc elles s'ÉTEIGNENT quand la requête tombe au lieu de s'allumer. */
   dire(!/\{\s*!\s*[a-zA-Z]+\s*&&/.test(src),
     '⛔ aucun bloc gardé par une négation — pas de doublon possible ici');
-  dire((src.match(/\.length > 0 &&/g) ?? []).length === 2,
-    'les deux blocs annexes lisent `.length > 0` — ils s’éteignent, ils ne doublent pas');
+  /* ⚠️ TROIS DEPUIS LE LOT AG-3-bis, ET LA RAISON EST ÉCRITE (§374) : le
+     compteur « N postes pourvus » a gagné SA garde, pour se taire à zéro. Le
+     compte n'est pas desserré, il est porté à son nombre réel — et une
+     QUATRIÈME garde devra se justifier de même. */
+  dire((src.match(/\.length > 0 &&/g) ?? []).length === 3,
+    'trois gardes qui lisent `.length > 0` — elles s’éteignent, elles ne doublent pas');
 
   /* ④ LE NOM DE LA SECTION VIENT DU CATALOGUE, et c'est celui que la page
      emploie déjà pour se nommer — pas une seconde clé pour le même mot. */
@@ -1504,10 +1508,13 @@ function lotAG3() {
   const dire3 = (n: number) => rendre(Compteur, { n });
   dire(dit(dire3(3), '3 postes pourvus'), '3 mandats / 2 personnes → « 3 postes pourvus »');
   dire(dit(dire3(1), '1 poste pourvu') && !dit(dire3(1), 'postes'), 'un mandat → le singulier');
-  /* ⭐ LE ZÉRO A SON LIBELLÉ, et ce n'est pas « 0 postes pourvus » — faux de
-     forme en français, qui est grammaticalement singulier pour zéro. */
-  dire(dit(dire3(0), 'Aucun poste pourvu') && !/0/.test(dire3(0)),
-    '⭐ zéro mandat → le libellé de vide, jamais « 0 »');
+  /* ⭐ LE ZÉRO NE PASSE PLUS PAR UN LIBELLÉ, IL PASSE PAR UNE GARDE — Dom,
+     2026-09-22. Le compteur se tait, l'état vide parle. La clause `=0` est
+     donc sortie du catalogue : inatteignable, elle aurait prouvé qu'on y avait
+     pensé sans rien faire (§366).
+     ⛔ CE QUI TIENT LE ZÉRO EST DONC L'ASSERTION ④ — la garde du point d'appel
+     — et non une chaîne. Vérifié ici que le catalogue ne porte plus de clause
+     morte, et là-bas que l'appel est gardé. */
 
   /* ② LE MOT A CHANGÉ, PAS SEULEMENT LE NOMBRE. « dirigeants » affirmerait des
      PERSONNES ; les cartes sont des POSTES. */
@@ -1523,6 +1530,26 @@ function lotAG3() {
   dire(!/uniqueOfficerCount/.test(src), '⛔ et le compte des PERSONNES a disparu');
   dire(!/> 1 \? 's' : ''/.test(src),
     '⛔ plus aucun pluriel bricolé dans ce fichier — assertion, pas relecture');
+
+  /* ④ ⚖️ LE COMPTEUR SE TAIT À ZÉRO — Dom, 2026-09-22. L'état vide parle déjà.
+     ⛔ ET LA CLAUSE `=0` SORT AVEC : plus aucun chemin ne l'atteignait, et une
+     branche rendue INATTEIGNABLE PAR CONSTRUCTION est pire qu'absente — elle
+     prouve qu'on y avait pensé (§366). C'est la GARDE qui tient le zéro
+     maintenant, et elle, elle a un chemin. */
+  dire(/\{sortedOfficers\.length > 0 && \(/.test(src),
+    '⚖️ à zéro le compteur se tait — l’état vide, en grand, dit déjà le fait');
+  const cat = JSON.parse(readFileSync(join(__dirname, '..', 'messages', 'fr.json'), 'utf8'));
+  dire(!/=0 \{/.test(cat.officers.positionsFilled),
+    '⛔ et la clause `=0`, devenue inatteignable, est retirée du catalogue');
+
+  /* ⑤ LES DEUX ÉCRANS VOISINS COMPTENT DEUX UNITÉS, ET LE DISENT. */
+  const dir = readFileSync(
+    join(__dirname, '..', 'app', '[locale]', 'dashboard', 'directors', 'DirectorsClient.tsx'), 'utf8');
+  dire(/NE PAS ALIGNER CE LIBELLÉ SUR CELUI DES DIRIGEANTS/.test(dir),
+    '⭐ et la raison de DROIT est écrite chez les administrateurs — un siège par personne');
+  dire(/une personne peut en cumuler deux|EN CUMULER DEUX/i.test(
+    readFileSync(join(__dirname, '..', 'app', '[locale]', 'dashboard', 'officers', 'OfficersClient.tsx'), 'utf8')),
+    'et la raison de STRUCTURE chez les dirigeants — un cumul possible');
 }
 
 function lotK1() {
