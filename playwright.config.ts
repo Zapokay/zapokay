@@ -57,6 +57,36 @@ export default defineConfig({
      trace dedans. ⛔ `open: 'never'` : sans lui, une exécution locale en échec
      ouvre un navigateur et BLOQUE la CI en attendant qu'on le ferme. */
   reporter: [['list'], ['html', { open: 'never' }]],
+  /**
+   * ⛔ DEUX PROJETS, ET C'EST UNE RÉPARATION — pas un raffinement.
+   *
+   * ⚠️ LA FAUTE, ÉCRITE POUR NE PAS ÊTRE REFAITE : `npm run e2e` lançait TOUT
+   * `e2e/`, et le jour où le parcours d'inscription y est entré, la CI l'a
+   * lancé sans ses secrets — un rouge qui ne disait rien du produit, exactement
+   * ce que W-1 venait de fermer ailleurs. Ajouter un fichier ne doit pas
+   * pouvoir casser une chaîne qui ne le demande pas.
+   *
+   *   · `deploiement` — ce qui roule après chaque déploiement et chaque nuit.
+   *     Répétable à l'infini : il défait ce qu'il fait (lot T-4).
+   *   · `inscription` — UNE FOIS PAR COMPTE, à la main. Il crée une société et
+   *     ne peut pas se rejouer : le compte se referme derrière lui.
+   */
+  projects: [
+    {
+      name: 'deploiement',
+      testIgnore: /parcours-(inscription|actes)\.spec\.ts/,
+    },
+    {
+      name: 'inscription',
+      testMatch: /parcours-inscription\.spec\.ts/,
+    },
+    {
+      /* Les deux ACTES, sur la société jetable de l'inscription. Répétables —
+         ils dérivent la société à chaque passage, et c'est assumé. */
+      name: 'actes',
+      testMatch: /parcours-actes\.spec\.ts/,
+    },
+  ],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'https://zapokay.vercel.app',
     locale: 'fr-CA',

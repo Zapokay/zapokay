@@ -15,7 +15,9 @@
     "check:adresses": "tsx scripts/check-adresses.ts",
     "check:significant-control": "tsx scripts/check-significant-control.ts",
     "check:inscription": "tsx scripts/check-inscription.ts",
-    "e2e": "playwright test",
+    "e2e": "playwright test --project=deploiement",
+    "e2e:inscription": "playwright test --project=inscription",
+    "e2e:actes": "playwright test --project=actes",
     "porte:identite": "sh scripts/porte-identite.sh",
     "export:registry": "tsx scripts/export-registry.ts",
     "porte:message": "node scripts/porte-message.mjs"

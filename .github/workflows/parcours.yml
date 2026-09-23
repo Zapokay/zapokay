@@ -149,3 +149,50 @@ jobs:
             playwright-report/
           retention-days: 14
           if-no-files-found: warn
+
+
+  # ── LES DEUX ACTES, SUR LA SOCIÉTÉ JETABLE ────────────────────────────────
+  # ⚖️ LOT T-8-5 : « ajouter un administrateur » et « transférer des actions »
+  # sur la société créée par le parcours d'inscription — JAMAIS sur ZZ-TEST
+  # Parcours, dont la preuve d'isolement exige un parc stable.
+  #
+  # ⛔ AU DÉPLOIEMENT SEULEMENT, PAS DANS LE FILET QUOTIDIEN — décision de Dom.
+  # Ces actes NE SE DÉFONT PAS : chaque passage laisse une personne, un mandat
+  # ou une détention de plus. Les passer chaque nuit ferait dériver la société
+  # pour rien ; un déploiement, lui, mérite qu'on les éprouve.
+  #
+  # ⚠️ ET LE PARCOURS D'INSCRIPTION N'EST PAS ICI, DÉLIBÉRÉMENT : il ne se rejoue
+  # pas (un compte ne s'inscrit qu'une fois), et le brancher produirait un rouge
+  # « Compte ÉPUISÉ » à chaque déploiement suivant. Il se lance à la main :
+  # `npm run e2e:inscription`, sur un compte NEUF.
+  actes:
+    if: github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: actes
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Les deux actes
+        env:
+          E2E_INSCRIPTION_EMAIL: ${{ secrets.E2E_INSCRIPTION_EMAIL }}
+          E2E_INSCRIPTION_PASSWORD: ${{ secrets.E2E_INSCRIPTION_PASSWORD }}
+          E2E_BASE_URL: https://zapokay.vercel.app
+        run: npm run e2e:actes
+      - name: Ce que le navigateur voyait — quand c'est rouge
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-et-trace-des-actes
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+          if-no-files-found: warn
