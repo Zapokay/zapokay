@@ -98,7 +98,13 @@ export function SignatoriesModal({
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'rgba(7,14,28,0.55)', backdropFilter: 'blur(4px)',
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      /* ⛔ LE CLIC HORS CIBLE NE FERME PLUS — lot AF-4, 2026-09-22.
+         Cette modale porte un champ : un clic à côté emportait la saisie.
+         ⚪ Elle ne consomme PAS `components/ui/Modale.tsx` : son habillage est
+         en STYLES EN LIGNE (zIndex 300), et l'y faire passer déplacerait des
+         pixels — l'apparence appartient à Aria. Elle applique donc la règle
+         sans l'enveloppeur : une ligne retirée, zéro pixel déplacé.
+         ⚠️ Elle n'a pas Échap non plus ; la sortie délibérée reste le X. */
     >
       <div style={{
         background: 'var(--card-bg)',

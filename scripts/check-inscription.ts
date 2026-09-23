@@ -1353,7 +1353,11 @@ const MODALES_HORS_ENVELOPPEUR: Record<string, string> = {
   'components/minute-book/BinderExportModal.tsx': 'portail, même habillage — applique déjà la règle, aucun champ',
   'components/minute-book/BulkCatchUpModal.tsx': 'portail, même habillage — applique déjà la règle',
   'components/documents/DocumentModal.tsx': 'styles EN LIGNE (zIndex 200) — aucun champ, ferme au clic hors cible',
-  'components/documents/SignatoriesModal.tsx': '⚠️ styles EN LIGNE (zIndex 300) ET UN champ — le seul trou qui reste',
+  /* ⛔ UNE ENTRÉE DÉCRIT UNE RAISON, JAMAIS UN DÉFAUT — Dom, 2026-09-22.
+     Celle-ci disait « le seul trou qui reste » : une liste d'exceptions dont
+     une entrée décrit un défaut finit par le normaliser. Le trou est fermé
+     (AF-4), la raison reste. */
+  'components/documents/SignatoriesModal.tsx': 'styles EN LIGNE (zIndex 300) — ne consomme pas l’enveloppeur, MAIS applique la règle',
 };
 
 function lotAF() {
@@ -1393,6 +1397,23 @@ function lotAF() {
      aucun fichier serait une exception qui protège du vide. */
   const fantomes = Object.keys(MODALES_HORS_ENVELOPPEUR).filter((f) => !fichiers.includes(f));
   dire(fantomes.length === 0, `la liste des exceptions ne protège aucun fichier disparu`);
+
+  /* ②bis ⛔ UNE EXCEPTION À CHAMPS DOIT APPLIQUER LA RÈGLE, MÊME SANS
+     L'ENVELOPPEUR — AF-4, 2026-09-22. Sans cette assertion, la liste des
+     exceptions devient l'endroit où un trou se range et se normalise : il
+     suffirait d'y inscrire une modale pour que le clic hors cible y revienne
+     sans que rien ne le dise. */
+  const fermeAuClic = /e\.currentTarget\)\s*onClose\(\)|inset-0[^>]*onClick=\{\s*onClose/;
+  const exceptionsFautives = Object.keys(MODALES_HORS_ENVELOPPEUR).filter((f) => {
+    const src = readFileSync(join(racine, f), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    return /<input|<textarea|<select/.test(src) && fermeAuClic.test(src);
+  });
+  dire(exceptionsFautives.length === 0,
+    exceptionsFautives.length === 0
+      ? '⛔ les exceptions À CHAMPS appliquent la règle sans l’enveloppeur'
+      : `⛔ exception à champs qui ferme au clic hors cible : ${exceptionsFautives.join(', ')}`);
 
   /* ③ LES MODALES À CHAMPS CONSOMMENT L'ENVELOPPEUR, et aucune ne redemande le
      clic hors cible : `fermeAuClicHorsCible` est réservé à celles SANS champ. */
