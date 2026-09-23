@@ -19,6 +19,35 @@
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ELLE FABRIQUE UN PDF, DONC ELLE VOYAGE AVEC LE NAVIGATEUR — lot ALLÈGE.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ CETTE LIGNE PORTE DEUX CHOSES, ET LA SECONDE EST INVISIBLE.
+ *
+ *  1. Ce qu'elle dit : fabriquer un PDF prend du temps. Le défaut de Vercel
+ *     est court pour une génération à froid, mesurée à 7,2 s.
+ *
+ *  2. ★ Ce qu'elle FAIT EN PLUS, et qui est le lot : elle SÉPARE cette route
+ *     des autres. Vercel regroupe les routes en une seule fonction, et la
+ *     fonction emporte l'UNION de ce que son groupe trace. Trente-neuf routes
+ *     partageaient une lambda de 73 Mo dont 65,2 Mo de navigateur — y compris
+ *     `completeness`, `activity-log` ou `check-identifier`, qui n'ouvrent
+ *     jamais de navigateur. Une route dont la CONFIGURATION diffère ne peut
+ *     pas être regroupée avec les autres : c'est le levier, et il est mesuré —
+ *     31 routes ordinaires sont passées de 73 Mo à 2,6 Mo.
+ *
+ * ⛔ NE PAS RETIRER CETTE LIGNE EN LA CROYANT DÉCORATIVE. La retirer remet
+ *    cette route dans le groupe ordinaire, et remet 65 Mo de navigateur dans
+ *    les trente et une autres. Le réveil à froid de TOUT le produit en dépend.
+ * ⛔ ET NE PAS L'AJOUTER À UNE ROUTE QUI NE FABRIQUE PAS DE PDF : elle la
+ *    ferait entrer dans le groupe lourd, ce qui est exactement l'inverse.
+ * ⚪ `check:inscription` tient les deux sens de cette règle.
+ */
+export const maxDuration = 60;
+
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';

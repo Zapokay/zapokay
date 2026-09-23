@@ -1890,6 +1890,85 @@ function lotL4() {
     '⭐ et l’ancienne écriture serait bien VUE par l’assertion ①');
 }
 
+/**
+ * ⚖️ LE NAVIGATEUR NE VOYAGE QU'AVEC LES ROUTES QUI EN FONT — lot ALLÈGE.
+ *
+ * ⛔ CE QUE CETTE GARDE PROTÈGE EST INVISIBLE À L'ŒIL ET AU TYPE. `maxDuration`
+ * ressemble à un réglage de confort ; c'est en réalité ce qui SÉPARE les quatre
+ * routes de PDF du groupe ordinaire. Le retirer ne casse aucun test de
+ * comportement — le produit marche, simplement 31 routes réembarquent 65 Mo et
+ * le réveil à froid triple. Un défaut que seule une mesure attrape, donc une
+ * assertion.
+ *
+ * ★ ELLE EST UNE ÉGALITÉ D'ENSEMBLES, PAS UNE LISTE : « les routes qui
+ * fabriquent un PDF » = « les routes qui portent `maxDuration` ». Les deux
+ * sens comptent — une route de PDF qui perd la ligne réunit les groupes ; une
+ * route ordinaire qui la gagne entre dans le groupe lourd.
+ */
+function lotAllege() {
+  console.log('\n   ⚖️ LOT ALLÈGE — LE NAVIGATEUR RESTE AVEC LES ROUTES DE PDF');
+
+  const racine = join(__dirname, '..', 'app', 'api');
+  const routes: string[] = [];
+  const parcourir = (d: string) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) parcourir(p);
+      else if (e.name === 'route.ts') routes.push(p);
+    }
+  };
+  parcourir(racine);
+
+  /* ⛔ LU EN BINAIRE PUIS DÉCODÉ. `due-diligence/export/route.ts` porte un
+     octet NUL délibéré (un séparateur de clé composite, l.369) qui rend `grep`
+     AVEUGLE sur tout le fichier — mesuré au lot T-7. `readFileSync` en utf8,
+     lui, le lit sans broncher ; l'assertion ne doit pas dépendre d'un outil qui
+     se tait. */
+  const fabriquePdf = (src: string) =>
+    /generatePdfDocument|generate-lifecycle-document|generatePDF/.test(src);
+  const porteLaLigne = (src: string) => /^export const maxDuration\s*=/m.test(src);
+
+  const avecPdf: string[] = [];
+  const avecLigne: string[] = [];
+  for (const chemin of routes) {
+    const src = readFileSync(chemin, 'utf8');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const nom = chemin.slice(chemin.indexOf('app/api'));
+    if (fabriquePdf(code)) avecPdf.push(nom);
+    if (porteLaLigne(code)) avecLigne.push(nom);
+  }
+  avecPdf.sort();
+  avecLigne.sort();
+
+  dire(avecPdf.length === 4, `quatre routes fabriquent un PDF (${avecPdf.length})`);
+  const manquantes = avecPdf.filter((r) => !avecLigne.includes(r));
+  const enTrop = avecLigne.filter((r) => !avecPdf.includes(r));
+  dire(manquantes.length === 0,
+    `⛔ chaque route de PDF porte \`maxDuration\`${manquantes.length ? ` — MANQUE : ${manquantes.join(', ')}` : ''}`);
+  dire(enTrop.length === 0,
+    `⛔ et AUCUNE autre ne la porte${enTrop.length ? ` — EN TROP : ${enTrop.join(', ')}` : ''}`);
+
+  /* ⚪ ET LA RAISON EST ÉCRITE LÀ OÙ LA LIGNE EST. Sans elle, le prochain qui
+     range le code la retire en la croyant décorative (§357). */
+  for (const r of avecPdf) {
+    const src = readFileSync(join(__dirname, '..', r), 'utf8');
+    dire(/SÉPARE cette route/.test(src), `⚪ ${r.replace('app/api/', '')} : la raison est écrite`);
+  }
+
+  /* ⛔ LA CLÉ FAUTIVE NE REVIENT PAS. Elle demandait le navigateur dans TOUTES
+     les routes d'API, et Next l'ignorait en le disant à chaque build. */
+  const config = readFileSync(join(__dirname, '..', 'next.config.mjs'), 'utf8');
+  const codeConfig = config.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  dire(!/outputFileTracingIncludes/.test(codeConfig),
+    '⛔ `outputFileTracingIncludes` n’est plus dans la configuration');
+  dire(/RETIRÉE D'ICI/.test(config) && /Unrecognized key/.test(config),
+    '⚪ et son retrait porte sa raison, avec l’avertissement que Next répétait');
+
+  /* ⭐ CONTRÔLE POSITIF : la sonde sait dire NON. */
+  dire(porteLaLigne('export const maxDuration = 60;'), '⭐ la ligne est RECONNUE quand elle est là');
+  dire(!porteLaLigne('// export const maxDuration = 60;'), '⭐ et une ligne commentée ne compte pas');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1985,6 +2064,7 @@ async function principal() {
   lotAH();
   lotEX();
   lotL4();
+  lotAllege();
   console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
   process.exit(echecs === 0 ? 0 : 1);
 }
