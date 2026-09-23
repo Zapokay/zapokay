@@ -32,10 +32,19 @@ export default async function OnboardingPage({ params: { locale } }: { params: {
   // A FAILED READ FAILS. Never fall through to create mode.
   // Two active companies land here too, and that is deliberate: the state should be
   // impossible, and the ten dashboard pages already fail on it the same way.
-  // ⚠️ ENGLISH ON PURPOSE, AND IT IS A STOPGAP. There is no segment error boundary,
-  // so this reaches app/global-error.tsx — which is English-only and renders
-  // error.message verbatim. A French sentence inside an English shell reads worse
-  // than either one alone. Says nothing about the database or the query.
+  // ⚠️ CETTE PHRASE EST EN ANGLAIS, ET SA RAISON N'EXISTE PLUS. Elle disait :
+  // « global-error est anglophone, donc une phrase française dans une coquille
+  // anglaise lirait plus mal que l'anglais partout ». ⛔ FAUX DEPUIS `1853bbf` :
+  // `app/global-error.tsx` parle les deux langues et suit la langue de l'URL.
+  // ★ LA JUSTIFICATION S'EST DONC RETOURNÉE. Sous `/fr/onboarding`, la coquille
+  // est maintenant FRANÇAISE et cette phrase reste anglaise : le désaccord
+  // qu'elle prétendait éviter, elle le produit.
+  // ⚪ ET LE REMÈDE EXISTE DÉJÀ : `global-error` rend `error.message || repli`,
+  // et son repli est bilingue. Une `Error` au message VIDE afficherait donc la
+  // phrase de repli dans la bonne langue — au prix de la précision, que seul le
+  // `digest` conserverait côté serveur. ⚖️ Le choix appartient à Dom ; tant
+  // qu'il n'a pas tranché, on ne touche pas au texte, seulement à sa raison.
+  // Ne dit rien de la base ni de la requête.
   if (existingCompanyError) {
     throw new Error('Onboarding could not load your company. Please try again.');
   }

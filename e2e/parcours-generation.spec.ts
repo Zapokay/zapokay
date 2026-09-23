@@ -24,6 +24,34 @@ import { test, expect, type Page } from '@playwright/test';
  *  signataires — c'est ce qui fait s'ouvrir la fenêtre. */
 const EXIGENCE = "Première résolution du conseil d'administration";
 
+/**
+ * L'AUTRE CHEMIN, CELUI QUI N'OUVRE RIEN — lot T-3.
+ *
+ * ⚖️ C'EST LE PARCOURS DE LA CIBLE DE DOM : la PME à un seul signataire. T-1
+ * ne l'éprouvait pas, et c'est pourtant le plus fréquent.
+ *
+ * ★ POURQUOI CELLE-CI, ET SANS SECONDE SOCIÉTÉ. `requirement-map.ts:11` range
+ * « Première résolution des actionnaires » sous `shareholder`, et ZZ-TEST n'a
+ * QU'UN actionnaire : un seul bloc, donc `GenerateDocumentButton:86` génère
+ * directement. Le même compte sert donc aux deux chemins, et le second
+ * administrateur dont T-1 a besoin reste en place.
+ */
+const EXIGENCE_SOLO = 'Première résolution des actionnaires';
+
+/** ⛔ « Générer » OU « Régénérer », ET C'EST MESURÉ, PAS TOLÉRÉ. Au premier
+ *  passage la ligne dit « Générer » ; dès qu'un document existe elle dit
+ *  « Régénérer ». Le test doit pouvoir tourner DEUX FOIS — n'accepter que le
+ *  premier mot le rendrait vert une fois puis rouge pour une raison qui n'est
+ *  pas une panne. */
+const VERBE = /^(Générer|Régénérer)$/;
+
+/** La ligne d'une exigence : son plus proche ancêtre qui porte le verbe. */
+function ligneDe(page: Page, exigence: string) {
+  return page.getByText(exigence, { exact: true }).locator(
+    'xpath=ancestor::div[.//button[normalize-space()="Générer" or normalize-space()="Régénérer"]][1]',
+  );
+}
+
 function identifiants() {
   const { E2E_EMAIL, E2E_PASSWORD } = process.env;
   /* ⛔ ABSENTS → LE TEST ÉCHOUE EN LE DISANT. Un test qui se saute lui-même
@@ -60,15 +88,7 @@ test('connexion → Complétude → Générer → le document paraît', async ({
   await expect(titre).toBeVisible({ timeout: 60_000 });
   jalon('complétude affichée');
 
-  /* ⛔ « Générer » OU « Régénérer », ET C'EST MESURÉ, PAS TOLÉRÉ. Au premier
-     passage la ligne dit « Générer » ; dès qu'un document existe elle dit
-     « Régénérer ». Le test doit pouvoir tourner DEUX FOIS — n'accepter que le
-     premier mot le rendrait vert une fois puis rouge pour une raison qui n'est
-     pas une panne. */
-  const VERBE = /^(Générer|Régénérer)$/;
-  const ligne = titre.locator(
-    'xpath=ancestor::div[.//button[normalize-space()="Générer" or normalize-space()="Régénérer"]][1]',
-  );
+  const ligne = ligneDe(page, EXIGENCE);
   await expect(ligne.getByRole('button', { name: VERBE })).toHaveCount(1);
   await ligne.getByRole('button', { name: VERBE }).click();
 
@@ -119,4 +139,53 @@ test('connexion → Complétude → Générer → le document paraît', async ({
 
   console.log('\n⏱️  JALONS (ms depuis le départ)');
   for (const [quoi, ms] of Object.entries(chrono)) console.log(`   ${String(ms).padStart(7)} — ${quoi}`);
+});
+
+/**
+ * ⭐ LE CHEMIN SANS FENÊTRE — LOT T-3, ET C'EST LA CIBLE DE DOM.
+ *
+ * Un seul signataire : pas de choix à faire, donc AUCUNE fenêtre, et un seul
+ * geste sépare le clic du document. T-1 n'éprouvait que l'autre branche —
+ * celle qui demande de choisir — alors que c'est celle-ci que la PME à un
+ * administrateur rencontrera.
+ *
+ * ⛔ ET LA PREUVE DE L'ABSENCE EST LE POST LUI-MÊME. Si une fenêtre s'ouvrait,
+ * rien ne partirait avant un SECOND clic, que ce test ne fait pas : la réponse
+ * ne viendrait jamais et le test échouerait. L'assertion `toHaveCount(0)` qui
+ * suit ne fait que le dire tout haut.
+ */
+test('un seul signataire → aucune fenêtre, et le document paraît', async ({ page }) => {
+  const depart = Date.now();
+
+  await seConnecter(page);
+  await page.goto('/fr/dashboard/minute-book/completeness');
+  await expect(page.getByText(EXIGENCE_SOLO, { exact: true })).toBeVisible({ timeout: 60_000 });
+
+  const ligne = ligneDe(page, EXIGENCE_SOLO);
+  await expect(ligne.getByRole('button', { name: VERBE })).toHaveCount(1);
+
+  const reponse = page.waitForResponse(
+    (r) => r.url().includes('/api/minute-book/generate-item') && r.request().method() === 'POST',
+    { timeout: 150_000 },
+  );
+  await ligne.getByRole('button', { name: VERBE }).click();
+
+  const r = await reponse;
+  expect(r.status(), 'la génération répond 200 — sans qu’on ait rien choisi').toBe(200);
+  const corps = await r.json();
+  expect(corps.success, 'la génération se déclare réussie').toBe(true);
+  const documentId: string = corps.documentId ?? corps.document?.id;
+  expect(documentId, 'la réponse nomme le document créé').toBeTruthy();
+
+  await expect(
+    page.getByRole('heading', { name: /^Signataires$/ }),
+    'AUCUNE fenêtre ne s’est ouverte — un seul bloc ne se choisit pas',
+  ).toHaveCount(0);
+
+  await expect(
+    ligne.locator(`a[href*="${documentId}"]`),
+    'la ligne offre « Voir » SUR LE DOCUMENT CRÉÉ',
+  ).toBeVisible({ timeout: 60_000 });
+
+  console.log(`\n⏱️  chemin sans fenêtre : ${Date.now() - depart} ms`);
 });

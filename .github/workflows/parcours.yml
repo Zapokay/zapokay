@@ -25,6 +25,12 @@
 name: parcours
 
 on:
+  # ⭐ CHAQUE ENVOI DE CODE, POUR LES NEUF PORTES (lot T-2b, inventaire 102). La
+  # discipline cesse d'être une habitude que je peux oublier : elle devient
+  # structurelle. ⛔ Aucune ne demande de secret — mesuré : `check:dates` et
+  # `check:adresses` fabriquent une URL et une clé factices, `check:obligations`
+  # est pure, et `next build` compile SANS `.env.local` (rc=0, 40 routes).
+  push:
   # Le rituel de déploiement l'appelle ; Dom peut aussi le lancer à la main.
   workflow_dispatch:
   # 12:00 UTC = 08:00 à Montréal l'été, 07:00 l'hiver. ⚪ GitHub ne connaît que
@@ -33,16 +39,58 @@ on:
   schedule:
     - cron: '0 12 * * *'
 
-# ⛔ UN SEUL PARCOURS À LA FOIS, ET LE NOUVEAU NE TUE PAS L'ANCIEN. Chaque
-# passage écrit un PDF dans la société de test ; deux exécutions simultanées
-# généreraient deux documents pour la même exigence, et l'un périmerait l'autre
-# en plein vol — un rouge qui ne dirait rien du produit.
-concurrency:
-  group: parcours
-  cancel-in-progress: false
-
 jobs:
+  # ── LES NEUF PORTES ────────────────────────────────────────────────────────
+  # ⛔ L'ORDRE N'EST PAS DÉCORATIF : `next build` AVANT `tsc`. Le build régénère
+  # `.next/types` ; l'inverse fait juger `tsc` sur des types périmés et laisse
+  # passer une route dont la signature a changé.
+  portes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: ① next build
+        run: npm run build
+      - name: ② tsc --noEmit
+        run: npx tsc --noEmit
+      - name: ③ next lint
+        run: npm run lint
+      - name: ④ check:glyphs
+        run: npm run check:glyphs
+      - name: ⑤ check:titres
+        run: npm run check:titres
+      - name: ⑥ check:obligations
+        run: npm run check:obligations
+      - name: ⑦ check:dates
+        run: npm run check:dates
+      - name: ⑧ check:adresses
+        run: npm run check:adresses
+      - name: ⑨ check:significant-control
+        run: npm run check:significant-control
+      - name: ⑩ check:inscription — la sonde
+        run: npm run check:inscription
+
+  # ── LE PARCOURS, CONTRE LE PRODUIT DÉPLOYÉ ────────────────────────────────
+  # ⛔ PAS SUR `push`, ET C'EST DÉLIBÉRÉ. Un envoi de code précède le
+  # déploiement : le parcours y éprouverait la version PRÉCÉDENTE, et chaque
+  # envoi ajouterait un PDF à la société de test pour ne rien prouver.
   parcours:
+    if: github.event_name != 'push'
+    # ⛔ UN SEUL PARCOURS À LA FOIS, ET LE NOUVEAU NE TUE PAS L'ANCIEN. Chaque
+    # passage écrit un PDF dans la société de test ; deux exécutions simultanées
+    # généreraient deux documents pour la même exigence, et l'un périmerait
+    # l'autre en plein vol — un rouge qui ne dirait rien du produit.
+    # ⚪ AU NIVEAU DU TRAVAIL, PAS DU WORKFLOW : depuis T-2b les portes roulent à
+    # chaque envoi, et les mettre dans la même file les ferait s'attendre sans
+    # aucune raison — elles n'écrivent rien.
+    concurrency:
+      group: parcours
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
