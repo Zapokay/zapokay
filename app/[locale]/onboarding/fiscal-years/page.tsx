@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getUser } from '@/lib/auth'
+import { getUserWithProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { FiscalYearsSetup } from '@/components/onboarding/FiscalYearsSetup'
 import { declarationDesExercices } from '@/lib/active-years'
@@ -11,7 +11,7 @@ export default async function FiscalYearsPage({
 }) {
   const supabase = createClient()
 
-  const user = await getUser()
+  const { user, profile } = await getUserWithProfile()
   if (!user) redirect(`/${locale}/login`)
 
   const { data: company } = await supabase
@@ -22,6 +22,31 @@ export default async function FiscalYearsPage({
     .single()
 
   if (!company) redirect(`/${locale}/onboarding`)
+
+  // ⚖️ SA GARDE, DÉCIDÉE AU LOT EX — elle n'en avait AUCUNE, et elle n'en avait
+  // pas besoin : l'inscription se clôturait à l'étape 7, donc personne ne
+  // pouvait arriver ici sans l'avoir finie. Ce n'est plus vrai.
+  //
+  // ⛔ ① PAR LE BAS — on ne saute pas ici en tapant l'URL. Sans ligne
+  //    « company_created », les sept premières étapes n'ont pas abouti : cet
+  //    écran enregistrerait des exercices pour une société sans administrateurs,
+  //    sans actionnaires et sans dirigeants, puis déclarerait l'inscription
+  //    finie. On renvoie à l'assistant, qui reprend où il en est.
+  // ⛔ ② PAR LE HAUT — une inscription déjà finie n'a plus rien à faire dans un
+  //    écran d'inscription. Les exercices se gèrent ensuite dans Paramètres, qui
+  //    porte le même geste ; revenir ici rejouerait une étape close.
+  // ⚪ Les deux lectures ÉCHOUENT plutôt que de supposer : voir la même doctrine
+  //    dans `../page.tsx`. Une garde qui s'ouvre sur une erreur n'est pas une
+  //    garde.
+  if (profile?.onboarding_completed) redirect(`/${locale}/dashboard`)
+
+  const { count: lignesDeRegistre, error: registreError } = await supabase
+    .from('activity_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('company_id', company.id)
+    .eq('event_type', 'company_created')
+  if (registreError) throw new Error()
+  if ((lignesDeRegistre ?? 0) === 0) redirect(`/${locale}/onboarding`)
 
   const { data: fiscalYears } = await supabase
     .from('company_fiscal_years')
@@ -51,6 +76,9 @@ export default async function FiscalYearsPage({
   return (
     <FiscalYearsSetup
       locale={locale}
+      /* ⭐ L'USAGER DESCEND MAINTENANT JUSQU'ICI : c'est cet écran qui pose
+         `onboarding_completed`, et il lui faut donc savoir SUR QUI l'écrire. */
+      userId={user.id}
       companyId={company.id}
       savedFiscalYears={lignes}
       documentYears={documentYears}

@@ -783,21 +783,34 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
   );
 
   // ── Step 7: Celebration → fiscal-years ──────────────────────────────────
-  // BUG 4 fix: set onboarding_completed here, navigate WITHOUT router.refresh()
-  // (router.refresh() was causing the onboarding page to re-render, see
-  //  onboarding_completed=true, and redirect to dashboard before fiscal-years loaded)
+  // ⚠️ CE COMMENTAIRE DÉCRIVAIT UNE RÉPARATION QUI N'A PLUS D'OBJET (lot EX).
+  // Il disait : « on pose `onboarding_completed` ici, et on navigue SANS
+  // `router.refresh()` » — parce que le rafraîchissement faisait relire le
+  // drapeau à la page d'assistant, qui partait au tableau de bord avant que
+  // l'écran des exercices ne charge. Le drapeau ne s'écrit plus ici, donc cette
+  // course n'existe plus.
+  // ⛔ MAIS ON NE RAFRAÎCHIT TOUJOURS PAS, ET LA RAISON EST NEUVE : la page
+  // d'assistant compte désormais les lignes « company_created », et celle-ci
+  // vient d'être écrite. Un `router.refresh()` la ferait relire et rediriger —
+  // vers le même écran, au prix d'un aller-retour. Même geste, autre motif.
   const handleCelebrationContinue = useCallback(async (): Promise<boolean> => {
     try {
+      // ⚖️ `onboarding_completed` N'EST PLUS ÉCRIT ICI — DOM, 2026-09-23, lot EX.
+      // L'inscription n'est finie qu'une fois les exercices ENREGISTRÉS, et
+      // c'est `FiscalYearsSetup` qui pose le drapeau, à l'étape 8.
+      // ⛔ CE QUI RESTE ICI EST LA LANGUE, et elle doit rester ici : c'est le
+      // choix de l'étape 1, et elle gouverne la langue de CHAQUE document
+      // généré. La retarder d'une étape la ferait manquer à qui abandonne.
       const { error } = await supabase.from('users').upsert({
         id: userId,
         preferred_language: data.language,
-        onboarding_completed: true,
       });
-      // ⚠️ BLOCKING IS THE EXIT, NOT A PRECAUTION. Ten pages read this flag and
-      // redirect to /onboarding when it is false (dashboard, settings, activity,
-      // officers, shareholders, directors, minute-book ×3, [locale]/page.tsx).
-      // Navigating past a failed write traps the user in a loop with the company
-      // already created. Staying here is the only way out.
+      // ⚠️ BLOQUER EST LA SORTIE, PAS UNE PRÉCAUTION — et sa raison a changé
+      // avec ce lot. Elle était : dix pages lisent le drapeau et renvoient ici
+      // quand il est faux, donc avancer après un échec enfermait l'usager dans
+      // une boucle. Le drapeau n'est plus écrit ici ; ce qui l'est vaut autant —
+      // avancer après un échec livrerait un livre de minutes dans la mauvaise
+      // langue, en silence. Rester est la seule issue.
       if (error) {
         console.error('[onboarding] step 7 users.upsert failed:', error);
         return false;
@@ -810,14 +823,19 @@ export function OnboardingFlow({ locale, userId, existingCompany }: OnboardingFl
     }
     // ★★ LE REGISTRE A SON ORIGINE ICI, ET NULLE PART AILLEURS DANS L'INSCRIPTION.
     // ⛔ ET UNE SECONDE LIGNE EST IMPOSSIBLE, PAR CONSTRUCTION — mesuré le
-    //    2026-09-17 parce que rien ne le disait. L'upsert ci-dessus pose
-    //    `onboarding_completed`, et `app/[locale]/onboarding/page.tsx` redirige
-    //    vers le tableau de bord dès que ce drapeau est vrai. La page qui mène
-    //    ici devient donc INATTEIGNABLE une ligne avant celle-ci : « précédent »
-    //    depuis l'étape des exercices ne ramène pas à l'étape 7. Rejouer ce
-    //    geste demanderait de remettre le drapeau à `false` en base.
+    //    2026-09-17 parce que rien ne le disait.
+    // ⚠️ MAIS SON GARDIEN A CHANGÉ AU LOT EX, ET C'ÉTAIT LE PIÈGE DU LOT. Ce
+    //    n'est plus `onboarding_completed` — il ne s'écrit plus ici — mais LA
+    //    LIGNE ELLE-MÊME : `app/[locale]/onboarding/page.tsx` compte les lignes
+    //    `company_created` de la société et, dès qu'il en trouve une, envoie à
+    //    l'étape 8 sans jamais remonter l'assistant. La page qui mène ici reste
+    //    donc INATTEIGNABLE après un premier passage — fermer l'onglet à
+    //    l'étape 8 et revenir, deux fois plutôt qu'une, ne ramène pas ici.
+    //    ⛔ NE PAS AFFAIBLIR CETTE LECTURE EN « si erreur, on continue » : un
+    //    échec pris pour « aucune ligne » fabriquerait le doublon qu'elle
+    //    empêche. Elle lève, et c'est écrit là-bas aussi.
     //    ⚪ L'effacement du brouillon, plus bas, ne protège rien de cela : il
-    //    vient APRÈS. Le garde-fou est le drapeau, et lui seul.
+    //    vient APRÈS, et il meurt avec l'onglet.
     // Ce point n'est atteignable QUE par des succès : chaque `setStep(n+1)` vit
     // dans le chemin de succès de son gestionnaire, et l'upsert ci-dessus bloque
     // sur échec — « BLOCKING IS THE EXIT ». Une ligne ne peut donc pas naître

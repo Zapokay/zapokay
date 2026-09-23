@@ -9,6 +9,8 @@ import LanguageToggle from '@/components/ui/LanguageToggle'
 
 interface FiscalYearsSetupProps {
   locale: string
+  /** ⭐ Celui sur qui `onboarding_completed` s'écrit — voir `handleStart`. */
+  userId: string
   companyId: string
   savedFiscalYears: { year: number; status: string }[]
   documentYears: number[]
@@ -30,6 +32,7 @@ interface FiscalYearsSetupProps {
 
 export function FiscalYearsSetup({
   locale,
+  userId,
   companyId,
   savedFiscalYears,
   documentYears,
@@ -59,8 +62,9 @@ export function FiscalYearsSetup({
   // Sa pastille, calculée à part, disparaissait le dernier jour d'un exercice.
   // ★ SANS LIGNE ACTIVE, `suivis` VAUT LES EXERCICES VERROUILLÉS — le dernier terminé et
   // l'en-cours. Tout ce qui est plus ancien est montré décoché, et le client choisit ce qu'il
-  // rattrape (décision de Dom, 2026-09-13). « Passer » mène donc exactement où mène
-  // « Terminer » sans rien toucher.
+  // rattrape (décision de Dom, 2026-09-13).
+  // ⚠️ CETTE PHRASE DISAIT « Passer mène exactement où mène Terminer » : le
+  // bouton n'existe plus (lot EX), et le seul chemin de sortie ÉCRIT.
   const years = exercices
   const [activeYears, setActiveYears] = useState<Set<number>>(() => new Set(suivis))
   const [saving, setSaving] = useState(false)
@@ -102,8 +106,10 @@ export function FiscalYearsSetup({
   // ⚪⚪ LE NAVIGATEUR IGNORE NOTRE TEXTE, ET CE N'EST PAS UN DÉFAUT DU CODE.
   //    Depuis 2017, tous les navigateurs affichent LEUR propre phrase générique
   //    et jettent la nôtre. Ne pas passer une heure à chercher pourquoi la
-  //    chaîne du catalogue ne sort pas : elle ne sortira jamais ici. Elle sert
-  //    à l'autre sortie, celle qu'on contrôle — « Passer ».
+  //    chaîne du catalogue ne sort pas : elle ne sortira jamais ici.
+  // ⛔ ET ELLE NE SERT PLUS À RIEN D'AUTRE. Elle servait à « Passer », la sortie
+  //    qu'on contrôlait ; ce bouton est retiré, et la clé du catalogue avec lui
+  //    — rendue nulle part, elle aurait prouvé qu'on y avait pensé (§366).
   // ⛔ ET LE « PRÉCÉDENT » DU NAVIGATEUR N'EST PAS COUVERT, DÉLIBÉRÉMENT. Next
   //    n'offre pas de garde d'interruption de route pour l'App Router, et les
   //    contournements connus — repousser `history.pushState`, écouter
@@ -216,15 +222,14 @@ export function FiscalYearsSetup({
 
     // ★ RIEN À DIRE, RIEN À ÉCRIRE. Un « Terminer » sans changement n'émet
     // aucune requête.
-    if (riendAEnregistrer) {
-      router.push(`/${locale}/dashboard`)
-      router.refresh()
-      return
-    }
-
+    // ⚠️ SA RAISON A CHANGÉ AU LOT EX. Elle rendait la main tout de suite ;
+    // elle ne peut plus, parce que la FIN DE L'INSCRIPTION s'écrit désormais
+    // plus bas et qu'elle doit s'écrire sur les DEUX chemins. Ce qu'elle garde,
+    // c'est le silence réseau : un « Terminer » sans changement n'émet toujours
+    // aucune requête d'exercice.
     let dbError: unknown = null
     try {
-      if (aActiver.length > 0) {
+      if (!riendAEnregistrer && aActiver.length > 0) {
         // Forme de SettingsClient : l'upsert sur (company_id, year) couvre d'un
         // geste l'année neuve et l'année qui remonte d'`archived`. La contrainte
         // unique existe et est valide — vérifié au schéma.
@@ -236,7 +241,7 @@ export function FiscalYearsSetup({
           )
         dbError = error
       }
-      if (!dbError && aArchiver.length > 0) {
+      if (!riendAEnregistrer && !dbError && aArchiver.length > 0) {
         // Forme de SettingsClient, généralisée d'une année à un ensemble :
         // `.eq('year', y)` devient `.in('year', ys)`. Rien d'autre ne change.
         const { error } = await supabase
@@ -260,6 +265,33 @@ export function FiscalYearsSetup({
     // sans un mot. Sur le succès la navigation démonte, et relâcher ouvrirait
     // une fenêtre d'un rendu où le bouton est cliquable une seconde fois.
     if (dbError) {
+      setSaveError(tCommon('saveFailed'))
+      setSaving(false)
+      return
+    }
+
+    // ★★ L'INSCRIPTION SE TERMINE ICI, ET NULLE PART AILLEURS — DOM, 2026-09-23.
+    // Le drapeau s'écrivait à l'étape 7, une étape AVANT celle-ci : l'assistant
+    // déclarait donc fini ce qu'il n'avait pas fini, et l'écran des exercices
+    // arrivait après la clôture — offert, jamais exigé. Onze sociétés du parc
+    // sont passées à côté (mesuré le 2026-09-23).
+    // ⛔ ET IL S'ÉCRIT APRÈS LES EXERCICES, PAS AVANT : l'inverse rendrait la
+    // panne silencieuse — une inscription déclarée finie sur une écriture
+    // d'exercices qui a échoué.
+    // ⚪ `upsert` et non `update` : la ligne existe (l'étape 7 y a posé la
+    // langue), mais un `update` sur une ligne absente n'écrirait RIEN et
+    // renverrait un succès — l'usager tournerait en rond entre le tableau de
+    // bord et l'assistant sans qu'un seul message ne sorte.
+    const { error: finErreur } = await supabase
+      .from('users')
+      .upsert({ id: userId, onboarding_completed: true })
+
+    // ⚠️ MÊME DOCTRINE QUE CI-DESSUS, ET MÊME RAISON QU'À L'ÉTAPE 7 : on ne
+    // navigue pas sur un échec. Dix pages lisent ce drapeau et renvoient ici
+    // quand il est faux ; partir au tableau de bord après cet échec ouvrirait
+    // une boucle muette, la société déjà créée.
+    if (finErreur) {
+      console.error('[onboarding] fiscal years onboarding_completed failed:', finErreur)
       setSaveError(tCommon('saveFailed'))
       setSaving(false)
       return
@@ -571,67 +603,21 @@ export function FiscalYearsSetup({
           )}
 
           {/* Actions */}
+          {/* ⚖️ « PASSER » A ÉTÉ RETIRÉ — DOM, 2026-09-23, lot EX. L'étape 8
+              devient obligatoire : l'inscription n'est finie qu'une fois les
+              exercices ENREGISTRÉS, et c'est l'utilisateur qui confirme ses
+              années — le produit ne devine rien.
+              ⛔ NE PAS LE REMETTRE « pour la souplesse ». Il menait au tableau
+              de bord sans rien écrire, et onze sociétés du parc y sont passées :
+              chacune perd tous les exercices antérieurs au dernier terminé, soit
+              (exercices possibles − 2) × 4 obligations invisibles.
+              ⚪ Ce qui reste de sa garde vit dans `beforeunload`, plus haut :
+              fermer l'onglet est une sortie que notre code ne contrôle pas, et
+              elle, elle existe encore. */}
           <div style={{
             width: '100%',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
           }}>
-            <button
-              onClick={() => {
-                // ⛔ LA SORTIE QUI COMPTE, ET AUCUNE API NE LA COUVRE. « Passer »
-                //    est un `router.push` de NOTRE code : `beforeunload` ne le
-                //    voit pas — c'est un changement de route, pas un
-                //    déchargement. Il faut donc l'intercepter ICI, là où il est
-                //    écrit.
-                // ⚠️ ET CE BOUTON CHANGE DE SENS AVEC CE LOT. Son commentaire
-                //    d'origine disait qu'il « mène exactement où mène Terminer ».
-                //    Ce n'est plus vrai : Terminer enregistre, Passer abandonne.
-                // ⛔ LA CONFIRMATION NE SORT QUE S'IL Y A QUELQUE CHOSE À PERDRE.
-                //    Un avertissement qui sort toujours se fait ignorer en trois
-                //    jours, et il finit par avoir l'air d'un bogue.
-                //
-                // ⚠️⚠️ ET SUR UNE INSCRIPTION NEUVE, IL Y A TOUJOURS QUELQUE CHOSE À
-                //    PERDRE — DONC IL SORTIRA TOUJOURS. CE N'EST PAS UN BOGUE.
-                //    Sans ligne enregistrée, `declarationDesExercices` rend les
-                //    exercices VERROUILLÉS — l'exercice en cours et le dernier
-                //    terminé —, l'écran ouvre avec eux cochés, et `storedActive` est
-                //    vide : `aActiver` vaut donc ces deux-là dès le premier rendu,
-                //    sans que personne ait cliqué.
-                // ★ ET C'EST JUSTE, PAS UN EFFET DE BORD À CORRIGER : sauter cette
-                //    étape fait réellement perdre l'exercice en cours, que rien
-                //    n'aura enregistré. L'avertissement dit la vérité.
-                // ⛔ NE PAS « RÉPARER » ÇA EN COMPARANT À `suivis` PLUTÔT QU'À LA
-                //    BASE. `aActiver` est la liste que « Terminer » ÉCRIT : la
-                //    rendre vide quand elle ne l'est pas ferait taire
-                //    l'avertissement ET n'écrirait rien, ce qui est exactement
-                //    l'état qu'on veut signaler.
-                // ⚪ Une société qui repasse ici après avoir enregistré ne le voit
-                //    PAS : `storedActive` contient alors l'exercice en cours, et
-                //    `aActiver` l'exclut. Vérifié par `check:inscription`, lot D.
-                //
-                // ⚠️⚠️ ET LE TEXTE NOMME LE BOUTON ET LE GESTE, VOLONTAIREMENT —
-                //    ne pas le « simplifier » en le croyant bavard.
-                //    `window.confirm` ne rend que « OK » et « Annuler » : SES
-                //    BOUTONS NE PEUVENT PAS PORTER LE REMÈDE. Une phrase qui se
-                //    contenterait de dire ce qui est perdu laisserait l'utilisateur
-                //    deviner quoi faire, devant deux boutons qui ne le disent pas
-                //    non plus. Le texte doit donc nommer le geste MANQUANT
-                //    (« Terminer ») ET ce que « continuer » fait.
-                //    ⚪ Le couplage au libellé « Terminer » est ASSUMÉ : décision
-                //    de Dom, 2026-09-17, ce libellé ne change pas.
-                //    ⚪ ET SI CET ÉCRAN GAGNE UN JOUR UNE VRAIE MODALE avec ses
-                //    propres boutons — « Revenir » / « Quitter sans enregistrer » —
-                //    alors le remède vit dans les boutons, et la phrase peut
-                //    redevenir courte : « … ne sont pas encore enregistrés. »
-                if (!riendAEnregistrer && !window.confirm(t('unsavedFiscalYearsWarning'))) return
-                router.push(`/${locale}/dashboard`)
-              }}
-              style={{
-                fontSize: '14px', color: 'var(--text-muted)',
-                background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0',
-              }}
-            >
-              {fr ? 'Passer' : 'Skip'}
-            </button>
             <button
               onClick={handleStart}
               disabled={saving}

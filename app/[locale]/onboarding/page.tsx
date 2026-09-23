@@ -32,21 +32,58 @@ export default async function OnboardingPage({ params: { locale } }: { params: {
   // A FAILED READ FAILS. Never fall through to create mode.
   // Two active companies land here too, and that is deliberate: the state should be
   // impossible, and the ten dashboard pages already fail on it the same way.
-  // ⚠️ CETTE PHRASE EST EN ANGLAIS, ET SA RAISON N'EXISTE PLUS. Elle disait :
-  // « global-error est anglophone, donc une phrase française dans une coquille
-  // anglaise lirait plus mal que l'anglais partout ». ⛔ FAUX DEPUIS `1853bbf` :
-  // `app/global-error.tsx` parle les deux langues et suit la langue de l'URL.
-  // ★ LA JUSTIFICATION S'EST DONC RETOURNÉE. Sous `/fr/onboarding`, la coquille
-  // est maintenant FRANÇAISE et cette phrase reste anglaise : le désaccord
-  // qu'elle prétendait éviter, elle le produit.
-  // ⚪ ET LE REMÈDE EXISTE DÉJÀ : `global-error` rend `error.message || repli`,
-  // et son repli est bilingue. Une `Error` au message VIDE afficherait donc la
-  // phrase de repli dans la bonne langue — au prix de la précision, que seul le
-  // `digest` conserverait côté serveur. ⚖️ Le choix appartient à Dom ; tant
-  // qu'il n'a pas tranché, on ne touche pas au texte, seulement à sa raison.
-  // Ne dit rien de la base ni de la requête.
+  // ⚖️ L'ERREUR N'A PLUS DE MESSAGE, ET C'EST LA DÉCISION DE DOM (2026-09-23).
+  // Elle en portait un, en anglais, justifié par « global-error est anglophone ».
+  // ⛔ Faux depuis `1853bbf`, et la justification s'était RETOURNÉE : sous
+  // `/fr/onboarding` la coquille est française et la phrase restait anglaise —
+  // le désaccord qu'elle prétendait éviter, elle le produisait.
+  // ★ UN MESSAGE VIDE EST DONC UN CHOIX, PAS UN OUBLI : `global-error` rend
+  // `error.message || repli`, et son repli EST bilingue. L'écran parle enfin la
+  // langue du lecteur. Le détail, lui, reste aux journaux du serveur, avec le
+  // `digest` que Next attache à cette erreur.
+  // ⛔ NE PAS « AMÉLIORER » EN REMETTANT UNE PHRASE ICI : elle ne pourrait être
+  // que dans UNE langue, et elle reprendrait le défaut qu'on vient de fermer.
   if (existingCompanyError) {
-    throw new Error('Onboarding could not load your company. Please try again.');
+    throw new Error();
+  }
+
+  // ★★ CE QUI INTERDIT UNE SECONDE LIGNE AU REGISTRE, C'EST LA PREMIÈRE — LOT EX.
+  //
+  // ⚖️ Avant ce lot, `onboarding_completed` s'écrivait à l'étape 7, une ligne
+  // AVANT `logActivity('company_created')`, et le `redirect` ci-dessus rendait
+  // l'étape 7 inatteignable pour toujours : c'est ce qui garantissait UNE ligne
+  // de registre par société. Dom a déplacé la fin de l'inscription après
+  // l'étape 8 — la garantie perdait donc son gardien.
+  //
+  // ⛔ LE TROU QU'ON AURAIT CREUSÉ, NOMMÉ : le brouillon vit en `sessionStorage`
+  // et meurt avec l'onglet. Quelqu'un qui ferme à l'étape 8 et revient
+  // repartirait de l'étape 1 avec le drapeau encore faux, rejouerait les sept
+  // étapes, et `handleCelebrationContinue` écrirait une SECONDE ligne
+  // « company_created ». Deux fois de suite, deux lignes de plus.
+  //
+  // ★ LA GARANTIE EST DONC REPORTÉE SUR LE FAIT LUI-MÊME. La ligne de registre
+  // existe ⇒ les sept premières étapes ont abouti ⇒ la seule chose qui reste est
+  // l'étape 8. On y envoie, et l'étape 7 redevient inatteignable — par un fait
+  // DURABLE écrit en base, là où le drapeau ne l'était pas moins mais ne dit
+  // plus la même chose.
+  const { count: lignesDeRegistre, error: registreError } = existingCompany
+    ? await supabase
+        .from('activity_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', existingCompany.id)
+        .eq('event_type', 'company_created')
+    : { count: 0, error: null };
+
+  // ⛔ UNE LECTURE RATÉE ÉCHOUE — même doctrine que ci-dessus, et ici elle porte
+  // plus lourd : prendre un échec de lecture pour « aucune ligne » renverrait à
+  // l'étape 1 quelqu'un qui en a déjà une, c'est-à-dire fabriquerait le doublon
+  // que ce bloc existe pour empêcher.
+  if (registreError) {
+    throw new Error();
+  }
+
+  if ((lignesDeRegistre ?? 0) > 0) {
+    redirect(`/${locale}/onboarding/fiscal-years`);
   }
 
   return (

@@ -1702,6 +1702,107 @@ function lotAH() {
     'et un message présent s’affiche tel quel');
 }
 
+/**
+ * ⚖️ L'INSCRIPTION N'EST FINIE QU'APRÈS LES EXERCICES — LOT EX, 2026-09-23.
+ *
+ * ⛔ CE QUE CE LOT A MIS EN JEU, ET QUE CETTE FONCTION GARDE. Le drapeau
+ * `onboarding_completed` s'écrivait à l'étape 7, UNE LIGNE avant
+ * `logActivity('company_created')`, et c'est ce qui rendait l'étape 7
+ * inatteignable pour toujours : une société, une ligne de registre. Déplacer la
+ * fin à l'étape 8 lui retirait son gardien.
+ * ★ LE GARDIEN EST DÉSORMAIS LA LIGNE ELLE-MÊME. Les assertions ⑤ et ⑥ tiennent
+ * ce report ; sans elles, on aurait troqué un trou contre un doublon.
+ */
+function lotEX() {
+  console.log('\n   ⚖️ LOT EX — LA FIN DE L’INSCRIPTION EST APRÈS LES EXERCICES');
+
+  const lire = (...p: string[]) =>
+    readFileSync(join(__dirname, '..', ...p), 'utf8');
+  const sansCommentaires = (src: string) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const flot = lire('components', 'onboarding', 'OnboardingFlow.tsx');
+  const exercices = lire('components', 'onboarding', 'FiscalYearsSetup.tsx');
+  const pageAssistant = lire('app', '[locale]', 'onboarding', 'page.tsx');
+  const pageExercices = lire('app', '[locale]', 'onboarding', 'fiscal-years', 'page.tsx');
+
+  /* ① LA FIN A QUITTÉ L'ÉTAPE 7. */
+  /* ⚠️ ASSERTION RECALIBRÉE, AVEC SA RAISON (§374). Elle interdisait TOUTE
+     mention du drapeau et elle a échoué à juste titre : l'étape 3 écrit
+     `onboarding_completed: false` en créant la ligne `users`, ce qui est
+     l'INVERSE d'une clôture et doit rester. Ce qu'on interdit est la mise à
+     VRAI — la seule qui termine l'inscription. ⛔ Ne pas la relâcher davantage :
+     `: true` est exactement le geste que le lot déplace. */
+  dire(!/onboarding_completed:\s*true/.test(sansCommentaires(flot)),
+    '⛔ l’assistant ne met plus le drapeau à VRAI — l’étape 7 ne clôt plus rien');
+  dire(/onboarding_completed:\s*false/.test(sansCommentaires(flot)),
+    '⚪ et il l’écrit toujours à FAUX en créant la ligne — l’inverse d’une clôture');
+  dire(/preferred_language:\s*data\.language/.test(sansCommentaires(flot)),
+    '⚪ mais il écrit toujours la LANGUE : elle gouverne chaque document généré');
+
+  /* ② ELLE EST ARRIVÉE À L'ÉTAPE 8, ET APRÈS L'ÉCRITURE DES EXERCICES. */
+  const codeExercices = sansCommentaires(exercices);
+  dire(/onboarding_completed:\s*true/.test(codeExercices),
+    '⭐ l’écran des exercices pose la fin de l’inscription');
+  const posUpsertAnnees = codeExercices.indexOf("from('company_fiscal_years')");
+  const posFin = codeExercices.indexOf('onboarding_completed');
+  dire(posUpsertAnnees !== -1 && posFin > posUpsertAnnees,
+    '⛔ et il la pose APRÈS les exercices — l’inverse déclarerait finie une écriture ratée');
+  dire(/if \(finErreur\)/.test(codeExercices) && /setSaving\(false\)/.test(codeExercices),
+    '⛔ un échec de cette écriture NE NAVIGUE PAS — sinon la boucle, en silence');
+
+  /* ③ « PASSER » N'EXISTE PLUS — ni le bouton, ni sa chaîne au catalogue. */
+  dire(!/'Passer'|"Passer"|'Skip'/.test(codeExercices),
+    '⛔ « Passer » a disparu de l’écran — l’étape 8 est obligatoire');
+  for (const langue of ['fr', 'en']) {
+    const cat = JSON.parse(lire('messages', `${langue}.json`));
+    dire(cat.onboarding?.unsavedFiscalYearsWarning === undefined,
+      `⛔ et sa chaîne sort du catalogue ${langue.toUpperCase()} — plus rien ne la rend (§366)`);
+  }
+
+  /* ④ ⭐ LE CAS QUI NE DOIT RIEN CHANGER : une inscription complète aboutit au
+     MÊME tableau de bord qu'avant. C'est la moitié du lot qu'on oublie de
+     vérifier — on prouve ce qu'on a changé, jamais ce qu'on n'a pas voulu
+     changer. */
+  dire(/router\.push\(`\/\$\{locale\}\/dashboard`\)/.test(codeExercices),
+    '⭐ une inscription complète finit au MÊME tableau de bord qu’avant');
+  dire(/router\.push\(`\/\$\{locale\}\/onboarding\/fiscal-years`\)/.test(sansCommentaires(flot)),
+    '⭐ et l’étape 7 mène toujours à l’étape 8, par le même chemin');
+
+  /* ⑤ ⛔ LA GARANTIE DU REGISTRE, REPORTÉE SUR LA LIGNE ELLE-MÊME. */
+  const codePageAssistant = sansCommentaires(pageAssistant);
+  dire(/event_type['"]?,\s*['"]company_created['"]/.test(codePageAssistant),
+    '⭐ l’assistant COMPTE les lignes « company_created » de la société');
+  dire(/redirect\(`\/\$\{locale\}\/onboarding\/fiscal-years`\)/.test(codePageAssistant),
+    '⛔ et dès qu’il en trouve une, il envoie à l’étape 8 — l’étape 7 reste inatteignable');
+  dire(/if \(registreError\)\s*\{?\s*throw new Error\(\)/.test(codePageAssistant),
+    '⛔ une lecture ratée LÈVE — la prendre pour « aucune ligne » fabriquerait le doublon');
+
+  /* ⑥ LA PAGE DES EXERCICES A ENFIN UNE GARDE, DANS LES DEUX SENS. */
+  const codePageExercices = sansCommentaires(pageExercices);
+  dire(/profile\?\.onboarding_completed\)\s*redirect\(`\/\$\{locale\}\/dashboard`\)/.test(codePageExercices),
+    '⛔ par le haut : une inscription déjà finie n’y revient pas');
+  dire(/lignesDeRegistre \?\? 0\) === 0\) redirect\(`\/\$\{locale\}\/onboarding`\)/.test(codePageExercices),
+    '⛔ par le bas : sans ligne de registre, on ne saute pas ici par l’URL');
+  dire(/throw new Error\(\)/.test(codePageExercices),
+    '⛔ et sa lecture LÈVE aussi — une garde qui s’ouvre sur une erreur n’est pas une garde');
+
+  /* ⑦ LA PHRASE ANGLAISE A DISPARU, et la coquille bilingue prend le relais. */
+  dire(!/Onboarding could not load your company/.test(pageAssistant),
+    '⛔ la phrase anglaise n’est plus levée — `global-error` parle les deux langues');
+
+  /* ⭐ CONTRÔLE POSITIF : la sonde sait dire NON. On lui donne les deux formes
+     fautives — l'ancienne fin à l'étape 7, et une lecture qui s'ouvre sur
+     l'erreur — et elle doit les refuser. Sans ça, les assertions ci-dessus ne
+     prouveraient que sa complaisance. */
+  const ANCIENNE_FIN = 'upsert({ id: userId, preferred_language: x, onboarding_completed: true })';
+  dire(/onboarding_completed/.test(ANCIENNE_FIN),
+    '⭐ et l’ancienne forme — la fin à l’étape 7 — serait bien VUE par l’assertion ①');
+  const LECTURE_MOLLE = 'if (registreError) { /* on continue */ }';
+  dire(!/if \(registreError\)\s*\{?\s*throw new Error\(\)/.test(LECTURE_MOLLE),
+    '⭐ et une lecture qui s’ouvre sur l’erreur est REFUSÉE par l’assertion ⑤');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1795,6 +1896,7 @@ async function principal() {
   await lotAG();
   lotAG3();
   lotAH();
+  lotEX();
   console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
   process.exit(echecs === 0 ? 0 : 1);
 }
