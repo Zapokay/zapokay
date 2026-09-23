@@ -36,6 +36,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { Modale } from '@/components/ui/Modale';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X, Pencil, Loader2 } from 'lucide-react';
@@ -290,10 +291,11 @@ export function CorrectionIdentite({
   }, [valeur, person, companyId, supabase, onSuccess, t, tCommon, residencyApplies, portee, exigence, messageDomicile]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl shadow-xl modal-surface sm:rounded-2xl">
+    <Modale
+      onClose={onClose}
+      occupe={saving}
+      classePanneau="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl shadow-xl modal-surface sm:rounded-2xl"
+    >
         {/* En-tête */}
         <div className="sticky top-0 z-10 flex items-center justify-between modal-header modal-surface px-6 py-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text-heading)]">
@@ -361,7 +363,6 @@ export function CorrectionIdentite({
             {tCommon('save')}
           </button>
         </div>
-      </div>
-    </div>
+      </Modale>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Modale } from '@/components/ui/Modale';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X } from 'lucide-react';
@@ -91,10 +92,11 @@ export default function ShareClassModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface">
+    <Modale
+      onClose={onClose}
+      occupe={saving}
+      classePanneau="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface"
+    >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between modal-header modal-surface px-6 py-4">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
@@ -233,7 +235,6 @@ export default function ShareClassModal({
             {locale === 'fr' ? 'Enregistrer' : 'Save'}
           </button>
         </div>
-      </div>
-    </div>
+      </Modale>
   );
 }

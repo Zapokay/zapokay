@@ -1,4 +1,5 @@
 import { AlertTriangle, Calendar, Clock, Link2, X } from 'lucide-react';
+import { Modale } from '@/components/ui/Modale';
 
 export interface ObligationModalProps {
   open: boolean;
@@ -23,8 +24,6 @@ export interface ObligationModalProps {
   prerequisites?: { heading: string; items: Array<{ label: string; reason: string }> };
 }
 
-const overlayCls = 'fixed inset-0 z-50 flex items-end justify-center sm:items-center';
-const backdropCls = 'absolute inset-0 bg-black/40 backdrop-blur-sm';
 const containerCls = 'relative z-10 w-full max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl modal-surface';
 const headerCls = 'flex items-start gap-3 modal-header px-6 py-4';
 const tileCls = 'flex items-center justify-center h-[38px] w-[38px] rounded-[10px] shrink-0 bg-[var(--warning-bg)] border border-[var(--warning-border)] text-[var(--warning-text)]';
@@ -58,9 +57,11 @@ export function ObligationModal(props: ObligationModalProps) {
   const { open, onClose, title, subtitle, deadlineLabel, deadline, body, legalRef, howToLabel, comingSoonTitle, comingSoonBadge, comingSoonBody, ackLabel, prerequisites } = props;
   if (!open) return null;
   return (
-    <div className={overlayCls}>
-      <div className={backdropCls} onClick={onClose} aria-hidden="true" />
-      <div className={containerCls} role="dialog" aria-modal="true">
+    <Modale
+      onClose={onClose}
+      fermeAuClicHorsCible
+      classePanneau={containerCls.replace('relative z-10 ', '')}
+    >
         <div className={headerCls}>
           <span className={tileCls}>
             <AlertTriangle className={tileIconCls} aria-hidden="true" />
@@ -117,7 +118,6 @@ export function ObligationModal(props: ObligationModalProps) {
         <div className={footerCls}>
           <button type="button" onClick={onClose} className={ackBtnCls}>{ackLabel}</button>
         </div>
-      </div>
-    </div>
+      </Modale>
   );
 }

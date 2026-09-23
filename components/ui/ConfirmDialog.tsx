@@ -19,6 +19,7 @@
  */
 
 import { X } from 'lucide-react';
+import { Modale } from '@/components/ui/Modale';
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -40,8 +41,6 @@ export interface ConfirmDialogProps {
   error?: string | null;
 }
 
-const overlayCls = 'fixed inset-0 z-50 flex items-end justify-center sm:items-center';
-const backdropCls = 'absolute inset-0 bg-black/40 backdrop-blur-sm';
 const containerCls = 'relative z-10 w-full max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl modal-surface';
 const headerCls = 'flex items-start justify-between modal-header px-6 py-4';
 const titleCls = 'text-lg font-semibold text-[var(--text-heading)] leading-tight';
@@ -73,13 +72,12 @@ export function ConfirmDialog({
   if (!open) return null;
   const confirmCls = tone === 'destructive' ? confirmDestructiveCls : confirmPrimaryCls;
   return (
-    <div className={overlayCls}>
-      <div
-        className={backdropCls}
-        onClick={loading ? undefined : onClose}
-        aria-hidden="true"
-      />
-      <div className={containerCls} role="dialog" aria-modal="true">
+    <Modale
+      onClose={onClose}
+      fermeAuClicHorsCible
+      occupe={loading}
+      classePanneau={containerCls.replace('relative z-10 ', '')}
+    >
         <div className={headerCls}>
           <div className={titleCls}>{title}</div>
           <button
@@ -104,7 +102,6 @@ export function ConfirmDialog({
             {confirmLabel}
           </button>
         </div>
-      </div>
-    </div>
+      </Modale>
   );
 }

@@ -1336,6 +1336,101 @@ function lotAD() {
     '⭐ et il dirait « 3 » si on lui passait 3 — le libellé suit le nombre, il ne le fige pas');
 }
 
+/**
+ * ⛔ LES MODALES QUI NE CONSOMMENT PAS ENCORE L'ENVELOPPEUR — RECENSÉES, PAS
+ *   OUBLIÉES, ET CHACUNE AVEC SA RAISON.
+ *
+ * ★ C'EST CETTE LISTE QUI EMPÊCHE LA 24ᵉ MODALE DE RÉINTRODUIRE LE DÉFAUT : une
+ *   modale neuve qui déclare son propre voile sans figurer ici fait tomber
+ *   l'assertion. Aucune caméra ne peut faire ça.
+ * ⚠️ Les convertir n'est PAS mécanique : leur habillage diffère (portail,
+ *   `z-[9999]`, `bg-black/50`, ou styles en ligne), donc les faire passer par
+ *   l'enveloppeur CHANGERAIT leur apparence. C'est une décision, pas une
+ *   extraction — et ce lot ne la prend pas.
+ */
+const MODALES_HORS_ENVELOPPEUR: Record<string, string> = {
+  'components/documents/UploadDocumentModal.tsx': 'portail, z-[9999], bg-black/50 — le MODÈLE du lot : elle applique déjà la règle',
+  'components/minute-book/BinderExportModal.tsx': 'portail, même habillage — applique déjà la règle, aucun champ',
+  'components/minute-book/BulkCatchUpModal.tsx': 'portail, même habillage — applique déjà la règle',
+  'components/documents/DocumentModal.tsx': 'styles EN LIGNE (zIndex 200) — aucun champ, ferme au clic hors cible',
+  'components/documents/SignatoriesModal.tsx': '⚠️ styles EN LIGNE (zIndex 300) ET UN champ — le seul trou qui reste',
+};
+
+function lotAF() {
+  console.log('\n   ⛔ LOT AF — UN CLIC À CÔTÉ NE DÉTRUIT PLUS UNE SAISIE');
+
+  const racine = join(__dirname, '..');
+  const fichiers: string[] = [];
+  const marcher = (rel: string) => {
+    for (const nom of readdirSync(join(racine, rel), { withFileTypes: true })) {
+      const chemin = `${rel}/${nom.name}`;
+      if (nom.isDirectory()) marcher(chemin);
+      else if (/Modal|Dialog/.test(nom.name) && nom.name.endsWith('.tsx')) fichiers.push(chemin);
+    }
+  };
+  marcher('components');
+
+  /* ① AUCUNE MODALE NE DÉCLARE SON PROPRE VOILE — hors celles recensées.
+     ★ L'assertion porte sur TOUTES les modales du dépôt, pas sur une liste
+     figée : un fichier neuf entre dans le balayage sans que personne y pense. */
+  const voile = /(absolute|fixed) inset-0 bg-black\/(40|50)|backdropCls|backdropFilter/;
+  /* ⚪ L'ENVELOPPEUR LUI-MÊME EST EXCLU : c'est LUI qui déclare le voile, et
+     c'est tout l'objet du lot. L'exclure par son chemin, jamais par un motif —
+     un motif laisserait passer une seconde déclaration qui lui ressemble. */
+  const DECLARATION = 'components/ui/Modale.tsx';
+  const coupables = fichiers.filter(
+    (f) =>
+      f !== DECLARATION &&
+      voile.test(readFileSync(join(racine, f), 'utf8')) &&
+      !(f in MODALES_HORS_ENVELOPPEUR),
+  );
+  dire(coupables.length === 0,
+    coupables.length === 0
+      ? `⛔ aucune des ${fichiers.length} modales ne déclare son voile, hors les ${Object.keys(MODALES_HORS_ENVELOPPEUR).length} recensées`
+      : `⛔ déclarent encore leur propre voile : ${coupables.join(', ')}`);
+
+  /* ② ET LES RECENSÉES EXISTENT TOUJOURS — une entrée qui ne correspond à
+     aucun fichier serait une exception qui protège du vide. */
+  const fantomes = Object.keys(MODALES_HORS_ENVELOPPEUR).filter((f) => !fichiers.includes(f));
+  dire(fantomes.length === 0, `la liste des exceptions ne protège aucun fichier disparu`);
+
+  /* ③ LES MODALES À CHAMPS CONSOMMENT L'ENVELOPPEUR, et aucune ne redemande le
+     clic hors cible : `fermeAuClicHorsCible` est réservé à celles SANS champ. */
+  const consomment = fichiers.filter((f) =>
+    /from '@\/components\/ui\/Modale'/.test(readFileSync(join(racine, f), 'utf8')));
+  dire(consomment.length === 18, `dix-huit modales consomment l'enveloppeur (${consomment.length})`);
+  const avecChamps = consomment.filter((f) => {
+    const src = readFileSync(join(racine, f), 'utf8');
+    return /<input|<textarea|<select/.test(src);
+  });
+  const fautives = avecChamps.filter((f) =>
+    /fermeAuClicHorsCible/.test(readFileSync(join(racine, f), 'utf8')));
+  dire(fautives.length === 0,
+    fautives.length === 0
+      ? '⛔ aucune modale À CHAMPS ne redemande le clic hors cible'
+      : `⛔ redemandent le clic hors cible : ${fautives.join(', ')}`);
+
+  /* ④ ⭐ LE CAS QUI NE DOIT RIEN CHANGER : les modales SANS champ le gardent.
+     Sans lui, « plus rien ne ferme » serait indistinguable de « ça marche ». */
+  for (const f of ['components/ui/ConfirmDialog.tsx', 'components/ui/ObligationModal.tsx']) {
+    const src = readFileSync(join(racine, f), 'utf8');
+    dire(/fermeAuClicHorsCible/.test(src) && !/<input|<textarea|<select/.test(src),
+      `⭐ ${f.split('/').pop()} garde son clic hors cible — elle n'a aucun champ à perdre`);
+  }
+
+  /* ⑤ L'ENVELOPPEUR LUI-MÊME : la règle, lue dans sa source. */
+  const env = readFileSync(join(racine, 'components/ui/Modale.tsx'), 'utf8');
+  dire(/onClick=\{fermeAuClicHorsCible && !occupe \? onClose : undefined\}/.test(env),
+    'le voile n’écoute le clic que sur demande, et jamais pendant le travail');
+  dire(/e\.key === 'Escape' && !occupe/.test(env),
+    '⚖️ Échap ferme — sortie DÉLIBÉRÉE —, sauf pendant le travail');
+  /* ⚠️ ANCRÉE SUR UN BLANC : `/role="dialog"/` acceptait `data-role="dialog"`,
+     et la mutation survivait. Une assertion qui se laisse satisfaire par un
+     attribut voisin ne garde rien. */
+  dire(/\srole="dialog"/.test(env) && /\saria-modal="true"/.test(env),
+    'et le panneau porte `role` et `aria-modal` pour les dix-huit');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1416,5 +1511,6 @@ lotAA();
 lotAC();
 lotACRendu();
 lotAD();
+lotAF();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

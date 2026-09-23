@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { Modale } from '@/components/ui/Modale';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { X, RefreshCw, Loader2, ArrowRight } from 'lucide-react';
@@ -219,10 +220,11 @@ export default function ReplaceOfficerModal({
 
   // ---- Render ---------------------------------------------------------------
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface">
+    <Modale
+      onClose={onClose}
+      occupe={saving}
+      classePanneau="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl shadow-2xl sm:rounded-2xl modal-surface"
+    >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between modal-header modal-surface px-6 py-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--text-heading)]">
@@ -365,8 +367,7 @@ export default function ReplaceOfficerModal({
             {t('confirmReplace')}
           </button>
         </div>
-      </div>
-    </div>
+      </Modale>
   );
 }
 
