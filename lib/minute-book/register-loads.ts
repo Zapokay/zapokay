@@ -65,9 +65,26 @@ export async function readSettledRegister<T>(
  * sources en une. L'utilisateur saura qu'il en manque un, ce qui suffit pour ne
  * pas signer un livre incomplet.
  */
+/**
+ * ⭐ ET `total` EST LE NOMBRE DE REGISTRES QUE LE LIVRE A — lot AD, 2026-09-22.
+ *
+ * ⛔ « LE LIVRE A QUATRE REGISTRES, DONT UN NON CHARGÉ ; IL N'EN A PAS TROIS. »
+ *   Le compteur de la section lisait `registerCards.length`, c'est-à-dire les
+ *   cartes qui ont RÉUSSI : sur un échec, il annonçait « 3 registres »
+ *   au-dessus d'un avis disant qu'un registre n'avait pas pu être chargé. Deux
+ *   phrases, un seul fait, et la première fausse. L'échec se soustrait du
+ *   RENDU, jamais du COMPTE.
+ *
+ * ★ LA SOURCE DU NOMBRE EST LA LISTE QUI PRODUIT LES LECTURES, pas une
+ *   constante : `total` est le nombre de clés de `outcomes`, compté AVANT
+ *   qu'aucune n'échoue. Un cinquième registre ajouté à cet objet déplace le
+ *   compte tout seul. ⛔ Écrire `4` quelque part ramènerait le libellé qui
+ *   pourrit par la porte de derrière — le dépôt a déjà livré un « 3 registres »
+ *   figé dans une chaîne i18n.
+ */
 export function partitionRegisterLoads<K extends string, T>(
   outcomes: Record<K, RegisterFetchOutcome<T>>,
-): { loaded: Partial<Record<K, T>>; failed: number } {
+): { loaded: Partial<Record<K, T>>; failed: number; total: number } {
   const loaded: Partial<Record<K, T>> = {};
   let failed = 0;
   for (const cle of Object.keys(outcomes) as K[]) {
@@ -78,5 +95,5 @@ export function partitionRegisterLoads<K extends string, T>(
       failed += 1;
     }
   }
-  return { loaded, failed };
+  return { loaded, failed, total: Object.keys(outcomes).length };
 }

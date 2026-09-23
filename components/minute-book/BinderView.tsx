@@ -89,6 +89,21 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
   // tableau vide ne distingue pas « livre vide » de « livre non lu ».
   const [binderFailed, setBinderFailed] = useState(false)
   const [registersFailed, setRegistersFailed] = useState(0)
+  /**
+   * ⛔ CE QUE LE LIVRE A, PAS CE QUI A CHARGÉ — lot AD, 2026-09-22.
+   *
+   * Le compteur de la section lisait `registerCards.length`, c'est-à-dire les
+   * cartes qui ont RÉUSSI : sur un échec, il annonçait « 3 registres » juste
+   * au-dessus de l'avis disant qu'un registre n'avait pas pu être chargé. Deux
+   * phrases pour un seul fait, et la première fausse.
+   * ★ LE LIVRE A QUATRE REGISTRES, DONT UN NON CHARGÉ ; IL N'EN A PAS TROIS.
+   * ⚪ Les CARTES, elles, restent celles qui ont réussi : l'échec se soustrait
+   * du RENDU, jamais du COMPTE.
+   * ⚪ La valeur vient de la liste qui PRODUIT les lectures
+   * (`partitionRegisterLoads`), jamais d'un littéral ; 0 pendant le
+   * chargement, où la page rend l'attente.
+   */
+  const [registresDuLivre, setRegistresDuLivre] = useState(0)
 
   useEffect(() => {
     async function fetchAll() {
@@ -124,7 +139,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
         shareholders: await readSettledRegister<unknown>(shRes),
         statedCapital: await readSettledRegister<unknown>(scRes),
       }
-      const { loaded, failed } = partitionRegisterLoads(outcomes)
+      const { loaded, failed, total } = partitionRegisterLoads(outcomes)
       // ⚠️ L'ASSERTION EST A LA FRONTIERE JSON, ET ELLE Y EST DEJA :
       //    readSettledRegister fait `json() as T` (register-loads.ts:53), et
       //    partitionRegisterLoads partage UN SEUL T entre les quatre registres,
@@ -138,6 +153,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
       setShareholders(loaded.shareholders ?? null)
       setStatedCapital(loaded.statedCapital ?? null)
       setRegistersFailed(failed)
+      setRegistresDuLivre(total)
 
       setLoading(false)
     }
@@ -299,7 +315,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
             index={i}
             title={tBinder(`sections.${section.key}`)}
             documents={[]}
-            registerCount={registerCards.length}
+            registerCount={registresDuLivre}
           >
             {registerCards}
           </BinderSection>

@@ -48,6 +48,7 @@ import { ligneDAcquisition } from '../lib/minute-book/registers';
 import { DATE_DE_L_ACTE, lireDateDeLActe } from '../lib/journal-date-acte';
 import { titresDeJournalAdministrateur } from '../lib/journal-charge';
 import ActivityGroup from '../components/activity/ActivityGroup';
+import { partitionRegisterLoads } from '../lib/minute-book/register-loads';
 import { SectionEnEchec } from '../components/ui/SectionEnEchec';
 import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
@@ -1276,6 +1277,65 @@ function lotACRendu() {
     '⛔ une catégorie DIT « non consignée », sans renvoi vers un registre qui ne la porte pas');
 }
 
+function lotAD() {
+  console.log('\n   ⛔ LOT AD — LE COMPTE DIT CE QUE LE LIVRE A, PAS CE QUI A CHARGÉ');
+
+  const issue = (ok: boolean) =>
+    ok
+      ? { status: 'fulfilled' as const, ok: true, body: {} }
+      : { status: 'rejected' as const, ok: false };
+  const quatre = (echecs: number) =>
+    partitionRegisterLoads({
+      directors: issue(echecs < 1),
+      officers: issue(echecs < 2),
+      shareholders: issue(true),
+      statedCapital: issue(true),
+    });
+
+  /* ① LE TOTAL NE BOUGE PAS AVEC LES ÉCHECS. C'est le lot entier. */
+  dire(quatre(0).total === 4 && quatre(1).total === 4 && quatre(2).total === 4,
+    '⛔ 0, 1 ou 2 échecs → le livre a TOUJOURS quatre registres');
+  dire(quatre(1).failed === 1 && Object.keys(quatre(1).loaded).length === 3,
+    'et l’échec se soustrait du RENDU : 1 en échec, 3 cartes chargées');
+  dire(quatre(2).failed === 2 && Object.keys(quatre(2).loaded).length === 2,
+    'deux échecs, deux cartes — le total reste 4');
+  /* ⭐ LE CAS QUI NE DOIT RIEN CHANGER. Sans lui, « il affiche toujours 4 »
+     serait indistinguable de « il fonctionne ». */
+  dire(quatre(0).failed === 0 && Object.keys(quatre(0).loaded).length === 4,
+    '⭐ et sans échec : 4 chargés, 0 en échec, rien de changé');
+
+  /* ② LE TOTAL VIENT DE LA LISTE QUI PRODUIT LES LECTURES, jamais d'un
+     littéral : une cinquième lecture déplace le compte toute seule. */
+  const cinq = partitionRegisterLoads({
+    a: issue(true), b: issue(true), c: issue(true), d: issue(true), e: issue(false),
+  });
+  dire(cinq.total === 5, '⛔ une cinquième lecture porte le total à 5, sans toucher au code');
+
+  /* ③ L'ÉCRAN : le compteur LIT le total, et ne lit plus les cartes rendues. */
+  const src = readFileSync(
+    join(__dirname, '..', 'components', 'minute-book', 'BinderView.tsx'), 'utf8',
+  ).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  dire(/registerCount=\{registresDuLivre\}/.test(src), 'la section reçoit le TOTAL');
+  dire(!/registerCount=\{registerCards\.length\}/.test(src),
+    '⛔ et plus jamais le nombre de cartes rendues');
+
+  /* ④ LE LIBELLÉ, RENDU PAR LE VRAI COMPOSANT ET LE VRAI CATALOGUE.
+     ⚠️ CHARGÉ ICI, PAS EN TÊTE DE FICHIER : `tsx` hisse les imports avant le
+     `Object.assign(globalThis, { React })` du haut, et `BinderSection` porte du
+     JSX AU NIVEAU DU MODULE (son `spinnerIcon`) — il lèverait « React is not
+     defined » à l'import. Les autres composants montés ici n'ont leur JSX qu'à
+     l'intérieur d'une fonction, donc après l'assignation. */
+  const BinderSection = (
+    require('../components/minute-book/BinderSection') as { default: unknown }
+  ).default;
+  const entete = (n: number) =>
+    rendre(BinderSection, { index: 0, title: 'Registres corporatifs', documents: [],
+      children: 'x', registerCount: n });
+  dire(dit(entete(4), '4 registres'), 'l’en-tête dit « 4 registres » pour un total de 4');
+  dire(dit(entete(3), '3 registres') && !dit(entete(3), '4 registres'),
+    '⭐ et il dirait « 3 » si on lui passait 3 — le libellé suit le nombre, il ne le fige pas');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1355,5 +1415,6 @@ lotZB();
 lotAA();
 lotAC();
 lotACRendu();
+lotAD();
 console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);
