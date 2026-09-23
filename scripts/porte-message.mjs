@@ -89,25 +89,27 @@ const indexe = (git('diff', '--cached', '--name-only') ?? '')
  * message de `d6435fa` annonçait « NEUF fichiers au diff » pour DIX. La porte
  * vérifiait la longueur, pas les faits.
  *
- * ⛔ ELLE VÉRIFIE CE QUI EST AFFIRMÉ, ELLE N'EXIGE PAS QU'ON AFFIRME. Un
- * message sans compte passe sans un mot : la porte n'est pas là pour imposer
- * une tournure, elle est là pour empêcher un chiffre faux. ★ Sans cette
- * clause, elle refuserait tout message qui se tait — et « elle refuse tout »
- * serait indistinguable de « elle marche ».
+ * ⚖️⚖️ DÉCISION DE MAX, 2026-09-23, lot P-1 — ET ELLE RENVERSE LA CLAUSE
+ * CI-DESSOUS, QUI DISAIT : « elle vérifie ce qui est affirmé, elle n'exige pas
+ * qu'on affirme ». Cette prudence a coûté DEUX silences : un message annonçant
+ * « VINGT fichiers » (mot absent de la table) et un autre « TROIS fichiers »
+ * sans « au diff » sont passés SANS VÉRIFICATION, et la porte n'a rien dit.
+ * ★ UNE PORTE QUI SE TAIT QUAND ELLE NE RECONNAÎT PAS LA FORME LAISSE CROIRE
+ * QU'ELLE A VÉRIFIÉ. C'est pire que pas de porte : on lui fait confiance.
+ *
+ * ⛔ DONC : LE COMPTE EST EXIGÉ, ET EN CHIFFRES. « 3 fichiers au diff ».
+ *   · pas de compte → REFUS. Le silence devient impossible.
+ *   · en lettres → REFUS. Élargir la table, c'est courir après les formes ;
+ *     exiger la forme, c'est fermer la question une fois.
+ * ⚪ ET LA TABLE DES MOTS EST SUPPRIMÉE avec la clause : la garder entretenue
+ *   pour un cas qu'on refuse désormais serait du code mort qui a l'air vivant.
  *
  * ⚪ ELLE LIT L'INDEX (`--cached`), pas l'arbre : c'est ce que `git commit`
  * s'apprête à écrire. Hors dépôt ou sans rien d'indexé, elle se tait plutôt
  * que d'inventer une comparaison.
  */
-const MOTS = {
-  un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7,
-  huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12, treize: 13, quatorze: 14,
-  quinze: 15, seize: 16,
-};
-
 /**
- * « SEPT fichiers au diff », « 12 FICHIERS AU DIFF », « UN fichier au diff ».
- * ⚪ « seul fichier au diff » est une affirmation de UN : la porte la lit.
+ * « 12 FICHIERS AU DIFF », « 1 fichier au diff ». ⛔ EN CHIFFRES, TOUJOURS.
  *
  * ⛔⛔ LES CITATIONS SONT ÔTÉES D'ABORD, ET LA PORTE L'A APPRIS SUR ELLE-MÊME.
  *   À son tout premier usage, elle a refusé le message du lot AB : il CITAIT
@@ -125,14 +127,8 @@ const MOTS = {
  */
 function compteAnnonce(texte) {
   const sansCitation = texte.replace(/«[^»]*»/g, ' ');
-  const trouves = [...sansCitation.matchAll(/\b([A-Za-zÀ-ÿ]+|\d+)\s+fichiers?\s+au\s+diff\b/gi)]
-    .map((m) => {
-      const brut = m[1].toLowerCase();
-      if (brut === 'seul') return 1;
-      if (/^\d+$/.test(brut)) return Number(brut);
-      return MOTS[brut] ?? null;
-    })
-    .filter((v) => v !== null);
+  const trouves = [...sansCitation.matchAll(/\b(\d+)\s+fichiers?\s+au\s+diff\b/gi)]
+    .map((m) => Number(m[1]));
   if (trouves.length === 0) return null;
   const distincts = [...new Set(trouves)];
   if (distincts.length > 1) return { contradiction: distincts };
@@ -141,9 +137,16 @@ function compteAnnonce(texte) {
 
 const texte = lignes.join('\n');
 const annonce = compteAnnonce(texte);
-if (annonce !== null && typeof annonce === 'object') {
+if (annonce === null) {
+  /* ⛔ LE SILENCE EST UN REFUS DEPUIS P-1. La phrase attendue est nommée dans
+     le refus : une porte qui refuse sans dire quoi écrire se fait contourner. */
+  refus.push(
+    'compte — le message n’annonce AUCUN compte. Écris « N fichiers au diff », ' +
+    'en chiffres (l’index en porte ' + indexe.length + ').',
+  );
+} else if (typeof annonce === 'object') {
   refus.push(`compte — le message annonce DEUX comptes différents : ${annonce.contradiction.join(' et ')}`);
-} else if (annonce !== null && indexe.length > 0 && indexe.length !== annonce) {
+} else if (indexe.length > 0 && indexe.length !== annonce) {
   refus.push(`compte — le message annonce ${annonce} fichier(s) au diff, l'index en porte ${indexe.length}`);
 }
 
