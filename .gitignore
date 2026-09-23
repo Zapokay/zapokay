@@ -38,3 +38,9 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright (lot T-1) — sorties d'exécution, jamais du code
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/

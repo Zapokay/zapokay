@@ -15,6 +15,7 @@
     "check:adresses": "tsx scripts/check-adresses.ts",
     "check:significant-control": "tsx scripts/check-significant-control.ts",
     "check:inscription": "tsx scripts/check-inscription.ts",
+    "e2e": "playwright test",
     "porte:identite": "sh scripts/porte-identite.sh",
     "export:registry": "tsx scripts/export-registry.ts",
     "porte:message": "node scripts/porte-message.mjs"
@@ -37,6 +38,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^20.14.9",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^18.3.3",
