@@ -44,6 +44,8 @@ interface ReplaceOfficerModalProps {
   residencyApplies: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /** La personne déjà désignée par l'appelant, quand il y en a une. */
+  personneEntranteInitiale?: PersonSelectorValue | null;
 }
 
 // =============================================================================
@@ -56,6 +58,7 @@ export default function ReplaceOfficerModal({
   residencyApplies,
   onClose,
   onSuccess,
+  personneEntranteInitiale,
 }: ReplaceOfficerModalProps) {
   const t = useTranslations('officers');
   const tCatalogue = useResolveurCatalogue();
@@ -65,7 +68,13 @@ export default function ReplaceOfficerModal({
   const roleLabel = libelleTitre(officer, tCatalogue);
 
   // ---- State ----------------------------------------------------------------
-  const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(null);
+  /* ⭐ LA PERSONNE PEUT ARRIVER DÉJÀ CHOISIE — lot 4. Quand « Ajouter » tombe
+     sur un poste occupé, il passe la main ICI en apportant la personne que
+     l'usager venait de désigner. ⛔ La lui redemander serait détruire une
+     saisie, c'est-à-dire refaire à la main le défaut que le lot AF a fermé. */
+  const [personValue, setPersonValue] = useState<PersonSelectorValue | null>(
+    personneEntranteInitiale ?? null,
+  );
   // ⛔ AUCUNE VALEUR DE DÉPART pour les deux dates — la fin du sortant et
   // l'entrée en poste de l'entrant sont deux faits que seul l'utilisateur
   // connaît (décision de Dom, 2026-09-12).

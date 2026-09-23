@@ -9,6 +9,7 @@ import OfficerCard from '@/components/officers/OfficerCard';
 import { LegalTerm } from '@/components/ui/LegalTerm';
 import AddOfficerModal from '@/components/officers/AddOfficerModal';
 import ReplaceOfficerModal from '@/components/officers/ReplaceOfficerModal';
+import type { PersonSelectorValue } from '@/components/people/PersonSelector';
 import RemoveOfficerModal from '@/components/officers/RemoveOfficerModal';
 import EditFormerOfficerModal from '@/components/officers/EditFormerOfficerModal';
 import EditPersonModal from '@/components/people/EditPersonModal';
@@ -64,6 +65,11 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [replacingOfficer, setReplacingOfficer] = useState<OfficerWithPerson | null>(null);
+  /* ⭐ LA PERSONNE QUE « Ajouter » AVAIT DÉJÀ DÉSIGNÉE, portée jusqu'à la
+     fenêtre de remplacement (lot 4). ⛔ La redemander serait détruire une
+     saisie — le défaut que le lot AF a fermé partout ailleurs. */
+  const [personneEntrantePourRemplacement, setPersonneEntrantePourRemplacement] =
+    useState<PersonSelectorValue | null>(null);
   const [removingOfficer, setRemovingOfficer] = useState<OfficerWithPerson | null>(null);
   // Phase 1B-CAPTURE Bundle 2: per-row edit affordance on former-appointment rows.
   // L'IDENTITE (company_people, partagee par les trois roles).
@@ -498,6 +504,21 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
           companyId={companyId}
           onClose={() => setShowAddModal(false)}
           onSuccess={handleModalSuccess}
+          /* ⭐ LE POSTE EST OCCUPÉ : ON N'AJOUTE PAS, ON REMPLACE — lot 4.
+             Cet écran ferme « Ajouter » et ouvre la fenêtre de remplacement sur
+             le titulaire en place, en lui portant la personne déjà désignée.
+             ⛔ C'est ici, et nulle part ailleurs, que les deux portes se
+             rejoignent : un seul écrivain du remplacement dans le dépôt. */
+          onConflitDeTitre={({ officerId, personne }) => {
+            const titulaire = officers.find((o) => o.id === officerId);
+            // ⚠️ Introuvable : on ne ferme rien et on ne devine rien. La liste
+            // vient d'être lue pour trouver ce conflit ; si elle ne le porte
+            // plus, l'écran est périmé et un rechargement dit la vérité.
+            if (!titulaire) { handleModalSuccess(); return; }
+            setShowAddModal(false);
+            setPersonneEntrantePourRemplacement(personne);
+            setReplacingOfficer(titulaire);
+          }}
         />
       )}
       {replacingOfficer && companyId && (
@@ -505,8 +526,12 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
           residencyApplies={residencyApplicable}
           officer={replacingOfficer}
           companyId={companyId}
-          onClose={() => setReplacingOfficer(null)}
+          onClose={() => {
+            setReplacingOfficer(null);
+            setPersonneEntrantePourRemplacement(null);
+          }}
           onSuccess={handleModalSuccess}
+          personneEntranteInitiale={personneEntrantePourRemplacement}
         />
       )}
       {removingOfficer && (

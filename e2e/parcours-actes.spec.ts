@@ -138,3 +138,154 @@ test('un transfert porte « Acquis par transfert le … » chez le cessionnaire'
 
   console.log(`\n⏱️  transfert : ${Date.now() - depart} ms`);
 });
+
+/**
+ * ⚖️ UN REMPLACEMENT DE DIRIGEANT, PAR LA PORTE « AJOUTER » — lot 4, 2026-09-23.
+ *
+ * ⛔ CE LOT A DÉJÀ ÉTÉ DÉCLARÉ FERMÉ UNE FOIS (`dbf19b7`) : le titre affiché
+ * avait été corrigé, la caméra l'a vu, et la moitié INVISIBLE — le type, le
+ * sortant, les deux dates — est restée cassée. ★ Ce test se prouve donc AU
+ * REGISTRE, pas à l'écran qui vient de dire « enregistré ».
+ *
+ * ⭐⭐ LES DEUX DATES SONT DANS LE PASSÉ, ET C'EST TOUT L'ARGUMENT. Si le test
+ * attendait la date du jour, il ne saurait pas distinguer une date SAISIE d'une
+ * date DEVINÉE par l'horloge — les deux seraient identiques. Une date de 2025
+ * ne peut venir que de l'usager.
+ */
+const FIN_SORTANT = '2025-03-17';
+const DEBUT_ENTRANT = '2025-03-18';
+const REMPLAÇANT = `Remp ${HORODATAGE}`;
+
+test('« Ajouter » sur un poste occupé écrit un REMPLACEMENT, avec ses deux dates', async ({ page }) => {
+  const depart = Date.now();
+  await seConnecter(page);
+
+  await page.goto('/fr/dashboard/officers');
+  /* Le titulaire en place — on retient son nom AVANT, pour le chercher ensuite
+     au registre en tant que SORTANT. */
+  const sortant = (await page.locator('h3').first().textContent())?.trim() ?? '';
+  expect(sortant, 'il y a bien un dirigeant en place').not.toBe('');
+
+  await page.getByRole('button', { name: /^Nommer un dirigeant$/ }).click();
+  await page.getByRole('button', { name: /sélectionner une personne/i }).click();
+  await page.getByRole('button', { name: /ajouter une nouvelle personne/i }).click();
+  await remplirNouvellePersonne(page, REMPLAÇANT);
+
+  /* ⚪ « Poste » ARRIVE DÉJÀ SUR « Président·e » — mesuré, pas supposé : c'est
+     le premier de la liste, et il est justement occupé depuis l'inscription.
+     C'est donc la collision que SAFEGUARD 1 doit voir, sans qu'on touche à ce
+     champ. ⛔ Le choisir quand même masquerait un changement de défaut. */
+  await expect(
+    page.getByRole('combobox').filter({ hasText: 'Président·e' }).first(),
+    'le poste proposé par défaut est bien celui qui est occupé',
+  ).toBeVisible();
+  await page.locator('input[type="date"]').last().fill(DEBUT_ENTRANT);
+  await page.getByRole('button', { name: /^Enregistrer$/ }).click();
+
+  /* ⭐ LA SECONDE PORTE S'OUVRE — et elle ne recopie rien : c'est la fenêtre de
+     remplacement, avec ses DEUX dates. */
+  await expect(
+    page.getByText(/est déjà occupé par/),
+    'le poste occupé est signalé, pas écrasé',
+  ).toBeVisible({ timeout: 60_000 });
+  /* ⚪ DANS LA FENÊTRE, ET PAS SUR LES CARTES DERRIÈRE : chaque carte de
+     dirigeant porte aussi un « Remplacer ». On vise celui de la fenêtre
+     ouverte — le seul qui réponde à la collision qu'on vient de provoquer. */
+  await page.getByRole('dialog').getByRole('button', { name: /^Remplacer$/ }).click();
+
+  const fenetre = page.getByRole('heading', { name: /^Remplacer le dirigeant$/ });
+  await expect(fenetre, '⭐ on passe la main à la fenêtre de REMPLACEMENT')
+    .toBeVisible({ timeout: 60_000 });
+
+  /* ⭐ ET ELLE ARRIVE AVEC LA PERSONNE DÉJÀ DÉSIGNÉE — la saisie de l'écran
+     précédent n'est pas redemandée. */
+  await expect(
+    page.getByRole('dialog').getByText(REMPLAÇANT).first(),
+    'la personne choisie à « Nommer » est portée jusqu’ici',
+  ).toBeVisible();
+
+  /* Les deux dates, DEMANDÉES par cette fenêtre — et un motif de fin. */
+  const dates = page.getByRole('dialog').locator('input[type="date"]');
+  await dates.nth(0).fill(FIN_SORTANT);
+  await dates.nth(1).fill(DEBUT_ENTRANT);
+  await page.getByRole('dialog').locator('select').last().selectOption({ index: 1 });
+  await page.getByRole('button', { name: /^Confirmer le remplacement$/ }).click();
+
+  /* ⛔ ON ATTEND LA FERMETURE, PAS L'APPARITION D'UN NOM. Le nom du remplaçant
+     est affiché PAR LA FENÊTRE elle-même : l'attendre laisserait passer un
+     enregistrement qui n'a jamais eu lieu. La fenêtre qui se ferme, elle, ne
+     ment pas — `onSuccess` l'a fermée. */
+  await expect(fenetre, 'la fenêtre se ferme — l’écriture a eu lieu').toHaveCount(0, {
+    timeout: 90_000,
+  });
+
+  /* ⭐⭐ AU REGISTRE, ET C'EST LÀ QUE LE LOT SE PROUVE. Le sortant doit porter
+     la date de fin SAISIE — celle de 2025, que rien n'aurait pu deviner. */
+  await page.goto('/fr/dashboard/minute-book/binder');
+
+  /* ⚠️⚠️ L'ASSERTION EST ANCRÉE SUR LA LIGNE DU SORTANT, ET C'EST UNE CORRECTION.
+     Elle cherchait la date N'IMPORTE OÙ dans la page — et elle la trouvait :
+     celle du passage PRÉCÉDENT, laissée par la chaîne des remplacements. Le
+     test restait donc VERT avec la date de fin retirée du code. C'est le rouge
+     qui l'a révélé, pour la seconde fois de la journée.
+     ★ On lit donc la LIGNE de CETTE personne-là, et on y cherche sa date. */
+  const ligneDuSortant = page.getByRole('row').filter({ hasText: sortant });
+  await expect(ligneDuSortant.first(), 'le sortant est au registre').toBeVisible({ timeout: 90_000 });
+  await expect(
+    ligneDuSortant.filter({ hasText: FIN_SORTANT }).first(),
+    `⭐ la ligne de « ${sortant} » porte la date de fin SAISIE (${FIN_SORTANT}) — ` +
+      'une date de 2025 ne peut venir que de l’usager',
+  ).toBeVisible({ timeout: 30_000 });
+
+  /* ⭐ ET L'HISTORIQUE NOMME LES DEUX MOITIÉS DE L'ACTE. */
+  await page.goto('/fr/dashboard/activity');
+  await expect(page.getByText(/Fin —/).first(), 'l’Historique dit « Fin — … »').toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/Nomination —/).first(), 'et « Nomination — … »').toBeVisible();
+
+  console.log(`\n⏱️  remplacement : ${Date.now() - depart} ms · sortant « ${sortant} »`);
+});
+
+/**
+ * ⭐ LE CAS QUI NE DOIT RIEN CHANGER — « Ajouter » sur un poste LIBRE.
+ *
+ * ⛔ SANS LUI, LE LOT 4 AURAIT PROUVÉ LA MOITIÉ DE SON TRAVAIL. On montre
+ * volontiers ce qu'on a corrigé ; ce qu'on n'a pas voulu toucher se vérifie
+ * rarement, et c'est là que les lots cassent des choses en silence.
+ * ⚠️ IL VISAIT D'ABORD LE POSTE DE TRÉSORIER·ÈRE, « resté vacant depuis
+ * l'inscription ». Faux dès le SECOND passage : le premier l'avait pourvu, et
+ * le test tombait sur une collision — un rouge qui ne disait rien du produit.
+ * ★ IL VISE DONC UN TITRE PERSONNALISÉ, LIBRE PAR CONSTRUCTION : SAFEGUARD 1
+ * ne contrôle l'unicité QUE des titres du catalogue (`title !== 'custom'`,
+ * `AddOfficerModal` l.185). Le test s'appuie donc sur la règle elle-même, pas
+ * sur un état du parc qu'il modifie lui-même.
+ */
+const POSTE_LIBRE = `Poste ${HORODATAGE}`;
+
+test('« Nommer » sur un poste LIBRE reste une simple nomination', async ({ page }) => {
+  const depart = Date.now();
+  await seConnecter(page);
+
+  await page.goto('/fr/dashboard/officers');
+  await page.getByRole('button', { name: /^Nommer un dirigeant$/ }).click();
+  await page.getByRole('button', { name: /sélectionner une personne/i }).click();
+  await page.getByRole('button', { name: /ajouter une nouvelle personne/i }).click();
+  await remplirNouvellePersonne(page, POSTE_LIBRE);
+  await page.getByRole('dialog').locator('select').last().selectOption('custom');
+  await page.getByPlaceholder('Ex. : Directeur des opérations').fill(POSTE_LIBRE);
+  await page.locator('input[type="date"]').last().fill(AUJOURDHUI);
+  await page.getByRole('button', { name: /^Enregistrer$/ }).click();
+
+  /* ⛔ AUCUNE COLLISION NE DOIT ÊTRE SIGNALÉE : le poste est libre. */
+  await expect(
+    page.getByText(/est déjà occupé par/),
+    'un poste libre ne déclenche aucune porte de remplacement',
+  ).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: POSTE_LIBRE })).toBeVisible({ timeout: 60_000 });
+
+  /* ⭐ ET LE JOURNAL DIT « nommé », PAS « remplacé ». */
+  await page.goto('/fr/dashboard/activity');
+  const ligne = page.locator('div').filter({ hasText: 'Dirigeant nommé' }).filter({ hasText: POSTE_LIBRE });
+  await expect(ligne.first(), 'l’Historique dit « Dirigeant nommé »').toBeVisible({ timeout: 60_000 });
+
+  console.log(`\n⏱️  nomination sur poste libre : ${Date.now() - depart} ms`);
+});

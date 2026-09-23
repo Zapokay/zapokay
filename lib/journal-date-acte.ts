@@ -156,11 +156,19 @@ export const DATE_DE_L_ACTE: Record<TypeEvenement, DateDeLActe> = {
   // ── Actes datés ailleurs, que le journal N'A PAS notés. Le registre, oui. ──
   /* ⛔ `appointment_date` est ABSENTE de leurs `details`, et le `end_date` des
      rétroactifs est la FIN du mandat (`AddDirectorModal:212`) — jamais lu.
-     ⚠️ ET `officer_added` RECOUVRE AUSSI UN REMPLACEMENT : la branche
-     `replaceConflict` d'`AddOfficerModal` écrit un titre « Dirigeant
-     remplacé » sous ce type, SANS aucune des deux dates. Il y en a une au
-     parc. Ici elle dit « non consignée », ce qui est vrai ; la corriger
-     demande de changer l'écrivain, pas cette table. */
+     ⚠️ `officer_added` A RECOUVERT UN REMPLACEMENT — L'ÉCRIVAIN EST CORRIGÉ,
+     LES LIGNES RESTENT. La branche `replaceConflict` d'`AddOfficerModal`
+     écrivait un remplacement sous ce type, sans aucune des deux dates ; depuis
+     le lot 4 (2026-09-23) cette fenêtre PASSE LA MAIN à `ReplaceOfficerModal`
+     et n'écrit plus que des nominations.
+     ⛔⛔ MAIS LES LIGNES DÉJÀ ÉCRITES NE SE RÉÉCRIVENT PAS, ET C'EST LA LOI, PAS
+     UN CHOIX D'INGÉNIERIE : art. 21 de la Loi sur la publicité légale
+     (C-1.1) — un registre se COMPLÈTE, il ne se corrige pas en silence. La
+     ligne de Phil The Bill garde donc son type et son absence de dates ; sa
+     fiche restera sans date de fin, et c'est le registre qui dit la vérité de
+     ce jour-là.
+     ★ CE RANG RESTE DONC JUSTE POUR LE PASSÉ : « non consignée — voir le
+     registre des dirigeants ». Il n'aura plus de nouvelles occurrences. */
   director_added: nonConsignee('administrateurs'),
   director_removed: nonConsignee('administrateurs'),
   officer_added: nonConsignee('dirigeants'),

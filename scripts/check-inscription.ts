@@ -1803,6 +1803,93 @@ function lotEX() {
     '⭐ et une lecture qui s’ouvre sur l’erreur est REFUSÉE par l’assertion ⑤');
 }
 
+/**
+ * ⚖️ UN REMPLACEMENT, UN SEUL ÉCRIVAIN — LOT 4, 2026-09-23.
+ *
+ * ⛔ CE LOT A DÉJÀ ÉTÉ DÉCLARÉ FERMÉ UNE FOIS. `dbf19b7` avait corrigé le TITRE
+ * affiché par la branche fautive ; la caméra l'a vu, on a écrit « fermé », et la
+ * moitié INVISIBLE — le type d'événement, le sortant, les deux dates — est
+ * restée cassée. ★ Ces assertions portent donc sur ce qu'un écran ne montre
+ * pas : qui écrit, et quoi.
+ */
+function lotL4() {
+  console.log('\n   ⚖️ LOT 4 — LE REMPLACEMENT N’A PLUS QU’UN ÉCRIVAIN');
+
+  const lire = (...p: string[]) => readFileSync(join(__dirname, '..', ...p), 'utf8');
+  const sansCommentaires = (src: string) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const ajout = lire('components', 'officers', 'AddOfficerModal.tsx');
+  const remplace = lire('components', 'officers', 'ReplaceOfficerModal.tsx');
+  const client = lire('app', '[locale]', 'dashboard', 'officers', 'OfficersClient.tsx');
+  const codeAjout = sansCommentaires(ajout);
+
+  /* ① LA FENÊTRE D'AJOUT N'ÉCRIT PLUS DE REMPLACEMENT. */
+  dire(!/replaceConflict/.test(codeAjout),
+    '⛔ la branche `replaceConflict` n’existe plus dans la fenêtre d’ajout');
+  dire(!/titresDeJournalRemplacement/.test(codeAjout),
+    '⛔ et elle ne compose plus de titre de remplacement');
+  dire(!/is_active:\s*false/.test(codeAjout),
+    '⛔ elle ne ferme plus le mandat de personne — c’était ça, le sortant sans date');
+  dire(/'officer_added'/.test(codeAjout) && !/'officer_replaced'/.test(codeAjout),
+    '⚪ elle n’écrit plus que des nominations');
+
+  /* ② ELLE PASSE LA MAIN, ET L'ÉCRAN LA BRANCHE. */
+  dire(/onConflitDeTitre/.test(codeAjout),
+    '⭐ le poste occupé PASSE LA MAIN au lieu d’écrire');
+  const codeClient = sansCommentaires(client);
+  dire(/onConflitDeTitre=\{/.test(codeClient) && /setReplacingOfficer\(titulaire\)/.test(codeClient),
+    '⭐ et l’écran ouvre la fenêtre de REMPLACEMENT sur le titulaire en place');
+  dire(/personneEntranteInitiale=\{/.test(codeClient),
+    '⛔ en emportant la personne déjà désignée — une saisie ne se redemande pas');
+
+  /* ③ ⭐ UN SEUL ÉCRIVAIN DU REMPLACEMENT DANS TOUT LE DÉPÔT. C'est l'assertion
+     qui tient le lot : deux copies divergeraient, et l'une mentirait. */
+  const ecrivains: string[] = [];
+  const parcourir = (dossier: string) => {
+    for (const entree of readdirSync(join(__dirname, '..', dossier), { withFileTypes: true })) {
+      const chemin = `${dossier}/${entree.name}`;
+      if (entree.isDirectory()) { parcourir(chemin); continue; }
+      if (!/\.tsx?$/.test(entree.name)) continue;
+      const src = sansCommentaires(readFileSync(join(__dirname, '..', chemin), 'utf8'));
+      /* ⚠️ ASSERTION RECALIBRÉE, AVEC SA RAISON (§374). Elle cherchait la
+         MENTION du type et a échoué à juste titre : `lib/journal-date-acte.ts`
+         le NOMME comme clé de sa table — c'est une DÉCLARATION, pas une
+         écriture. Ce qu'on interdit est un second ÉCRIVAIN, donc un appel à
+         `logActivity` portant ce type. ⛔ Ne pas relâcher plus : la mention
+         seule reviendrait à autoriser un écrivain qui s'appelle autrement. */
+      /* ⚪ `[\s\S]` plutôt que le drapeau `s` : la cible du dépôt est ES5 et
+         `tsc` refuse ce drapeau — même mur qu'au lot AH avec `Set`. */
+      if (/logActivity\([\s\S]*?'officer_replaced'/.test(src)) ecrivains.push(chemin);
+    }
+  };
+  parcourir('components');
+  parcourir('app');
+  parcourir('lib');
+  dire(ecrivains.length === 1 && ecrivains[0].endsWith('ReplaceOfficerModal.tsx'),
+    `⭐ un SEUL écrivain de « officer_replaced » : ${ecrivains.join(', ') || 'aucun'}`);
+
+  /* ④ ET CET ÉCRIVAIN DIT TOUT L'ACTE — les deux personnes, les deux dates. */
+  const codeRemplace = sansCommentaires(remplace);
+  for (const champ of ['outgoing_person_id', 'incoming_person_id', 'outgoing_full_name',
+    'incoming_full_name', 'end_date', 'start_date', 'end_reason']) {
+    dire(new RegExp(champ).test(codeRemplace), `⚪ il consigne \`${champ}\``);
+  }
+  dire(/end_date:\s*endDate/.test(codeRemplace) && /is_active:\s*false/.test(codeRemplace),
+    '⭐ et il FERME le mandat du sortant AVEC sa date de fin — le défaut du lot');
+
+  /* ⑤ LES DEUX DATES SONT DEMANDÉES, JAMAIS DEVINÉES (`38f8303`). */
+  const champsDate = (remplace.match(/type="date"/g) ?? []).length;
+  dire(champsDate >= 2, `⭐ deux champs de date au moins sont OFFERTS à l’usager (${champsDate})`);
+  dire(!/new Date\(\)\.toISOString\(\)\.slice/.test(codeRemplace),
+    '⛔ et aucune date n’est fabriquée à partir de l’horloge');
+
+  /* ⑥ ⭐ CONTRÔLE POSITIF : la sonde sait dire NON. */
+  const FAUTIF = "await logActivity(supabase, id, u, 'officer_added', a, b, { person_id: p });";
+  dire(/'officer_added'/.test(FAUTIF) && !/'officer_replaced'/.test(FAUTIF),
+    '⭐ et l’ancienne écriture serait bien VUE par l’assertion ①');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1897,6 +1984,7 @@ async function principal() {
   lotAG3();
   lotAH();
   lotEX();
+  lotL4();
   console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
   process.exit(echecs === 0 ? 0 : 1);
 }

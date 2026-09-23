@@ -11,7 +11,7 @@ import PersonSelector, {
 import type { OfficerTitle, OfficerEndReason } from '@/lib/supabase/people-types';
 import { logActivity } from '@/lib/activity-log';
 import { libelleTitre } from '@/lib/officer-titles';
-import { titresDeJournalCharge, titresDeJournalRemplacement } from '@/lib/journal-charge';
+import { titresDeJournalCharge } from '@/lib/journal-charge';
 import { useResolveurCatalogue } from '@/lib/i18n/client-messages';
 import { champsManquants, type ChampPersonne } from '@/lib/data-gaps';
 import { chargePersonne, insererPersonne } from '@/lib/person-payload';
@@ -42,6 +42,12 @@ interface AddOfficerModalProps {
   residencyApplies: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /**
+   * ⭐ LE POSTE EST DÉJÀ OCCUPÉ — ON PASSE LA MAIN, ON N'ÉCRIT PAS (lot 4).
+   * L'appelant ouvre `ReplaceOfficerModal` sur ce dirigeant-là, en emportant la
+   * personne que l'usager venait de désigner.
+   */
+  onConflitDeTitre: (conflit: { officerId: string; personne: PersonSelectorValue }) => void;
 }
 
 // =============================================================================
@@ -70,6 +76,7 @@ export default function AddOfficerModal({
   residencyApplies,
   onClose,
   onSuccess,
+  onConflitDeTitre,
 }: AddOfficerModalProps) {
   const t = useTranslations('officers');
   const tCommon = useTranslations('common');
@@ -126,7 +133,25 @@ export default function AddOfficerModal({
     : t('errorCountry');
 
   // ---- Save -----------------------------------------------------------------
-  const handleSave = useCallback(async (replaceConflict = false) => {
+  /**
+   * ⛔⛔ CETTE FONCTION N'ÉCRIT PLUS AUCUN REMPLACEMENT — LOT 4, 2026-09-23.
+   *
+   * ⚠️ LE DÉFAUT QU'ELLE PORTAIT, ÉCRIT POUR QU'IL NE REVIENNE PAS. Une branche
+   * `replaceConflict` fermait le mandat du sortant avec `is_active: false` ET
+   * RIEN D'AUTRE — pas de `end_date`, pas de `end_reason` —, puis consignait
+   * l'acte sous `officer_added` avec, dans `details`, la seule personne
+   * ENTRANTE. Au registre, le sortant restait sans date de fin ; au journal,
+   * un remplacement portait le nom d'une nomination.
+   * ⛔ ET `dbf19b7` N'AVAIT CORRIGÉ QUE LE TITRE AFFICHÉ : la caméra l'a vu,
+   * on a écrit « fermé », et la moitié invisible est restée cassée trois jours.
+   *
+   * ★ POURQUOI PASSER LA MAIN PLUTÔT QUE PARTAGER L'ÉCRIVAIN. Un écrivain
+   * commun ne suffisait pas : cette fenêtre n'a AUCUN champ pour la fin du
+   * sortant — ni date, ni motif. Elle devrait donc les DEVINER, et le dépôt a
+   * déjà tranché que le système ne devine pas une date juridique (`38f8303`).
+   * La seule forme honnête est d'ouvrir la fenêtre qui les DEMANDE.
+   */
+  const handleSave = useCallback(async () => {
     if (!personValue) {
       setError(t('errorSelectPerson'));
       return;
@@ -182,7 +207,7 @@ export default function AddOfficerModal({
       // SAFEGUARD 1 — active-title-uniqueness check. SKIP in retroactive mode
       // (toggle OFF) so back-dating a former CEO does not collide with the
       // sitting CEO. Also skipped for 'custom' titles (free-form, no uniqueness).
-      if (stillInOffice && title !== 'custom' && !replaceConflict) {
+      if (stillInOffice && title !== 'custom') {
         const { data: existing, error: existingErr } = await supabase
           .from('officer_appointments')
           .select('id, person_id, company_people(full_name)')
@@ -209,30 +234,6 @@ export default function AddOfficerModal({
           setSaving(false);
           return;
         }
-      }
-
-      // ⚪ Non vide UNIQUEMENT sur la branche de remplacement ci-dessous. C'est
-      //    lui qui fait basculer la ligne de registre de « nommé » à « remplacé ».
-      let nomSortant = '';
-
-      // If replacing, deactivate the existing officer first
-      if (replaceConflict && conflictOfficer) {
-        const { error: deactivateErr } = await supabase
-          .from('officer_appointments')
-          .update({ is_active: false })
-          .eq('id', conflictOfficer.id);
-        // ⚠️ STOP BEFORE THE INSERT. A silent failure here leaves the old officer
-        // active and appoints a second one to the same title (art. 31(3°)).
-        if (deactivateErr) {
-          console.error('[AddOfficerModal] deactivating the replaced officer failed:', deactivateErr);
-          throw new Error(tCommon('saveFailed'));
-        }
-        // ⛔ LE NOM DU SORTANT EST CAPTURÉ AVANT `setConflictOfficer(null)`.
-        //    La fermeture survivrait à ce rendu, mais s'appuyer dessus rendrait
-        //    la ligne de registre dépendante d'un détail de React. Une valeur
-        //    locale ne dépend de rien.
-        nomSortant = conflictOfficer.name;
-        setConflictOfficer(null);
       }
 
       let personId: string;
@@ -286,23 +287,19 @@ export default function AddOfficerModal({
         // l'anglais interpolait `${title}` — LE CODE. Quatre lignes du parc
         // portent « — vice_president » à cause de ces deux lignes.
         //
-        // ⛔⛔ ET LA BRANCHE DE REMPLACEMENT ÉCRIT UNE AUTRE LIGNE. Cet écran a
-        //    DEUX gestes derrière un seul bouton : nommer quelqu'un, ou
-        //    remplacer le titulaire en place. Le second désactivait le sortant
-        //    et écrivait « Dirigeant nommé » — un autre associé voyait l'arrivée
-        //    SANS voir le départ. Mesuré le 2026-09-17.
-        //    ⚪ `nomSortant` n'est non vide que sur cette branche : la branche
-        //    SANS conflit écrit toujours « Dirigeant nommé », inchangée.
-        const { titleFr, titleEn } = nomSortant
-          ? titresDeJournalRemplacement(nomSortant, fullName, {
-              title,
-              custom_title: customTitle.trim() || null,
-            })
-          : titresDeJournalCharge(
-              stillInOffice ? 'nomme' : 'nomme_retroactif',
-              fullName,
-              { title, custom_title: customTitle.trim() || null },
-            );
+        // ⭐ CETTE FENÊTRE N'ÉCRIT PLUS QU'UN SEUL GESTE — LOT 4. Elle en portait
+        //    DEUX derrière un même bouton : nommer, et remplacer. Le second
+        //    écrivait « Dirigeant nommé » et un associé voyait l'arrivée SANS
+        //    voir le départ. Le remplacement a maintenant son écrivain unique,
+        //    `ReplaceOfficerModal`, à qui cette fenêtre passe la main.
+        // ⛔ NE PAS REMETTRE DE BRANCHE ICI : `titresDeJournalRemplacement` n'a
+        //    plus rien à y faire, et le jour où on la rappelle, c'est que le
+        //    remplacement a de nouveau deux écrivains.
+        const { titleFr, titleEn } = titresDeJournalCharge(
+          stillInOffice ? 'nomme' : 'nomme_retroactif',
+          fullName,
+          { title, custom_title: customTitle.trim() || null },
+        );
         const details: Record<string, unknown> = { person_id: personId, title };
         if (!stillInOffice) {
           details.ended = true;
@@ -330,7 +327,7 @@ export default function AddOfficerModal({
     } finally {
       setSaving(false);
     }
-  }, [personValue, title, customTitle, isSigningAuthority, stillInOffice, appointmentDate, endDate, endReason, companyId, conflictOfficer, supabase, onSuccess, t, tCommon, tCatalogue, locale]);
+  }, [personValue, title, customTitle, isSigningAuthority, stillInOffice, appointmentDate, endDate, endReason, companyId, supabase, onSuccess, t, tCommon, tCatalogue, locale]);
 
   // ---- Render ---------------------------------------------------------------
   return (
@@ -504,7 +501,13 @@ export default function AddOfficerModal({
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => handleSave(true)}
+                  /* ⭐ ON PASSE LA MAIN — on n'écrit pas. La fenêtre de
+                     remplacement s'ouvre sur CE dirigeant, en emportant la
+                     personne déjà désignée. */
+                  onClick={() => {
+                    if (!personValue) return;
+                    onConflitDeTitre({ officerId: conflictOfficer.id, personne: personValue });
+                  }}
                   disabled={saving}
                   className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-600 disabled:opacity-50"
                 >
