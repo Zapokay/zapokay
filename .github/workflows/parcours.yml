@@ -45,11 +45,16 @@ jobs:
   # `.next/types` ; l'inverse fait juger `tsc` sur des types périmés et laisse
   # passer une route dont la signature a changé.
   portes:
-    runs-on: ubuntu-latest
+    # ⛔ LA VERSION DU SYSTÈME EST FIXÉE — W-1, 2026-09-23. `ubuntu-latest`
+    # bascule sur Ubuntu 26 à partir du 19 octobre 2026, et une bascule d'OS
+    # produirait un rouge qui ne dirait RIEN du produit : c'est exactement le
+    # genre de rouge qui apprend à ignorer les rouges. On montera de version
+    # quand on le décidera, pas quand le calendrier de GitHub le décidera.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -77,8 +82,10 @@ jobs:
 
   # ── LE PARCOURS, CONTRE LE PRODUIT DÉPLOYÉ ────────────────────────────────
   # ⛔ PAS SUR `push`, ET C'EST DÉLIBÉRÉ. Un envoi de code précède le
-  # déploiement : le parcours y éprouverait la version PRÉCÉDENTE, et chaque
-  # envoi ajouterait un PDF à la société de test pour ne rien prouver.
+  # déploiement : le parcours y éprouverait la version PRÉCÉDENTE — il dirait
+  # donc quelque chose de vrai sur du code qui n'est pas celui qu'on envoie.
+  # ⚪ L'autre moitié de l'argument est tombée avec T-4 (le parcours supprime
+  # désormais ce qu'il crée) ; celle-ci tient seule.
   parcours:
     if: github.event_name != 'push'
     # ⛔ UN SEUL PARCOURS À LA FOIS, ET LE NOUVEAU NE TUE PAS L'ANCIEN. Chaque
@@ -91,12 +98,12 @@ jobs:
     concurrency:
       group: parcours
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -120,13 +127,25 @@ jobs:
           E2E_BASE_URL: https://zapokay.vercel.app
         run: npm run e2e
 
-      - name: La trace, quand c'est rouge
+      # ⭐ SUR ÉCHEC, DOM DOIT POUVOIR **VOIR**, PAS LIRE — W-3, 2026-09-23.
+      # L'artefact porte trois choses, de la plus simple à la plus complète :
+      #   · `test-results/**/test-failed-1.png` — la capture, ouvrable d'un clic ;
+      #   · `playwright-report/index.html` — le rapport, ouvrable d'un clic aussi,
+      #     capture et pas-à-pas inclus ;
+      #   · `trace.zip` — le film de la page, pour qui veut rejouer (`npx
+      #     playwright show-trace`).
+      # ⚪ MESURE AVANT DE « RÉPARER » : le rouge du parcours joignait DÉJÀ sa
+      # trace (run 35871166530, artefact `trace-parcours`). Ce qui n'en avait
+      # aucun est le rouge des PORTES (run 35877009269) — il n'y a là ni
+      # navigateur ni écran, et le journal EST la preuve. Ce qu'ajoute ce lot est
+      # donc le rapport HTML, et un nom qui dit où regarder.
+      - name: Ce que le navigateur voyait — quand c'est rouge
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: trace-parcours
+          name: capture-et-trace-du-parcours
           path: |
             test-results/
             playwright-report/
-          retention-days: 7
-          if-no-files-found: ignore
+          retention-days: 14
+          if-no-files-found: warn

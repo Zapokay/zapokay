@@ -15,9 +15,22 @@ import { test, expect, type Page } from '@playwright/test';
  * pinceau en annonçant une panne qui n'existe pas.
  *
  * ⭐⭐ ET IL VÉRIFIE **CE QU'IL VIENT DE CRÉER**, par son identifiant, jamais un
- * compte global. Chaque passage ajoute un PDF à la société de test : « il y a
- * 4 documents » serait vrai aujourd'hui, faux demain, et ne dirait rien de la
- * génération qu'on vient de demander.
+ * compte global. Le titre, lui, est le MÊME à chaque passage : une assertion
+ * sur le titre passerait sur le document d'avant.
+ *
+ * ⚖️ DEPUIS LE LOT T-4, IL DÉFAIT CE QU'IL A FAIT — par les gestes du produit.
+ * ⛔ ET VOICI CE QU'IL ACCUMULE MALGRÉ TOUT, DÉCLARÉ PLUTÔT QUE TU :
+ *   · 0 document, 0 objet au stockage — le parcours supprime le sien ;
+ *   · 2 lignes de journal par parcours (`document_generated` puis
+ *     `document_deleted`), soit QUATRE par exécution. Elles ne se défont pas,
+ *     et elles ne doivent pas : le journal consigne ce qui a EU LIEU, et ces
+ *     gestes ont eu lieu.
+ *   · au rythme actuel — une exécution par déploiement, plus le filet
+ *     quotidien — environ quatre lignes par jour dans la société de test.
+ * ⚠️ RÉSIDU HISTORIQUE, NOMMÉ POUR NE PAS ÊTRE OUBLIÉ : dix documents `superseded`
+ * datant d'avant T-4 restent en base. AUCUN geste du produit ne les atteint —
+ * le coffre ne montre que l'actif —, et les effacer demanderait du SQL, que la
+ * règle interdit. Ils sont donc là, comptés, et ils n'augmentent plus.
  */
 
 /** L'exigence choisie : fondatrice, donc toujours présente, et elle a deux
@@ -52,6 +65,87 @@ function ligneDe(page: Page, exigence: string) {
   );
 }
 
+/** La ligne du coffre : son plus proche ancêtre qui porte « Supprimer ». */
+function ligneDuCoffre(page: Page, exigence: string) {
+  return page
+    .locator('div')
+    .filter({ has: page.getByRole('button', { name: /^Supprimer$/ }) })
+    .filter({ hasText: exigence })
+    .last();
+}
+
+/**
+ * SUPPRIMER UN DOCUMENT — PAR LES GESTES DU PRODUIT, ET PAR AUCUN AUTRE.
+ *
+ * ⚖️ PRINCIPE DE DOM, 2026-09-23 : un parcours DÉFAIT ce qu'il a fait. ⛔ Jamais
+ * par SQL, jamais avec la clé d'administration : un ménage qui emprunte un
+ * chemin que l'utilisateur n'a pas éprouverait un produit qui n'existe pas.
+ *
+ * ⚪ CE QUE CE GESTE FAIT VRAIMENT, mesuré avant de l'écrire
+ * (`DocumentsClient.tsx:141-184`) : il retire l'objet du stockage — au mieux, un
+ * échec y est ignoré —, SUPPRIME la rangée `documents` (un vrai DELETE, pas un
+ * statut), et écrit UNE ligne `document_deleted` au journal. Les liens
+ * `requirement_documents` et `event_documents` partent en cascade (`confdeltype
+ * = 'c'`, vérifié au schéma).
+ */
+async function supprimerDuCoffre(page: Page, exigence: string) {
+  await page.goto('/fr/dashboard/minute-book/documents');
+  const ligne = ligneDuCoffre(page, exigence);
+  await expect(ligne).toBeVisible({ timeout: 60_000 });
+  await ligne.getByRole('button', { name: /^Supprimer$/ }).click();
+  /* ⚪ « Supprimer définitivement » N'EST PAS UNE SECONDE SORTE DE SUPPRESSION :
+     c'est le libellé du bouton de CONFIRMATION de la seule qui existe au coffre
+     (`DocumentRow.tsx:254`). Mesuré avant d'écrire, parce que les notes ZK
+     laissaient croire à deux chemins. */
+  await expect(page.getByRole('heading', { name: /^Supprimer ce document \?$/ })).toBeVisible();
+  await page.getByRole('button', { name: /^Supprimer définitivement$/ }).click();
+  await expect(ligne).toHaveCount(0, { timeout: 60_000 });
+}
+
+/**
+ * ⭐ RAMENER LA SOCIÉTÉ DANS L'ÉTAT ATTENDU — RÈGLE DE DOM POUR TOUS LES PARCOURS.
+ *
+ * ⛔ SANS CECI, UN ÉCHEC EN FAIT TOMBER UN AUTRE. Un passage interrompu au
+ * milieu laisse un document actif ; le passage suivant trouverait « Régénérer »
+ * là où il attend « Générer », et le rouge ne dirait plus rien du produit — il
+ * dirait seulement que le rouge d'hier n'a pas été rangé.
+ * ⚪ La boucle est bornée : le coffre ne montre qu'un document ACTIF par
+ * exigence (les périmés n'y paraissent pas). Deux tours suffisent donc
+ * largement ; au-delà, c'est une panne, et elle doit se voir.
+ */
+async function remettreAZero(page: Page, exigence: string) {
+  await page.goto('/fr/dashboard/minute-book/documents');
+  for (let i = 0; i < 3; i++) {
+    const ligne = ligneDuCoffre(page, exigence);
+    if ((await ligne.count()) === 0) return;
+    await supprimerDuCoffre(page, exigence);
+  }
+  throw new Error(`remettreAZero: « ${exigence} » revient après trois suppressions.`);
+}
+
+/**
+ * ⭐ LE SIGNAL QUE COMPLÉTUDE REDEMANDE L'OBLIGATION — ET C'EST LE VERBE.
+ *
+ * ⚖️ Choisi sur mesure, pas par habitude : la ligne dit « Régénérer » tant qu'un
+ * document actif la couvre, et « Générer » quand plus rien ne la couvre. Le
+ * verbe est donc l'état, rendu par le produit lui-même.
+ * ⛔ PAS UN LIBELLÉ D'ÉTAT (« À faire », « Manquant », une pastille) : Aria va
+ * les renommer au Visual Update 1, et un test accroché à ces mots-là virerait au
+ * rouge sur un changement de vocabulaire — un rouge qui ne dit rien du produit.
+ * Le VERBE, lui, est une commande : il ne peut pas disparaître sans que la
+ * fonction disparaisse avec.
+ */
+async function completudeRedemande(page: Page, exigence: string) {
+  await page.goto('/fr/dashboard/minute-book/completeness');
+  const ligne = ligneDe(page, exigence);
+  await expect(ligne.getByRole('button', { name: /^Générer$/ }))
+    .toBeVisible({ timeout: 60_000 });
+  await expect(
+    ligne.getByRole('button', { name: /^Régénérer$/ }),
+    'plus aucun document ne la couvre — le verbe est redevenu « Générer »',
+  ).toHaveCount(0);
+}
+
 function identifiants() {
   const { E2E_EMAIL, E2E_PASSWORD } = process.env;
   /* ⛔ ABSENTS → LE TEST ÉCHOUE EN LE DISANT. Un test qui se saute lui-même
@@ -82,6 +176,11 @@ test('connexion → Complétude → Générer → le document paraît', async ({
 
   await seConnecter(page);
   jalon('connexion');
+
+  /* ⭐ L'ÉTAT ATTENDU D'ABORD — règle de Dom. Un passage interrompu hier ne doit
+     pas décider du verdict d'aujourd'hui. */
+  await remettreAZero(page, EXIGENCE);
+  jalon('état attendu');
 
   await page.goto('/fr/dashboard/minute-book/completeness');
   const titre = page.getByText(EXIGENCE, { exact: true });
@@ -137,6 +236,19 @@ test('connexion → Complétude → Générer → le document paraît', async ({
   await expect(page.getByText(EXIGENCE).first()).toBeVisible({ timeout: 60_000 });
   jalon('document listé au coffre');
 
+  /* ⭐ ET LE PARCOURS DÉFAIT CE QU'IL A FAIT — LOT T-4. Sans cette fin, chaque
+     passage laissait un PDF de plus ; avec elle, il ne laisse que deux lignes de
+     journal, qui, elles, ne se défont pas et n'ont pas à se défaire. */
+  await supprimerDuCoffre(page, EXIGENCE);
+  jalon('document supprimé');
+
+  /* ⛔ ET L'OBLIGATION REDEVIENT DUE. C'est la moitié qui compte : une
+     suppression qui laisserait Complétude satisfaite cacherait un trou au
+     livre — le client croirait son obligation couverte par un document qui
+     n'existe plus. */
+  await completudeRedemande(page, EXIGENCE);
+  jalon('Complétude redemande');
+
   console.log('\n⏱️  JALONS (ms depuis le départ)');
   for (const [quoi, ms] of Object.entries(chrono)) console.log(`   ${String(ms).padStart(7)} — ${quoi}`);
 });
@@ -158,6 +270,8 @@ test('un seul signataire → aucune fenêtre, et le document paraît', async ({ 
   const depart = Date.now();
 
   await seConnecter(page);
+  await remettreAZero(page, EXIGENCE_SOLO);
+
   await page.goto('/fr/dashboard/minute-book/completeness');
   await expect(page.getByText(EXIGENCE_SOLO, { exact: true })).toBeVisible({ timeout: 60_000 });
 
@@ -186,6 +300,10 @@ test('un seul signataire → aucune fenêtre, et le document paraît', async ({ 
     ligne.locator(`a[href*="${documentId}"]`),
     'la ligne offre « Voir » SUR LE DOCUMENT CRÉÉ',
   ).toBeVisible({ timeout: 60_000 });
+
+  /* ⭐ MÊME FIN, MÊME RAISON (T-4). */
+  await supprimerDuCoffre(page, EXIGENCE_SOLO);
+  await completudeRedemande(page, EXIGENCE_SOLO);
 
   console.log(`\n⏱️  chemin sans fenêtre : ${Date.now() - depart} ms`);
 });

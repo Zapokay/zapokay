@@ -38,17 +38,25 @@ for (const chemin of ['.env.test.local']) {
 
 export default defineConfig({
   testDir: './e2e',
-  /* ⚠️ UN SEUL FIL. Chaque passage écrit un PDF dans la société de test ; deux
-     parcours simultanés généreraient deux documents pour la même exigence et
-     l'un périmerait l'autre en plein vol. */
+  /* ⚠️ UN SEUL FIL, ET LA RAISON A GRANDI AVEC T-4. Deux parcours simultanés
+     ne se disputaient que la génération ; ils se disputent maintenant la
+     SUPPRESSION — l'un effacerait le document que l'autre vient de créer, et
+     le rouge qui s'ensuivrait ne dirait rien du produit. */
   workers: 1,
   fullyParallel: false,
   /* ⛔ AUCUNE REPRISE. Un test qui passe au deuxième essai a échoué au premier,
      et une reprise silencieuse cacherait exactement la lenteur qu'on veut voir.
-     Elle produirait AUSSI un document de plus par tentative. */
+     ⚪ L'argument « une reprise laisse un document de plus » est tombé avec
+     T-4 : chaque passage commence par remettre la société dans l'état attendu.
+     Ce qui reste — une reprise MENT sur la stabilité — suffit à lui seul. */
   retries: 0,
   timeout: 180_000,
-  reporter: [['list']],
+  /* ⭐ DEUX RAPPORTS, ET LE SECOND EST POUR DOM (W-3). `list` écrit dans le
+     terminal ; `html` écrit `playwright-report/index.html`, qu'on ouvre d'un
+     clic après l'avoir téléchargé du run en échec — capture, pas-à-pas et
+     trace dedans. ⛔ `open: 'never'` : sans lui, une exécution locale en échec
+     ouvre un navigateur et BLOQUE la CI en attendant qu'on le ferme. */
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'https://zapokay.vercel.app',
     locale: 'fr-CA',
