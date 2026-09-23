@@ -582,7 +582,8 @@
       "address_city": "the home city",
       "address_country": "the home country"
     },
-    "none": "— None —"
+    "none": "— None —",
+    "positionsFilled": "{count, plural, =0 {No position filled} =1 {1 position filled} other {# positions filled}}"
   },
   "shareholders": {
     "_locale": "en",

@@ -25,6 +25,7 @@
  * le BALISAGE. Ce qu'elle affirme, elle l'affirme sur ce qui est rendu.
  */
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { NextIntlClientProvider } from 'next-intl';
 /** `jsx: preserve` : tsx retombe sur `React.createElement` — même raison que check-adresses. */
@@ -1490,6 +1491,40 @@ function lotAG() {
   })();
 }
 
+function lotAG3() {
+  console.log('\n   ⚖️ LOT AG-3 — LE NOMBRE COMPTE LES CARTES, LE MOT DIT CE QU’ELLES SONT');
+
+  /* ① LE LIBELLÉ, RENDU PAR LE VRAI CATALOGUE. ⚪ C'est l'ICU qu'on éprouve
+     ici, pas l'écran : `OfficersClient` charge ses données dans un effet, et
+     un rendu statique n'en exécute aucun. */
+  const Compteur = ({ n }: { n: number }) => {
+    const t = useTranslations('officers');
+    return React.createElement('span', null, t('positionsFilled', { count: n }));
+  };
+  const dire3 = (n: number) => rendre(Compteur, { n });
+  dire(dit(dire3(3), '3 postes pourvus'), '3 mandats / 2 personnes → « 3 postes pourvus »');
+  dire(dit(dire3(1), '1 poste pourvu') && !dit(dire3(1), 'postes'), 'un mandat → le singulier');
+  /* ⭐ LE ZÉRO A SON LIBELLÉ, et ce n'est pas « 0 postes pourvus » — faux de
+     forme en français, qui est grammaticalement singulier pour zéro. */
+  dire(dit(dire3(0), 'Aucun poste pourvu') && !/0/.test(dire3(0)),
+    '⭐ zéro mandat → le libellé de vide, jamais « 0 »');
+
+  /* ② LE MOT A CHANGÉ, PAS SEULEMENT LE NOMBRE. « dirigeants » affirmerait des
+     PERSONNES ; les cartes sont des POSTES. */
+  dire(!/dirigeant/i.test(dire3(3)) && !/officer/i.test(rendre(Compteur, { n: 3 })),
+    '⛔ et il ne dit plus « dirigeants » au-dessus d’une liste de postes');
+
+  /* ③ L'ÉCRAN LIT LES CARTES, et plus aucun pluriel bricolé dans le fichier. */
+  const src = readFileSync(
+    join(__dirname, '..', 'app', '[locale]', 'dashboard', 'officers', 'OfficersClient.tsx'), 'utf8',
+  ).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  dire(/t\('positionsFilled', \{ count: sortedOfficers\.length \}\)/.test(src),
+    'le compteur lit `sortedOfficers.length` — les cartes rendues');
+  dire(!/uniqueOfficerCount/.test(src), '⛔ et le compte des PERSONNES a disparu');
+  dire(!/> 1 \? 's' : ''/.test(src),
+    '⛔ plus aucun pluriel bricolé dans ce fichier — assertion, pas relecture');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1581,6 +1616,7 @@ async function principal() {
   lotAD();
   lotAF();
   await lotAG();
+  lotAG3();
   console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
   process.exit(echecs === 0 ? 0 : 1);
 }

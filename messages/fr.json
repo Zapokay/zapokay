@@ -582,7 +582,8 @@
       "address_city": "la ville du domicile",
       "address_country": "le pays du domicile"
     },
-    "none": "— Aucun —"
+    "none": "— Aucun —",
+    "positionsFilled": "{count, plural, =0 {Aucun poste pourvu} =1 {1 poste pourvu} other {# postes pourvus}}"
   },
   "shareholders": {
     "_locale": "fr",

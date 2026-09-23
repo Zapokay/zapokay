@@ -214,7 +214,6 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
   //   champ reste ferme plutot que d'etre ouvert a tort.
   const residencyApplicable = jurisdiction !== null && residencyApplies(jurisdiction);
   const sortedOfficers = [...officers].sort((a, b) => ROLE_ORDER.indexOf(a.title) - ROLE_ORDER.indexOf(b.title));
-  const uniqueOfficerCount = new Set(officers.map(o => o.person_id)).size;
 
   // Phase 1C: derive fully-former officers (ended rows whose person_id is NOT
   // present in the active list). Group multiple ended appointments under the
@@ -284,12 +283,19 @@ export default function OfficersClient({ preferredLanguage }: OfficersClientProp
             )}
           </button>
         </div>
+        {/* ⚖️ « 3 POSTES POURVUS » — DÉCISION DE DOM, 2026-09-22, lot AG-3.
+            Le nombre compte LES CARTES, et le mot dit ce qu'elles sont.
+            ⛔ Il comptait `uniqueOfficerCount`, les PERSONNES uniques, au-dessus
+            d'une liste de MANDATS : trois cartes, « 2 dirigeants nommés ».
+            Mesuré le 2026-09-22 — DOUZE sociétés du parc ont plus de cartes que
+            de personnes, ce n'est pas un cas d'école.
+            ★ ET C'EST LE MOT QUI CHANGE, PAS SEULEMENT LE NOMBRE : « 3
+            dirigeants » aurait affirmé trois PERSONNES. Les cartes sont des
+            postes ; une même personne peut en occuper deux.
+            ⚪ Pluriel ICU au catalogue, zéro compris — le ternaire bricolé
+            enfreignait la règle §1 du CLAUDE.md, ici même. */}
         <p className="text-sm text-[var(--text-muted)] mt-1">
-          {uniqueOfficerCount > 0
-            ? locale === 'fr'
-              ? `${uniqueOfficerCount} dirigeant${uniqueOfficerCount > 1 ? 's' : ''} nommé${uniqueOfficerCount > 1 ? 's' : ''}`
-              : `${uniqueOfficerCount} officer${uniqueOfficerCount > 1 ? 's' : ''} appointed`
-            : locale === 'fr' ? 'Aucun dirigeant nommé' : 'No officers appointed'}
+          {t('positionsFilled', { count: sortedOfficers.length })}
         </p>
       </div>
 
