@@ -48,7 +48,7 @@ import { ligneDAcquisition } from '../lib/minute-book/registers';
 import { DATE_DE_L_ACTE, lireDateDeLActe } from '../lib/journal-date-acte';
 import { titresDeJournalAdministrateur } from '../lib/journal-charge';
 import ActivityGroup from '../components/activity/ActivityGroup';
-import { partitionRegisterLoads } from '../lib/minute-book/register-loads';
+import { partitionRegisterLoads, readSettledRegister } from '../lib/minute-book/register-loads';
 import { SectionEnEchec } from '../components/ui/SectionEnEchec';
 import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
@@ -1452,6 +1452,44 @@ function lotAF() {
     'et le panneau porte `role` et `aria-modal` pour les dix-huit');
 }
 
+function lotAG() {
+  console.log('\n   ⛔ LOT AG — UN JOURNAL QU’ON N’A PAS SU LIRE N’EST PAS UN JOURNAL VIDE');
+
+  /* ① LE LECTEUR — les deux chemins d'échec d'un `fetch`, et le succès. */
+  const rep = (ok: boolean, corps: unknown) => ({
+    ok, json: async () => corps,
+  });
+  const lire = async (settled: PromiseSettledResult<{ ok: boolean; json(): Promise<unknown> }>) =>
+    readSettledRegister<{ events?: unknown[]; total?: number }>(settled);
+
+  return (async () => {
+    const tenue = await lire({ status: 'fulfilled', value: rep(true, { events: [], total: 329 }) } as never);
+    dire(tenue.ok && tenue.body?.total === 329, 'une lecture réussie rend son total');
+    const nonOk = await lire({ status: 'fulfilled', value: rep(false, {}) } as never);
+    dire(!nonOk.ok && nonOk.body === undefined,
+      '⛔ un 401 ou un 500 n’est PAS un journal vide — aucun corps, aucun total');
+    const rejet = await lire({ status: 'rejected', reason: new Error('réseau') } as never);
+    dire(!rejet.ok, 'et un rejet lancé non plus');
+
+    /* ② L'ÉCRAN : trois cas, et le VRAI zéro est celui qui ne doit rien changer. */
+    const src = readFileSync(
+      join(__dirname, '..', 'components', 'activity', 'ActivityPage.tsx'), 'utf8',
+    ).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    dire(/readSettledRegister</.test(src),
+      'la page consomme le lecteur du lot AD, elle n’en invente pas un second');
+    dire(/<SectionEnEchec section=\{t\('pageTitle'\)\} onRetry=\{charger\} \/>/.test(src),
+      'et l’avis du lot K, avec sa reprise');
+    dire(/echec \? \(/.test(src) && /\) : events\.length === 0 \? \(/.test(src),
+      '⭐ l’échec passe AVANT l’état vide — les deux cessent d’être confondus');
+    dire(/origine \?\? t\('empty'\)/.test(src),
+      '⛔ ET LE VRAI ZÉRO EST INTACT : un journal réellement vide dit toujours depuis quand il regarde');
+    dire(!/data\.total \|\| 0/.test(src) && !/\.then\(\(data\) =>/.test(src),
+      'la lecture nue — `data.total || 0` — a disparu');
+    dire((src.match(/setTotal\(/g) ?? []).length === 1,
+      '⚪ un seul endroit pose le total : le chargement, partagé par le montage et la reprise');
+  })();
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1514,24 +1552,37 @@ function lotK1() {
   );
 }
 
-console.log('EXIGENCES DE L’INSCRIPTION — montage réel, sans navigateur');
-lotA();
-lotB();
-lotC1();
-lotC2();
-lotC3();
-lotE1();
-lotD();
-lotK1();
-lotK2();
-lotK2d();
-lotK3Dirigeants();
-lotK3Administrateurs();
-lotZB();
-lotAA();
-lotAC();
-lotACRendu();
-lotAD();
-lotAF();
-console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
-process.exit(echecs === 0 ? 0 : 1);
+/**
+ * ⛔ UNE SEULE SÉQUENCE, ET ELLE ATTEND CE QUI EST ASYNCHRONE.
+ *
+ * ⚠️ `lotAG` rend une promesse — le lecteur de `register-loads` est `async`.
+ * Lancé avec `void`, ses assertions s'exécutaient APRÈS `process.exit` : la
+ * sonde annonçait « TOUT PASSE » sans les avoir vues. Un contrôle lancé dans
+ * la mauvaise condition ne prouve rien ET SE DÉGUISE EN PREUVE (§371).
+ */
+async function principal() {
+  console.log('EXIGENCES DE L’INSCRIPTION — montage réel, sans navigateur');
+  lotA();
+  lotB();
+  lotC1();
+  lotC2();
+  lotC3();
+  lotE1();
+  lotD();
+  lotK1();
+  lotK2();
+  lotK2d();
+  lotK3Dirigeants();
+  lotK3Administrateurs();
+  lotZB();
+  lotAA();
+  lotAC();
+  lotACRendu();
+  lotAD();
+  lotAF();
+  await lotAG();
+  console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
+  process.exit(echecs === 0 ? 0 : 1);
+}
+
+void principal();

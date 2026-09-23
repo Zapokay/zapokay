@@ -6,6 +6,8 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Info } from 'lucide-react'
 import ActivityGroup from './ActivityGroup'
 import { formatDate } from '@/lib/utils'
+import { readSettledRegister } from '@/lib/minute-book/register-loads'
+import { SectionEnEchec } from '@/components/ui/SectionEnEchec'
 import { ligneOrigine } from '@/lib/journal-origine'
 
 interface Event {
@@ -78,6 +80,8 @@ export default function ActivityPage({ registerOpenedAt, incorporationDate }: Ac
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [showTooltip, setShowTooltip] = useState(false)
+  /** ⛔ La lecture du journal a ÉCHOUÉ — distinct d'un journal vide. */
+  const [echec, setEchec] = useState(false)
 
   // ★ LA FRONTIÈRE DU REGISTRE. Calculée, jamais stockée — l'écrire au journal
   //   serait fabriquer une entrée. `formatDate` est le seul formateur du dépôt ;
@@ -95,23 +99,60 @@ export default function ActivityPage({ registerOpenedAt, incorporationDate }: Ac
       )
     : null
 
+  /**
+   * ⛔⛔ « AUCUN ÉVÉNEMENT ENREGISTRÉ » SUR UN REGISTRE QU'ON N'A PAS SU LIRE.
+   *
+   * ⚖️ Lot AG-1, 2026-09-22. `fetch(...).json()` ne testait NI `res.ok` NI le
+   * rejet : un 401 ou un 500 rendait `data.total || 0` et `data.events || []`,
+   * donc le compteur disparaissait et la page affichait la frontière du
+   * registre — « Registre ouvert le X. Aucun événement depuis. » C'est
+   * l'affirmation la plus grave que ce produit puisse faire à tort : il ne
+   * s'est RIEN passé dans votre société.
+   *
+   * ★ LE TRAITEMENT N'EST PAS INVENTÉ : c'est celui du lot K, par le lecteur
+   * du lot AD. `readSettledRegister` distingue les DEUX chemins d'échec — le
+   * rejet LANCÉ et la réponse non-`ok` RETOURNÉE — et `SectionEnEchec` dit
+   * l'échec avec sa reprise. Les deux existent, on les consomme.
+   *
+   * ⚠️ ET LE COMPTE NE DEVIENT PAS ZÉRO : il devient INCONNU. Sur un échec on
+   * ne sait pas combien il y a de lignes ; afficher un nombre serait remplacer
+   * un mensonge par un autre. Le compteur se tait ET l'avis parle — c'est
+   * l'avis qui porte le fait, pas l'absence de chiffre.
+   */
   const fetchEvents = useCallback(async (offset: number) => {
-    const res = await fetch(`/api/activity-log?limit=${PAGE_SIZE}&offset=${offset}`)
-    return res.json()
+    const [issue] = await Promise.allSettled([
+      fetch(`/api/activity-log?limit=${PAGE_SIZE}&offset=${offset}`),
+    ])
+    return readSettledRegister<{ events?: Event[]; total?: number }>(issue)
   }, [])
 
-  useEffect(() => {
-    fetchEvents(0).then((data) => {
-      setEvents(data.events || [])
-      setTotal(data.total || 0)
+  /** ⚪ UNE SEULE DÉFINITION DU CHARGEMENT, pour le montage ET pour la reprise.
+   *  L'écrire deux fois ferait deux chemins pour un fait, et la reprise
+   *  finirait par diverger de la première lecture. */
+  const charger = useCallback(() => {
+    setEchec(false)
+    setLoading(true)
+    fetchEvents(0).then((issue) => {
+      if (issue.ok && issue.body) {
+        setEvents(issue.body.events || [])
+        setTotal(issue.body.total || 0)
+      } else {
+        setEchec(true)
+      }
       setLoading(false)
     })
   }, [fetchEvents])
 
+  useEffect(() => { charger() }, [charger])
+
   const handleLoadMore = async () => {
     setLoadingMore(true)
-    const data = await fetchEvents(events.length)
-    setEvents((prev) => [...prev, ...(data.events || [])])
+    const issue = await fetchEvents(events.length)
+    /* ⚪ LA SUITE QUI ÉCHOUE N'EFFACE PAS CE QUI EST LÀ : les lignes déjà lues
+       restent, et l'avis s'ajoute sous elles. Une page qui se viderait au
+       « charger plus » perdrait ce qu'elle avait su lire. */
+    if (issue.ok && issue.body) setEvents((prev) => [...prev, ...(issue.body!.events || [])])
+    else setEchec(true)
     setLoadingMore(false)
   }
 
@@ -164,7 +205,16 @@ export default function ActivityPage({ registerOpenedAt, incorporationDate }: Ac
         )}
       </div>
 
-      {events.length === 0 ? (
+      {/* ⛔ TROIS CAS, ET LES DEUX PREMIERS ÉTAIENT CONFONDUS.
+          · la lecture a ÉCHOUÉ  → l'avis, avec sa reprise ;
+          · elle a réussi, VIDE  → la frontière du registre, INCHANGÉE ;
+          · elle a réussi, pleine → les groupes, inchangés.
+          ★ LE VRAI ZÉRO EST LE CAS LE PLUS IMPORTANT DU LOT : un journal
+          réellement vide doit toujours dire depuis quand il regarde. Si on le
+          perd, on a remplacé un mensonge par un autre. */}
+      {echec ? (
+        <SectionEnEchec section={t('pageTitle')} onRetry={charger} />
+      ) : events.length === 0 ? (
         /* ⛔ PLUS D'ÉTAT VIDE NU. « Aucun événement enregistré pour le moment »
            était exact et se lisait comme « ce produit ne consigne rien ». La
            frontière du registre le remplace : elle dit DEPUIS QUAND il regarde.
