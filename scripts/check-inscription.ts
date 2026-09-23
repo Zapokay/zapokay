@@ -51,6 +51,7 @@ import { titresDeJournalAdministrateur } from '../lib/journal-charge';
 import ActivityGroup from '../components/activity/ActivityGroup';
 import { partitionRegisterLoads, readSettledRegister } from '../lib/minute-book/register-loads';
 import { SectionEnEchec } from '../components/ui/SectionEnEchec';
+import GlobalError, { TEXTES, langueDuChemin } from '../app/global-error';
 import { join } from 'path';
 import { VALEUR_ENTITE_VIDE, chargeEntite, correctifEntite, valeurAvecAdresse } from '@/lib/entity-payload';
 
@@ -67,6 +68,18 @@ function rendre(composant: unknown, props: Record<string, unknown>): string {
       children: React.createElement(composant as never, props as never),
     }),
   );
+}
+
+/**
+ * MONTER UN COMPOSANT **SANS** FOURNISSEUR — pour la seule page qui n'en a pas.
+ *
+ * ⛔ `rendre()` enveloppe dans `NextIntlClientProvider`. L'envelopper ICI serait
+ * un contrôle dans la mauvaise condition (§371) : `global-error.tsx` existe
+ * précisément pour les instants où ce fournisseur n'est pas là. On la monte donc
+ * nue — et si elle avait besoin de quoi que ce soit, ce montage lèverait.
+ */
+function rendreBrut(composant: unknown, props: Record<string, unknown>): string {
+  return renderToStaticMarkup(React.createElement(composant as never, props as never));
 }
 
 /**
@@ -1552,6 +1565,143 @@ function lotAG3() {
     'et la raison de STRUCTURE chez les dirigeants — un cumul possible');
 }
 
+/**
+ * ⚖️ LA GARDE DE L'EXCEPTION — LOT AH, 2026-09-22.
+ *
+ * `app/global-error.tsx` est SORTI du catalogue, avec la raison écrite dans le
+ * fichier. Or c'est le catalogue qui garantissait qu'une chaîne existe dans les
+ * deux langues : `messages/en.json` manquant une clé, `next-intl` le dit. Ici,
+ * plus personne ne le dirait — une quatrième chaîne ajoutée en anglais seul
+ * partirait en production et s'afficherait en anglais à un lecteur français,
+ * sur la page qu'il voit AU PIRE MOMENT.
+ *
+ * ⛔ SANS CETTE FONCTION, L'EXCEPTION DEVIENDRAIT L'ENDROIT OÙ LES CHAÎNES NON
+ * TRADUITES VONT SE RANGER. C'est la condition que Dom a posée en l'approuvant,
+ * et c'est elle qui rend l'exception tenable : une règle qu'on brise doit être
+ * remplacée par une preuve, pas par une promesse.
+ */
+function lotAH() {
+  console.log('\n   ⚖️ LOT AH — LA PAGE DE DERNIER RECOURS PARLE LES DEUX LANGUES');
+
+  /* ① LE FAIT QUE DOM A DEMANDÉ : compte FR = compte EN, aucune vide.
+     ⭐ ÉCRIT COMME UNE FONCTION, ET NON EN LIGNE, PARCE QU'IL FAUT POUVOIR LA
+     MUTER. Une assertion qu'on ne peut pas éprouver sur un faux ne prouve que
+     sa propre complaisance. */
+  type Jeu = Record<string, string>;
+  const desequilibre = (fr: Jeu, en: Jeu): string[] => {
+    /* ⚪ L'UNION SANS `Set` : la cible du dépôt est ES5, et itérer un `Set` y
+       demande `--downlevelIteration`. `next build` l'a refusé ; la sonde, qui
+       tourne sous `tsx`, l'acceptait. Le compilateur du dépôt décide. */
+    const cles = Object.keys(fr).concat(Object.keys(en).filter((c) => !(c in fr)));
+    const fautes: string[] = [];
+    for (const c of cles) {
+      if (!(c in fr)) fautes.push(`${c} : absente en FR`);
+      else if (!(c in en)) fautes.push(`${c} : absente en EN`);
+      else if (!fr[c].trim() || !en[c].trim()) fautes.push(`${c} : vide`);
+    }
+    return fautes;
+  };
+
+  const fr = TEXTES.fr as unknown as Jeu;
+  const en = TEXTES.en as unknown as Jeu;
+  const fautes = desequilibre(fr, en);
+  dire(fautes.length === 0, `les ${Object.keys(fr).length} chaînes existent dans les DEUX langues${fautes.length ? ` — ${fautes.join(' · ')}` : ''}`);
+  dire(Object.keys(fr).length === Object.keys(en).length,
+    `compte FR (${Object.keys(fr).length}) = compte EN (${Object.keys(en).length})`);
+
+  /* ⭐ MUTATION — DEMANDÉE PAR DOM : une cinquième chaîne ajoutée en anglais
+     seul doit faire TOMBER l'assertion. C'est exactement le geste qu'on
+     redoute d'un futur lot pressé. */
+  const mute = desequilibre(fr, { ...en, support: 'Contact support' });
+  dire(mute.length === 1 && mute[0] === 'support : absente en FR',
+    '⭐ MUTATION : une chaîne ajoutée en ANGLAIS SEUL → l’assertion TOMBE, et elle la NOMME');
+  dire(desequilibre({ ...fr, support: '  ' }, { ...en, support: 'Contact support' })[0] === 'support : vide',
+    '⭐ MUTATION : une chaîne présente mais VIDE → refusée aussi');
+
+  /* ② LA RÉSOLUTION, CAS PAR CAS — les quatre que Dom a nommés. */
+  const CAS: [string, 'fr' | 'en'][] = [
+    ['/en/dashboard/officers', 'en'],
+    ['/en', 'en'],
+    ['/fr/dashboard/officers', 'fr'],
+    ['/dashboard', 'fr'],
+    ['', 'fr'],
+    ['/', 'fr'],
+  ];
+  for (const [chemin, attendu] of CAS) {
+    dire(langueDuChemin(chemin) === attendu,
+      `« ${chemin || '(vide)'} » → ${attendu.toUpperCase()}`);
+  }
+  /* ⛔ ET LE PIÈGE : un segment qui COMMENCE par « en » n'est pas l'anglais. */
+  dire(langueDuChemin('/entreprise/1') === 'fr',
+    '⛔ « /entreprise/1 » → FR — c’est le segment ENTIER qui décide, pas son début');
+
+  /* ③ LA RÉSOLUTION EST BRANCHÉE SUR LE RENDU, et pas seulement exportée.
+     ⚠️ SANS CE PASSAGE, ① ET ② PASSERAIENT SUR UNE PAGE RESTÉE ANGLAISE : une
+     fonction juste que personne n'appelle est un §366 de plus. On stube donc
+     `window` — la page lit `window.location.pathname` et rien d'autre. */
+  const err = Object.assign(new Error(''), { digest: 'x' });
+  const sansFenetre = rendreBrut(GlobalError, { error: err, reset: () => {} });
+  dire(dit(sansFenetre, 'Réessayer') && /<html lang="fr"/.test(sansFenetre),
+    'au SERVEUR (pas de `window`) → français, et `lang="fr"` sur la balise');
+
+  const avant = (globalThis as { window?: unknown }).window;
+  try {
+    (globalThis as { window?: unknown }).window = { location: { pathname: '/en/dashboard' } };
+    const anglais = rendreBrut(GlobalError, { error: err, reset: () => {} });
+    dire(dit(anglais, 'Try again') && /<html lang="en"/.test(anglais),
+      '⭐ sous `/en/…` l’écran REND l’anglais — la résolution est branchée, pas décorative');
+    (globalThis as { window?: unknown }).window = { location: { pathname: '/fr/dashboard' } };
+    dire(dit(rendreBrut(GlobalError, { error: err, reset: () => {} }), 'Réessayer'),
+      'et sous `/fr/…` le français');
+  } finally {
+    if (avant === undefined) delete (globalThis as { window?: unknown }).window;
+    else (globalThis as { window?: unknown }).window = avant;
+  }
+
+  /* ④ CE QUI REND L'EXCEPTION LÉGITIME EST L'ABSENCE D'IMPORT. Le jour où
+     quelqu'un « range » ce fichier en y important le catalogue, l'exception
+     perd sa raison ET la page perd sa garantie de survie. */
+  const src = readFileSync(join(__dirname, '..', 'app', 'global-error.tsx'), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  dire(!/^\s*import\s/m.test(code),
+    '⛔ le fichier n’importe RIEN — ni catalogue, ni `routing`, ni composant');
+  dire(!/routing|useTranslations|NextIntl/.test(code),
+    '⛔ et il ne reprend pas par la bande la dépendance qu’on évite');
+
+  /* ⑤ LA SOURCE ① EST PARTIE, ET SA RAISON RESTE ÉCRITE (correction de Dom :
+     `document.documentElement.lang` est CIRCULAIRE — cette page remplace le
+     `<html>` entier). */
+  dire(!/documentElement/.test(code),
+    '⛔ plus aucune lecture de `documentElement.lang` — elle était circulaire');
+  dire(/CIRCULAIRE/.test(src), 'et la raison de son retrait est écrite dans le fichier');
+
+  /* ⑥ OÙ ÇA CASSERA, ÉCRIT (§357 : une raison non écrite se fait supprimer). */
+  dire(/TROISIÈME langue/.test(src) && /routing\.locales/.test(src),
+    '⭐ et la limite est écrite : une TROISIÈME langue oblige à revoir cette ligne');
+  dire(/§1/.test(src) && /APPROUVÉE PAR DOM/.test(src),
+    '⚖️ l’exception à §1 porte sa raison et son auteur');
+
+  /* ⑦ AUCUN TEXTE EN DUR NE SUBSISTE HORS DES DEUX LITTÉRAUX. Sans ça, une
+     quatrième phrase pourrait vivre dans le JSX sans jamais entrer dans le
+     jeu que ① vérifie — la garde serait vraie et l'écran, moitié anglais. */
+  const EN_DUR = />\s*[A-Za-zÀ-ÿ][^<>{}]*<\//;
+  const jsx = code.replace(/export const TEXTES[\s\S]*?\} as const;/, '');
+  dire(!EN_DUR.test(jsx),
+    '⛔ aucune phrase en dur hors des deux littéraux — tout passe par `TEXTES`');
+  dire(EN_DUR.test('<h2 style={s}>Something went wrong</h2>'),
+    '⭐ et l’expression SAIT dire non : la phrase en dur d’avant le lot est refusée');
+
+  /* ⑧ ⛔ LE REPLI A UN CHEMIN. `error.message` d'une vraie `Error` est toujours
+     une chaîne — vide, mais présente. Écrit `??`, le repli n'aurait JAMAIS été
+     rendu : une chaîne traduite, gardée par ①, comptée, et invisible (§366).
+     ★ C'est le défaut que ma propre garde aurait couvert ; il se vérifie donc
+     AU RENDU, pas à la lecture. */
+  dire(dit(rendreBrut(GlobalError, { error: new Error(''), reset: () => {} }), TEXTES.fr.repli),
+    '⭐ un message VIDE rend la phrase de repli — elle a un chemin, elle est atteignable');
+  dire(dit(rendreBrut(GlobalError, { error: new Error('Boom'), reset: () => {} }), 'Boom'),
+    'et un message présent s’affiche tel quel');
+}
+
 function lotK1() {
   console.log('\n   ⛔ LOT K-1 — LA SESSION QUI TOMBE RENVOIE À LA CONNEXION');
 
@@ -1644,6 +1794,7 @@ async function principal() {
   lotAF();
   await lotAG();
   lotAG3();
+  lotAH();
   console.log(`\n${echecs === 0 ? '✔ TOUT PASSE' : `⛔ ${echecs} échec(s)`}`);
   process.exit(echecs === 0 ? 0 : 1);
 }
