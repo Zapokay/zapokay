@@ -299,7 +299,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
   const avis = 'rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-5 py-4 text-sm text-[var(--text-muted)]'
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {binderFailed && (
         <div role="alert" className={avis}>{tBinder('binderUnavailable')}</div>
       )}

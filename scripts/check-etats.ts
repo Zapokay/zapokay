@@ -100,6 +100,21 @@ for (const loc of ['fr', 'en'] as const) {
   }
 }
 
+// ★ V2 — la métrique des sections du Livre (fini le ternaire codé en dur de BinderSection).
+const SECTION_LIVRE: Record<'fr' | 'en', [string, string, string]> = {
+  fr: ['0 document', '1 document', '2 documents'],
+  en: ['0 documents', '1 document', '2 documents'],
+};
+for (const loc of ['fr', 'en'] as const) {
+  const t = createTranslator({ locale: loc, messages: CATALOGUES[loc] as never, namespace: 'minuteBook.binder' as never }) as unknown as
+    (cle: string, v: { count: number }) => string;
+  [0, 1, 2].forEach((n) => {
+    let rendu: string;
+    try { rendu = t('sectionDocumentCount', { count: n }); } catch (e) { rendu = `ERREUR ${String(e)}`; }
+    dire(rendu === SECTION_LIVRE[loc][n], `${loc} binder.sectionDocumentCount(${n}) = « ${rendu} »`);
+  });
+}
+
 /* ── c) LES ANCIENS LIBELLÉS SONT SORTIS ────────────────────────────────── */
 console.log('c) anciens libellés d\'état');
 // ⛔ EN VALEUR EXACTE, jamais en sous-chaîne : « Back to sign in » et « un modèle à signer »

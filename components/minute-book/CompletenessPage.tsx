@@ -817,7 +817,7 @@ export default function CompletenessPage({
       </div>
 
       {/* Body */}
-      <div className="space-y-6">
+      <div className="space-y-3">
         {loading && (
           <div className="animate-pulse">
             <div className="h-48 bg-[var(--card-bg)] rounded-xl" />

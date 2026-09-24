@@ -90,7 +90,7 @@ export default function CompletionBar({ items, eventActs, className }: Completio
           />
         ))}
       </div>
-      <span className="text-xs text-[var(--text-muted)] tabular-nums shrink-0">
+      <span className="text-[12.5px] text-[var(--text-muted)] tabular-nums shrink-0">
         {filledCount}/{totalCount}
       </span>
     </div>

@@ -200,7 +200,7 @@ export default function EventActRow({
 
   return (
     <div>
-    <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
+    <div className="group flex items-center justify-between py-3 px-4 hover:bg-[var(--hover)] transition-colors duration-[90ms]">
       {/* Left side: state icon + label */}
       <div className="flex items-start gap-3 flex-1 min-w-0">
         {isMissing ? (

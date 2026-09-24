@@ -206,7 +206,7 @@ export default function RequirementRow({
     ) : null;
 
   return (
-    <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
+    <div className="group flex items-center justify-between py-3 px-4 hover:bg-[var(--hover)] transition-colors duration-[90ms]">
       {/* Left side: icon + title */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* ── THE FOURTH STATE, AND WHY IT HAD TO EXIST. ──

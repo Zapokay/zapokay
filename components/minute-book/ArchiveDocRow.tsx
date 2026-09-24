@@ -64,7 +64,7 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
     'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
 
   return (
-    <div className="group flex items-center justify-between py-3 px-4 rounded-lg hover:bg-[var(--card-bg)] transition-colors">
+    <div className="group flex items-center justify-between py-3 px-4 hover:bg-[var(--hover)] transition-colors duration-[90ms]">
       {/* Left: archive icon + title + state label */}
       <div className="flex items-center gap-3 min-w-0">
         <Archive

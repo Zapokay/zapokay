@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Eye, Download } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { composeDisplayName } from '@/lib/display-name'
+import SectionCard from './SectionCard'
 
 interface Document {
   id: string
@@ -91,30 +92,32 @@ export default function BinderSection({
     }
   }
 
+  // V2 — le Livre prend le contenant commun : ouvert par défaut, repliable s'il a du contenu,
+  // INERTE s'il est vide (pas de bouton, chevron réservé). La métrique passe au catalogue (ICU, =0).
   return (
-    <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-[var(--text-heading)] text-[var(--card-bg)] text-xs font-semibold">
-            {sectionNumber}
-          </span>
-          <h3 className="font-semibold text-[var(--text-body)]">{title}</h3>
-        </div>
-        <span className="text-sm text-[var(--text-muted)]">
-          {children
-            ? t('registerCount', { count: registerCount ?? 0 })
-            : `${documents.length} document${documents.length !== 1 ? 's' : ''}`}
+    <SectionCard
+      title={title}
+      marker={
+        <span className="flex items-center justify-center w-7 h-7 flex-shrink-0 rounded-full bg-[var(--text-heading)] text-[var(--card-bg)] text-xs font-semibold">
+          {sectionNumber}
         </span>
-      </div>
-
+      }
+      metric={
+        children
+          ? t('registerCount', { count: registerCount ?? 0 })
+          : t('sectionDocumentCount', { count: documents.length })
+      }
+      collapsible={hasContent}
+      defaultOpen
+    >
       {children ? (
-        <div className="px-5 pb-5 space-y-3">{children}</div>
+        <div className="px-5 pt-4 pb-5 space-y-3">{children}</div>
       ) : !hasContent ? (
-        <p className="px-5 pb-5 text-sm text-[var(--text-muted)] italic">
+        <p className="px-5 pt-4 pb-5 text-sm text-[var(--text-muted)] italic">
           {t('emptySection')}
         </p>
       ) : (
-        <div className="divide-y divide-[var(--card-border)]">
+        <div className="divide-y divide-[var(--card-border)] [&>div:last-child]:rounded-b-[13px]">
           {documents.map((doc) => {
             // The local is REQUIRED, not stylistic: a type predicate narrows the
             // EXPRESSION it was handed. Inlining `isTypeKey(doc.document_type ?? null)`
@@ -126,7 +129,7 @@ export default function BinderSection({
             return (
             <div
               key={doc.id}
-              className="flex items-center justify-between px-5 py-3 hover:bg-[var(--page-bg)] transition-colors"
+              className="flex items-center justify-between px-5 py-3 hover:bg-[var(--hover)] transition-colors duration-[90ms]"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--card-border)] text-[var(--text-muted)]">
@@ -160,6 +163,6 @@ export default function BinderSection({
           })}
         </div>
       )}
-    </div>
+    </SectionCard>
   )
 }

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { ChecklistItem } from '@/app/api/minute-book/completeness/route';
 import RequirementRow from './RequirementRow';
 import EventActRow from './EventActRow';
 import CompletionBar from './CompletionBar';
-import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import SectionCard from './SectionCard';
+import { AlertTriangle } from 'lucide-react';
 import { getStateForChecklistItem } from '@/lib/minute-book/state';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
 
@@ -89,45 +89,22 @@ export default function RequirementSection({
   const totalCount = items.length;
 
   // Default expanded: any item not yet 'téléversé' (i.e. généré or missing).
-  // Sections fully téléversé render collapsed on first load. Lazy initializer
-  // runs once on mount, so the section does NOT auto-collapse when the user
+  // Sections fully téléversé render collapsed on first load. SectionCard reads
+  // defaultOpen ONCE at mount, so the section does NOT auto-collapse when the user
   // satisfies the last requirement — per Brief D-2 design decision.
-  const [expanded, setExpanded] = useState(() =>
-    items.some((i) => getStateForChecklistItem(i) !== 'téléversé'),
-  );
-  // Force-expand while a page filter is active (Increment 5). OR'd here, not
-  // written into `expanded`, so the user's manual choice returns when cleared.
-  const isExpanded = expanded || !!forceExpanded;
+  // ⚠️ V2 — règle INCHANGÉE : les actes de la carte n'y comptent toujours pas.
+  const defaultOpen = items.some((i) => getStateForChecklistItem(i) !== 'téléversé');
 
   return (
-    <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)]">
-      {/* Section header — entire row clickable */}
-      <button
-        type="button"
-        onClick={() => setExpanded((e) => !e)}
-        aria-expanded={isExpanded}
-        className={`w-full px-5 py-4 text-left transition-colors hover:bg-[var(--page-bg)] overflow-hidden ${
-          isExpanded ? 'rounded-t-xl border-b border-[var(--card-border)]' : 'rounded-xl'
-        }`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />
-            )}
-            <h3 className="font-sora font-semibold text-[var(--text-heading)] text-base">
-              {title}
-            </h3>
-          </div>
-          <CompletionBar items={items} eventActs={eventActs} className="w-48" />
-        </div>
-      </button>
-
-      {/* Items — only when expanded */}
-      {isExpanded && (
-        <div className="divide-y divide-[var(--card-border)] relative">
+    // Force-expand while a page filter is active (Increment 5) — OR'd in SectionCard, never written into its state.
+    <SectionCard
+      title={title}
+      metric={<CompletionBar items={items} eventActs={eventActs} className="w-48" />}
+      defaultOpen={defaultOpen}
+      forceOpen={!!forceExpanded}
+    >
+      {/* Items — only when expanded ; la dernière ligne épouse les coins de la carte (V2-A). */}
+        <div className="divide-y divide-[var(--card-border)] relative [&>div:last-child]:rounded-b-[13px] [&>div:last-child>div:first-child]:rounded-b-[13px]">
           {/* ── THE BANNER ONLY SPEAKS WHEN THE ASSISTANT CAN ACT. ──
               It says "Utilisez l'assistant de rattrapage pour générer les résolutions
               manquantes", and until 2026-08-16 it appeared on ANY section with nothing
@@ -206,7 +183,6 @@ export default function RequirementSection({
             </>
           )}
         </div>
-      )}
-    </div>
+    </SectionCard>
   );
 }
