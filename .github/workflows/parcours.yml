@@ -79,6 +79,8 @@ jobs:
         run: npm run check:significant-control
       - name: ⑩ check:inscription — la sonde
         run: npm run check:inscription
+      - name: ⑪ check:etats — les cinq états et leurs deux catalogues
+        run: npm run check:etats
 
   # ── LE PARCOURS, CONTRE LE PRODUIT DÉPLOYÉ ────────────────────────────────
   # ⛔ PAS SUR `push`, ET C'EST DÉLIBÉRÉ. Un envoi de code précède le

@@ -76,8 +76,8 @@ test('un document téléversé paraît au livre, et sa suppression rouvre l’ob
   await expect(page.getByRole('heading', { name: /^Téléverser un document$/ })).toBeVisible({
     timeout: 60_000,
   });
-  /* ⚪ La case « Je certifie que ce document est final » arrive cochée ; on la
-     coche seulement si elle ne l'est pas, plutôt que de supposer. */
+  /* ⚪ La case « Je certifie que ce document est final » arrive DÉCOCHÉE
+     (UploadDocumentModal:181) ; ce parcours la coche, et vérifie avant de cliquer. */
   const certifie = page.getByLabel(/Je certifie que ce document est final/);
   if (!(await certifie.isChecked())) await certifie.check();
   await page.getByRole('button', { name: /^(Téléverser|Enregistrer|Confirmer)$/ }).last().click();

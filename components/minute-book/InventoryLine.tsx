@@ -33,6 +33,8 @@ interface Props {
 
 export default function InventoryLine({ total, uploaded, generated, missing, upcoming, archived }: Props) {
   const tMB = useTranslations('minuteBook');
+  // V1 — les mots s'accordent avec le nombre (pluriel ICU) ; ordre, icônes et séparateurs inchangés.
+  const tState = useTranslations('documentState');
   return (
     <div className="flex items-center gap-3 text-xs text-[var(--text-body)] mt-3 flex-wrap">
       {/* icons UNTOUCHED (Aria); counts + labels only.
@@ -55,7 +57,7 @@ export default function InventoryLine({ total, uploaded, generated, missing, upc
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
-        {uploaded} {tMB('completeness.legendSignedUploaded')}
+        {tState('count.final', { count: uploaded })}
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
@@ -63,22 +65,22 @@ export default function InventoryLine({ total, uploaded, generated, missing, upc
           <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
           <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
         </svg>
-        {generated} {tMB('completeness.legendToSign')}
+        {tState('count.draft', { count: generated })}
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
         <XCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
-        {missing} {tMB('completeness.legendToGenerate')}
+        {tState('count.missing', { count: missing })}
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
         <Clock className="h-3.5 w-3.5 flex-shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-        {upcoming} {tMB('completeness.legendUpcoming')}
+        {tState('count.upcoming', { count: upcoming })}
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
         <Archive className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--row-state-archive)' }} aria-hidden="true" />
-        {archived} {tMB('completeness.legendArchive')}
+        {tState('count.archived', { count: archived })}
       </span>
     </div>
   );

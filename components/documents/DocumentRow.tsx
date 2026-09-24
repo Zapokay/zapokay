@@ -7,6 +7,8 @@ import { DocumentTypePill } from './DocumentTypePill';
 import { LanguageBadge } from './LanguageBadge';
 import { DocumentModal } from './DocumentModal';
 import { composeDisplayName } from '@/lib/display-name';
+import { getDocumentState } from '@/lib/minute-book/state';
+import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
 
 export interface VaultDocument {
   id: string;
@@ -46,6 +48,7 @@ const BUCKET_MARKER = '/object/public/documents/';
 
 export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false, coverageCount, coverageLinks = [], requirementTitles = {} }: DocumentRowProps) {
   const tDocs = useTranslations('documents');
+  const tState = useTranslations('documentState');
   const [hovered, setHovered] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDocModal, setShowDocModal] = useState(false);
@@ -57,6 +60,16 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
     fr ? 'fr-CA' : 'en-CA',
     { year: 'numeric', month: 'short', day: 'numeric' }
   );
+
+  // ⚠️ DETTE (V1) : isArchived inconnu ici — Documents ne lit pas les années 'hold'. Un document NON
+  // certifié d'une année d'archive dirait « À finaliser » ici et « Archivé » à Complétude (0 cas au 2026-09-24).
+  const displayState = displayStateOf({
+    documentState: getDocumentState({
+      satisfied: true,
+      source: doc.source === 'generated' || doc.source === 'uploaded' ? doc.source : null,
+      is_finalized: doc.is_finalized,
+    }),
+  });
 
   const downloadUrl = `/api/documents/${doc.id}/download`;
 
@@ -116,7 +129,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-[var(--text-heading)] truncate">{composeDisplayName(doc.title, null, doc.document_year)}</span>
-            {doc.source === 'generated' && (
+            {displayState === 'draft' && (
               <span
                 className="flex-shrink-0"
                 style={{
@@ -131,7 +144,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
                   padding: '2px 8px',
                 }}
               >
-                {tDocs('toSignBadge')}
+                {tState(displayStateLabelKey(displayState))}
               </span>
             )}
             {/* A6 — ce que le document COUVRE. N'apparaît qu'à DEUX exigences ou plus :

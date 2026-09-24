@@ -313,10 +313,6 @@
     "emptyVault": "Aucun document",
     "emptyVaultSub": "Commencez par déposer un fichier ci-dessus.",
     "view": "Voir",
-    "archiveBadge": "Archive",
-    "archiveBadgeSigned": "Archive signée",
-    "archivedLabel": "Archivée",
-    "archivedCertifiedLabel": "Archivée · certifiée",
     "replace": "Remplacer",
     "download": "Télécharger",
     "delete": "Supprimer",
@@ -381,7 +377,6 @@
       "finalReplaceBody": "{count, plural, =0 {Aucune des exigences choisies ne porte de document final.} =1 {Un document final existe déjà pour l'exigence choisie. Le téléverser le remplacera : l'ancien document sera retiré de votre coffre et de votre livre de minutes, et ne pourra pas être récupéré.} other {Les documents finaux suivants seront remplacés. Ils seront retirés de votre coffre et de votre livre de minutes, et ne pourront pas être récupérés.}}",
       "finalReplaceSubmit": "{count, plural, =0 {Remplacer} =1 {Remplacer} other {Remplacer # documents}}"
     },
-    "toSignBadge": "À signer",
     "coverageCount": "{count, plural, =0 {Aucune exigence} =1 {1 exigence} other {# exigences}}",
     "coverageSatisfies": "Ce document satisfait",
     "coverageSatisfiesCounted": "{count, plural, =0 {Ce document ne satisfait aucune exigence} =1 {Ce document satisfait 1 exigence} other {Ce document satisfait # exigences}}",
@@ -732,22 +727,32 @@
     "generationFailed": "Échec de la génération du document. Veuillez réessayer.",
     "networkError": "Erreur réseau. Veuillez réessayer."
   },
+  "documentState": {
+    "final": "Final",
+    "draft": "À finaliser",
+    "missing": "Manquant",
+    "upcoming": "À venir",
+    "archived": "Archivé",
+    "archivedCertified": "Archivé · certifié",
+    "count": {
+      "final": "{count, plural, =0 {0 Final} =1 {1 Final} other {# Finaux}}",
+      "draft": "{count, plural, =0 {0 À finaliser} =1 {1 À finaliser} other {# À finaliser}}",
+      "missing": "{count, plural, =0 {0 Manquant} =1 {1 Manquant} other {# Manquants}}",
+      "upcoming": "{count, plural, =0 {0 À venir} =1 {1 À venir} other {# À venir}}",
+      "archived": "{count, plural, =0 {0 Archivé} =1 {1 Archivé} other {# Archivés}}"
+    }
+  },
   "minuteBook": {
     "completeness": {
       "title": "Complétude",
       "requirementNotFound": "Exigence introuvable.",
       "documentUploaded": "Document téléversé.",
       "total": "Total",
-      "toSign": "à signer",
+      "toSign": "à finaliser",
       "upcoming": "à venir",
       "actionableNow": "à faire maintenant",
       "filterBanner": "Filtré : {tiers} — {n, plural, =0 {aucun élément} one {# élément} other {# éléments}} sur {total}",
       "filterClearAll": "Tout afficher",
-      "legendSignedUploaded": "Final (Signé et téléversé)",
-      "legendToSign": "À signer",
-      "legendToGenerate": "À générer ou à téléverser",
-      "legendUpcoming": "À venir",
-      "legendArchive": "Classé aux archives",
       "loadError": "Impossible de charger le livre de minutes.",
       "foundingDocuments": "Documents fondateurs",
       "archivesQualifier": "Archives",

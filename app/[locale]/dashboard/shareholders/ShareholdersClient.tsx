@@ -25,6 +25,7 @@ import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLi
 import { holderName, type RawHolder } from '@/lib/minute-book/holder-name';
 import { residencyApplies } from '@/lib/residency';
 import { getDocumentState } from '@/lib/minute-book/state';
+import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
 import { formatDate } from '@/lib/utils';
 import type {
   CompanyPerson,
@@ -44,7 +45,7 @@ interface ShareholdersClientProps {
 
 export default function ShareholdersClient({ preferredLanguage }: ShareholdersClientProps) {
   const t = useTranslations('shareholders');
-  const tDocs = useTranslations('documents');
+  const tState = useTranslations('documentState');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -614,9 +615,9 @@ export default function ShareholdersClient({ preferredLanguage }: ShareholdersCl
                           });
                           return (
                             <>
-                              {state === 'généré' && (
+                              {displayStateOf({ documentState: state }) === 'draft' && (
                                 <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
-                                  {tDocs('toSignBadge')}
+                                  {tState(displayStateLabelKey(displayStateOf({ documentState: state })))}
                                 </span>
                               )}
                               <a

@@ -23,6 +23,7 @@ import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import type { RankedObligation } from '@/lib/obligations/rank';
 import { formatDate } from '@/lib/utils';
 import { mustBlockGeneration, mustBlockUpload } from '@/lib/fiscal-year-open';
+import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
 import {
   STATUS_CHIP,
   TIER_BADGE,
@@ -76,7 +77,7 @@ export default function A3Item({
   const locale = useLocale();
   const t = useTranslations('dashboard.a3Board');
   const tReq = useTranslations('requirementRow');
-  const tDocs = useTranslations('documents');
+  const tState = useTranslations('documentState');
   const tEvents = useTranslations('events');
   const tObl = useTranslations('obligationNotice');
   // Generalized how-to modal (mirrors EventActRow). Content is per-obligation:
@@ -200,7 +201,8 @@ export default function A3Item({
   const StatusIcon = statusSpec?.Icon;
   const stateChipLabel = statusSpec
     ? showsDocChip && o.status === 'to_finalize'
-      ? tDocs('toSignBadge')
+      ? // V1 — to_finalize ne naît que de 'généré' (feeders/completeness.ts:80, events.ts:56).
+        tState(displayStateLabelKey(displayStateOf({ documentState: 'généré' })))
       : t(statusSpec.labelKey)
     : '';
   const statusChip =

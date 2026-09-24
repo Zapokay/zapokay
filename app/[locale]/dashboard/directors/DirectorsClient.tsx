@@ -21,6 +21,7 @@ import EditPersonModal from '@/components/people/EditPersonModal';
 import GenerateLifecycleResolutionDialog from '@/components/lifecycle/GenerateLifecycleResolutionDialog';
 import { residencyApplies, residencyVerdict } from '@/lib/residency';
 import { getDocumentState } from '@/lib/minute-book/state';
+import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
 import { formatDate } from '@/lib/utils';
 import { redirigeVersConnexion } from '@/lib/session-perdue';
 import { donnees, aEchoue, etatDeSection } from '@/lib/requetes-groupees';
@@ -43,7 +44,7 @@ interface DirectorsClientProps {
 
 export default function DirectorsClient({ preferredLanguage }: DirectorsClientProps) {
   const t = useTranslations('directors');
-  const tDocs = useTranslations('documents');
+  const tState = useTranslations('documentState');
   const locale = t('_locale') === 'fr' ? 'fr' : 'en';
   const supabase = createClient();
 
@@ -521,9 +522,9 @@ export default function DirectorsClient({ preferredLanguage }: DirectorsClientPr
                             });
                             return (
                               <>
-                                {state === 'généré' && (
+                                {displayStateOf({ documentState: state }) === 'draft' && (
                                   <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
-                                    {tDocs('toSignBadge')}
+                                    {tState(displayStateLabelKey(displayStateOf({ documentState: state })))}
                                   </span>
                                 )}
                                 <a

@@ -250,12 +250,12 @@
       "showMore": "{count, plural, =0 {See my full list} =1 {See my full list (# more)} other {See my full list (# more)}}",
       "status": {
         "open": "Not started",
-        "to_finalize": "To finalize",
+        "to_finalize": "Pending",
         "due_soon": "Due soon",
         "overdue": "Overdue"
       },
       "tier": {
-        "regularize": "Catch up",
+        "regularize": "To regularize",
         "remediate": "Needs review"
       },
       "verb": {
@@ -308,15 +308,11 @@
     "filterAllLanguages": "All languages",
     "filterAllYears": "All fiscal years",
     "filterFoundational": "Foundational documents",
-    "filterNoFiscalYear": "No fiscal year",
+    "filterNoFiscalYear": "Outside fiscal years",
     "noResults": "No results for these filters.",
     "emptyVault": "No documents",
     "emptyVaultSub": "Start by dropping a file above.",
     "view": "View",
-    "archiveBadge": "Archive",
-    "archiveBadgeSigned": "Signed archive",
-    "archivedLabel": "Archived",
-    "archivedCertifiedLabel": "Archived · certified",
     "replace": "Replace",
     "download": "Download",
     "delete": "Delete",
@@ -381,7 +377,6 @@
       "finalReplaceBody": "{count, plural, =0 {None of the selected requirements holds a final document.} =1 {A final document already exists for the selected requirement. Uploading this will replace it: the old document will be removed from your vault and your minute book, and cannot be recovered.} other {The following final documents will be replaced. They will be removed from your vault and your minute book, and cannot be recovered.}}",
       "finalReplaceSubmit": "{count, plural, =0 {Replace} =1 {Replace} other {Replace # documents}}"
     },
-    "toSignBadge": "To sign",
     "coverageCount": "{count, plural, =0 {No requirement} =1 {1 requirement} other {# requirements}}",
     "coverageSatisfies": "This document satisfies",
     "coverageSatisfiesCounted": "{count, plural, =0 {This document satisfies no requirement} =1 {This document satisfies 1 requirement} other {This document satisfies # requirements}}",
@@ -399,7 +394,7 @@
   },
   "events": {
     "sectionTitle": "Events {year}",
-    "sectionUnclassified": "Events — unfiled",
+    "sectionUnclassified": "Events — outside fiscal years",
     "inYearDivider": "Events this year",
     "viewDocument": "View",
     "generate": "Generate",
@@ -732,22 +727,32 @@
     "generationFailed": "Document generation failed. Please try again.",
     "networkError": "Network error. Please try again."
   },
+  "documentState": {
+    "final": "Final",
+    "draft": "Pending",
+    "missing": "Missing",
+    "upcoming": "Upcoming",
+    "archived": "Archived",
+    "archivedCertified": "Archived · certified",
+    "count": {
+      "final": "{count, plural, =0 {0 Final} =1 {1 Final} other {# Final}}",
+      "draft": "{count, plural, =0 {0 Pending} =1 {1 Pending} other {# Pending}}",
+      "missing": "{count, plural, =0 {0 Missing} =1 {1 Missing} other {# Missing}}",
+      "upcoming": "{count, plural, =0 {0 Upcoming} =1 {1 Upcoming} other {# Upcoming}}",
+      "archived": "{count, plural, =0 {0 Archived} =1 {1 Archived} other {# Archived}}"
+    }
+  },
   "minuteBook": {
     "completeness": {
       "title": "Completeness",
       "requirementNotFound": "Requirement not found.",
       "documentUploaded": "Document uploaded.",
       "total": "Total",
-      "toSign": "to sign",
+      "toSign": "pending",
       "upcoming": "upcoming",
       "actionableNow": "to do now",
       "filterBanner": "Filtered: {tiers} — {n, plural, =0 {no items} one {# item} other {# items}} of {total}",
       "filterClearAll": "Show all",
-      "legendSignedUploaded": "Final (Signed and uploaded)",
-      "legendToSign": "To sign",
-      "legendToGenerate": "To generate or upload",
-      "legendUpcoming": "Upcoming",
-      "legendArchive": "Archived",
       "loadError": "Unable to load minute book.",
       "foundingDocuments": "Founding documents",
       "archivesQualifier": "Archives",

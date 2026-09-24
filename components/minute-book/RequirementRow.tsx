@@ -6,6 +6,7 @@ import { CheckCircle2, Clock, XCircle, Upload } from 'lucide-react';
 import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import { getDocumentState } from '@/lib/minute-book/state';
+import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
 import { mustBlockGeneration, mustBlockUpload } from '@/lib/fiscal-year-open';
 import { formatDate } from '@/lib/utils';
 
@@ -86,6 +87,7 @@ export default function RequirementRow({
 }: RequirementRowProps) {
   const t = useTranslations('requirementRow');
   const tDocs = useTranslations('documents');
+  const tState = useTranslations('documentState');
   // #149 — the requirement description is catalog CHROME (the seed provides both
   // description_fr AND description_en), so it follows the UI locale — unlike the
   // document title above, which follows the doc's generation language (Two-Layer).
@@ -100,7 +102,8 @@ export default function RequirementRow({
   // icon (3-way) and badge (binary "needs signature").
   const state = getDocumentState({ satisfied, source, is_finalized: documentIsFinalized, can_generate: canGenerate });
   const isSignedFinal = state === 'téléversé';
-  const isUnsigned = state === 'généré'; // generated OR uploaded-WIP
+  // V1 — le badge lit la source unique ; l'icône ci-dessous garde son code (décision D).
+  const displayState = displayStateOf({ documentState: state, availability });
   // A4c — no destructive gesture on a CERTIFIED row. Strictly `=== true`:
   // an uncertified upload keeps Remplacer, its only remaining action.
   const isCertifiedUpload = satisfied && source === 'uploaded' && documentIsFinalized === true;
@@ -264,9 +267,9 @@ export default function RequirementRow({
         on requirements where canUpload toggled false after upload.
       */}
       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        {isUnsigned && (
+        {displayState === 'draft' && (
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
-            {tDocs('toSignBadge')}
+            {tState(displayStateLabelKey(displayState))}
           </span>
         )}
 

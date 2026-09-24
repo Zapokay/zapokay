@@ -4,6 +4,8 @@ import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Archive, Eye, Upload } from 'lucide-react';
 import type { VaultDocument } from '@/components/documents/DocumentRow';
+import { getDocumentState } from '@/lib/minute-book/state';
+import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
 
 interface ArchiveDocRowProps {
   doc: VaultDocument;
@@ -19,6 +21,7 @@ interface ArchiveDocRowProps {
 
 export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
   const tDocs = useTranslations('documents');
+  const tState = useTranslations('documentState');
   const [isReplacing, setIsReplacing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +50,15 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
   // Certification-aware chip: signed final vs plain archive. null / false /
   // undefined all fall to the plain "Archive" label via the === true guard.
   const isSigned = doc.is_finalized === true;
+  // V1 — l'archive l'emporte sur l'état du document ; la certification ne nuance que le libellé.
+  const displayState = displayStateOf({
+    documentState: getDocumentState({
+      satisfied: true,
+      source: doc.source === 'generated' || doc.source === 'uploaded' ? doc.source : null,
+      is_finalized: doc.is_finalized,
+    }),
+    isArchived: true,
+  });
 
   const buttonClass =
     'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
@@ -65,7 +77,7 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
           className="text-xs flex-shrink-0"
           style={isSigned ? { color: 'var(--row-state-archive-certified)' } : { color: 'var(--text-muted)' }}
         >
-          {isSigned ? tDocs('archivedCertifiedLabel') : tDocs('archivedLabel')}
+          {tState(displayStateLabelKey(displayState, { certified: isSigned }))}
         </span>
       </div>
 

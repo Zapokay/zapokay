@@ -49,6 +49,7 @@ import { CheckCircle2, XCircle, Upload, Landmark } from 'lucide-react';
 import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
 import { fileObligation } from '@/components/lifecycle/fileObligation';
 import { getDocumentState } from '@/lib/minute-book/state';
+import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
 import {
   isEventGenerateDisabled,
   resolveEventDocTitle,
@@ -88,7 +89,7 @@ export default function EventActRow({
   onGenerated,
   onEventFileSelected,
 }: EventActRowProps) {
-  const tDocs = useTranslations('documents');
+  const tState = useTranslations('documentState');
   const tEvents = useTranslations('events');
   // Reuse the existing requirement-row upload strings (Téléverser / Remplacer /
   // uploading) — Brief 2 adds no new upload copy.
@@ -148,6 +149,8 @@ export default function EventActRow({
   const isSignedFinal = state === 'téléversé';
   const isUnsigned = state === 'généré';
   const isMissing = state === 'missing';
+  // V1 — le badge lit la source unique ; un acte n'a pas de fenêtre, donc pas d'availability.
+  const displayState = displayStateOf({ documentState: state });
   // A4c — no destructive gesture on a CERTIFIED act. Strictly `=== true`:
   // an uncertified upload keeps Remplacer, its only remaining action.
   const isCertifiedAct = act.satisfied && act.documentIsFinalized === true;
@@ -240,9 +243,9 @@ export default function EventActRow({
 
       {/* Right side: state-driven affordances */}
       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        {isUnsigned && (
+        {displayState === 'draft' && (
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
-            {tDocs('toSignBadge')}
+            {tState(displayStateLabelKey(displayState))}
           </span>
         )}
 
