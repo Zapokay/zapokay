@@ -209,7 +209,7 @@ export default function EventActRow({
   // Remplacer → déclaration ; « Voir » devient l'ŒIL mais reste le même <a href>, nommé « Voir ».
   // ⚪ La déclaration n'apparaît que sur un acte FINALISÉ, où aucun autre mot ne s'affiche :
   // l'ordre fixe ne réordonne donc rien de ce que l'écran montrait.
-  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
+  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
   return (
     <ListRow
       leading={
@@ -225,7 +225,7 @@ export default function EventActRow({
         )
       }
       title={rowLabel}
-      titleClassName={`text-[14.5px] ${titreAttenue(displayState, { declarationDue: aDeclarer }) ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'}`}
+      attenue={titreAttenue(displayState, { declarationDue: aDeclarer })}
       state={
         displayState === 'draft' && (
           <StateBadge>{tState(displayStateLabelKey(displayState))}</StateBadge>

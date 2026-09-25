@@ -213,7 +213,7 @@ export default function RequirementRow({
   // carry the same sentence twice.
   const blockedNote =
     uploadBlocked && fiscalYearEndDate ? (
-      <span className="text-xs text-[var(--text-muted)]">
+      <span className="text-xs text-[var(--text-meta)]">
         {t('generateUnavailableUntil', { date: formatDate(fiscalYearEndDate, locale) })}
       </span>
     ) : null;
@@ -235,7 +235,7 @@ export default function RequirementRow({
 
   // V4 — la ligne à deux bandes. Mots dans l'ordre fixe Téléverser → Générer | Régénérer |
   // Remplacer ; « Voir » devient l'ŒIL mais reste le même <a href>, nommé « Voir » (N2).
-  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
+  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
   return (
     <ListRow
       leading={
@@ -246,7 +246,7 @@ export default function RequirementRow({
             ⚠️ The red branch is UNCHANGED: a missing document on an OPEN window is
             exactly what it always was. (V4 : même icône, même couleur, en 16 px.) */
         !satisfied && availability === 'upcoming' ? (
-          <Clock className="h-4 w-4 flex-shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+          <Clock className="h-4 w-4 flex-shrink-0 text-[var(--nontext-muted)]" aria-hidden="true" />
         ) : !satisfied ? (
           <MissingMarker />
         ) : isSignedFinal ? (
@@ -259,7 +259,7 @@ export default function RequirementRow({
         )
       }
       title={titleFr}
-      titleClassName={`text-[14.5px] ${titreAttenue(displayState) ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'}`}
+      attenue={titreAttenue(displayState)}
       titleAdornment={<DescriptionTooltip description={description} />}
       identity={<IdentityBox type={typeAffiche(attachedDocumentType, documentType)} />}
       state={
@@ -271,7 +271,7 @@ export default function RequirementRow({
       date={blockedNote}
       facts={
         !satisfied && !canUpload && !canGenerate ? (
-          <span className="text-xs text-[var(--text-muted)]">{t('notAvailable')}</span>
+          <span className="text-xs text-[var(--text-meta)]">{t('notAvailable')}</span>
         ) : undefined
       }
       words={

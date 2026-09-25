@@ -56,7 +56,7 @@ export default function SectionCard({
 
   const carte =
     tone === 'archive'
-      ? 'bg-[var(--archive-box-bg)] border border-[var(--archive-box-bd)] border-l-[3px] border-l-[var(--text-muted)]'
+      ? 'bg-[var(--archive-box-bg)] border border-[var(--archive-box-bd)] border-l-[3px] border-l-[var(--nontext-muted)]'
       : 'bg-[var(--card-bg)] border border-[var(--card-border)]';
   const couleurTitre = tone === 'archive' ? 'text-[var(--text-body)]' : 'text-[var(--text-heading)]';
 
@@ -72,7 +72,7 @@ export default function SectionCard({
         {collapsible ? (
           <ChevronDown
             aria-hidden="true"
-            className={`h-4 w-4 flex-shrink-0 text-[var(--text-muted)] transition-transform duration-[140ms] motion-reduce:transition-none ${
+            className={`h-4 w-4 flex-shrink-0 text-[var(--nontext-muted)] transition-transform duration-[140ms] motion-reduce:transition-none ${
               isOpen ? '' : '-rotate-90'
             }`}
           />
@@ -98,7 +98,7 @@ export default function SectionCard({
         </h3>
         {qualifier}
         {metric !== undefined && (
-          <div className="ml-auto flex-shrink-0 text-[12.5px] text-[var(--text-muted)] tabular-nums">
+          <div className="ml-auto flex-shrink-0 text-[12.5px] text-[var(--text-meta)] tabular-nums">
             {metric}
           </div>
         )}

@@ -600,7 +600,7 @@ export default function A3Item({
     </span>
   ) : (
     <span
-      className={`${depSize} rounded-lg inline-flex items-center justify-center shrink-0 border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-muted)] ${depOpacity}`}
+      className={`${depSize} rounded-lg inline-flex items-center justify-center shrink-0 border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--nontext-muted)] ${depOpacity}`}
     >
       <DepDimmed className="w-[15px] h-[15px]" />
     </span>

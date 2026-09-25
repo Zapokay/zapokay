@@ -188,8 +188,22 @@ for (const s of ['draft', 'missing', 'archived'] as const) {
 for (const f of ['components/minute-book/RequirementRow.tsx', 'components/minute-book/EventActRow.tsx']) {
   const src = readFileSync(join(RACINE, f), 'utf8')
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  dire(/titleClassName=\{[^}]*titreAttenue\(displayState[,)]/.test(src), `${f} : le titre s'atténue par titreAttenue(displayState)`);
-  dire(!/titleClassName=\{[^}]*satisfied \?/.test(src), `${f} : ⛔ plus d'atténuation décidée par satisfied`);
+  dire(/attenue=\{titreAttenue\(displayState[,)]/.test(src), `${f} : le titre s'atténue par attenue={titreAttenue(displayState)}`);
+  dire(!/attenue=\{[^}]*satisfied/.test(src), `${f} : ⛔ plus d'atténuation décidée par satisfied`);
+}
+// ⛔ V7a — ListRow est le SEUL à décider du titre : aucune page ne lui passe de classe de titre.
+{
+  const pages = ['components/documents/DocumentRow.tsx', 'components/minute-book/RequirementRow.tsx',
+    'components/minute-book/EventActRow.tsx', 'components/minute-book/ArchiveDocRow.tsx', 'components/minute-book/BinderSection.tsx'];
+  for (const f of pages) {
+    dire(!/titleClassName/.test(readFileSync(join(RACINE, f), 'utf8')), `${f} : ⛔ aucune classe de titre passée à ListRow`);
+  }
+  const lr = readFileSync(join(RACINE, 'components/minute-book/ListRow.tsx'), 'utf8');
+  dire(!/titleClassName/.test(lr), 'ListRow : la prop titleClassName n\'existe plus');
+  dire(lr.includes("'text-[14.5px] font-medium text-[var(--text-heading)]'") && lr.includes("'text-[14.5px] font-medium text-[var(--text-muted)]'"),
+    'ListRow : un titre (--text-heading) et UNE variante atténuée (--text-muted), même taille, même graisse');
+  dire(/^\s*attenue\s*$/m.test(readFileSync(join(RACINE, 'components/minute-book/ArchiveDocRow.tsx'), 'utf8')),
+    'ArchiveDocRow : attenue toujours vrai');
 }
 
 /* ── e) LA LIGNE DU LIVRE (V5) — par RENDU RÉEL, document fictif en mémoire ── */
@@ -254,7 +268,7 @@ for (const loc of ['fr', 'en'] as const) {
 {
   const h = barre('fr', [FINAL, MANQUANT, A_VENIR]);
   dire((h.match(/border-\[var\(--error-text\)\]/g) ?? []).length === 1, 'à venir n\'est PAS rouge : un seul segment en --error-text (le manquant)');
-  dire((h.match(/border-dashed border-\[var\(--text-muted\)\]/g) ?? []).length === 1, 'à venir : tirets gris (--text-muted)');
+  dire((h.match(/border-dashed border-\[var\(--nontext-muted\)\]/g) ?? []).length === 1, 'à venir : tirets gris (--nontext-muted, V7a)');
   dire(h.includes('>1/3<'), 'à venir hors du compte : « 1/3 »');
 }
 {
@@ -270,7 +284,7 @@ for (const loc of ['fr', 'en'] as const) {
     'parts proportionnelles, dans l\'ordre final · brouillon · (à venir absent : 0) · manquant');
   const h2 = barre('fr', [...serie(2, FINAL), ...serie(3, MANQUANT), ...serie(4, A_VENIR), ...serie(4, BROUILLON)]);
   const ordre = Array.from(h2.matchAll(/<div class="([^"]*)" style="width:[0-9.]+%/g)).map((m) => m[1]);
-  dire(ordre.length === 4 && ordre[0].includes('emerald') && ordre[1].includes('amber') && ordre[2].includes('--text-muted') && ordre[3].includes('--error-text'),
+  dire(ordre.length === 4 && ordre[0].includes('emerald') && ordre[1].includes('amber') && ordre[2].includes('--nontext-muted') && ordre[3].includes('--error-text'),
     'ordre des parts : final · brouillon · à venir · manquant, quel que soit l\'ordre des lignes');
 }
 

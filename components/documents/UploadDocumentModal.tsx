@@ -837,7 +837,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
             onClick={onClose}
             disabled={step === 'uploading'}
             aria-label={tCommon('close')}
-            className="flex-shrink-0 rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-body)] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-shrink-0 rounded-lg p-1.5 text-[var(--nontext-muted)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-body)] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <X className="h-5 w-5" />
           </button>
@@ -1098,7 +1098,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                           <span className="flex min-w-0 items-center gap-1.5">
                             <ChevronRight
                               aria-hidden="true"
-                              className={`h-3.5 w-3.5 flex-shrink-0 text-[var(--text-muted)] transition-transform ${isGroupOpen ? 'rotate-90' : ''}`}
+                              className={`h-3.5 w-3.5 flex-shrink-0 text-[var(--nontext-muted)] transition-transform ${isGroupOpen ? 'rotate-90' : ''}`}
                             />
                             <span className="truncate text-xs font-semibold text-[var(--text-body)]">
                               {group.label}
@@ -1108,7 +1108,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                               what makes collapsing safe: no tick is ever invisible.
                               It counts what is TICKED, never what is tickable. */}
                           {groupSelected > 0 && (
-                            <span className="flex-shrink-0 text-xs font-medium text-[var(--text-muted)]">
+                            <span className="flex-shrink-0 text-xs font-medium text-[var(--text-meta)]">
                               {t('upload.selectedCount', { count: groupSelected })}
                             </span>
                           )}
@@ -1117,7 +1117,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                               Ce second régime occupe le SILENCE que D2 laissait — la branche
                               vide — et cède la place dès la première coche. */}
                           {groupSelected === 0 && (
-                            <span className="flex-shrink-0 text-xs font-medium text-[var(--text-muted)]">
+                            <span className="flex-shrink-0 text-xs font-medium text-[var(--text-meta)]">
                               {t('upload.remainingCount', { count: groupRemaining })}
                             </span>
                           )}
@@ -1156,7 +1156,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                                       lecture à la main de satisfied + document_is_finalized : deux
                                       composants ont fait cette lecture et ont peint le mauvais signe. */}
                                   {!req.satisfied && req.availability === 'upcoming' ? (
-                                    <Clock className="h-5 w-5 flex-shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                                    <Clock className="h-5 w-5 flex-shrink-0 text-[var(--nontext-muted)]" aria-hidden="true" />
                                   ) : !req.satisfied ? (
                                     <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} aria-hidden="true" />
                                   ) : getStateForChecklistItem(req) === 'téléversé' ? (
@@ -1181,7 +1181,7 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                                       {req.year ? ` · ${getFiscalYearLabel(req.year, locale)}` : ''}
                                     </span>
                                     {blocked && endDate && (
-                                      <span className="block text-xs text-[var(--text-muted)]">
+                                      <span className="block text-xs text-[var(--text-meta)]">
                                         {tReq('generateUnavailableUntil', {
                                           date: formatDate(endDate, locale),
                                         })}

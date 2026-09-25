@@ -341,7 +341,7 @@ export default function BinderExportModal({
             type="button"
             onClick={onClose}
             aria-label={t('closeAriaLabel')}
-            className="flex-shrink-0 rounded p-1 text-2xl leading-none text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+            className="flex-shrink-0 rounded p-1 text-2xl leading-none text-[var(--nontext-muted)] hover:text-[var(--text-heading)]"
           >
             ×
           </button>

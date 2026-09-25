@@ -197,7 +197,7 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, coverageLinks =
               border: '1px solid var(--card-border)',
               background: 'transparent', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '16px', color: 'var(--text-muted)',
+              fontSize: '16px', color: 'var(--nontext-muted)',
             }}
           >
             ×
@@ -442,7 +442,7 @@ export function DocumentModal({ doc, locale, aiSummariesEnabled, coverageLinks =
                                   flexShrink: 0, marginLeft: '8px',
                                   transform: expandedPoints.has(idx) ? 'rotate(180deg)' : 'none',
                                   transition: 'transform 150ms',
-                                  color: 'var(--text-muted)',
+                                  color: 'var(--nontext-muted)',
                                 }}
                               >
                                 <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

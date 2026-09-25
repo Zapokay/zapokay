@@ -109,12 +109,12 @@ export default function BinderSection({
             const typeKey = isTypeKey(raw) ? raw : 'autre'
             // V5 — la ligne commune : case de 16 px VIDE (aucune pastille), titre, date (même format),
             // boîte type · langue (documents.types.*), colonne Voir · Télécharger (57 px). Ni badge ni atténuation.
-            const caseIcone = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors disabled:opacity-50'
+            const caseIcone = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors disabled:opacity-50'
             return (
               <ListRow
                 key={doc.id}
                 title={composeDisplayName(doc.title, null, doc.document_year)}
-                date={<span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(doc.created_at, locale)}</span>}
+                date={<span className="text-xs text-[var(--text-meta)] whitespace-nowrap">{formatDate(doc.created_at, locale)}</span>}
                 identity={<IdentityBox type={typeKey} languageCode={codeDeLangue(doc.language)} />}
                 icons={
                   <>

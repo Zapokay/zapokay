@@ -19,14 +19,17 @@
 
 import type { ReactNode } from 'react';
 
-const TITRE_PAR_DEFAUT = 'text-[14.5px] font-medium text-[var(--text-heading)]';
+// V7a — ListRow est le SEUL à décider du titre : un style, et une variante atténuée (couleur seule).
+const TITRE = 'text-[14.5px] font-medium text-[var(--text-heading)]';
+const TITRE_ATTENUE = 'text-[14.5px] font-medium text-[var(--text-muted)]';
 
 interface ListRowProps {
   /** Case de 16 px devant le titre : la pastille d'état à Complétude ; vide ailleurs. */
   leading?: ReactNode;
   /** Une ligne, coupée par CSS : le texte ENTIER reste dans le DOM et dans title=. */
   title: string;
-  titleClassName?: string;
+  /** Titre atténué : même taille, même graisse, couleur --text-muted. Alimenté par titreAttenue(...). */
+  attenue?: boolean;
   /** Après le titre, HORS de la boîte coupée (DescriptionTooltip : sa bulle ne doit pas être rognée). */
   titleAdornment?: ReactNode;
   /** Bande 1, à droite, avant la date : le badge « À finaliser ». */
@@ -43,7 +46,7 @@ interface ListRowProps {
 }
 
 export default function ListRow({
-  leading, title, titleClassName = TITRE_PAR_DEFAUT, titleAdornment,
+  leading, title, attenue = false, titleAdornment,
   state, date, identity, facts, words, icons, children,
 }: ListRowProps) {
   return (
@@ -55,7 +58,7 @@ export default function ListRow({
           <div className="flex min-w-[225px] flex-1 items-center gap-[9px]">
             <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">{leading}</span>
             <span className="flex min-w-0 items-center gap-2">
-              <span title={title} className={`min-w-0 truncate ${titleClassName}`}>{title}</span>
+              <span title={title} className={`min-w-0 truncate ${attenue ? TITRE_ATTENUE : TITRE}`}>{title}</span>
               {titleAdornment}
             </span>
           </div>

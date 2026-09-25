@@ -52,6 +52,10 @@ body {
   --lv-regularize:#7A5804; --lv-regularize-bg:#FDF6E3; --lv-regularize-bd:#EAD9A6;
   --lv-remediate:#4A5568; --lv-remediate-bg:#EEF0F3; --lv-remediate-bd:#CFD5DE;
   --lv-remediate-row:#F7F8FA;
+
+  /* V7a — alias de rôle. Ici, l'ancien gris (le sombre ne bouge pas) ; le bloc clair les redirige. */
+  --text-meta: var(--text-muted);
+  --nontext-muted: var(--text-muted);
 }
 
 [data-theme="original"] {
@@ -105,7 +109,7 @@ body {
   --sb-active-bg: #EBE8DF;
   --sb-active-indicator: #E8D800;
   --sb-border: #E6E4DE;
-  --sb-group-label: #AAA59A;
+  --sb-group-label: var(--text-muted);
   --person-avatar-bg: #FDE68A;
   --person-avatar-text: #92400E;
 
@@ -125,7 +129,9 @@ body {
   --text-heading: #1C1A17;
   --text-body: #5C5850;
   --text-secondary: #7A7066;
-  --text-muted: #AAA59A;
+  --text-muted: #6F6A60; /* V7a — #AAA59A (2,2:1) → --dim d'Aria, 4,7 à 5,3:1 */
+  --text-meta: var(--text-body);
+  --nontext-muted: var(--row-state-archive);
   --text-placeholder: #C5C0B9;
   --text-link: #1E3D6B;
 
@@ -181,10 +187,10 @@ body {
   /* Onboarding */
   --ob-track-bg: #E6E4DE;
   --ob-circle-todo-bg: #E6E4DE;
-  --ob-circle-todo-text: #AAA59A;
+  --ob-circle-todo-text: var(--text-muted);
   --ob-check-color: #FFFFFF;
   --ob-circle-number-color: #FFFFFF;
-  --ob-label-done: #AAA59A;
+  --ob-label-done: var(--text-muted);
   --ob-label-active: #1C1A17;
   --ob-step-label: #C4900A;
   --ob-icon-bg: #FFF8E7;
@@ -226,10 +232,10 @@ body {
   --sb-co-bg: #F2F0EA;
   --sb-co-border: #E6E4DE;
   --sb-co-name: #1C1A17;
-  --sb-co-label: #AAA59A;
+  --sb-co-label: var(--text-muted);
   --sb-footer-border: #E6E4DE;
   --sb-user-name: #1C1A17;
-  --sb-user-role: #AAA59A;
+  --sb-user-role: var(--text-muted);
   --sb-user-avatar-bg: #F5B91E;
   --sb-user-avatar-bd: #E8AE0E;
   --sb-user-avatar-text: #1C1A17;

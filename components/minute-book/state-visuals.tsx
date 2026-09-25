@@ -50,7 +50,7 @@ export function StateBadge({ children }: { children: ReactNode }) {
 
 export function MissingMarker({ className = 'h-4 w-4' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={`flex-shrink-0 text-[var(--text-muted)] ${className}`} aria-hidden="true">
+    <svg viewBox="0 0 24 24" className={`flex-shrink-0 text-[var(--nontext-muted)] ${className}`} aria-hidden="true">
       <circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" />
     </svg>
   );

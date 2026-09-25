@@ -35,7 +35,7 @@ export default function BinderPage({ locale, companyId }: BinderPageProps) {
               type="button"
               onMouseEnter={() => setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
-              className="relative rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-body)]"
+              className="relative rounded-full p-1 text-[var(--nontext-muted)] hover:text-[var(--text-body)]"
             >
               <Info className="h-4 w-4" />
               {showTooltip && (
@@ -57,7 +57,7 @@ export default function BinderPage({ locale, companyId }: BinderPageProps) {
           </button>
         </div>
         {totalDocuments !== null && (
-          <div className="mt-3 text-sm text-[var(--text-muted)]">
+          <div className="mt-3 text-sm text-[var(--text-meta)]">
             {tBinder('documentCount', { count: totalDocuments })}
           </div>
         )}

@@ -47,7 +47,7 @@ const ORDRE: DisplayState[] = ['final', 'draft', 'upcoming', 'missing'];
 const SEGMENT: Partial<Record<DisplayState, string>> = {
   final: 'bg-emerald-600',
   draft: 'bg-amber-500',
-  upcoming: 'border-2 border-dashed border-[var(--text-muted)]',
+  upcoming: 'border-2 border-dashed border-[var(--nontext-muted)]',
   missing: 'border-2 border-dashed border-[var(--error-text)]',
 };
 
@@ -96,7 +96,7 @@ export default function CompletionBar({ items, eventActs }: CompletionBarProps) 
           })}
         </div>
       )}
-      <span aria-hidden="true" className="min-w-[5ch] text-right text-[12.5px] text-[var(--text-muted)] tabular-nums shrink-0">
+      <span aria-hidden="true" className="min-w-[5ch] text-right text-[12.5px] text-[var(--text-meta)] tabular-nums shrink-0">
         {finalCount}/{totalCount}
       </span>
       <span className="sr-only">{t('barLabel', { final: finalCount, total: totalCount })}</span>

@@ -75,7 +75,7 @@ export default function InventoryLine({ total, uploaded, generated, missing, upc
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
-        <Clock className="h-3.5 w-3.5 flex-shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+        <Clock className="h-3.5 w-3.5 flex-shrink-0 text-[var(--nontext-muted)]" aria-hidden="true" />
         {tState('count.upcoming', { count: upcoming })}
       </span>
       <span aria-hidden="true">·</span>

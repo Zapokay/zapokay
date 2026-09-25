@@ -345,7 +345,7 @@ export default function BulkCatchUpModal({
                 type="button"
                 onClick={onClose}
                 aria-label={t('modal.closeAriaLabel')}
-                className="flex-shrink-0 rounded p-1 text-2xl leading-none text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+                className="flex-shrink-0 rounded p-1 text-2xl leading-none text-[var(--nontext-muted)] hover:text-[var(--text-heading)]"
               >
                 ×
               </button>
@@ -447,7 +447,7 @@ export default function BulkCatchUpModal({
                           year,
                         })}
                       </h3>
-                      <span className="text-xs text-[var(--text-muted)]">
+                      <span className="text-xs text-[var(--text-meta)]">
                         {t('modal.yearGroup.missingCount', { count: selectedInYear })}
                       </span>
                     </div>
@@ -622,7 +622,7 @@ export default function BulkCatchUpModal({
                   type="button"
                   onClick={handleDone}
                   aria-label={t('modal.closeAriaLabel')}
-                  className="flex-shrink-0 rounded p-1 text-2xl leading-none text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+                  className="flex-shrink-0 rounded p-1 text-2xl leading-none text-[var(--nontext-muted)] hover:text-[var(--text-heading)]"
                 >
                   ×
                 </button>

@@ -65,7 +65,7 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
 
   const buttonClass =
     'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
-  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
+  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
   const couleurArchive = isSigned ? 'var(--row-state-archive-certified)' : 'var(--row-state-archive)';
 
   // V6 — la ligne commune : icône Archive dans la case de 16 px, état en texte (couleur actuelle),
@@ -74,7 +74,7 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
     <ListRow
       leading={<Archive className="h-4 w-4" style={{ color: couleurArchive }} aria-hidden="true" />}
       title={doc.title}
-      titleClassName="text-[14.5px] text-[var(--text-muted)]"
+      attenue
       state={
         <span
           className="text-xs whitespace-nowrap"

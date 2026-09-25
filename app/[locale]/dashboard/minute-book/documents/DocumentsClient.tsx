@@ -274,7 +274,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--nontext-muted)] pointer-events-none"
             fill="none" viewBox="0 0 24 24" stroke="currentColor"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
@@ -319,7 +319,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
         // ⚖️ D6 : l'encadré pointillé est retiré ; l'icône et les deux phrases restent, mot pour mot.
         <div className="text-center py-16">
           <svg
-            className="w-10 h-10 mx-auto mb-3 text-[var(--text-muted)]"
+            className="w-10 h-10 mx-auto mb-3 text-[var(--nontext-muted)]"
             fill="none" viewBox="0 0 24 24" stroke="currentColor"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}

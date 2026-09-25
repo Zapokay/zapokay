@@ -110,11 +110,11 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
   // Modales en SŒURS de la ligne (§392).
   const typeKey = isTypeKey(doc.document_type) ? doc.document_type : 'autre';
   // Une case d'icône : 26 px, toujours présente ; vide = même place, invisible (règle 12).
-  const caseIcone = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--text-muted)] transition-colors';
+  const caseIcone = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] transition-colors';
   return (
     <ListRow
       title={composeDisplayName(doc.title, null, doc.document_year)}
-      date={<span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formattedDate}</span>}
+      date={<span className="text-xs text-[var(--text-meta)] whitespace-nowrap">{formattedDate}</span>}
       identity={
         // E6 + point 3 (V4) : la boîte commune — le MOT du type, le filet, puis le code de langue en
         // TEXTE simple (mêmes codes qu'avant : FR, EN, Bilingue ; codés en dur, phase 2).
@@ -133,7 +133,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
             {coverageCount >= 2 && (
               // Point 4 (V4) : en TEXTE dans la phrase, après « · » ; plus de pastille.
               <>
-                <span aria-hidden="true" className="text-xs text-[var(--text-muted)]">·</span>
+                <span aria-hidden="true" className="text-xs text-[var(--nontext-muted)]">·</span>
                 <span className="text-xs text-[var(--text-body)] whitespace-nowrap">
                   {tDocs('coverageCount', { count: coverageCount })}
                 </span>

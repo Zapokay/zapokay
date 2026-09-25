@@ -142,7 +142,7 @@ export function SignatoriesModal({
               border: '1px solid var(--card-border)',
               background: 'transparent', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '16px', color: 'var(--text-muted)',
+              fontSize: '16px', color: 'var(--nontext-muted)',
             }}
           >
             ×

@@ -83,6 +83,8 @@ jobs:
         run: npm run check:etats
       - name: ⑫ check:documents — la portée du coffre, son en-tête, ses deux vides
         run: npm run check:documents
+      - name: ⑬ check:contrastes — les gris de texte en clair, et le sombre qui ne bouge pas
+        run: npm run check:contrastes
 
   # ── LE PARCOURS, CONTRE LE PRODUIT DÉPLOYÉ ────────────────────────────────
   # ⛔ PAS SUR `push`, ET C'EST DÉLIBÉRÉ. Un envoi de code précède le

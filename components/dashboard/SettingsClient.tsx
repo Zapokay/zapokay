@@ -710,7 +710,7 @@ export function SettingsClient({
                     ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
                     : (fr ? 'Cliquer pour déverrouiller' : 'Click to unlock')}
                 >
-                  <Lock size={12} style={{ color: unlockedFields.has('incorporationType') ? '#2E5425' : 'var(--text-muted)' }} />
+                  <Lock size={12} style={{ color: unlockedFields.has('incorporationType') ? '#2E5425' : 'var(--nontext-muted)' }} />
                 </button>
               </div>
               {unlockedFields.has('incorporationType') ? (
@@ -752,7 +752,7 @@ export function SettingsClient({
                   ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
                   : (fr ? 'Non-modifiable — identifiant gouvernemental permanent' : 'Not editable — permanent government identifier')}
               >
-                <Lock size={12} style={{ color: unlockedFields.has('neq') ? '#2E5425' : 'var(--text-muted)' }} />
+                <Lock size={12} style={{ color: unlockedFields.has('neq') ? '#2E5425' : 'var(--nontext-muted)' }} />
               </button>
             </div>
             {unlockedFields.has('neq') ? (
@@ -803,7 +803,7 @@ export function SettingsClient({
                     ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
                     : (fr ? 'Non-modifiable — identifiant gouvernemental permanent' : 'Not editable — permanent government identifier')}
               >
-                <Lock size={12} style={{ color: isCBCA && unlockedFields.has('corporationNumber') ? '#2E5425' : 'var(--text-muted)' }} />
+                <Lock size={12} style={{ color: isCBCA && unlockedFields.has('corporationNumber') ? '#2E5425' : 'var(--nontext-muted)' }} />
               </button>
               {/* ⚪ UNVERIFIED SOURCE — this copy is pending Harvey confirmation (the
                   7-or-8-digit claim and the contrast with the CRA Business Number).
@@ -870,7 +870,7 @@ export function SettingsClient({
                 style={{ background: 'none', border: 'none', cursor: unlockedFields.has('siege') ? 'default' : 'pointer', padding: 0, display: 'flex' }}
                 title={unlockedFields.has('siege') ? cm.siege.unlocked : cm.siege.clickToUnlock}
               >
-                <Lock size={12} style={{ color: unlockedFields.has('siege') ? '#2E5425' : 'var(--text-muted)' }} />
+                <Lock size={12} style={{ color: unlockedFields.has('siege') ? '#2E5425' : 'var(--nontext-muted)' }} />
               </button>
             </div>
             {unlockedFields.has('siege') ? (
@@ -911,7 +911,7 @@ export function SettingsClient({
                   ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
                   : (fr ? 'Cliquer pour déverrouiller' : 'Click to unlock')}
               >
-                <Lock size={12} style={{ color: unlockedFields.has('incorporationDate') ? '#2E5425' : 'var(--text-muted)' }} />
+                <Lock size={12} style={{ color: unlockedFields.has('incorporationDate') ? '#2E5425' : 'var(--nontext-muted)' }} />
               </button>
             </div>
             {unlockedFields.has('incorporationDate') ? (
@@ -955,7 +955,7 @@ export function SettingsClient({
                   ? (fr ? 'Champ déverrouillé' : 'Field unlocked')
                   : (fr ? 'Cliquer pour déverrouiller' : 'Click to unlock')}
               >
-                <Lock size={12} style={{ color: unlockedFields.has('fiscalYearEnd') ? '#2E5425' : 'var(--text-muted)' }} />
+                <Lock size={12} style={{ color: unlockedFields.has('fiscalYearEnd') ? '#2E5425' : 'var(--nontext-muted)' }} />
               </button>
             </div>
             {unlockedFields.has('fiscalYearEnd') ? (
