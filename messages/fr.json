@@ -758,7 +758,8 @@
       "loadError": "Impossible de charger le livre de minutes.",
       "foundingDocuments": "Documents fondateurs",
       "archivesQualifier": "Archives",
-      "noDocumentsForYear": "Aucun document pour cet exercice. Utilisez l'assistant de rattrapage pour générer les résolutions manquantes."
+      "noDocumentsForYear": "Aucun document pour cet exercice. Utilisez l'assistant de rattrapage pour générer les résolutions manquantes.",
+      "barLabel": "{final, plural, =0 {0 document final} =1 {1 document final} other {# documents finaux}} sur {total}"
     },
     "tabs": {
       "completude": "Complétude",

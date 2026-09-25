@@ -6,6 +6,9 @@ import { Archive, Eye, Upload } from 'lucide-react';
 import type { VaultDocument } from '@/components/documents/DocumentRow';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
+import { typeAffiche } from '@/lib/requirement-doctype';
+import ListRow from './ListRow';
+import { IdentityBox, codeDeLangue } from './state-visuals';
 
 interface ArchiveDocRowProps {
   doc: VaultDocument;
@@ -62,31 +65,26 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
 
   const buttonClass =
     'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
+  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
+  const couleurArchive = isSigned ? 'var(--row-state-archive-certified)' : 'var(--row-state-archive)';
 
+  // V6 — la ligne commune : icône Archive dans la case de 16 px, état en texte (couleur actuelle),
+  // boîte type · langue, « Remplacer », puis la colonne d'icônes de Complétude (88 px). Aucune date (règle A).
   return (
-    <div className="group flex items-center justify-between py-3 px-4 hover:bg-[var(--hover)] transition-colors duration-[90ms]">
-      {/* Left: archive icon + title + state label */}
-      <div className="flex items-center gap-3 min-w-0">
-        <Archive
-          className="h-5 w-5 flex-shrink-0"
-          style={{ color: isSigned ? 'var(--row-state-archive-certified)' : 'var(--row-state-archive)' }}
-          aria-hidden="true"
-        />
-        <span className="text-sm text-[var(--text-muted)] truncate">{doc.title}</span>
+    <ListRow
+      leading={<Archive className="h-4 w-4" style={{ color: couleurArchive }} aria-hidden="true" />}
+      title={doc.title}
+      titleClassName="text-[14.5px] text-[var(--text-muted)]"
+      state={
         <span
-          className="text-xs flex-shrink-0"
+          className="text-xs whitespace-nowrap"
           style={isSigned ? { color: 'var(--row-state-archive-certified)' } : { color: 'var(--text-muted)' }}
         >
           {tState(displayStateLabelKey(displayState, { certified: isSigned }))}
         </span>
-      </div>
-
-      {/* Right: View + Replace */}
-      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        <button type="button" onClick={handleView} className={buttonClass}>
-          <Eye className="h-3.5 w-3.5" />
-          {tDocs('view')}
-        </button>
+      }
+      identity={<IdentityBox type={typeAffiche(doc.document_type, 'autre')} languageCode={codeDeLangue(doc.language)} />}
+      words={
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -96,14 +94,27 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
           <Upload className="h-3.5 w-3.5" />
           {tDocs('replace')}
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf"
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
-        />
-      </div>
-    </div>
+      }
+      icons={
+        <>
+          {/* Voir : même comportement (window.open), en œil. Téléchargement et « ··· » : cases réservées,
+              invisibles, non focusables — l'œil tombe sur la verticale des autres lignes. */}
+          <button type="button" onClick={handleView} className={oeil} title={tDocs('view')} aria-label={tDocs('view')}>
+            <Eye className="h-4 w-4" strokeWidth={1.8} />
+          </button>
+          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+        </>
+      }
+    >
+      {/* L'input reste dans la ligne, en sœur de la div de ligne ; la fenêtre de remplacement vit à la page. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf"
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+      />
+    </ListRow>
   );
 }

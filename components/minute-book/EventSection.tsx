@@ -70,7 +70,7 @@ export default function EventSection({
     // Force-expand while a page filter is active (Increment 5) — OR'd in SectionCard, not written into its state.
     <SectionCard
       title={title}
-      metric={<CompletionBar items={barItems} className="w-48" />}
+      metric={<CompletionBar items={barItems} />}
       defaultOpen={defaultOpen}
       forceOpen={!!forceExpanded}
     >

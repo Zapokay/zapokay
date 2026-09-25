@@ -758,7 +758,8 @@
       "loadError": "Unable to load minute book.",
       "foundingDocuments": "Founding documents",
       "archivesQualifier": "Archives",
-      "noDocumentsForYear": "No documents for this fiscal year. Use the catch-up assistant to generate the missing resolutions."
+      "noDocumentsForYear": "No documents for this fiscal year. Use the catch-up assistant to generate the missing resolutions.",
+      "barLabel": "{final, plural, =0 {0 final documents} =1 {1 final document} other {# final documents}} of {total}"
     },
     "tabs": {
       "completude": "Completeness",

@@ -227,5 +227,82 @@ for (const loc of ['fr', 'en'] as const) {
   dire(html.includes('2024-06-15'), `${loc} : la date garde son format (règle A) : « 2024-06-15 »`);
 }
 
+/* ── f) LA BARRE DE COMPLÉTUDE (V6) — par RENDU RÉEL, segments fictifs ──── */
+console.log('f) la barre de Complétude');
+// ⚠️ Chargé ici, pas en tête : même raison que BinderSection ci-dessus.
+const CompletionBar = (require('../components/minute-book/CompletionBar') as { default: unknown }).default;
+const FINAL = { satisfied: true, source: 'uploaded', document_is_finalized: true };
+const BROUILLON = { satisfied: true, source: 'generated', document_is_finalized: false };
+const MANQUANT = { satisfied: false, source: null, availability: 'open' };
+const A_VENIR = { satisfied: false, source: null, availability: 'upcoming' };
+const serie = (n: number, x: object) => Array.from({ length: n }, () => x);
+function barre(loc: 'fr' | 'en', items: object[]) {
+  return renderToStaticMarkup(
+    React.createElement(NextIntlClientProvider, {
+      locale: loc, messages: CATALOGUES[loc] as never, timeZone: 'America/Toronto',
+      children: React.createElement(CompletionBar as never, { items } as never),
+    }),
+  );
+}
+const TREIZE = [...serie(4, FINAL), ...serie(7, BROUILLON), ...serie(2, MANQUANT)];
+const NOM: Record<'fr' | 'en', string> = { fr: '4 documents finaux sur 13', en: '4 final documents of 13' };
+for (const loc of ['fr', 'en'] as const) {
+  const h = barre(loc, TREIZE);
+  dire(h.includes('>4/13<'), `${loc} : le compteur compte les FINAUX seuls — 4 finaux, 7 brouillons, 2 manquants → « 4/13 »`);
+  dire(h.includes(`>${NOM[loc]}<`) && h.includes('sr-only'), `${loc} : nom accessible « ${NOM[loc]} »`);
+}
+{
+  const h = barre('fr', [FINAL, MANQUANT, A_VENIR]);
+  dire((h.match(/border-\[var\(--error-text\)\]/g) ?? []).length === 1, 'à venir n\'est PAS rouge : un seul segment en --error-text (le manquant)');
+  dire((h.match(/border-dashed border-\[var\(--text-muted\)\]/g) ?? []).length === 1, 'à venir : tirets gris (--text-muted)');
+  dire(h.includes('>1/3<'), 'à venir hors du compte : « 1/3 »');
+}
+{
+  const douze = barre('fr', serie(12, FINAL));
+  dire((douze.match(/width:11px;height:11px/g) ?? []).length === 12 && !douze.includes('width:154px'),
+    '12 lignes → 12 carrés de 11 px, pas de barre continue');
+  const h = barre('fr', TREIZE);
+  dire(!h.includes('width:11px') && (h.match(/width:154px/g) ?? []).length === 1,
+    '13 lignes → UNE barre continue de 154 px (la largeur de 12 carrés), aucun carré');
+  const parts = Array.from(h.matchAll(/<div class="([^"]*)" style="width:([0-9.]+)%/g)).map((m) => ({ c: m[1], w: Number(m[2]) }));
+  const attendu = [['bg-emerald-600', 4], ['bg-amber-500', 7], ['--error-text', 2]] as const;
+  dire(parts.length === 3 && attendu.every(([c, n], i) => parts[i].c.includes(c) && Math.abs(parts[i].w - (n / 13) * 100) < 1e-6),
+    'parts proportionnelles, dans l\'ordre final · brouillon · (à venir absent : 0) · manquant');
+  const h2 = barre('fr', [...serie(2, FINAL), ...serie(3, MANQUANT), ...serie(4, A_VENIR), ...serie(4, BROUILLON)]);
+  const ordre = Array.from(h2.matchAll(/<div class="([^"]*)" style="width:[0-9.]+%/g)).map((m) => m[1]);
+  dire(ordre.length === 4 && ordre[0].includes('emerald') && ordre[1].includes('amber') && ordre[2].includes('--text-muted') && ordre[3].includes('--error-text'),
+    'ordre des parts : final · brouillon · à venir · manquant, quel que soit l\'ordre des lignes');
+}
+
+/* ── g) LA LIGNE D'ARCHIVE (V6) — sur ListRow, document fictif en mémoire ─── */
+console.log('g) la ligne d\'archive');
+const ArchiveDocRow = (require('../components/minute-book/ArchiveDocRow') as { default: unknown }).default;
+const ETIQ: Record<'fr' | 'en', { oui: string; non: string; voir: string; remplacer: string; autre: string }> = {
+  fr: { oui: 'Archivé · certifié', non: 'Archivé', voir: 'Voir', remplacer: 'Remplacer', autre: 'Autre' },
+  en: { oui: 'Archived · certified', non: 'Archived', voir: 'View', remplacer: 'Replace', autre: 'Other' },
+};
+for (const loc of ['fr', 'en'] as const) {
+  for (const certifie of [true, false]) {
+    const doc = { id: '00000000-0000-4000-8000-0000000000b1', title: 'Constat fictif', document_type: 'autre', language: 'fr',
+      document_year: 2018, created_at: '2018-05-10T12:00:00Z', source: 'uploaded', is_finalized: certifie, file_url: 'x' };
+    const h = renderToStaticMarkup(
+      React.createElement(NextIntlClientProvider, {
+        locale: loc, messages: CATALOGUES[loc] as never, timeZone: 'America/Toronto',
+        children: React.createElement(ArchiveDocRow as never, { doc, onReplace: () => {} } as never),
+      }),
+    );
+    const q = `${loc} ${certifie ? 'certifiée' : 'non certifiée'}`;
+    dire(h.includes('h-[72px]') && h.includes('pl-[26px]'), `${q} : la ligne est sur ListRow (deux bandes)`);
+    dire(h.includes(`>${certifie ? ETIQ[loc].oui : ETIQ[loc].non}<`), `${q} : état « ${certifie ? ETIQ[loc].oui : ETIQ[loc].non} »`);
+    dire(h.includes(`title="Constat fictif"`), `${q} : titre avec title=`);
+    dire(h.includes(`>${ETIQ[loc].autre}<`) && h.includes('>FR<'), `${q} : boîte d'identité « ${ETIQ[loc].autre} | FR »`);
+    dire(h.includes(`aria-label="${ETIQ[loc].voir}"`) && h.includes(`${ETIQ[loc].remplacer}<`), `${q} : Voir en œil, mot « ${ETIQ[loc].remplacer} »`);
+    dire((h.match(/<span aria-hidden="true" class="invisible h-\[26px\] w-\[26px\]"><\/span>/g) ?? []).length === 2,
+      `${q} : colonne d'icônes de Complétude — téléchargement et « ··· » réservés, invisibles`);
+    dire(!h.includes('2018-05-10') && !h.includes('/api/documents/00000000-0000-4000-8000-0000000000b1/download"'),
+      `${q} : aucune date (règle A), aucun téléchargement ajouté`);
+  }
+}
+
 console.log(echecs === 0 ? '\n✔ check:etats — tout tient.' : `\n⛔ check:etats — ${echecs} garde(s) tombée(s).`);
 process.exit(echecs === 0 ? 0 : 1);

@@ -1,6 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { getDocumentState, getStateForChecklistItem } from '@/lib/minute-book/state';
+import { displayStateOf, type DisplayState } from '@/lib/minute-book/display-state';
 import type { EventActStatus } from '@/lib/minute-book/event-completeness';
 
 interface CompletionBarItem {
@@ -15,6 +17,8 @@ interface CompletionBarItem {
    */
   document_is_finalized?: boolean | null;
   can_generate?: boolean | null;
+  /** V6 — la fenêtre de la ligne : 'upcoming' → segment « à venir » (gris), hors du compte. */
+  availability?: 'open' | 'upcoming' | null;
 }
 
 interface CompletionBarProps {
@@ -29,70 +33,73 @@ interface CompletionBarProps {
    * source, documentIsFinalized → is_finalized).
    */
   eventActs?: EventActStatus[];
-  /**
-   * Optional className override on the outer flex container. Defaults to
-   * `max-w-md` for section-header use. Page-header use passes a wider
-   * override (e.g. `w-full max-w-2xl`).
-   */
-  className?: string;
 }
 
+// V6 — carrés fixes jusqu'à 12 lignes ; au-delà, UNE barre de la largeur de 12 carrés (jamais plus
+// courte en grandissant). Une seule source pour les deux calculs.
+const CARRE = 11;
+const ECART = 2;
+const MAX_CARRES = 12;
+const LARGEUR_BARRE = MAX_CARRES * CARRE + (MAX_CARRES - 1) * ECART; // 154 px
+
+// Ordre des parts de la barre continue. Couleurs codées en dur jusqu'à V7 (jetons).
+const ORDRE: DisplayState[] = ['final', 'draft', 'upcoming', 'missing'];
+const SEGMENT: Partial<Record<DisplayState, string>> = {
+  final: 'bg-emerald-600',
+  draft: 'bg-amber-500',
+  upcoming: 'border-2 border-dashed border-[var(--text-muted)]',
+  missing: 'border-2 border-dashed border-[var(--error-text)]',
+};
+
 /**
- * Tetris-style completion bar with three-state per-segment coloring.
+ * La barre de section de Complétude (V6, décision de Dom : « un brouillon n'est pas fait »).
  *
- *   green (filled)  = téléversé  (uploaded, signed — truly done)
- *   amber (filled)  = généré     (generated, awaiting signature)
- *   dotted outline  = missing
+ *   final (vert) · brouillon (ambre, visible, HORS du compte) · à venir (tirets gris) · manquant (tirets rouges)
  *
- * Segments use `flex-1` within a fixed-width container so they sub-divide
- * proportionally as item count grows — the bar's overall width stays
- * constant; segments shrink to fit. A section with 27 résolutions still
- * renders without horizontal scroll, just with thinner segments.
- *
- * The "X/Y" tail uses simple counts (X = téléversé+généré, Y = total).
- * Page-level percentage uses weighted math instead — see
- * lib/minute-book/state.ts (STATE_WEIGHT).
- *
- * NOTE: colors use Tailwind/hex hardcodes (emerald-600, amber-500). Will
- * re-theme to Aria v2 tokens when Sprint 7 ships them.
+ * Compteur = finaux / total. Le % pondéré de la page reste à lib/minute-book/state.ts (STATE_WEIGHT).
+ * Les actes n'ont pas de fenêtre : jamais « à venir » (même règle que CompletenessPage).
  */
-export default function CompletionBar({ items, eventActs, className }: CompletionBarProps) {
+export default function CompletionBar({ items, eventActs }: CompletionBarProps) {
+  const t = useTranslations('minuteBook.completeness');
   if (items.length === 0 && (!eventActs || eventActs.length === 0)) return null;
 
-  // Tier 1 #21 — per-year strip folds requirement rows + same-FY event acts.
-  // Unweighted not-missing count by design (the page-level % is the weighted
-  // figure; the section strip is a row-count display).
-  const reqStates = items.map(getStateForChecklistItem);
-  const eventStates = (eventActs ?? []).map((a) =>
-    getDocumentState({
-      satisfied: a.satisfied,
-      source: a.documentSource,
-      is_finalized: a.documentIsFinalized,
-    }),
-  );
-  const states = [...reqStates, ...eventStates];
-  const filledCount = states.filter((s) => s !== 'missing').length;
+  const states: DisplayState[] = [
+    ...items.map((i) => displayStateOf({ documentState: getStateForChecklistItem(i), availability: i.availability })),
+    ...(eventActs ?? []).map((a) =>
+      displayStateOf({
+        documentState: getDocumentState({
+          satisfied: a.satisfied,
+          source: a.documentSource,
+          is_finalized: a.documentIsFinalized,
+        }),
+      }),
+    ),
+  ];
+  const finalCount = states.filter((s) => s === 'final').length;
   const totalCount = states.length;
 
   return (
-    <div className={`flex items-center gap-3 ${className ?? 'max-w-md'}`}>
-      <div className="flex-1 flex items-stretch gap-0.5 h-2.5" aria-hidden="true">
-        {states.map((state, i) => (
-          <div
-            key={i}
-            className={`flex-1 rounded-sm ${
-              state === 'téléversé'
-                ? 'bg-emerald-600'
-                : state === 'généré'
-                  ? 'bg-amber-500'
-                  : 'border-2 border-dashed border-[var(--error-text)]'
-            }`}
-          />
-        ))}
-      </div>
-      <span className="text-[12.5px] text-[var(--text-muted)] tabular-nums shrink-0">
-        {filledCount}/{totalCount}
+    <div className="flex items-center gap-3">
+      {totalCount <= MAX_CARRES ? (
+        <div className="flex shrink-0 items-center" style={{ gap: ECART }} aria-hidden="true">
+          {states.map((state, i) => (
+            <div key={i} className={`rounded-sm ${SEGMENT[state]}`} style={{ width: CARRE, height: CARRE }} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex shrink-0 overflow-hidden rounded-sm" style={{ width: LARGEUR_BARRE, height: CARRE }} aria-hidden="true">
+          {ORDRE.map((etat) => {
+            const n = states.filter((s) => s === etat).length;
+            return n === 0 ? null : (
+              <div key={etat} className={SEGMENT[etat]} style={{ width: `${(n / totalCount) * 100}%` }} />
+            );
+          })}
+        </div>
+      )}
+      <span aria-hidden="true" className="min-w-[5ch] text-right text-[12.5px] text-[var(--text-muted)] tabular-nums shrink-0">
+        {finalCount}/{totalCount}
       </span>
+      <span className="sr-only">{t('barLabel', { final: finalCount, total: totalCount })}</span>
     </div>
   );
 }

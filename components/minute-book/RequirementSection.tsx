@@ -99,7 +99,7 @@ export default function RequirementSection({
     // Force-expand while a page filter is active (Increment 5) — OR'd in SectionCard, never written into its state.
     <SectionCard
       title={title}
-      metric={<CompletionBar items={items} eventActs={eventActs} className="w-48" />}
+      metric={<CompletionBar items={items} eventActs={eventActs} />}
       defaultOpen={defaultOpen}
       forceOpen={!!forceExpanded}
     >
@@ -169,7 +169,8 @@ export default function RequirementSection({
               rendering rather than crash the section. */}
           {eventActs && eventActs.length > 0 && companyId && preferredLanguage && (
             <>
-              <div className="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+              {/* V6 — le texte tombe à 42 px, sur la verticale des titres de ligne (1 + 41). */}
+              <div className="pl-[41px] pr-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                 {tEvents('inYearDivider')}
               </div>
               {eventActs.map((act) => (
