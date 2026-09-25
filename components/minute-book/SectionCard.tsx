@@ -88,7 +88,7 @@ export default function SectionCard({
               aria-expanded={isOpen}
               aria-controls={panelId}
               onClick={() => setExpanded((e) => !e)}
-              className="cursor-pointer text-left focus-visible:outline-none after:absolute after:inset-0 after:rounded-[11px] after:content-[''] focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--amber-400)]"
+              className="cursor-pointer text-left focus-visible:outline-none after:absolute after:inset-0 after:rounded-[11px] after:content-[''] focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--focus-ring)]"
             >
               {title}
             </button>

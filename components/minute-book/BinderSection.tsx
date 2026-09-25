@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { composeDisplayName } from '@/lib/display-name'
 import SectionCard from './SectionCard'
 import ListRow from './ListRow'
+import IconButton from './IconButton'
 import { IdentityBox, codeDeLangue } from './state-visuals'
 import { DownloadButton } from '@/components/documents/DownloadButton'
 
@@ -109,7 +110,7 @@ export default function BinderSection({
             const typeKey = isTypeKey(raw) ? raw : 'autre'
             // V5 — la ligne commune : case de 16 px VIDE (aucune pastille), titre, date (même format),
             // boîte type · langue (documents.types.*), colonne Voir · Télécharger (57 px). Ni badge ni atténuation.
-            const caseIcone = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors disabled:opacity-50'
+            // V7c : IconButton décide seul des cinq états ; sans fichier, deux réserves (règle 12).
             return (
               <ListRow
                 key={doc.id}
@@ -120,23 +121,28 @@ export default function BinderSection({
                   <>
                     {/* D5 : Voir RESTE un bouton (window.open inchangé) — un lien ne se désactive pas, et
                         la section désactive Voir et Télécharger de toutes ses lignes pendant un téléchargement. */}
-                    <button
-                      onClick={() => handleView(doc)}
-                      disabled={loadingId !== null}
-                      className={caseIcone}
-                      title={t('view')}
-                      aria-label={t('view')}
-                    >
-                      <Eye className="w-4 h-4" strokeWidth={1.8} />
-                    </button>
-                    {/* D4 : le bouton commun (V4b) ; la copie locale de la logique est retirée. */}
-                    <DownloadButton
-                      documentId={doc.id}
-                      fileName={doc.title}
-                      className={caseIcone}
-                      disabled={loadingId !== null && loadingId !== doc.id}
-                      onBusyChange={(b) => setLoadingId(b ? doc.id : null)}
-                    />
+                    {doc.file_url ? (
+                      <>
+                        <IconButton
+                          label={t('view')}
+                          icon={<Eye className="w-4 h-4" strokeWidth={1.8} />}
+                          onClick={() => handleView(doc)}
+                          disabled={loadingId !== null}
+                        />
+                        {/* D4 : le bouton commun (V4b) ; la copie locale de la logique est retirée. */}
+                        <DownloadButton
+                          documentId={doc.id}
+                          fileName={doc.title}
+                          disabled={loadingId !== null && loadingId !== doc.id}
+                          onBusyChange={(b) => setLoadingId(b ? doc.id : null)}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <IconButton.Reserve />
+                        <IconButton.Reserve />
+                      </>
+                    )}
                   </>
                 }
               />

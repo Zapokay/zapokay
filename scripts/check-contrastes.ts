@@ -131,5 +131,52 @@ console.log('  · EXCEPTION ACCEPTÉE (Dom, option A) : titres de Complétude en
     `les deux titres de ListRow lisent des jetons que le sombre définit déjà (${titres.join(', ')})`);
 }
 
+/* ── e) LES ICÔNES DE LIGNE (V7c) — les 5 états d'Aria, en clair ─────────── */
+console.log('e) les icônes de ligne');
+{
+  // Les alias : dans :root, la valeur d'AUJOURD'HUI (le sombre garde ses couleurs) ; dans le clair, Aria.
+  const ALIAS: [string, string, string][] = [
+    ['--icone-opacite-repos', '0.5', '0.65'],
+    ['--icone-survol', 'var(--text-body)', 'var(--navy-900)'],
+    ['--icone-survol-fond', 'var(--page-bg)', 'var(--card-bg)'],
+    ['--icone-survol-filet', 'transparent', 'var(--card-border)'],
+    ['--icone-danger-filet', 'transparent', 'var(--error-border)'],
+    ['--focus-ring', 'var(--amber-400)', 'var(--navy-900)'],
+  ];
+  for (const [a, racine, clair] of ALIAS) {
+    dire(ROOT[a] === racine && CLAIR[a] === clair, `${a} : :root ${racine} (sombre inchangé), clair ${clair} (lu : ${ROOT[a]} / ${CLAIR[a]})`);
+  }
+  const ic = resoudre('--nontext-muted');
+  const survol = resoudre('--icone-survol'); const fondSurvol = resoudre('--icone-survol-fond');
+  const danger = resoudre('--error-text'); const fondDanger = resoudre('--error-bg');
+  const anneau = resoudre('--focus-ring');
+  const ok = (v: string | null): v is string => !!v && /^#[0-9A-F]{6}$/.test(v);
+  if (ok(ic)) dire(contraste(ic, FONDS.survol) >= 3, `état 2 : ${ic} sur la ligne survolée ${FONDS.survol} ≥ 3:1 (${contraste(ic, FONDS.survol).toFixed(2)})`);
+  else dire(false, 'état 2 : --nontext-muted introuvable');
+  dire(ok(survol) && ok(fondSurvol) && contraste(survol, fondSurvol) >= 3,
+    `état 3 neutre : ${survol} sur son carré ${fondSurvol} ≥ 3:1 (${ok(survol) && ok(fondSurvol) ? contraste(survol, fondSurvol).toFixed(2) : '—'})`);
+  dire(ok(danger) && ok(fondDanger) && contraste(danger, fondDanger) >= 3,
+    `état 3 danger : ${danger} sur ${fondDanger} ≥ 3:1 (${ok(danger) && ok(fondDanger) ? contraste(danger, fondDanger).toFixed(2) : '—'})`);
+  const r = ok(anneau) ? Object.values(FONDS).map((f) => contraste(anneau, f)) : [];
+  dire(r.length === 3 && r.every((x) => x >= 3), `état 4 : contour de focus ${anneau} ≥ 3:1 sur carte / page / survol (${r.map((x) => x.toFixed(2)).join(' / ')})`);
+  // ⚖️ EXCEPTION NOMMÉE (Dom, dévoilement) : l'état 1 est volontairement sous 3:1 — compensé par le
+  //    dévoilement au survol, au focus clavier (group-focus-within) et sur les appareils sans survol.
+  const op = Number(CLAIR['--icone-opacite-repos']);
+  if (ok(ic) && op > 0) {
+    const h = (x: string, i: number) => parseInt(x.slice(i, i + 2), 16);
+    const melange = '#' + [1, 3, 5].map((i) => Math.round(h(ic, i) * op + h(FONDS.carte, i) * (1 - op)).toString(16).padStart(2, '0')).join('').toUpperCase();
+    console.log(`  · EXCEPTION NOMMÉE (Dom, dévoilement) : état 1 = ${ic} à ${op} → ${melange}, ${contraste(melange, FONDS.carte).toFixed(2)}:1 sur la carte`);
+  }
+  // La règle globale et l'en-tête des sections lisent le jeton.
+  dire((CSS.match(/outline: 2px solid var\(--focus-ring\)/g) ?? []).length === 2 && !/outline: 2px solid var\(--amber-400\)/.test(CSS),
+    'globals.css : les deux règles :focus-visible lisent var(--focus-ring)');
+  dire(readFileSync(join(RACINE, 'components/minute-book/SectionCard.tsx'), 'utf8').includes('focus-visible:after:outline-[var(--focus-ring)]'),
+    'SectionCard : l\'en-tête des sections lit var(--focus-ring)');
+  dire(!/--icone-|--focus-ring/.test(SOMBRE), 'le sombre ne définit aucun de ces alias : ils y valent leur valeur :root');
+  // ⚖️ EXCEPTION SOMBRE ACCEPTÉE (Max, V7c) : couleurs identiques ; le COMPORTEMENT change.
+  console.log('  · EXCEPTION ACCEPTÉE (V7c) en sombre : dévoilement sur Complétude et le Livre ; focus dans la ligne dévoile sur Documents ;');
+  console.log('    désactivé = état 1 partout ; rayon du carré 7 → 8 px. Couleurs sombres identiques.');
+}
+
 console.log(echecs === 0 ? '\n✔ check:contrastes — tout tient.' : `\n⛔ check:contrastes — ${echecs} garde(s) tombée(s).`);
 process.exit(echecs === 0 ? 0 : 1);

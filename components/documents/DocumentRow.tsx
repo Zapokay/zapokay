@@ -10,6 +10,7 @@ import { composeDisplayName } from '@/lib/display-name';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
 import ListRow from '@/components/minute-book/ListRow';
+import IconButton from '@/components/minute-book/IconButton';
 
 export interface VaultDocument {
   id: string;
@@ -99,18 +100,9 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
     }
   }
 
-  const spinnerIcon = (
-    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-    </svg>
-  );
-
   // V4 — la ligne à deux bandes : [case vide] titre ··· badge date / [type | langue] faits ··· icônes.
   // Modales en SŒURS de la ligne (§392).
   const typeKey = isTypeKey(doc.document_type) ? doc.document_type : 'autre';
-  // Une case d'icône : 26 px, toujours présente ; vide = même place, invisible (règle 12).
-  const caseIcone = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] transition-colors';
   return (
     <ListRow
       title={composeDisplayName(doc.title, null, doc.document_year)}
@@ -142,48 +134,44 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
         </>
       }
       icons={
-        // Eye → Download → Delete, trois cases toujours là. Opacité 0,5 → 1 au survol de la LIGNE (V3, E7).
-        <div className="flex items-center gap-[5px] opacity-50 group-hover:opacity-100 transition-opacity duration-150">
+        // Eye → Download → Delete, trois cases toujours là. V7c : IconButton décide seul des cinq états
+        // (le dévoilement au survol de la ligne vient de lui, plus d'une opacité posée ici).
+        <>
           {doc.file_url ? (
             <>
-              {/* View */}
-              <button
+              <IconButton
+                label={tDocs('view')}
+                icon={<Eye className="w-4 h-4" strokeWidth={1.8} />}
                 onClick={handleView}
+                busy={loading === 'view'}
                 disabled={loading !== null}
-                className={`${caseIcone} hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] disabled:opacity-50`}
-                title={tDocs('view')}
-              >
-                {loading === 'view' ? spinnerIcon : <Eye className="w-4 h-4" strokeWidth={1.8} />}
-              </button>
-
+              />
               {/* Download — V4b : le bouton commun (logique déplacée ici → DownloadButton, inchangée). */}
               <DownloadButton
                 documentId={doc.id}
                 fileName={doc.title}
-                className={`${caseIcone} hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] disabled:opacity-50`}
                 disabled={loading !== null && loading !== 'download'}
                 onBusyChange={(b) => setLoading(b ? 'download' : null)}
               />
             </>
           ) : (
             <>
-              <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
-              <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+              <IconButton.Reserve />
+              <IconButton.Reserve />
             </>
           )}
-
-          {/* Delete */}
-          <button
+          <IconButton
+            label={tDocs('delete')}
+            ton="danger"
+            icon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            }
             onClick={() => setShowDeleteModal(true)}
-            className={`${caseIcone} hover:text-[var(--error-text)] hover:bg-[var(--error-bg)]`}
-            title={tDocs('delete')}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        </div>
+          />
+        </>
       }
     >
       {/* Document modal with AI tabs */}

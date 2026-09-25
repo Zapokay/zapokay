@@ -8,6 +8,7 @@ import { getDocumentState } from '@/lib/minute-book/state';
 import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
 import { typeAffiche } from '@/lib/requirement-doctype';
 import ListRow from './ListRow';
+import IconButton from './IconButton';
 import { IdentityBox, codeDeLangue } from './state-visuals';
 
 interface ArchiveDocRowProps {
@@ -65,7 +66,6 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
 
   const buttonClass =
     'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
-  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
   const couleurArchive = isSigned ? 'var(--row-state-archive-certified)' : 'var(--row-state-archive)';
 
   // V6 — la ligne commune : icône Archive dans la case de 16 px, état en texte (couleur actuelle),
@@ -97,13 +97,15 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
       }
       icons={
         <>
-          {/* Voir : même comportement (window.open), en œil. Téléchargement et « ··· » : cases réservées,
-              invisibles, non focusables — l'œil tombe sur la verticale des autres lignes. */}
-          <button type="button" onClick={handleView} className={oeil} title={tDocs('view')} aria-label={tDocs('view')}>
-            <Eye className="h-4 w-4" strokeWidth={1.8} />
-          </button>
-          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
-          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          {/* Voir : même comportement (window.open), en œil ; sans fichier, réservé (règle 12, V7c).
+              Téléchargement et « ··· » : cases réservées — l'œil tombe sur la verticale des autres lignes. */}
+          {doc.file_url ? (
+            <IconButton label={tDocs('view')} icon={<Eye className="h-4 w-4" strokeWidth={1.8} />} onClick={handleView} />
+          ) : (
+            <IconButton.Reserve />
+          )}
+          <IconButton.Reserve />
+          <IconButton.Reserve />
         </>
       }
     >

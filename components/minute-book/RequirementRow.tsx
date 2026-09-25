@@ -7,6 +7,7 @@ import { StateBadge, MissingMarker, IdentityBox } from '@/components/minute-book
 import { typeAffiche, type VaultDocType } from '@/lib/requirement-doctype';
 import { useGenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import ListRow from '@/components/minute-book/ListRow';
+import IconButton from '@/components/minute-book/IconButton';
 import { DownloadButton } from '@/components/documents/DownloadButton';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import { getDocumentState } from '@/lib/minute-book/state';
@@ -235,7 +236,6 @@ export default function RequirementRow({
 
   // V4 — la ligne à deux bandes. Mots dans l'ordre fixe Téléverser → Générer | Régénérer |
   // Remplacer ; « Voir » devient l'ŒIL mais reste le même <a href>, nommé « Voir » (N2).
-  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
   return (
     <ListRow
       leading={
@@ -332,27 +332,22 @@ export default function RequirementRow({
         {/* A4c — every row that HAS a document can open it. Same anchor, same route;
             the case stays reserved (invisible) when there is nothing to open. */}
         {satisfied && documentId ? (
-          <a
+          <IconButton
+            label={tDocs('view')}
+            icon={<Eye className="h-4 w-4" strokeWidth={1.8} />}
             href={`/api/documents/${documentId}/download?preview=true`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={tDocs('view')}
-            title={tDocs('view')}
-            className={oeil}
-          >
-            <Eye className="h-4 w-4" strokeWidth={1.8} />
-          </a>
+          />
         ) : (
-          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          <IconButton.Reserve />
         )}
           {/* V4b : la case téléchargement — le MÊME bouton que Documents, sous la même condition que l'œil ;
               vide et réservée sans document. « ··· » reste une case réservée, invisible, non focusable. */}
           {satisfied && documentId ? (
-            <DownloadButton documentId={documentId} fileName={documentTitle} className={oeil} />
+            <DownloadButton documentId={documentId} fileName={documentTitle} />
           ) : (
-            <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+            <IconButton.Reserve />
           )}
-          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          <IconButton.Reserve />
         </>
       }
     >

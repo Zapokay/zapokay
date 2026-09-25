@@ -49,6 +49,7 @@ import { CheckCircle2, Upload, Landmark, Eye, RotateCw, ArrowLeftRight, Sparkles
 import { StateBadge, MissingMarker, IdentityBox } from '@/components/minute-book/state-visuals';
 import { TYPE_DOCUMENT_D_UN_ACTE, typeAffiche } from '@/lib/requirement-doctype';
 import ListRow from '@/components/minute-book/ListRow';
+import IconButton from '@/components/minute-book/IconButton';
 import { DownloadButton } from '@/components/documents/DownloadButton';
 import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
 import { fileObligation } from '@/components/lifecycle/fileObligation';
@@ -209,7 +210,6 @@ export default function EventActRow({
   // Remplacer → déclaration ; « Voir » devient l'ŒIL mais reste le même <a href>, nommé « Voir ».
   // ⚪ La déclaration n'apparaît que sur un acte FINALISÉ, où aucun autre mot ne s'affiche :
   // l'ordre fixe ne réordonne donc rien de ce que l'écran montrait.
-  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--nontext-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
   return (
     <ListRow
       leading={
@@ -315,27 +315,22 @@ export default function EventActRow({
       icons={
         <>
         {act.satisfied && act.documentId ? (
-          <a
+          <IconButton
+            label={tEvents('viewDocument')}
+            icon={<Eye className="h-4 w-4" strokeWidth={1.8} />}
             href={`/api/documents/${act.documentId}/download?preview=true`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={tEvents('viewDocument')}
-            title={tEvents('viewDocument')}
-            className={oeil}
-          >
-            <Eye className="h-4 w-4" strokeWidth={1.8} />
-          </a>
+          />
         ) : (
-          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          <IconButton.Reserve />
         )}
           {/* V4b : la case téléchargement — le MÊME bouton que Documents, sous la même condition que l'œil ;
               vide et réservée sans document. « ··· » reste une case réservée, invisible, non focusable. */}
           {act.satisfied && act.documentId ? (
-            <DownloadButton documentId={act.documentId} fileName={act.documentTitle} className={oeil} />
+            <DownloadButton documentId={act.documentId} fileName={act.documentTitle} />
           ) : (
-            <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+            <IconButton.Reserve />
           )}
-          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          <IconButton.Reserve />
         </>
       }
     >

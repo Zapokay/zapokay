@@ -318,5 +318,87 @@ for (const loc of ['fr', 'en'] as const) {
   }
 }
 
+/* ── h) LE BOUTON-ICÔNE PARTAGÉ (V7c) — une seule source pour les 5 états ─── */
+console.log('h) le bouton-icône partagé');
+{
+  const { existsSync } = require('node:fs') as typeof import('node:fs');
+  const LIGNES = ['components/documents/DocumentRow.tsx', 'components/minute-book/RequirementRow.tsx',
+    'components/minute-book/EventActRow.tsx', 'components/minute-book/ArchiveDocRow.tsx', 'components/minute-book/BinderSection.tsx'];
+  const lire = (f: string) => readFileSync(join(RACINE, f), 'utf8');
+  /** Le bloc `icons={…}` d'une ligne, par appariement des accolades. */
+  const colonne = (src: string): string => {
+    const i = src.indexOf('icons={'); if (i < 0) return '';
+    let n = 0;
+    for (let j = i + 6; j < src.length; j++) {
+      if (src[j] === '{') n++;
+      if (src[j] === '}' && --n === 0) return src.slice(i, j + 1);
+    }
+    return '';
+  };
+  /** Retire le contenu des props `icon={…}` : le className de l'ICÔNE (svg) n'est pas un style de case. */
+  const sansIcones = (src: string): string => {
+    let out = ''; let i = 0;
+    for (;;) {
+      const k = src.indexOf('icon={', i); if (k < 0) return out + src.slice(i);
+      out += src.slice(i, k) + 'icon={}';
+      let n = 0; let j = k + 5;
+      for (; j < src.length; j++) { if (src[j] === '{') n++; if (src[j] === '}' && --n === 0) break; }
+      i = j + 1;
+    }
+  };
+  const ICONE = 'components/minute-book/IconButton.tsx';
+  dire(existsSync(join(RACINE, ICONE)), `${ICONE} existe`);
+  for (const f of LIGNES) {
+    const src = sansIcones(lire(f));
+    const col = colonne(src);
+    dire(/import IconButton from/.test(src), `${f} : importe IconButton`);
+    dire(col.length > 0 && !/className=/.test(col), `${f} : ⛔ aucune classe dans la colonne d'icônes`);
+    dire(!/opacity-|group-hover:/.test(col), `${f} : ⛔ ni opacity-* ni group-hover: dans la colonne d'icônes`);
+    dire(!/<(IconButton|DownloadButton)\b[^<>]*\bclassName=/.test(src), `${f} : ⛔ aucune className passée à IconButton ni à DownloadButton`);
+  }
+  const dl = lire('components/documents/DownloadButton.tsx');
+  dire(!/className\??\s*:/.test(dl) && /IconButton/.test(dl), 'DownloadButton : plus de prop className, rend un IconButton');
+
+  if (existsSync(join(RACINE, ICONE))) {
+    const mod = require('../components/minute-book/IconButton') as { default: unknown & { Reserve: unknown } };
+    const IB = mod.default as never;
+    const r = (props: object) => renderToStaticMarkup(React.createElement(IB, props as never));
+    const oeil = React.createElement('svg');
+    const lien = r({ label: 'Voir', icon: oeil, href: '/x' });
+    dire(/^<a /.test(lien) && lien.includes('href="/x"') && lien.includes('target="_blank"') && lien.includes('aria-label="Voir"') && lien.includes('title="Voir"'),
+      'href → un <a> nommé (aria-label ET title), ouvert dans un onglet');
+    const actif = r({ label: 'Télécharger', icon: oeil, onClick: () => {} });
+    dire(/^<button /.test(actif) && actif.includes('type="button"'), 'onClick → un <button type="button">');
+    for (const c of ['opacity-[var(--icone-opacite-repos)]', 'group-hover:opacity-100', 'group-focus-within:opacity-100',
+      '[@media(hover:none)]:opacity-100', 'focus-visible:rounded-[8px]', 'hover:bg-[var(--icone-survol-fond)]', 'hover:border-[var(--icone-survol-filet)]']) {
+      dire(actif.includes(c), `état actif : ${c}`);
+    }
+    const danger = r({ label: 'Supprimer', icon: oeil, onClick: () => {}, ton: 'danger' });
+    dire(danger.includes('hover:text-[var(--error-text)]') && danger.includes('hover:bg-[var(--error-bg)]') && danger.includes('hover:border-[var(--icone-danger-filet)]'),
+      'ton danger : --error-text sur --error-bg, filet --icone-danger-filet');
+    const off = r({ label: 'Télécharger', icon: oeil, onClick: () => {}, disabled: true });
+    dire(off.includes('aria-disabled="true"') && !/ disabled=""/.test(off), 'désactivé : aria-disabled="true", PAS l\'attribut disabled (reste au clavier)');
+    dire(!/group-hover:|group-focus-within:|hover:/.test(off) && off.includes('opacity-[var(--icone-opacite-repos)]') && off.includes('cursor-default'),
+      'désactivé : reste à l\'état 1 — ni dévoilement ni survol, curseur normal');
+    const occ = r({ label: 'Télécharger', icon: oeil, onClick: () => {}, busy: true });
+    dire(occ.includes('aria-busy="true"') && occ.includes('animate-spin'), 'occupé : aria-busy et la roue d\'attente');
+    const res = renderToStaticMarkup(React.createElement(mod.default.Reserve as never));
+    dire(res === '<span aria-hidden="true" class="invisible h-[26px] w-[26px]"></span>', 'IconButton.Reserve : le markup de réserve, inchangé');
+  }
+
+  // Règle 12 d'Aria : sans fichier, Voir et Télécharger sont des RÉSERVES (Livre, archive).
+  const sansFichier = { id: '00000000-0000-4000-8000-0000000000c1', title: 'Sans fichier', document_type: 'autre', language: 'fr',
+    document_year: 2018, created_at: '2018-05-10T12:00:00Z', source: 'uploaded', is_finalized: true, file_url: null };
+  const env = (el: unknown) => renderToStaticMarkup(React.createElement(NextIntlClientProvider, {
+    locale: 'fr', messages: CATALOGUES.fr as never, timeZone: 'America/Toronto', children: el as never }));
+  const livre = env(React.createElement(BinderSection as never, { index: 5, title: 'Section', documents: [sansFichier] } as never));
+  dire(!livre.includes('aria-label="Voir"') && !livre.includes('aria-label="Télécharger"')
+    && (livre.match(/<span aria-hidden="true" class="invisible h-\[26px\] w-\[26px\]"><\/span>/g) ?? []).length === 2,
+    'Livre, sans file_url : Voir et Télécharger en réserve (règle 12)');
+  const arch = env(React.createElement(ArchiveDocRow as never, { doc: sansFichier, onReplace: () => {} } as never));
+  dire(!arch.includes('aria-label="Voir"') && (arch.match(/<span aria-hidden="true" class="invisible h-\[26px\] w-\[26px\]"><\/span>/g) ?? []).length === 3,
+    'archive, sans file_url : Voir en réserve (règle 12)');
+}
+
 console.log(echecs === 0 ? '\n✔ check:etats — tout tient.' : `\n⛔ check:etats — ${echecs} garde(s) tombée(s).`);
 process.exit(echecs === 0 ? 0 : 1);

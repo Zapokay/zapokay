@@ -56,6 +56,14 @@ body {
   /* V7a — alias de rôle. Ici, l'ancien gris (le sombre ne bouge pas) ; le bloc clair les redirige. */
   --text-meta: var(--text-muted);
   --nontext-muted: var(--text-muted);
+
+  /* V7c — icônes de ligne et contour de focus. Ici, les valeurs d'AUJOURD'HUI (le sombre garde ses couleurs). */
+  --icone-opacite-repos: 0.5;
+  --icone-survol: var(--text-body);
+  --icone-survol-fond: var(--page-bg);
+  --icone-survol-filet: transparent;
+  --icone-danger-filet: transparent;
+  --focus-ring: var(--amber-400);
 }
 
 [data-theme="original"] {
@@ -132,6 +140,13 @@ body {
   --text-muted: #6F6A60; /* V7a — #AAA59A (2,2:1) → --dim d'Aria, 4,7 à 5,3:1 */
   --text-meta: var(--text-body);
   --nontext-muted: var(--row-state-archive);
+  /* V7c — les 5 états des icônes de ligne (Aria) ; seule valeur neuve : l'opacité 0,65. */
+  --icone-opacite-repos: 0.65;
+  --icone-survol: var(--navy-900);
+  --icone-survol-fond: var(--card-bg);
+  --icone-survol-filet: var(--card-border);
+  --icone-danger-filet: var(--error-border);
+  --focus-ring: var(--navy-900);
   --text-placeholder: #C5C0B9;
   --text-link: #1E3D6B;
 
@@ -434,9 +449,9 @@ a:hover { text-decoration: underline; }
 
 ::selection { background: var(--amber-200); color: var(--navy-900); }
 
-:focus-visible { outline: 2px solid var(--amber-400); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
 input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid var(--amber-400);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 
