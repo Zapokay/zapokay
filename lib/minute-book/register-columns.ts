@@ -399,7 +399,7 @@ export const STYLES_RANG: Record<
     ecran: {
       carte: 'rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] overflow-hidden',
       balise: 'h4',
-      titre: 'font-semibold text-[var(--text-body)] text-sm',
+      titre: 'text-[15px] font-semibold text-[var(--text-heading)]',
     },
   },
   /**

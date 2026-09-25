@@ -104,7 +104,7 @@ export default function RequirementSection({
       forceOpen={!!forceExpanded}
     >
       {/* Items — only when expanded ; la dernière ligne épouse les coins de la carte (V2-A). */}
-        <div className="divide-y divide-[var(--card-border)] relative [&>div:last-child]:rounded-b-[13px] [&>div:last-child>div:first-child]:rounded-b-[13px]">
+        <div className="divide-y divide-[var(--card-border)] relative [&>div:last-child]:rounded-b-[11px] [&>div:last-child>div:first-child]:rounded-b-[11px]">
           {/* ── THE BANNER ONLY SPEAKS WHEN THE ASSISTANT CAN ACT. ──
               It says "Utilisez l'assistant de rattrapage pour générer les résolutions
               manquantes", and until 2026-08-16 it appeared on ANY section with nothing

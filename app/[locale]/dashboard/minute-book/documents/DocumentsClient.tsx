@@ -333,7 +333,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-[var(--card-border)] [&>div:last-child>div:first-child]:rounded-b-[13px]">
+        <div className="divide-y divide-[var(--card-border)] [&>div:last-child>div:first-child]:rounded-b-[11px]">
           {filtered.map(doc => (
             <DocumentRow
               key={doc.id}

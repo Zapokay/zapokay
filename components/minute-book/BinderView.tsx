@@ -1,13 +1,13 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AttenteDePage } from '@/components/ui/AttenteDePage';
 import { useLocale, useTranslations } from 'next-intl'
 import BinderSection from './BinderSection'
 import RegisterCard from './RegisterCard'
 import {
   colonnesAdministrateurs, COLONNES_DIRIGEANTS, COLONNES_ACTIONNAIRES,
-  COLONNES_CAPITAL, resoudre, RANG_ANCIENNES_DETENTIONS, type CleEtiquette,
+  COLONNES_CAPITAL, resoudre, type CleEtiquette,
 } from '@/lib/minute-book/register-columns'
 import type { MinuteBookSection } from '@/lib/minute-book-section'
 import { readSettledRegister, partitionRegisterLoads } from '@/lib/minute-book/register-loads'
@@ -240,32 +240,22 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                 }))}
               />
     ),
-    // ⚠️ UN FRAGMENT, ET CE N'EST PAS COSMETIQUE : la section « Anciennes
-    //    detentions » appartient au registre des actionnaires. Posee comme une
-    //    carte de plus dans cette liste, elle aurait fait dire « 5 registres »
-    //    au compteur, qui compte cette liste.
+    // V5b — « Anciennes détentions » est un GROUPE de la table des actionnaires (second
+    //    <tbody>), plus une carte : le compteur, qui compte cette liste, dit toujours 4.
     shareholders && (
-              <Fragment key="shareholders">
               <RegisterCard
+                key="shareholders"
                 title={locale === 'en' ? shareholders.register_title_en : shareholders.register_title_fr}
                 emptyMessage={t('emptyRegister')}
                 columns={resoudre(COLONNES_ACTIONNAIRES, true, etiq)}
                 rows={lignesActionnaires(shareholders.entries || [])}
+                // ★ ABSENT quand le lecteur rend `former_holdings: null` — la decision
+                //   est prise la-bas, une fois, pour l'ecran et le PDF.
+                groupe={shareholders.former_holdings ? {
+                  title: locale === 'en' ? shareholders.former_holdings.register_title_en : shareholders.former_holdings.register_title_fr,
+                  rows: lignesActionnaires(shareholders.former_holdings.entries),
+                } : undefined}
               />
-              {/* ★ ABSENTE quand le lecteur rend `former_holdings: null` — la
-                  decision est prise la-bas, une fois, pour l'ecran et le PDF. */}
-              {shareholders.former_holdings && (
-                <RegisterCard
-                  // Une SOUS-SECTION du registre ci-dessus : son rang vient de la
-                  // declaration unique, lue aussi par le PDF.
-                  rang={RANG_ANCIENNES_DETENTIONS}
-                  title={locale === 'en' ? shareholders.former_holdings.register_title_en : shareholders.former_holdings.register_title_fr}
-                  emptyMessage={t('emptyRegister')}
-                  columns={resoudre(COLONNES_ACTIONNAIRES, true, etiq)}
-                  rows={lignesActionnaires(shareholders.former_holdings.entries)}
-                />
-              )}
-              </Fragment>
     ),
     statedCapital && (
               <RegisterCard

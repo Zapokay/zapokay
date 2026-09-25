@@ -74,7 +74,7 @@ export default function EventSection({
       defaultOpen={defaultOpen}
       forceOpen={!!forceExpanded}
     >
-        <div className="divide-y divide-[var(--card-border)] relative [&>div:last-child]:rounded-b-[13px] [&>div:last-child>div:first-child]:rounded-b-[13px]">
+        <div className="divide-y divide-[var(--card-border)] relative [&>div:last-child]:rounded-b-[11px] [&>div:last-child>div:first-child]:rounded-b-[11px]">
           {acts.map((act) => (
             <EventActRow
               key={`${act.event_type}|${act.event_id}|${act.event_phase}`}

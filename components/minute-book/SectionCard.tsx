@@ -60,14 +60,14 @@ export default function SectionCard({
       : 'bg-[var(--card-bg)] border border-[var(--card-border)]';
   const couleurTitre = tone === 'archive' ? 'text-[var(--text-body)]' : 'text-[var(--text-heading)]';
 
-  // Le filet bas n'existe que sous un en-tête OUVERT ; les coins suivent (13 px = 14 − la bordure).
+  // Le filet bas n'existe que sous un en-tête OUVERT ; les coins suivent (11 px = 12 − la bordure).
   const enTete = `relative flex items-center gap-[9px] px-4 py-[13px] transition-colors ${
-    isOpen ? 'rounded-t-[13px] border-b border-[var(--card-border)]' : 'rounded-[13px]'
+    isOpen ? 'rounded-t-[11px] border-b border-[var(--card-border)]' : 'rounded-[11px]'
   } ${collapsible ? 'hover:bg-[var(--page-bg)]' : ''}`;
   const titre = `min-w-0 text-[17px] font-semibold tracking-[-0.01em] ${couleurTitre}`;
 
   return (
-    <div className={`rounded-[14px] ${carte}`}>
+    <div className={`rounded-xl ${carte}`}>
       <div className={enTete}>
         {collapsible ? (
           <ChevronDown
@@ -88,7 +88,7 @@ export default function SectionCard({
               aria-expanded={isOpen}
               aria-controls={panelId}
               onClick={() => setExpanded((e) => !e)}
-              className="cursor-pointer text-left focus-visible:outline-none after:absolute after:inset-0 after:rounded-[13px] after:content-[''] focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--amber-400)]"
+              className="cursor-pointer text-left focus-visible:outline-none after:absolute after:inset-0 after:rounded-[11px] after:content-[''] focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--amber-400)]"
             >
               {title}
             </button>

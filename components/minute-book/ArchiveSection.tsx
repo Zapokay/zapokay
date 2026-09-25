@@ -33,7 +33,7 @@ export default function ArchiveSection({ year, documents, locale, onReplace }: A
       // Neutral count — replaces CompletionBar; no progress meter.
       metric={documents.length}
     >
-        <div className="divide-y divide-[var(--card-border)] relative [&>div:last-child]:rounded-b-[13px]">
+        <div className="divide-y divide-[var(--card-border)] relative [&>div:last-child]:rounded-b-[11px]">
           {documents.map((doc) => (
             <ArchiveDocRow key={doc.id} doc={doc} onReplace={onReplace} />
           ))}

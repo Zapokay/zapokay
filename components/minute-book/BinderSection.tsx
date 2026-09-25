@@ -92,13 +92,13 @@ export default function BinderSection({
       defaultOpen
     >
       {children ? (
-        <div className="px-5 pt-4 pb-5 space-y-3">{children}</div>
+        <div className="px-4 pt-4 pb-4 space-y-3">{children}</div>
       ) : !hasContent ? (
         <p className="px-5 pt-4 pb-5 text-sm text-[var(--text-muted)] italic">
           {t('emptySection')}
         </p>
       ) : (
-        <div className="divide-y divide-[var(--card-border)] [&>div:last-child>div:first-child]:rounded-b-[13px]">
+        <div className="divide-y divide-[var(--card-border)] [&>div:last-child>div:first-child]:rounded-b-[11px]">
           {documents.map((doc) => {
             // The local is REQUIRED, not stylistic: a type predicate narrows the
             // EXPRESSION it was handed. Inlining `isTypeKey(doc.document_type ?? null)`
