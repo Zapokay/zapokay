@@ -84,6 +84,8 @@ export interface ChecklistItem {
   document_language?: string | null;
   /** V4 — le type du document RATTACHÉ, s'il y en a un (≠ document_type, le type ATTENDU). */
   attached_document_type?: string | null;
+  /** V4b — le titre du document rattaché : le nom du fichier téléchargé, comme sur Documents. */
+  document_title?: string | null;
 }
 
 /**
@@ -235,7 +237,7 @@ export async function computeRequirementCompleteness(
     // abandonne et rend `GenericStringError`, ce qui fait tomber les trois
     // prédicats plus bas avec des TS2339 illisibles. Même forme que les deux
     // autres embeds du dépôt (resolve-signatory-blocks.ts:84, event-completeness.ts:297).
-    .select('requirement_key, requirement_year, document:documents!inner(id, source, file_url, is_finalized, language, document_type, created_at, status)')
+    .select('requirement_key, requirement_year, document:documents!inner(id, source, file_url, is_finalized, language, document_type, title, created_at, status)')
     .eq('company_id', companyId)
     .eq('document.status', 'active');
   if (linkError) throw linkError;
@@ -312,6 +314,7 @@ export async function computeRequirementCompleteness(
       id: string;
       source: string | null;
       document_type: string | null;
+      title: string | null;
       file_url: string | null;
       is_finalized: boolean | null;
       language: string | null;
@@ -515,6 +518,7 @@ export async function computeRequirementCompleteness(
       document_is_finalized: isFinalized,
       document_language: matchingDoc?.language ?? null,
       attached_document_type: matchingDoc?.document_type ?? null,
+      document_title: matchingDoc?.title ?? null,
     });
     requirementsTotal++;
     if (state === 'téléversé') requirementsUploaded++;
@@ -569,6 +573,7 @@ export async function computeRequirementCompleteness(
         document_is_finalized: isFinalized,
         document_language: matchingDoc?.language ?? null,
       attached_document_type: matchingDoc?.document_type ?? null,
+      document_title: matchingDoc?.title ?? null,
       });
       requirementsTotal++;
       if (state === 'téléversé') requirementsUploaded++;
@@ -652,6 +657,7 @@ export async function computeRequirementCompleteness(
       document_is_finalized: isFinalized,
       document_language: matchingDoc?.language ?? null,
       attached_document_type: matchingDoc?.document_type ?? null,
+      document_title: matchingDoc?.title ?? null,
     });
     requirementsTotal++;
     if (state === 'téléversé') requirementsUploaded++;

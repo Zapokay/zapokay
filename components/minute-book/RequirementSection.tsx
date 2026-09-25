@@ -133,6 +133,7 @@ export default function RequirementSection({
               requirementKey={item.requirement_key}
               documentType={item.document_type}
               attachedDocumentType={item.attached_document_type}
+              documentTitle={item.document_title}
               titleFr={(item.document_language ?? preferredLanguage) === 'en' ? item.title_en : item.title_fr}
               descriptionFr={item.description_fr}
               descriptionEn={item.description_en}

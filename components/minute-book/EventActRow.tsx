@@ -49,6 +49,7 @@ import { CheckCircle2, Upload, Landmark, Eye, RotateCw, ArrowLeftRight, Sparkles
 import { StateBadge, MissingMarker, IdentityBox } from '@/components/minute-book/state-visuals';
 import { TYPE_DOCUMENT_D_UN_ACTE, typeAffiche } from '@/lib/requirement-doctype';
 import ListRow from '@/components/minute-book/ListRow';
+import { DownloadButton } from '@/components/documents/DownloadButton';
 import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
 import { fileObligation } from '@/components/lifecycle/fileObligation';
 import { getDocumentState } from '@/lib/minute-book/state';
@@ -327,8 +328,13 @@ export default function EventActRow({
         ) : (
           <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
         )}
-          {/* Point 4 (V4) : téléchargement et « ··· » — cases RÉSERVÉES, invisibles, non focusables. */}
-          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          {/* V4b : la case téléchargement — le MÊME bouton que Documents, sous la même condition que l'œil ;
+              vide et réservée sans document. « ··· » reste une case réservée, invisible, non focusable. */}
+          {act.satisfied && act.documentId ? (
+            <DownloadButton documentId={act.documentId} fileName={act.documentTitle} className={oeil} />
+          ) : (
+            <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          )}
           <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
         </>
       }

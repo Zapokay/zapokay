@@ -7,6 +7,7 @@ import { StateBadge, MissingMarker, IdentityBox } from '@/components/minute-book
 import { typeAffiche, type VaultDocType } from '@/lib/requirement-doctype';
 import { useGenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import ListRow from '@/components/minute-book/ListRow';
+import { DownloadButton } from '@/components/documents/DownloadButton';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { displayStateOf, displayStateLabelKey, titreAttenue } from '@/lib/minute-book/display-state';
@@ -19,6 +20,8 @@ interface RequirementRowProps {
   documentType: VaultDocType;
   /** V4 — le type du document RATTACHÉ, s'il y en a un ; il l'emporte sur le type attendu. */
   attachedDocumentType?: string | null;
+  /** V4b — le titre du document rattaché : nom du fichier téléchargé, comme sur Documents. */
+  documentTitle?: string | null;
   titleFr: string;
   descriptionFr: string | null;
   descriptionEn: string | null;
@@ -76,6 +79,7 @@ export default function RequirementRow({
   requirementKey,
   documentType,
   attachedDocumentType,
+  documentTitle,
   titleFr,
   descriptionFr,
   descriptionEn,
@@ -341,8 +345,13 @@ export default function RequirementRow({
         ) : (
           <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
         )}
-          {/* Point 4 (V4) : téléchargement et « ··· » — cases RÉSERVÉES, invisibles, non focusables. */}
-          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          {/* V4b : la case téléchargement — le MÊME bouton que Documents, sous la même condition que l'œil ;
+              vide et réservée sans document. « ··· » reste une case réservée, invisible, non focusable. */}
+          {satisfied && documentId ? (
+            <DownloadButton documentId={documentId} fileName={documentTitle} className={oeil} />
+          ) : (
+            <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          )}
           <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
         </>
       }

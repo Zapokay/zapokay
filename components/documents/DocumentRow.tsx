@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Eye, Download } from 'lucide-react';
+import { Eye } from 'lucide-react';
+import { DownloadButton } from './DownloadButton';
 import { createClient } from '@/lib/supabase/client';
 import { StateBadge, IdentityBox } from '@/components/minute-book/state-visuals';
 import { DocumentModal } from './DocumentModal';
@@ -91,24 +92,6 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
     window.open(`${downloadUrl}?preview=true`, '_blank', 'noopener,noreferrer');
   }
 
-  async function handleDownload() {
-    setLoading('download');
-    try {
-      const response = await fetch(downloadUrl);
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = doc.title || 'document';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-    } finally {
-      setLoading(null);
-    }
-  }
-
   async function handleConfirmDelete() {
     setDeleting(true);
     try {
@@ -176,15 +159,14 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
                 {loading === 'view' ? spinnerIcon : <Eye className="w-4 h-4" strokeWidth={1.8} />}
               </button>
 
-              {/* Download */}
-              <button
-                onClick={handleDownload}
-                disabled={loading !== null}
+              {/* Download — V4b : le bouton commun (logique déplacée ici → DownloadButton, inchangée). */}
+              <DownloadButton
+                documentId={doc.id}
+                fileName={doc.title}
                 className={`${caseIcone} hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] disabled:opacity-50`}
-                title={tDocs('download')}
-              >
-                {loading === 'download' ? spinnerIcon : <Download className="w-4 h-4" strokeWidth={1.8} />}
-              </button>
+                disabled={loading !== null && loading !== 'download'}
+                onBusyChange={(b) => setLoading(b ? 'download' : null)}
+              />
             </>
           ) : (
             <>
