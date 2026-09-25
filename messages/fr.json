@@ -784,14 +784,6 @@
       "emptySection": "Aucun document signé dans cette section",
       "registerCount": "{count, plural, =0 {Aucun registre} =1 {1 registre} other {# registres}}",
       "yearSuffix": "(Exercice {year})",
-      "typeLabels": {
-        "statuts": "Statuts",
-        "resolution": "Résolution",
-        "pv": "PV",
-        "registre": "Registre",
-        "rapport": "Rapport",
-        "autre": "Document"
-      },
       "view": "Voir",
       "download": "Télécharger"
     },

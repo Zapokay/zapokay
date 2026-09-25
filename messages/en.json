@@ -784,14 +784,6 @@
       },
       "emptySection": "No signed documents in this section",
       "yearSuffix": "(Fiscal Year {year})",
-      "typeLabels": {
-        "statuts": "Articles",
-        "resolution": "Resolution",
-        "pv": "Minutes",
-        "registre": "Register",
-        "rapport": "Report",
-        "autre": "Document"
-      },
       "view": "View",
       "download": "Download"
     },

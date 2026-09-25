@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { Eye } from 'lucide-react';
 import { DownloadButton } from './DownloadButton';
 import { createClient } from '@/lib/supabase/client';
-import { StateBadge, IdentityBox } from '@/components/minute-book/state-visuals';
+import { StateBadge, IdentityBox, codeDeLangue } from '@/components/minute-book/state-visuals';
 import { DocumentModal } from './DocumentModal';
 import { composeDisplayName } from '@/lib/display-name';
 import { getDocumentState } from '@/lib/minute-book/state';
@@ -53,9 +53,6 @@ const TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre'
 function isTypeKey(value: string): value is (typeof TYPE_KEYS)[number] {
   return (TYPE_KEYS as readonly string[]).includes(value);
 }
-
-// Les codes que LanguageBadge affichait, repris tels quels (repli sur EN, comme lui).
-const CODE_LANGUE: Record<string, string> = { fr: 'FR', en: 'EN', bilingual: 'Bilingue' };
 
 export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false, coverageCount, coverageLinks = [], requirementTitles = {} }: DocumentRowProps) {
   const tDocs = useTranslations('documents');
@@ -121,7 +118,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
       identity={
         // E6 + point 3 (V4) : la boîte commune — le MOT du type, le filet, puis le code de langue en
         // TEXTE simple (mêmes codes qu'avant : FR, EN, Bilingue ; codés en dur, phase 2).
-        <IdentityBox type={typeKey} languageCode={CODE_LANGUE[doc.language] ?? 'EN'} />
+        <IdentityBox type={typeKey} languageCode={codeDeLangue(doc.language)} />
       }
       state={
         // Point 2 (V4) : UN seul dessin, celui de Complétude.

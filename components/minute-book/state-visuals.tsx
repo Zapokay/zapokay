@@ -34,6 +34,12 @@ export function IdentityBox({ type, languageCode }: { type: VaultDocType; langua
   );
 }
 
+/** Les codes que LanguageBadge affichait, repris tels quels (repli sur EN, comme lui) — Documents et Livre. */
+const CODE_LANGUE: Record<string, string> = { fr: 'FR', en: 'EN', bilingual: 'Bilingue' };
+export function codeDeLangue(language: string | null | undefined): string {
+  return CODE_LANGUE[language ?? ''] ?? 'EN';
+}
+
 export function StateBadge({ children }: { children: ReactNode }) {
   return (
     <span className="rounded-full bg-[var(--warning-bg)] px-2.5 py-1 text-xs font-medium text-[var(--warning-text)] whitespace-nowrap">

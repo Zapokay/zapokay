@@ -16,7 +16,11 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createTranslator } from 'next-intl';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { createTranslator, NextIntlClientProvider } from 'next-intl';
+/** `jsx: preserve` : tsx retombe sur `React.createElement` — même raison que check-inscription. */
+Object.assign(globalThis, { React });
 import { displayStateOf, displayStateLabelKey, titreAttenue } from '@/lib/minute-book/display-state';
 
 const RACINE = process.cwd();
@@ -186,6 +190,41 @@ for (const f of ['components/minute-book/RequirementRow.tsx', 'components/minute
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   dire(/titleClassName=\{[^}]*titreAttenue\(displayState[,)]/.test(src), `${f} : le titre s'atténue par titreAttenue(displayState)`);
   dire(!/titleClassName=\{[^}]*satisfied \?/.test(src), `${f} : ⛔ plus d'atténuation décidée par satisfied`);
+}
+
+/* ── e) LA LIGNE DU LIVRE (V5) — par RENDU RÉEL, document fictif en mémoire ── */
+console.log('e) la ligne du Livre');
+// ⚠️ CHARGÉ ICI, PAS EN TÊTE : BinderSection et DownloadButton portent du JSX au niveau du module ;
+// `React` doit être global AVANT leur évaluation (même raison que check-inscription).
+const BinderSection = (require('../components/minute-book/BinderSection') as { default: unknown }).default;
+const PIECES = [
+  { id: '00000000-0000-4000-8000-0000000000a1', title: 'Pièce fictive A', document_type: 'pv',
+    created_at: '2024-06-15T12:00:00Z', document_year: 2024, language: 'fr', file_url: 'x' },
+  { id: '00000000-0000-4000-8000-0000000000a2', title: 'Pièce fictive B', document_type: 'autre',
+    created_at: '2024-06-15T12:00:00Z', document_year: null, language: 'en', file_url: 'x' },
+];
+const MOTS: Record<'fr' | 'en', { pv: string; autre: string }> = {
+  fr: { pv: 'Procès-verbal', autre: 'Autre' },
+  en: { pv: 'Minutes', autre: 'Other' },
+};
+for (const loc of ['fr', 'en'] as const) {
+  const html = renderToStaticMarkup(
+    React.createElement(NextIntlClientProvider, {
+      locale: loc, messages: CATALOGUES[loc] as never, timeZone: 'America/Toronto',
+      children: React.createElement(BinderSection as never, { index: 5, title: 'Section', documents: PIECES } as never),
+    }),
+  );
+  dire(html.includes(`>${MOTS[loc].pv}<`) && html.includes(`>${MOTS[loc].autre}<`),
+    `${loc} : la boîte de type emploie documents.types.* (« ${MOTS[loc].pv} », « ${MOTS[loc].autre} »)`);
+  dire(!html.includes('>Document<') && !html.includes('>PV<'), `${loc} : ⛔ plus les mots de binder.typeLabels (« PV », « Document »)`);
+  dire(html.includes('>FR<') && html.includes('>EN<'), `${loc} : le code de langue en texte (FR, EN)`);
+  dire((html.match(/<span class="flex h-4 w-4 flex-shrink-0 items-center justify-center"><\/span>/g) ?? []).length === PIECES.length,
+    `${loc} : la case de 16 px est RÉSERVÉE et VIDE sur chaque ligne (aucune pastille)`);
+  dire(!html.includes('bg-[var(--warning-bg)]'), `${loc} : aucun badge d'état`);
+  const classesTitre = Array.from(html.matchAll(/<span title="Pièce fictive [AB][^"]*" class="([^"]*)"/g)).map((m) => m[1]);
+  dire(classesTitre.length === PIECES.length && classesTitre.every((c) => !c.includes('--text-muted')),
+    `${loc} : aucun titre atténué`);
+  dire(html.includes('2024-06-15'), `${loc} : la date garde son format (règle A) : « 2024-06-15 »`);
 }
 
 console.log(echecs === 0 ? '\n✔ check:etats — tout tient.' : `\n⛔ check:etats — ${echecs} garde(s) tombée(s).`);
