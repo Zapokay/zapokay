@@ -19,6 +19,7 @@
 
 import type { EventActStatus } from './event-completeness';
 import { deriveDocKey } from '@/lib/obligations/derive-dockey';
+import { obligationsForDocKey } from '@/lib/obligations/req-obligations';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
 import { parseLocalDate } from '@/lib/utils';
 import { composeDisplayName } from '@/lib/display-name';
@@ -68,6 +69,15 @@ export function formatEventDisplayName(act: EventActStatus, lang: 'fr' | 'en'): 
  * officer_departure). director_removal is exempt — the act of removal IS the
  * reason.
  */
+/**
+ * V4 — « J'ai fait la déclaration » est-il DÛ ? La condition du bouton d'EventActRow,
+ * extraite telle quelle : un acte à formalité REQ, finalisé, pas encore déclaré. Le bouton
+ * ET l'atténuation du titre la lisent ici — une condition, deux lecteurs.
+ */
+export function declarationDue(act: EventActStatus): boolean {
+  return obligationsForDocKey(deriveDocKey(act)?.docKey).length > 0 && act.documentIsFinalized === true && !act.filed;
+}
+
 export function isEventGenerateDisabled(act: EventActStatus): boolean {
   const derivation = deriveDocKey(act);
   return (

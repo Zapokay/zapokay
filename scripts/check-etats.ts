@@ -17,7 +17,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createTranslator } from 'next-intl';
-import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
+import { displayStateOf, displayStateLabelKey, titreAttenue } from '@/lib/minute-book/display-state';
 
 const RACINE = process.cwd();
 let echecs = 0;
@@ -73,12 +73,13 @@ for (const loc of ['fr', 'en'] as const) {
   }
 }
 const ATTENDUS: Record<'fr' | 'en', Record<(typeof COMPTES)[number], [string, string, string]>> = {
+  // V4 (point 8) : en minuscule dans la phrase — « 29 finaux », pas « 29 Finaux ».
   fr: {
-    final: ['0 Final', '1 Final', '2 Finaux'],
-    draft: ['0 À finaliser', '1 À finaliser', '2 À finaliser'],
-    missing: ['0 Manquant', '1 Manquant', '2 Manquants'],
-    upcoming: ['0 À venir', '1 À venir', '2 À venir'],
-    archived: ['0 Archivé', '1 Archivé', '2 Archivés'],
+    final: ['0 final', '1 final', '2 finaux'],
+    draft: ['0 à finaliser', '1 à finaliser', '2 à finaliser'],
+    missing: ['0 manquant', '1 manquant', '2 manquants'],
+    upcoming: ['0 à venir', '1 à venir', '2 à venir'],
+    archived: ['0 archivé', '1 archivé', '2 archivés'],
   },
   en: {
     final: ['0 Final', '1 Final', '2 Final'],
@@ -113,6 +114,16 @@ for (const loc of ['fr', 'en'] as const) {
     try { rendu = t('sectionDocumentCount', { count: n }); } catch (e) { rendu = `ERREUR ${String(e)}`; }
     dire(rendu === SECTION_LIVRE[loc][n], `${loc} binder.sectionDocumentCount(${n}) = « ${rendu} »`);
   });
+}
+
+// ★ V4 (point 8) — le total de la ligne d'inventaire : « Total : 73 » (espace insécable) / « Total: 73 ».
+const TOTAL: Record<'fr' | 'en', string> = { fr: 'Total : 73', en: 'Total: 73' };
+for (const loc of ['fr', 'en'] as const) {
+  const t = createTranslator({ locale: loc, messages: CATALOGUES[loc] as never, namespace: 'minuteBook.completeness' as never }) as unknown as
+    (cle: string, v: { count: number }) => string;
+  let rendu: string;
+  try { rendu = t('totalCount', { count: 73 }); } catch (e) { rendu = `ERREUR ${String(e)}`; }
+  dire(rendu === TOTAL[loc], `${loc} completeness.totalCount(73) = « ${rendu} »`);
 }
 
 /* ── c) LES ANCIENS LIBELLÉS SONT SORTIS ────────────────────────────────── */
@@ -158,6 +169,24 @@ const trouveBlanche = aplatir(CATALOGUES.en).some(
   ([k, v]) => LISTE_BLANCHE.has(`en:${k}`) && INTERDITS_FRAGMENTS.some((x) => v.includes(x)),
 );
 dire(trouveBlanche, 'contrôle positif : le balayage des fragments voit bien « Catch up » dans une clé blanchie');
+
+/* ── d) UNE LIGNE « À FINALISER » N'EST JAMAIS ATTÉNUÉE (V4, point 9) ─────── */
+console.log('d) atténuation du titre');
+// ⚖️ Règle complète (V4, arrêt 2 ter) : atténuée = (final ET aucune déclaration due) OU à venir.
+const attenue = titreAttenue as unknown as (s: string, o?: { declarationDue?: boolean }) => boolean;
+dire(attenue('final', { declarationDue: false }) === true, 'final, rien à déclarer → titre atténué');
+dire(attenue('final', { declarationDue: true }) === false, '⭐ final MAIS déclaration due → titre NON atténué');
+dire(attenue('upcoming') === true, '⭐ à venir → titre atténué');
+for (const s of ['draft', 'missing', 'archived'] as const) {
+  dire(attenue(s) === false, `${s} → titre NON atténué`);
+}
+// ⛔ Et les deux lignes de Complétude en décident PAR ELLE, plus par `satisfied`.
+for (const f of ['components/minute-book/RequirementRow.tsx', 'components/minute-book/EventActRow.tsx']) {
+  const src = readFileSync(join(RACINE, f), 'utf8')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  dire(/titleClassName=\{[^}]*titreAttenue\(displayState[,)]/.test(src), `${f} : le titre s'atténue par titreAttenue(displayState)`);
+  dire(!/titleClassName=\{[^}]*satisfied \?/.test(src), `${f} : ⛔ plus d'atténuation décidée par satisfied`);
+}
 
 console.log(echecs === 0 ? '\n✔ check:etats — tout tient.' : `\n⛔ check:etats — ${echecs} garde(s) tombée(s).`);
 process.exit(echecs === 0 ? 0 : 1);

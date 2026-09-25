@@ -116,6 +116,8 @@ export interface EventActStatus {
   documentSource: 'uploaded' | 'generated' | null;
   documentIsFinalized: boolean | null;
   documentLanguage: string | null;
+  /** V4 — le type du document RATTACHÉ, s'il y en a un (optionnel : absent = aucun). */
+  documentType?: string | null;
   /**
    * Liveness tier for a NOT-DONE act (documentIsFinalized !== true); null when
    * certified/done. Roster acts (docKey → REQ_QC) tier by the 30-day filing
@@ -233,7 +235,7 @@ interface RawEventDoc {
   event_id: string;
   event_phase: EventPhase;
   // Embed shape — single-FK relation returns an object, not an array.
-  document: { source: string | null; is_finalized: boolean | null; language: string | null } | null;
+  document: { source: string | null; is_finalized: boolean | null; language: string | null; document_type: string | null } | null;
 }
 
 interface SatisfiedEntry {
@@ -241,6 +243,7 @@ interface SatisfiedEntry {
   source: 'uploaded' | 'generated' | null;
   isFinalized: boolean | null;
   language: string | null;
+  documentType: string | null;
 }
 
 // Part B — one event_filings row per filed act (the act triple only; RLS scopes
@@ -294,7 +297,7 @@ export async function computeEventCompleteness(
     // render téléversé vs généré without an extra round-trip.
     supabase
       .from('event_documents')
-      .select('document_id, event_type, event_id, event_phase, document:documents(source, is_finalized, language)')
+      .select('document_id, event_type, event_id, event_phase, document:documents(source, is_finalized, language, document_type)')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false }),
     // Part B — event_filings: which acts have had their government filing done.
@@ -347,6 +350,7 @@ export async function computeEventCompleteness(
         source: rawSource === 'uploaded' || rawSource === 'generated' ? rawSource : null,
         isFinalized: ed.document?.is_finalized ?? null,
         language: ed.document?.language ?? null,
+        documentType: ed.document?.document_type ?? null,
       });
     }
   }
@@ -390,6 +394,7 @@ export async function computeEventCompleteness(
       documentSource: entry?.source ?? null,
       documentIsFinalized: entry?.isFinalized ?? null,
       documentLanguage: entry?.language ?? null,
+      documentType: entry?.documentType ?? null,
       liveness: null, // tier assigned in the weighting loop (keeps deriveDocKey off construction)
       filed: filedSet.has(satisfiedKey(type, id, phase)), // Part B — event_filings hit
     });

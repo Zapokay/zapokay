@@ -45,13 +45,17 @@
 
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, XCircle, Upload, Landmark } from 'lucide-react';
+import { CheckCircle2, Upload, Landmark, Eye, RotateCw, ArrowLeftRight, Sparkles } from 'lucide-react';
+import { StateBadge, MissingMarker, IdentityBox } from '@/components/minute-book/state-visuals';
+import { TYPE_DOCUMENT_D_UN_ACTE, typeAffiche } from '@/lib/requirement-doctype';
+import ListRow from '@/components/minute-book/ListRow';
 import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
 import { fileObligation } from '@/components/lifecycle/fileObligation';
 import { getDocumentState } from '@/lib/minute-book/state';
-import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
+import { displayStateOf, displayStateLabelKey, titreAttenue } from '@/lib/minute-book/display-state';
 import {
   isEventGenerateDisabled,
+  declarationDue,
   resolveEventDocTitle,
   formatEventDisplayName,
 } from '@/lib/minute-book/event-act-helpers';
@@ -151,6 +155,8 @@ export default function EventActRow({
   const isMissing = state === 'missing';
   // V1 — le badge lit la source unique ; un acte n'a pas de fenêtre, donc pas d'availability.
   const displayState = displayStateOf({ documentState: state });
+  // V4 — UNE condition pour le bouton de déclaration ET l'atténuation du titre.
+  const aDeclarer = declarationDue(act);
   // A4c — no destructive gesture on a CERTIFIED act. Strictly `=== true`:
   // an uncertified upload keeps Remplacer, its only remaining action.
   const isCertifiedAct = act.satisfied && act.documentIsFinalized === true;
@@ -198,140 +204,138 @@ export default function EventActRow({
   const uploadButtonClass =
     'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
 
+  // V4 — la ligne à deux bandes. Mots dans l'ordre fixe Téléverser → Générer | Régénérer |
+  // Remplacer → déclaration ; « Voir » devient l'ŒIL mais reste le même <a href>, nommé « Voir ».
+  // ⚪ La déclaration n'apparaît que sur un acte FINALISÉ, où aucun autre mot ne s'affiche :
+  // l'ordre fixe ne réordonne donc rien de ce que l'écran montrait.
+  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
   return (
-    <div>
-    <div className="group flex items-center justify-between py-3 px-4 hover:bg-[var(--hover)] transition-colors duration-[90ms]">
-      {/* Left side: state icon + label */}
-      <div className="flex items-start gap-3 flex-1 min-w-0">
-        {isMissing ? (
-          <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
+    <ListRow
+      leading={
+        isMissing ? (
+          <MissingMarker />
         ) : isSignedFinal ? (
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
         ) : (
-          <svg
-            viewBox="0 0 24 24"
-            className="h-5 w-5 flex-shrink-0 text-amber-500"
-            aria-hidden="true"
-          >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 flex-shrink-0 text-amber-500" aria-hidden="true">
             <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
             <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
           </svg>
-        )}
-        <div className="flex flex-col gap-1 min-w-0">
-          <span
-            className={`text-sm truncate ${
-              act.satisfied ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'
-            }`}
-          >
-            {rowLabel}
-          </span>
-          {/* "Done" = filed AND still finalized. Deleting the finalized document
-              resets the state (documentIsFinalized → false → the marker RETURNS),
-              matching the board, which self-heals: !isFinalized re-emits Stage 1
-              with its dueDate marker. A stale event_filings row alone no longer
-              suppresses the marker. (Banked longer-term model: an event_filings
-              document_id FK with ON DELETE CASCADE.) */}
-          {reqObligations.length > 0 && reqDeadline && !(act.filed && act.documentIsFinalized === true) && (
-            <ObligationMarker
-              label={tObl('marker.label')}
-              deadline={reqDeadline}
-              onClick={() => setObligationOpen(true)}
+        )
+      }
+      title={rowLabel}
+      titleClassName={`text-[14.5px] ${titreAttenue(displayState, { declarationDue: aDeclarer }) ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'}`}
+      state={
+        displayState === 'draft' && (
+          <StateBadge>{tState(displayStateLabelKey(displayState))}</StateBadge>
+        )
+      }
+      // V4 : la boîte de type — celui du document rattaché, sinon l'attendu d'un acte (une résolution).
+      identity={<IdentityBox type={typeAffiche(act.documentType, TYPE_DOCUMENT_D_UN_ACTE)} />}
+      facts={
+        /* "Done" = filed AND still finalized. Deleting the finalized document resets the
+           state (the marker RETURNS), matching the board, which self-heals. Stays clickable. */
+        reqObligations.length > 0 && reqDeadline && !(act.filed && act.documentIsFinalized === true) ? (
+          <ObligationMarker
+            label={tObl('marker.label')}
+            deadline={reqDeadline}
+            onClick={() => setObligationOpen(true)}
+          />
+        ) : undefined
+      }
+      words={
+        <>
+          {/* Brief 2 — Téléverser (own signed PDF) on missing + draft rows; on a draft it
+              SUPERSEDES the draft via the parent's replaceDocumentId. */}
+          {(isMissing || isUnsigned) && onEventFileSelected && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className={uploadButtonClass}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {isUploading ? tReq('uploadingButton') : tReq('uploadButton')}
+            </button>
+          )}
+
+          {(isMissing || isUnsigned) && derivation && (
+            <button
+              type="button"
+              onClick={() =>
+                openGenerate({ source: { kind: 'act', act }, onSuccess: onGenerated })
+              }
+              disabled={isEventGenerateDisabled(act)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isUnsigned ? <RotateCw className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {isUnsigned ? tEvents('regenerate') : tEvents('generate')}
+            </button>
+          )}
+
+          {/* Brief 2 — Remplacer, retiré sur un acte CERTIFIÉ (A4c). */}
+          {isSignedFinal && !isCertifiedAct && onEventFileSelected && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className={uploadButtonClass}
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+              {isUploading ? tReq('uploadingButton') : tReq('replace')}
+            </button>
+          )}
+
+          {/* B-2 — Stage 2: a finalized ROSTER act (docKey → REQ_QC) not filed yet offers
+              "J'ai fait la déclaration". Same condition the board uses. */}
+          {aDeclarer && (
+              <button
+                type="button"
+                onClick={() => setFileConfirmOpen(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
+              >
+                <Landmark className="h-3.5 w-3.5" />
+                {tObl('filing.button')}
+              </button>
+            )}
+
+          {/* A4c — gated on the SAME constant as Remplacer. It stays IN the row. */}
+          {onEventFileSelected && !isCertifiedAct && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              onChange={handleEventFileChange}
+              style={{ display: 'none' }}
             />
           )}
-        </div>
-      </div>
-
-      {/* Right side: state-driven affordances */}
-      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        {displayState === 'draft' && (
-          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
-            {tState(displayStateLabelKey(displayState))}
-          </span>
-        )}
-
-        {act.satisfied && act.documentId && (
+        </>
+      }
+      icons={
+        <>
+        {act.satisfied && act.documentId ? (
           <a
             href={`/api/documents/${act.documentId}/download?preview=true`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
+            aria-label={tEvents('viewDocument')}
+            title={tEvents('viewDocument')}
+            className={oeil}
           >
-            {tEvents('viewDocument')}
+            <Eye className="h-4 w-4" strokeWidth={1.8} />
           </a>
+        ) : (
+          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
         )}
-
-        {/* B-2 — Stage 2: a finalized ROSTER act (docKey → REQ_QC) that has not
-            been filed yet offers "J'ai fait la déclaration". Same condition the
-            board uses; a not-yet-finalized act does not offer it. */}
-        {reqObligations.length > 0 &&
-          act.documentIsFinalized === true &&
-          !act.filed && (
-            <button
-              type="button"
-              onClick={() => setFileConfirmOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
-            >
-              <Landmark className="h-3.5 w-3.5" />
-              {tObl('filing.button')}
-            </button>
-          )}
-
-        {/* Brief 2 — Téléverser (upload own signed PDF) on missing + draft rows.
-            On a draft (généré) this SUPERSEDES the draft via the parent's
-            replaceDocumentId. */}
-        {(isMissing || isUnsigned) && onEventFileSelected && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className={uploadButtonClass}
-          >
-            <Upload className="h-3.5 w-3.5" />
-            {isUploading ? tReq('uploadingButton') : tReq('uploadButton')}
-          </button>
-        )}
-
-        {(isMissing || isUnsigned) && derivation && (
-          <button
-            type="button"
-            onClick={() =>
-              openGenerate({ source: { kind: 'act', act }, onSuccess: onGenerated })
-            }
-            disabled={isEventGenerateDisabled(act)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isUnsigned ? tEvents('regenerate') : tEvents('generate')}
-          </button>
-        )}
-
-        {/* Brief 2 — Remplacer, retiré sur un acte CERTIFIÉ (A4c). */}
-        {isSignedFinal && !isCertifiedAct && onEventFileSelected && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className={uploadButtonClass}
-          >
-            <Upload className="h-3.5 w-3.5" />
-            {isUploading ? tReq('uploadingButton') : tReq('replace')}
-          </button>
-        )}
-
-        {/* A4c — gated on the SAME constant as Remplacer: no trigger,
-            no mechanism left behind it. */}
-        {onEventFileSelected && !isCertifiedAct && (
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf"
-            onChange={handleEventFileChange}
-            style={{ display: 'none' }}
-          />
-        )}
-      </div>
-
+          {/* Point 4 (V4) : téléchargement et « ··· » — cases RÉSERVÉES, invisibles, non focusables. */}
+          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+        </>
+      }
+    >
+      {/* §392 (V4) — le dialogue de résolution était DANS la ligne ; le voile « survolait » la
+          ligne. Il est désormais SŒUR, comme ObligationModal et ConfirmDialog l'étaient déjà. */}
       {dialogElement}
-    </div>
       {obligationOpen && (
         <ObligationModal
           open={obligationOpen}
@@ -350,6 +354,6 @@ export default function EventActRow({
         loading={filing}
         error={fileError}
       />
-    </div>
+    </ListRow>
   );
 }

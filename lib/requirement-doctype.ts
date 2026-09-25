@@ -76,6 +76,22 @@ const REQUIREMENT_DOC_TYPE: Record<string, VaultDocType> = {
   cbca_auditor_waiver:                   'resolution',
 };
 
+/**
+ * V4 — LE TYPE ATTENDU D'UN ACTE : une résolution. Vérifié le 2026-09-25 : le générateur
+ * d'actes n'a QU'UNE insertion de document, pour les neuf docKeys (generate-lifecycle-document).
+ * Il lit cette constante ; l'écran aussi. Un seul endroit.
+ */
+export const TYPE_DOCUMENT_D_UN_ACTE: VaultDocType = 'resolution';
+
+function estVaultDocType(v: string | null | undefined): v is VaultDocType {
+  return v === 'statuts' || v === 'resolution' || v === 'pv' || v === 'registre' || v === 'rapport' || v === 'autre';
+}
+
+/** V4 — le type AFFICHÉ : celui du document rattaché s'il y en a un, sinon le type attendu. */
+export function typeAffiche(typeRattache: string | null | undefined, typeAttendu: VaultDocType): VaultDocType {
+  return estVaultDocType(typeRattache) ? typeRattache : typeAttendu;
+}
+
 export function requirementToDocType(
   requirementKey: string,
   section: string | null | undefined

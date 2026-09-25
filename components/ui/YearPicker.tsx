@@ -16,12 +16,15 @@ interface YearPickerProps {
    * dans d'autres mots et se chevauchait avec celle-ci.
    */
   includeUnclassifiedOption?: boolean
+  /** V4 (point 5) — la classe des autres sélecteurs de la rangée ; remplace le style propre. */
+  className?: string
 }
 
 function YearPickerInner({
   locale,
   years,
   includeUnclassifiedOption = false,
+  className,
 }: YearPickerProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -40,8 +43,8 @@ function YearPickerInner({
     <select
       value={selectedYear}
       onChange={e => handleChange(e.target.value)}
-      className="text-xs rounded-lg px-2 py-1.5 border outline-none cursor-pointer"
-      style={{
+      className={className ?? 'text-xs rounded-lg px-2 py-1.5 border outline-none cursor-pointer'}
+      style={className ? undefined : {
         background: 'var(--tb-search-bg)',
         color: 'var(--text-body)',
         borderColor: 'var(--tb-border)',

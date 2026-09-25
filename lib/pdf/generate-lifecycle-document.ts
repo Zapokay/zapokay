@@ -47,6 +47,7 @@ import { pickShareClassName } from '@/lib/pdf/share-class-name';
 import { pickCompanyLegalName } from '@/lib/company-name';
 import { LIFECYCLE_TEMPLATES } from '@/lib/pdf/lifecycle-templates';
 import { formatDate } from '@/lib/utils';
+import { TYPE_DOCUMENT_D_UN_ACTE } from '@/lib/requirement-doctype';
 import {
   getDirectorRoleLabel,
   getEndReasonLabel,
@@ -747,7 +748,7 @@ export async function generateLifecycleDocument(
     .insert({
       id: documentId,
       company_id: companyId,
-      document_type: 'resolution',
+      document_type: TYPE_DOCUMENT_D_UN_ACTE,
       title: filled.resolution.title,
       file_name: fileName,
       file_url: storagePath,

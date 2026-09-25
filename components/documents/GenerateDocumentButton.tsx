@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { Sparkles } from 'lucide-react';
 import { SignatoriesModal } from './SignatoriesModal';
 import { useGenerateWithSignatories } from './useGenerateWithSignatories';
@@ -22,6 +23,8 @@ interface GenerateDocumentButtonProps {
   locale?: string;
   /** Optional label override */
   label?: string;
+  /** V4 (point 7) — icône propre au verbe (Régénérer : flèche circulaire). Défaut : Sparkles. */
+  icon?: ReactNode;
   /** When provided, applied to the button element and overrides default inline styles */
   className?: string;
   /**
@@ -43,7 +46,13 @@ const NO_SIGNATORIES_ERROR: Record<string, string> = {
   shareholder: "Vous devez d'abord enregistrer des actionnaires avant de générer ce document.",
 };
 
-export function GenerateDocumentButton({
+/**
+ * §392 (lot V4) — LE BOUTON ET SA FENÊTRE, SÉPARABLES. `button` va où le bouton était ;
+ * `modal` (SignatoriesModal, en position fixe) doit être rendu HORS de toute ligne à
+ * survol, en SŒUR — sinon son voile « survole » la ligne. Quand et comment la fenêtre
+ * s'ouvre : inchangé. GenerateDocumentButton ci-dessous recolle les deux, pour A3Item.
+ */
+export function useGenerateDocumentButton({
   companyId,
   requirementKey,
   year,
@@ -51,10 +60,12 @@ export function GenerateDocumentButton({
   onSuccess,
   locale = 'fr',
   label,
+  icon,
   className,
   disabled,
-}: GenerateDocumentButtonProps) {
+}: GenerateDocumentButtonProps): { button: ReactNode; modal: ReactNode } {
   const fr = locale === 'fr';
+  const tLife = useTranslations('lifecycle');
   const [showModal, setShowModal] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [preCheckError, setPreCheckError] = useState<string | null>(null);
@@ -92,7 +103,7 @@ export function GenerateDocumentButton({
         }
         setShowModal(true);
       } catch {
-        setPreCheckError(fr ? 'Erreur réseau.' : 'Network error.');
+        setPreCheckError(tLife('errorNetwork'));
       } finally {
         setIsFetching(false);
       }
@@ -108,14 +119,15 @@ export function GenerateDocumentButton({
     if (result) onSuccess?.(result.documentId, result.fileName);
   }
 
-  const buttonLabel = label ?? (fr ? 'Générer' : 'Generate');
+  // D6 (V4) : trois chaînes au catalogue, mots identiques ; « Vérification… » n'a pas de clé (phase 2).
+  const buttonLabel = label ?? tLife('generate');
   const loadingLabel = isFetching
     ? (fr ? 'Vérification…' : 'Checking…')
-    : (fr ? 'Génération…' : 'Generating…');
+    : tLife('generating');
   const isBusy = isGenerating || isFetching;
   const displayError = preCheckError ?? error;
 
-  return (
+  const button = (
     <>
       <button
         onClick={handleClick}
@@ -147,7 +159,7 @@ export function GenerateDocumentButton({
           </>
         ) : (
           <>
-            <Sparkles className="h-3.5 w-3.5" />
+            {icon ?? <Sparkles className="h-3.5 w-3.5" />}
             {buttonLabel}
           </>
         )}
@@ -158,18 +170,31 @@ export function GenerateDocumentButton({
           {displayError}
         </p>
       )}
+    </>
+  );
 
-      {showModal && (
-        <SignatoriesModal
-          companyId={companyId}
-          requirementKey={requirementKey}
-          allRequired={allRequired}
-          documentLanguage={documentLanguage}
-          onConfirm={handleConfirm}
-          onClose={() => setShowModal(false)}
-          locale={locale}
-        />
-      )}
+  const modal = showModal ? (
+    <SignatoriesModal
+      companyId={companyId}
+      requirementKey={requirementKey}
+      allRequired={allRequired}
+      documentLanguage={documentLanguage}
+      onConfirm={handleConfirm}
+      onClose={() => setShowModal(false)}
+      locale={locale}
+    />
+  ) : null;
+
+  return { button, modal };
+}
+
+/** Le bouton et sa fenêtre, recollés — pour les appelants sans ligne à survol (A3Item). */
+export function GenerateDocumentButton(props: GenerateDocumentButtonProps) {
+  const { button, modal } = useGenerateDocumentButton(props);
+  return (
+    <>
+      {button}
+      {modal}
     </>
   );
 }

@@ -25,6 +25,16 @@ export function displayStateOf(input: {
   return 'missing';
 }
 
+/**
+ * V4 (point 9) — le titre d'une ligne s'atténue SEULEMENT quand il n'y a plus rien à faire.
+ * ⛔ Pas sur `satisfied` : un brouillon est « satisfait » (un document existe) et il reste
+ * du travail. Ce défaut était en production avant V4. La règle complète attend V6.
+ */
+export function titreAttenue(state: DisplayState, opts?: { declarationDue?: boolean }): boolean {
+  // Règle complète (V4, arrêt 2 ter) : (final ET aucune déclaration due) OU à venir.
+  return (state === 'final' && !opts?.declarationDue) || state === 'upcoming';
+}
+
 export function displayStateLabelKey(
   state: DisplayState,
   opts?: { certified?: boolean },

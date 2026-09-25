@@ -293,12 +293,8 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
             ⚪ Il garde sa propre `<Suspense>` interne (voir YearPicker) et écrit
             dans l'URL, comme avant : rien de son mécanisme ne change. */}
         {fiscalYears.length > 0 && (
-          <YearPicker locale={locale} years={fiscalYears} includeUnclassifiedOption />
+          <YearPicker locale={locale} years={fiscalYears} includeUnclassifiedOption className={selectClass} />
         )}
-        <select value={sortOrder} onChange={e => setSortOrder(e.target.value as 'desc' | 'asc')} className={selectClass}>
-          <option value="desc">{tDocs('sortNewest')}</option>
-          <option value="asc">{tDocs('sortOldest')}</option>
-        </select>
         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={selectClass}>
           {TYPE_OPTIONS.map(o => (
             <option key={o.value} value={o.value}>{tDocs(o.key)}</option>
@@ -308,6 +304,12 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
           {LANG_OPTIONS.map(o => (
             <option key={o.value} value={o.value}>{tDocs(o.key)}</option>
           ))}
+        </select>
+        {/* D11 (V4) — le tri ferme la rangée, après un filet : il ordonne ce que les filtres ont retenu. */}
+        <span aria-hidden="true" className="hidden sm:block w-px self-stretch bg-[var(--card-border)]" />
+        <select value={sortOrder} onChange={e => setSortOrder(e.target.value as 'desc' | 'asc')} className={selectClass}>
+          <option value="desc">{tDocs('sortNewest')}</option>
+          <option value="asc">{tDocs('sortOldest')}</option>
         </select>
       </div>
 

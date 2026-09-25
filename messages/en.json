@@ -749,7 +749,7 @@
       "title": "Completeness",
       "requirementNotFound": "Requirement not found.",
       "documentUploaded": "Document uploaded.",
-      "total": "Total",
+      "totalCount": "Total: {count}",
       "toSign": "pending",
       "upcoming": "upcoming",
       "actionableNow": "to do now",

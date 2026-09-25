@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Eye, Download } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { DocumentTypePill } from './DocumentTypePill';
-import { LanguageBadge } from './LanguageBadge';
+import { StateBadge, IdentityBox } from '@/components/minute-book/state-visuals';
 import { DocumentModal } from './DocumentModal';
 import { composeDisplayName } from '@/lib/display-name';
 import { getDocumentState } from '@/lib/minute-book/state';
@@ -46,6 +45,16 @@ interface DocumentRowProps {
 }
 
 const BUCKET_MARKER = '/object/public/documents/';
+
+// V4 — les types qui ont un mot au catalogue (documents.types.*) ; tout autre retombe sur 'autre',
+// comme la tuile d'avant retombait sur la sienne. Prédicat, pas cast : la clé reste typée.
+const TYPE_KEYS = ['statuts', 'resolution', 'pv', 'registre', 'rapport', 'autre'] as const;
+function isTypeKey(value: string): value is (typeof TYPE_KEYS)[number] {
+  return (TYPE_KEYS as readonly string[]).includes(value);
+}
+
+// Les codes que LanguageBadge affichait, repris tels quels (repli sur EN, comme lui).
+const CODE_LANGUE: Record<string, string> = { fr: 'FR', en: 'EN', bilingual: 'Bilingue' };
 
 export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false, coverageCount, coverageLinks = [], requirementTitles = {} }: DocumentRowProps) {
   const tDocs = useTranslations('documents');
@@ -117,73 +126,51 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
     </svg>
   );
 
-  // V3 — la ligne commune : identité · titre · état (case réservée) · méta · rail ; modales en SŒURS de la ligne.
+  // V4 — la ligne à deux bandes : [case vide] titre ··· badge date / [type | langue] faits ··· icônes.
+  // Modales en SŒURS de la ligne (§392).
+  const typeKey = isTypeKey(doc.document_type) ? doc.document_type : 'autre';
+  // Une case d'icône : 26 px, toujours présente ; vide = même place, invisible (règle 12).
+  const caseIcone = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--text-muted)] transition-colors';
   return (
     <ListRow
-      identity={<DocumentTypePill type={doc.document_type} />}
       title={composeDisplayName(doc.title, null, doc.document_year)}
-      state={
-        displayState === 'draft' && (
-              <span
-                className="flex-shrink-0"
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase' as const,
-                  background: 'var(--warning-bg)',
-                  color: 'var(--warning-text)',
-                  border: '1px solid var(--warning-border)',
-                  borderRadius: '20px',
-                  padding: '2px 8px',
-                }}
-              >
-                {tState(displayStateLabelKey(displayState))}
-              </span>
-            )
+      date={<span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formattedDate}</span>}
+      identity={
+        // E6 + point 3 (V4) : la boîte commune — le MOT du type, le filet, puis le code de langue en
+        // TEXTE simple (mêmes codes qu'avant : FR, EN, Bilingue ; codés en dur, phase 2).
+        <IdentityBox type={typeKey} languageCode={CODE_LANGUE[doc.language] ?? 'EN'} />
       }
-      meta={
+      state={
+        // Point 2 (V4) : UN seul dessin, celui de Complétude.
+        displayState === 'draft' && <StateBadge>{tState(displayStateLabelKey(displayState))}</StateBadge>
+      }
+      facts={
         <>
             {/* A6 — ce que le document COUVRE. N'apparaît qu'à DEUX exigences ou plus :
                 à une seule, l'information est déjà dans le titre et le badge serait du
                 bruit sur 42 lignes sur 45.
-                ⚠️ `--info-*` et non `--warning-*` : « À signer » est une ACTION à faire,
-                la couverture est une INFORMATION. Même famille de badge, deux registres.
-                C'est le triplet qu'emploie déjà LanguageBadge sur cette même ligne. */}
+                ⚪ V4 : c'est un FAIT, pas un état — en texte dans la phrase, jamais en badge. */}
             {coverageCount >= 2 && (
-              <span
-                className="flex-shrink-0"
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase' as const,
-                  background: 'var(--info-bg)',
-                  color: 'var(--info-text)',
-                  border: '1px solid var(--info-border)',
-                  borderRadius: '20px',
-                  padding: '2px 8px',
-                }}
-              >
-                {tDocs('coverageCount', { count: coverageCount })}
-              </span>
+              // Point 4 (V4) : en TEXTE dans la phrase, après « · » ; plus de pastille.
+              <>
+                <span aria-hidden="true" className="text-xs text-[var(--text-muted)]">·</span>
+                <span className="text-xs text-[var(--text-body)] whitespace-nowrap">
+                  {tDocs('coverageCount', { count: coverageCount })}
+                </span>
+              </>
             )}
-          <LanguageBadge language={doc.language} />
-          <div className="text-xs text-[var(--text-muted)] text-right whitespace-nowrap">
-            {formattedDate}
-          </div>
         </>
       }
-      actions={
-        // Actions — Eye → Download → Delete. Opacité 0,5 → 1 au survol de la LIGNE (group-hover, V3).
-        <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-150">
-          {doc.file_url && (
+      icons={
+        // Eye → Download → Delete, trois cases toujours là. Opacité 0,5 → 1 au survol de la LIGNE (V3, E7).
+        <div className="flex items-center gap-[5px] opacity-50 group-hover:opacity-100 transition-opacity duration-150">
+          {doc.file_url ? (
             <>
               {/* View */}
               <button
                 onClick={handleView}
                 disabled={loading !== null}
-                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors disabled:opacity-50"
+                className={`${caseIcone} hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] disabled:opacity-50`}
                 title={tDocs('view')}
               >
                 {loading === 'view' ? spinnerIcon : <Eye className="w-4 h-4" strokeWidth={1.8} />}
@@ -193,18 +180,23 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
               <button
                 onClick={handleDownload}
                 disabled={loading !== null}
-                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors disabled:opacity-50"
+                className={`${caseIcone} hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] disabled:opacity-50`}
                 title={tDocs('download')}
               >
                 {loading === 'download' ? spinnerIcon : <Download className="w-4 h-4" strokeWidth={1.8} />}
               </button>
+            </>
+          ) : (
+            <>
+              <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+              <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
             </>
           )}
 
           {/* Delete */}
           <button
             onClick={() => setShowDeleteModal(true)}
-            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg)] transition-colors"
+            className={`${caseIcone} hover:text-[var(--error-text)] hover:bg-[var(--error-bg)]`}
             title={tDocs('delete')}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

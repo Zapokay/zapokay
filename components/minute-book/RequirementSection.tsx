@@ -131,6 +131,8 @@ export default function RequirementSection({
             <RequirementRow
               key={`${item.requirement_key}-${item.year ?? 'f'}`}
               requirementKey={item.requirement_key}
+              documentType={item.document_type}
+              attachedDocumentType={item.attached_document_type}
               titleFr={(item.document_language ?? preferredLanguage) === 'en' ? item.title_en : item.title_fr}
               descriptionFr={item.description_fr}
               descriptionEn={item.description_en}

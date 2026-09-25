@@ -2,16 +2,23 @@
 
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, Clock, XCircle, Upload } from 'lucide-react';
-import { GenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
+import { CheckCircle2, Clock, Upload, Eye, RotateCw, ArrowLeftRight } from 'lucide-react';
+import { StateBadge, MissingMarker, IdentityBox } from '@/components/minute-book/state-visuals';
+import { typeAffiche, type VaultDocType } from '@/lib/requirement-doctype';
+import { useGenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
+import ListRow from '@/components/minute-book/ListRow';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import { getDocumentState } from '@/lib/minute-book/state';
-import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
+import { displayStateOf, displayStateLabelKey, titreAttenue } from '@/lib/minute-book/display-state';
 import { mustBlockGeneration, mustBlockUpload } from '@/lib/fiscal-year-open';
 import { formatDate } from '@/lib/utils';
 
 interface RequirementRowProps {
   requirementKey: string;
+  /** V4 (point 1) — le type, déjà dans la réponse (ChecklistItem.document_type) ; boîte d'identité. */
+  documentType: VaultDocType;
+  /** V4 — le type du document RATTACHÉ, s'il y en a un ; il l'emporte sur le type attendu. */
+  attachedDocumentType?: string | null;
   titleFr: string;
   descriptionFr: string | null;
   descriptionEn: string | null;
@@ -67,6 +74,8 @@ interface RequirementRowProps {
 
 export default function RequirementRow({
   requirementKey,
+  documentType,
+  attachedDocumentType,
   titleFr,
   descriptionFr,
   descriptionEn,
@@ -205,181 +214,140 @@ export default function RequirementRow({
       </span>
     ) : null;
 
+  // §392 (V4) — la fenêtre des signataires sort de la ligne : le hook rend le bouton ET la
+  // fenêtre séparément ; le bouton garde sa place, la fenêtre devient SŒUR de la ligne.
+  const { button: generateButton, modal: signatoriesModal } = useGenerateDocumentButton({
+    companyId: companyId ?? '',
+    requirementKey,
+    year,
+    onSuccess: onGenerated,
+    locale,
+    documentLanguage,
+    label: satisfied && source === 'generated' ? t('regenerate') : undefined,
+    icon: satisfied && source === 'generated' ? <RotateCw className="h-3.5 w-3.5" /> : undefined,
+    className: gatedButtonClass,
+    disabled: generationBlocked,
+  });
+
+  // V4 — la ligne à deux bandes. Mots dans l'ordre fixe Téléverser → Générer | Régénérer |
+  // Remplacer ; « Voir » devient l'ŒIL mais reste le même <a href>, nommé « Voir » (N2).
+  const oeil = 'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors';
   return (
-    <div className="group flex items-center justify-between py-3 px-4 hover:bg-[var(--hover)] transition-colors duration-[90ms]">
-      {/* Left side: icon + title */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        {/* ── THE FOURTH STATE, AND WHY IT HAD TO EXIST. ──
+    <ListRow
+      leading={
+        /* ── THE FOURTH STATE, AND WHY IT HAD TO EXIST. ──
             Until 2026-08-16 this ternary opened on `!satisfied` alone, so "the document
-            does not exist" and "the document is late" were THE SAME PIXEL. A company in
-            perfect order on its first day — Fixture Cap, incorporated 2026-03-02, zero
-            overdue rows measured — was shown thirteen red crosses.
-            A row whose window has not opened is not a failing: it is a date. Clock,
-            muted, same icon and same token as InventoryLine's "À venir" case, so Aria
-            revises two lines in this whole lot and nothing else.
-            ⚠️ The red branch below is UNCHANGED and must stay so: a missing document on
-            an OPEN window is exactly what it always was. */}
-        {!satisfied && availability === 'upcoming' ? (
-          <Clock className="h-5 w-5 flex-shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+            does not exist" and "the document is late" were THE SAME PIXEL. A row whose
+            window has not opened is not a failing: it is a date — clock, muted.
+            ⚠️ The red branch is UNCHANGED: a missing document on an OPEN window is
+            exactly what it always was. (V4 : même icône, même couleur, en 16 px.) */
+        !satisfied && availability === 'upcoming' ? (
+          <Clock className="h-4 w-4 flex-shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
         ) : !satisfied ? (
-          <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
+          <MissingMarker />
         ) : isSignedFinal ? (
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
         ) : (
-          <svg
-            viewBox="0 0 24 24"
-            className="h-5 w-5 flex-shrink-0 text-amber-500"
-            aria-hidden="true"
-          >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 flex-shrink-0 text-amber-500" aria-hidden="true">
             <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
             <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
           </svg>
-        )}
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className={`text-sm ${
-              satisfied ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'
-            }`}
-          >
-            {titleFr}
-          </span>
-          <DescriptionTooltip description={description} />
-        </div>
-      </div>
-
-      {/*
-        Right side — Phase B B5 reachability fix.
-
-        Badge: surfaces "Non signé" / "Unsigned" on rows where the document
-        exists but isn't a signed final (generated rows AND uploaded-WIP
-        rows). Signed finals show no badge — the green check icon carries
-        the signal.
-
-        Action buttons (per option 3):
-          - Empty (!satisfied)            → Téléverser, Générer, or notAvailable
-          - Generated (uploaded=false)    → Téléverser + Régénérer
-          - Uploaded, not certified       → Remplacer  (B4 destructive flow)
-          - Uploaded, certified           → Voir only  (A4c)
-
-        The Remplacer button intentionally drops the `canUpload` gate: an
-        uncertified upload is by definition replaceable, and
-        gating would re-introduce the reachability bug this batch fixes
-        on requirements where canUpload toggled false after upload.
-      */}
-      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        {displayState === 'draft' && (
-          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning-text)]">
-            {tState(displayStateLabelKey(displayState))}
-          </span>
-        )}
-
-        {/* A4c — every row that HAS a document can open it, not just the
-            certified ones. Same anchor and same route as the event rows. */}
-        {satisfied && documentId && (
-          <a
-            href={`/api/documents/${documentId}/download?preview=true`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonClass}
-          >
-            {tDocs('view')}
-          </a>
-        )}
-
-        {/* Empty state */}
-        {!satisfied && (
-          <>
-            {canUpload && (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading || uploadBlocked}
-                className={gatedButtonClass}
-              >
-                <Upload className="h-3.5 w-3.5" />
-                {isUploading ? t('uploadingButton') : t('uploadButton')}
-              </button>
-            )}
-            {canGenerate && companyId && (
-              <GenerateDocumentButton
-                companyId={companyId}
-                requirementKey={requirementKey}
-                year={year}
-                onSuccess={onGenerated}
-                locale={locale}
-                documentLanguage={documentLanguage}
-                className={gatedButtonClass}
-                disabled={generationBlocked}
-              />
-            )}
-            {blockedNote}
-            {!canUpload && !canGenerate && (
-              <span className="text-xs text-[var(--text-muted)]">
-                {t('notAvailable')}
-              </span>
-            )}
-          </>
-        )}
-
-        {/* Generated — Téléverser (signed) + Régénérer (replace template) */}
-        {satisfied && source === 'generated' && (
-          <>
-            {canUpload && (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading || uploadBlocked}
-                className={gatedButtonClass}
-              >
-                <Upload className="h-3.5 w-3.5" />
-                {isUploading ? t('uploadingButton') : t('uploadButton')}
-              </button>
-            )}
-            {canGenerate && companyId && (
-              <GenerateDocumentButton
-                companyId={companyId}
-                requirementKey={requirementKey}
-                year={year}
-                onSuccess={onGenerated}
-                locale={locale}
-                documentLanguage={documentLanguage}
-                label={t('regenerate')}
-                className={gatedButtonClass}
-                disabled={generationBlocked}
-              />
-            )}
-            {blockedNote}
-          </>
-        )}
-
-        {/* Uploaded but NOT certified — single Remplacer button */}
-        {satisfied && source === 'uploaded' && !isCertifiedUpload && (
-          <>
+        )
+      }
+      title={titleFr}
+      titleClassName={`text-[14.5px] ${titreAttenue(displayState) ? 'text-[var(--text-muted)]' : 'text-[var(--text-body)] font-medium'}`}
+      titleAdornment={<DescriptionTooltip description={description} />}
+      identity={<IdentityBox type={typeAffiche(attachedDocumentType, documentType)} />}
+      state={
+        displayState === 'draft' && (
+          <StateBadge>{tState(displayStateLabelKey(displayState))}</StateBadge>
+        )
+      }
+      // E4 (V4) : la seule date que la ligne porte aujourd'hui, avec son libellé actuel.
+      date={blockedNote}
+      facts={
+        !satisfied && !canUpload && !canGenerate ? (
+          <span className="text-xs text-[var(--text-muted)]">{t('notAvailable')}</span>
+        ) : undefined
+      }
+      words={
+        <>
+          {/* Empty state — Téléverser, Générer */}
+          {!satisfied && canUpload && (
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading || uploadBlocked}
               className={gatedButtonClass}
             >
               <Upload className="h-3.5 w-3.5" />
+              {isUploading ? t('uploadingButton') : t('uploadButton')}
+            </button>
+          )}
+          {!satisfied && canGenerate && companyId && generateButton}
+
+          {/* Generated — Téléverser (signed) + Régénérer (replace template) */}
+          {satisfied && source === 'generated' && canUpload && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading || uploadBlocked}
+              className={gatedButtonClass}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {isUploading ? t('uploadingButton') : t('uploadButton')}
+            </button>
+          )}
+          {satisfied && source === 'generated' && canGenerate && companyId && generateButton}
+
+          {/* Uploaded but NOT certified — single Remplacer button (drops the canUpload gate on purpose) */}
+          {satisfied && source === 'uploaded' && !isCertifiedUpload && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading || uploadBlocked}
+              className={gatedButtonClass}
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
               {isUploading ? t('uploadingButton') : t('replace')}
             </button>
-            {blockedNote}
-          </>
-        )}
+          )}
 
-        {/* Single hidden file input shared across all surfaces — only one
-            button is visible at a time per row state, so a single ref is
-            sufficient and avoids ref-index gymnastics. A4c gates it on the
-            SAME predicate as Remplacer: no trigger, no mechanism. */}
-        {!isCertifiedUpload && (
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf"
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-          />
+          {/* Single hidden file input shared across all surfaces. A4c gates it on the
+              SAME predicate as Remplacer: no trigger, no mechanism. It stays IN the row. */}
+          {!isCertifiedUpload && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+          )}
+        </>
+      }
+      icons={
+        <>
+        {/* A4c — every row that HAS a document can open it. Same anchor, same route;
+            the case stays reserved (invisible) when there is nothing to open. */}
+        {satisfied && documentId ? (
+          <a
+            href={`/api/documents/${documentId}/download?preview=true`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={tDocs('view')}
+            title={tDocs('view')}
+            className={oeil}
+          >
+            <Eye className="h-4 w-4" strokeWidth={1.8} />
+          </a>
+        ) : (
+          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
         )}
-      </div>
-
-    </div>
+          {/* Point 4 (V4) : téléchargement et « ··· » — cases RÉSERVÉES, invisibles, non focusables. */}
+          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+          <span aria-hidden="true" className="invisible h-[26px] w-[26px]" />
+        </>
+      }
+    >
+      {signatoriesModal}
+    </ListRow>
   );
 }

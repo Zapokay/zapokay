@@ -10,7 +10,8 @@
  */
 
 import { useTranslations } from 'next-intl';
-import { Archive, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Archive, CheckCircle2, Clock } from 'lucide-react';
+import { MissingMarker } from '@/components/minute-book/state-visuals';
 
 interface Props {
   total: number;
@@ -52,7 +53,7 @@ export default function InventoryLine({ total, uploaded, generated, missing, upc
           deliberately a token, never a literal, so Aria's revision is a single line
           here and nothing else in the lot. */}
       <span className="font-semibold text-[var(--text-body)]">
-        {tMB('completeness.total')}: {total}
+        {tMB('completeness.totalCount', { count: total })}
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
@@ -69,7 +70,7 @@ export default function InventoryLine({ total, uploaded, generated, missing, upc
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
-        <XCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--error-text)' }} />
+        <MissingMarker className="h-3.5 w-3.5" />
         {tState('count.missing', { count: missing })}
       </span>
       <span aria-hidden="true">·</span>

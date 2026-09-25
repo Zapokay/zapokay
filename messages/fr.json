@@ -737,11 +737,11 @@
     "archived": "Archivé",
     "archivedCertified": "Archivé · certifié",
     "count": {
-      "final": "{count, plural, =0 {0 Final} =1 {1 Final} other {# Finaux}}",
-      "draft": "{count, plural, =0 {0 À finaliser} =1 {1 À finaliser} other {# À finaliser}}",
-      "missing": "{count, plural, =0 {0 Manquant} =1 {1 Manquant} other {# Manquants}}",
-      "upcoming": "{count, plural, =0 {0 À venir} =1 {1 À venir} other {# À venir}}",
-      "archived": "{count, plural, =0 {0 Archivé} =1 {1 Archivé} other {# Archivés}}"
+      "final": "{count, plural, =0 {0 final} =1 {1 final} other {# finaux}}",
+      "draft": "{count, plural, =0 {0 à finaliser} =1 {1 à finaliser} other {# à finaliser}}",
+      "missing": "{count, plural, =0 {0 manquant} =1 {1 manquant} other {# manquants}}",
+      "upcoming": "{count, plural, =0 {0 à venir} =1 {1 à venir} other {# à venir}}",
+      "archived": "{count, plural, =0 {0 archivé} =1 {1 archivé} other {# archivés}}"
     }
   },
   "minuteBook": {
@@ -749,7 +749,7 @@
       "title": "Complétude",
       "requirementNotFound": "Exigence introuvable.",
       "documentUploaded": "Document téléversé.",
-      "total": "Total",
+      "totalCount": "Total : {count}",
       "toSign": "à finaliser",
       "upcoming": "à venir",
       "actionableNow": "à faire maintenant",
