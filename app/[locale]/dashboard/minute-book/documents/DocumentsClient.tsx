@@ -12,6 +12,8 @@ import { filePathFromFileUrl } from '@/lib/storage-path';
 import { logActivity } from '@/lib/activity-log';
 import { titresDeJournalSuppression } from '@/lib/journal-document';
 import type { Company } from '@/lib/types';
+import SectionCard from '@/components/minute-book/SectionCard';
+import { porteeDepuisParametre, dansLaPortee, resumeDeLaListe } from '@/lib/documents/list-summary';
 
 interface DocumentsClientProps {
   locale: string;
@@ -51,22 +53,23 @@ interface DocumentsClientProps {
   preferredLanguage?: 'fr' | 'en';
 }
 
+// V3 — les libellés viennent du catalogue ; mots IDENTIQUES à ceux qui étaient codés ici (vérifié FR et EN).
 const TYPE_OPTIONS = [
-  { value: '',           labelFr: 'Tous les types',  labelEn: 'All types' },
-  { value: 'statuts',    labelFr: 'Statuts',          labelEn: 'Articles' },
-  { value: 'resolution', labelFr: 'Résolution',       labelEn: 'Resolution' },
-  { value: 'pv',         labelFr: 'Procès-verbal',    labelEn: 'Minutes' },
-  { value: 'registre',   labelFr: 'Registre',         labelEn: 'Register' },
-  { value: 'rapport',    labelFr: 'Rapport',           labelEn: 'Report' },
-  { value: 'autre',      labelFr: 'Autre',             labelEn: 'Other' },
-];
+  { value: '',           key: 'filterAllTypes' },
+  { value: 'statuts',    key: 'types.statuts' },
+  { value: 'resolution', key: 'types.resolution' },
+  { value: 'pv',         key: 'types.pv' },
+  { value: 'registre',   key: 'types.registre' },
+  { value: 'rapport',    key: 'types.rapport' },
+  { value: 'autre',      key: 'types.autre' },
+] as const;
 
 const LANG_OPTIONS = [
-  { value: '',          labelFr: 'Toutes les langues', labelEn: 'All languages' },
-  { value: 'fr',        labelFr: 'Français',           labelEn: 'French' },
-  { value: 'en',        labelFr: 'Anglais',            labelEn: 'English' },
-  { value: 'bilingual', labelFr: 'Bilingue',           labelEn: 'Bilingual' },
-];
+  { value: '',          key: 'filterAllLanguages' },
+  { value: 'fr',        key: 'languages.fr' },
+  { value: 'en',        key: 'languages.en' },
+  { value: 'bilingual', key: 'languages.bilingual' },
+] as const;
 
 function DocumentsClientInner({ locale, company, initialDocuments, requirementKeysByDocument, requirementTitles = {}, fiscalYearsConfigured = true, activeFiscalYears = [], fiscalYears = [], preferredLanguage = 'fr' }: DocumentsClientProps) {
   const fr = locale === 'fr';
@@ -82,13 +85,8 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
   // Un lien mis en signet sur `?year=foundational` ou `?year=unclassified` doit
   // atterrir sur ce mode — jamais retomber en silence sur « Tous les exercices »,
   // ce qui montrerait plus de documents que demandé sans rien dire.
-  const yearMode: 'all' | 'nofiscalyear' | 'numeric' =
-    yearParam === null || yearParam === 'all'
-      ? 'all'
-      : yearParam === 'unclassified' || yearParam === 'foundational'
-        ? 'nofiscalyear'
-        : 'numeric';
-  const activeYear = yearMode === 'numeric' && yearParam ? parseInt(yearParam, 10) : null;
+  // V3 — la règle a déménagé, INCHANGÉE, dans lib/documents/list-summary.ts (lue aussi par check:documents).
+  const portee = porteeDepuisParametre(yearParam);
   const [documents, setDocuments] = useState<VaultDocument[]>(initialDocuments);
 
   // Sync local state when server re-renders with fresh data (after router.refresh())
@@ -129,7 +127,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
     fetchDocuments();
     router.refresh();
     addToast(
-      fr ? 'Document ajouté avec succès.' : 'Document added successfully.',
+      tDocs('toastAdded'),
       'success'
     );
   }
@@ -154,7 +152,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
     const { error } = await supabase.from('documents').delete().eq('id', id);
     if (error) {
       addToast(
-        fr ? 'Erreur lors de la suppression.' : 'Error deleting document.',
+        tDocs('toastDeleteError'),
         'error'
       );
     } else {
@@ -179,7 +177,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
         });
       }
       setDocuments(prev => prev.filter(d => d.id !== id));
-      addToast(fr ? 'Document supprimé.' : 'Document deleted.', 'success');
+      addToast(tDocs('toastDeleted'), 'success');
     }
   }
 
@@ -188,22 +186,9 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
       const matchSearch = !search || doc.title.toLowerCase().includes(search.toLowerCase());
       const matchType   = !typeFilter || doc.document_type === typeFilter;
       const matchLang   = !langFilter || doc.language === langFilter;
-
-      let matchYear: boolean;
-      if (yearMode === 'all') {
-        matchYear = true;
-      } else if (yearMode === 'nofiscalyear') {
-        // ★ UN SEUL PRÉDICAT, ET IL DIT EXACTEMENT CE QUE LA PUCE ANNONCE.
-        // Deux puces se partageaient ce territoire : « Documents fondateurs »
-        // lisait les LIAISONS, « Non classé » lisait l'année ET l'absence de
-        // liaison. La première ratait tout document sans exigence cochée ; la
-        // seconde le montrait. Elles se chevauchaient sans jamais coïncider.
-        // ⚠️ MESURÉ AVANT LA FUSION : zéro document du parc ne porte à la fois une
-        // liaison fondationnelle et une année. Personne n'est déplacé.
-        matchYear = doc.document_year === null;
-      } else {
-        matchYear = !activeYear || doc.document_year === activeYear;
-      }
+      // ★ « Hors exercice » = document_year null, UN seul prédicat (fusion des deux
+      // anciennes puces, mesurée) — il vit maintenant dans dansLaPortee.
+      const matchYear   = dansLaPortee(doc.document_year, portee);
 
       return matchSearch && matchType && matchLang && matchYear;
     })
@@ -211,6 +196,16 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
       const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       return sortOrder === 'desc' ? -diff : diff;
     });
+
+  // ⚖️ V3, décision P2 : M = la portée d'exercice ; N = affichés. Aucune requête : tout est déjà en mémoire.
+  const resume = resumeDeLaListe({
+    portee,
+    totalCoffre: documents.length,
+    totalPortee: documents.filter(d => dansLaPortee(d.document_year, portee)).length,
+    affiches: filtered.length,
+    locale,
+    t: tDocs as unknown as (cle: string, valeurs?: Record<string, number>) => string,
+  });
 
   const selectClass =
     'px-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors';
@@ -257,19 +252,9 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
           className="text-2xl font-bold text-[var(--text-heading)]"
           style={{ fontFamily: 'Sora, sans-serif' }}
         >
-          {fr ? 'Coffre-fort documentaire' : 'Document Vault'}
+          {tDocs('vaultTitle')}
         </h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">
-          {documents.length === 0
-            ? (fr ? 'Aucun document' : 'No documents')
-            : `${filtered.length} document${filtered.length !== 1 ? 's' : ''}${
-                yearMode === 'all'
-                  ? ` · ${tDocs('filterAllYears')}`
-                  : yearMode === 'nofiscalyear'
-                    ? ` · ${tDocs('filterNoFiscalYear')}`
-                    : activeYear ? ` · ${activeYear}` : ''
-              }`}
-        </p>
+        {/* V3 — le sous-titre composé a quitté le H1 : son information vit dans l'en-tête de la carte. */}
       </div>
 
       {/* Upload zone */}
@@ -298,7 +283,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={fr ? 'Rechercher…' : 'Search…'}
+            placeholder={tDocs('searchPlaceholder')}
             className="w-full pl-9 pr-3 py-2 rounded-xl text-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-body)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:border-[var(--input-border-focus)] transition-colors"
           />
         </div>
@@ -311,24 +296,26 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
           <YearPicker locale={locale} years={fiscalYears} includeUnclassifiedOption />
         )}
         <select value={sortOrder} onChange={e => setSortOrder(e.target.value as 'desc' | 'asc')} className={selectClass}>
-          <option value="desc">{fr ? 'Plus récent' : 'Newest first'}</option>
-          <option value="asc">{fr ? 'Plus ancien' : 'Oldest first'}</option>
+          <option value="desc">{tDocs('sortNewest')}</option>
+          <option value="asc">{tDocs('sortOldest')}</option>
         </select>
         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={selectClass}>
           {TYPE_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{fr ? o.labelFr : o.labelEn}</option>
+            <option key={o.value} value={o.value}>{tDocs(o.key)}</option>
           ))}
         </select>
         <select value={langFilter} onChange={e => setLangFilter(e.target.value)} className={selectClass}>
           {LANG_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{fr ? o.labelFr : o.labelEn}</option>
+            <option key={o.value} value={o.value}>{tDocs(o.key)}</option>
           ))}
         </select>
       </div>
 
-      {/* Document list */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 border-2 border-dashed border-[var(--card-border)] rounded-xl bg-[var(--card-bg)]">
+      {/* Document list — V3 : UNE carte (SectionCard non repliable), en-tête = portée + compte. */}
+      <SectionCard title={resume.titre} metric={resume.compte} collapsible={false}>
+      {resume.vide ? (
+        // ⚖️ D6 : l'encadré pointillé est retiré ; l'icône et les deux phrases restent, mot pour mot.
+        <div className="text-center py-16">
           <svg
             className="w-10 h-10 mx-auto mb-3 text-[var(--text-muted)]"
             fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -337,16 +324,14 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           <p className="text-sm font-medium text-[var(--text-muted)]">
-            {fr ? 'Aucun document' : 'No documents'}
+            {tDocs('emptyVault')}
           </p>
           <p className="text-xs text-[var(--text-muted)] mt-1">
-            {search || typeFilter || langFilter
-              ? (fr ? 'Aucun résultat pour ces filtres.' : 'No results for these filters.')
-              : (fr ? 'Commencez par déposer un fichier ci-dessus.' : 'Start by dropping a file above.')}
+            {resume.vide === 'aucunResultat' ? tDocs('noResults') : tDocs('emptyVaultSub')}
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-[var(--card-border)] [&>div:last-child>div:first-child]:rounded-b-[13px]">
           {filtered.map(doc => (
             <DocumentRow
               key={doc.id}
@@ -361,6 +346,7 @@ function DocumentsClientInner({ locale, company, initialDocuments, requirementKe
           ))}
         </div>
       )}
+      </SectionCard>
 
       {/* Toast stack */}
       {ToastStack}

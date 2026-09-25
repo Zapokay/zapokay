@@ -16,6 +16,7 @@
     "check:significant-control": "tsx scripts/check-significant-control.ts",
     "check:inscription": "tsx scripts/check-inscription.ts",
     "check:etats": "tsx scripts/check-etats.ts",
+    "check:documents": "tsx scripts/check-documents.ts",
     "e2e": "playwright test --project=deploiement",
     "e2e:inscription": "playwright test --project=inscription",
     "e2e:actes": "playwright test --project=actes",

@@ -378,6 +378,8 @@
       "finalReplaceSubmit": "{count, plural, =0 {Remplacer} =1 {Remplacer} other {Remplacer # documents}}"
     },
     "coverageCount": "{count, plural, =0 {Aucune exigence} =1 {1 exigence} other {# exigences}}",
+    "documentCountAll": "{count, plural, =0 {0 document} =1 {1 document} other {# documents}}",
+    "documentCountOf": "{shown} sur {total, plural, =0 {0 document} =1 {1 document} other {# documents}}",
     "coverageSatisfies": "Ce document satisfait",
     "coverageSatisfiesCounted": "{count, plural, =0 {Ce document ne satisfait aucune exigence} =1 {Ce document satisfait 1 exigence} other {Ce document satisfait # exigences}}",
     "coverageFounding": "Fondation",

@@ -9,6 +9,7 @@ import { DocumentModal } from './DocumentModal';
 import { composeDisplayName } from '@/lib/display-name';
 import { getDocumentState } from '@/lib/minute-book/state';
 import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-state';
+import ListRow from '@/components/minute-book/ListRow';
 
 export interface VaultDocument {
   id: string;
@@ -49,7 +50,6 @@ const BUCKET_MARKER = '/object/public/documents/';
 export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false, coverageCount, coverageLinks = [], requirementTitles = {} }: DocumentRowProps) {
   const tDocs = useTranslations('documents');
   const tState = useTranslations('documentState');
-  const [hovered, setHovered] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDocModal, setShowDocModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -117,19 +117,13 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
     </svg>
   );
 
+  // V3 — la ligne commune : identité · titre · état (case réservée) · méta · rail ; modales en SŒURS de la ligne.
   return (
-    <>
-      <div
-        className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] transition-shadow hover:shadow-md"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        <DocumentTypePill type={doc.document_type} />
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-[var(--text-heading)] truncate">{composeDisplayName(doc.title, null, doc.document_year)}</span>
-            {displayState === 'draft' && (
+    <ListRow
+      identity={<DocumentTypePill type={doc.document_type} />}
+      title={composeDisplayName(doc.title, null, doc.document_year)}
+      state={
+        displayState === 'draft' && (
               <span
                 className="flex-shrink-0"
                 style={{
@@ -146,7 +140,10 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
               >
                 {tState(displayStateLabelKey(displayState))}
               </span>
-            )}
+            )
+      }
+      meta={
+        <>
             {/* A6 — ce que le document COUVRE. N'apparaît qu'à DEUX exigences ou plus :
                 à une seule, l'information est déjà dans le titre et le badge serait du
                 bruit sur 42 lignes sur 45.
@@ -171,14 +168,15 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
                 {tDocs('coverageCount', { count: coverageCount })}
               </span>
             )}
+          <LanguageBadge language={doc.language} />
+          <div className="text-xs text-[var(--text-muted)] text-right whitespace-nowrap">
+            {formattedDate}
           </div>
-        </div>
-
-        {/* Actions — Eye → Download → Delete */}
-        <div
-          className="flex items-center gap-1 transition-opacity duration-150"
-          style={{ opacity: hovered ? 1 : 0.5 }}
-        >
+        </>
+      }
+      actions={
+        // Actions — Eye → Download → Delete. Opacité 0,5 → 1 au survol de la LIGNE (group-hover, V3).
+        <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-150">
           {doc.file_url && (
             <>
               {/* View */}
@@ -186,7 +184,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
                 onClick={handleView}
                 disabled={loading !== null}
                 className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors disabled:opacity-50"
-                title={fr ? 'Voir' : 'View'}
+                title={tDocs('view')}
               >
                 {loading === 'view' ? spinnerIcon : <Eye className="w-4 h-4" strokeWidth={1.8} />}
               </button>
@@ -196,7 +194,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
                 onClick={handleDownload}
                 disabled={loading !== null}
                 className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[var(--page-bg)] transition-colors disabled:opacity-50"
-                title={fr ? 'Télécharger' : 'Download'}
+                title={tDocs('download')}
               >
                 {loading === 'download' ? spinnerIcon : <Download className="w-4 h-4" strokeWidth={1.8} />}
               </button>
@@ -207,7 +205,7 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
           <button
             onClick={() => setShowDeleteModal(true)}
             className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg)] transition-colors"
-            title={fr ? 'Supprimer' : 'Delete'}
+            title={tDocs('delete')}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
@@ -215,14 +213,8 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
             </svg>
           </button>
         </div>
-
-        <LanguageBadge language={doc.language} />
-
-        <div className="text-xs text-[var(--text-muted)] text-right whitespace-nowrap">
-          {formattedDate}
-        </div>
-      </div>
-
+      }
+    >
       {/* Document modal with AI tabs */}
       {showDocModal && (
         <DocumentModal
@@ -243,11 +235,11 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
               className="text-base font-semibold text-[var(--text-heading)] mb-1"
               style={{ fontFamily: 'Sora, sans-serif' }}
             >
-              {fr ? 'Supprimer ce document ?' : 'Delete this document?'}
+              {tDocs('deleteTitle')}
             </h3>
             <p className="text-sm text-[var(--text-muted)] mb-1 truncate">{composeDisplayName(doc.title, null, doc.document_year)}</p>
             <p className="text-xs text-[var(--error-text)] mb-5">
-              {fr ? 'Cette action est irréversible.' : 'This action cannot be undone.'}
+              {tDocs('deleteWarning')}
             </p>
             <div className="flex gap-3">
               <button
@@ -255,21 +247,19 @@ export function DocumentRow({ doc, locale, onDelete, aiSummariesEnabled = false,
                 disabled={deleting}
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-[var(--card-border)] text-[var(--text-body)] bg-[var(--card-bg)] hover:bg-[var(--page-bg)] transition-colors disabled:opacity-50"
               >
-                {fr ? 'Annuler' : 'Cancel'}
+                {tDocs('deleteCancel')}
               </button>
               <button
                 onClick={handleConfirmDelete}
                 disabled={deleting}
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-[var(--error-bg)] text-[var(--error-text)] border border-[var(--error-border)] hover:opacity-80 transition-opacity disabled:opacity-50"
               >
-                {deleting
-                  ? (fr ? 'Suppression…' : 'Deleting…')
-                  : (fr ? 'Supprimer définitivement' : 'Delete permanently')}
+                {deleting ? tDocs('deleting') : tDocs('deleteConfirm')}
               </button>
             </div>
           </div>
         </div>
       )}
-    </>
+    </ListRow>
   );
 }

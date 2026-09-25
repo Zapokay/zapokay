@@ -81,6 +81,8 @@ jobs:
         run: npm run check:inscription
       - name: ⑪ check:etats — les cinq états et leurs deux catalogues
         run: npm run check:etats
+      - name: ⑫ check:documents — la portée du coffre, son en-tête, ses deux vides
+        run: npm run check:documents
 
   # ── LE PARCOURS, CONTRE LE PRODUIT DÉPLOYÉ ────────────────────────────────
   # ⛔ PAS SUR `push`, ET C'EST DÉLIBÉRÉ. Un envoi de code précède le
