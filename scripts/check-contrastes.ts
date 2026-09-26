@@ -96,13 +96,13 @@ for (const f of DOSSIERS.flatMap(fichiers)) {
 }
 /** Exceptions NOMMÉES (ARRÊT 1 de V7a). Chacune dit pourquoi, et qui la lèvera. */
 const EXCEPTIONS: Record<string, string> = {
-  '--input-placeholder': 'question posée à Aria, V7b',
-  '--row-state-archive-certified': 'couleur de sens, V7b',
+  // V7b : --input-placeholder et --row-state-archive-certified ne sont plus des exceptions (Aria ⑥ et ⑨).
+  '--mot-inactif-texte': 'mot DÉSACTIVÉ (composant inactif, WCAG 1.4.3) — Aria, V7b',
   '--cta-text': 'texte sur fond coloré (bouton ambre) — pas sur la carte ni la page',
   '--neutral-0': 'texte sur fond coloré (blanc sur fond foncé) — pas sur la carte ni la page',
   '--card-bg': 'texte sur fond coloré (couleur de carte sur fond foncé) — pas sur la carte ni la page',
 };
-const NON_TEXTE = new Set(['--nontext-muted', '--row-state-archive']);
+const NON_TEXTE = new Set(['--nontext-muted', '--row-state-archive', '--sens-final', '--sens-brouillon', '--sens-manquant', '--archive-certifiee-icone', '--registre-actif']);
 dire(jetons.has('--text-muted') && jetons.has('--text-body'), `relevé du source : ${jetons.size} jetons de couleur de texte`);
 for (const j of Array.from(jetons).sort()) {
   if (EXCEPTIONS[j]) { console.log(`  · ${j} — EXCEPTION : ${EXCEPTIONS[j]}`); continue; }
@@ -176,6 +176,71 @@ console.log('e) les icônes de ligne');
   // ⚖️ EXCEPTION SOMBRE ACCEPTÉE (Max, V7c) : couleurs identiques ; le COMPORTEMENT change.
   console.log('  · EXCEPTION ACCEPTÉE (V7c) en sombre : dévoilement sur Complétude et le Livre ; focus dans la ligne dévoile sur Documents ;');
   console.log('    désactivé = état 1 partout ; rayon du carré 7 → 8 px. Couleurs sombres identiques.');
+}
+
+/* ── f) LES COULEURS DE SENS (V7b) — Aria, en clair ; le sombre ne bouge pas ─ */
+console.log('f) les couleurs de sens');
+{
+  const ALIAS: [string, string, string][] = [
+    ['--sens-final', '#059669', '#4A7A40'],
+    ['--sens-brouillon', '#F59E0B', 'var(--st-final)'],
+    ['--sens-manquant', 'var(--error-text)', 'var(--nontext-muted)'],
+    ['--sens-manquant-trait', 'dashed', 'dotted'],
+    ['--sens-a-venir-fond', 'transparent', 'var(--card-border)'],
+    ['--sens-a-venir-filet', 'var(--nontext-muted)', 'transparent'],
+    ['--sens-a-venir-trait', 'dashed', 'solid'],
+    ['--formalite-echue-texte', 'var(--warning-text)', 'var(--error-text)'],
+    ['--formalite-echue-fond', 'var(--warning-bg)', 'var(--error-bg)'],
+    ['--formalite-echue-filet', 'var(--warning-border)', 'var(--error-border)'],
+    ['--formalite-a-venir-texte', 'var(--warning-text)', 'var(--info-text)'],
+    ['--formalite-a-venir-fond', 'var(--warning-bg)', 'var(--info-bg)'],
+    ['--formalite-a-venir-filet', 'var(--warning-border)', 'var(--info-border)'],
+    ['--mot-inactif-texte', 'var(--text-body)', '#B3AFA9'],
+    ['--mot-inactif-opacite', '0.6', '1'],
+    ['--archive-certifiee-texte', 'var(--row-state-archive-certified)', 'var(--text-muted)'],
+    ['--archive-certifiee-icone', 'var(--row-state-archive-certified)', 'var(--nontext-muted)'],
+    ['--formalite-echue-survol', 'var(--amber-400)', 'var(--formalite-echue-texte)'],
+    ['--formalite-a-venir-survol', 'var(--amber-400)', 'var(--formalite-a-venir-texte)'],
+    ['--registre-actif', '#16A34A', 'var(--sens-final)'],
+    ['--registre-avertissement', '#D97706', 'var(--warning-text)'],
+  ];
+  for (const [a, racine, clair] of ALIAS) {
+    dire(ROOT[a] === racine && (CLAIR[a] ?? '').toUpperCase() === clair.toUpperCase(),
+      `${a} : :root ${racine} (sombre d'aujourd'hui), clair ${clair} (lu : ${ROOT[a]} / ${CLAIR[a]})`);
+  }
+  dire(CLAIR['--input-placeholder'] === 'var(--text-muted)' && CLAIR['--text-placeholder'] === 'var(--text-muted)',
+    `placeholders en clair : var(--text-muted) (lu : ${CLAIR['--input-placeholder']} / ${CLAIR['--text-placeholder']})`);
+  const ok = (v: string | null): v is string => !!v && /^#[0-9A-F]{6}$/.test(v);
+  const mesure = (j: string, fonds: string[], seuil: number, quoi: string) => {
+    const v = resoudre(j); const r = ok(v) ? fonds.map((f) => contraste(v, f)) : [];
+    dire(r.length === fonds.length && r.every((x) => x >= seuil), `${quoi} : ${j} ${v} ≥ ${seuil}:1 (${r.map((x) => x.toFixed(2)).join(' / ')})`);
+  };
+  const TROIS = Object.values(FONDS);
+  mesure('--sens-final', TROIS, 3, 'part et marqueur « final » (non-texte)');
+  mesure('--sens-brouillon', TROIS, 3, 'part et marqueur « à finaliser » (non-texte)');
+  mesure('--sens-manquant', TROIS, 3, 'pointillé « manquant » (non-texte)');
+  mesure('--input-placeholder', ['#FEFEFE'], 4.5, 'texte indicatif sur le fond de champ');
+  mesure('--archive-certifiee-texte', ['#F7F5F1', FONDS.survol], 4.5, 'mention « archivé · certifié » sur le fond d\'archive et au survol');
+  mesure('--archive-certifiee-icone', ['#F7F5F1', FONDS.survol], 3, 'icône d\'archive certifiée (non-texte)');
+  mesure('--registre-actif', TROIS, 3, '✓ « actif » des registres du Livre (glyphe d\'état, non-texte)');
+  mesure('--registre-avertissement', TROIS, 4.5, 'note ambre des registres du Livre (texte)');
+  for (const e of ['echue', 'a-venir']) {
+    const t = resoudre(`--formalite-${e}-texte`); const f = resoudre(`--formalite-${e}-fond`);
+    dire(ok(t) && ok(f) && contraste(t, f) >= 4.5, `formalité ${e} : ${t} sur ${f} ≥ 4,5:1 (${ok(t) && ok(f) ? contraste(t, f).toFixed(2) : '—'})`);
+  }
+  // ⚖️ EXCEPTIONS NOMMÉES.
+  const av = resoudre('--sens-a-venir-fond');
+  if (ok(av)) console.log(`  · EXCEPTION NOMMÉE (Aria, à l'essai — Max) : aplat « à venir » ${av}, ${TROIS.map((f) => contraste(av, f).toFixed(2)).join(' / ')}:1, voulu, jugé à la caméra`);
+  const mi = resoudre('--mot-inactif-texte');
+  if (ok(mi)) console.log(`  · EXCEPTION NOMMÉE (WCAG 1.4.3, composant inactif) : mot désactivé ${mi}, ${TROIS.map((f) => contraste(mi, f).toFixed(2)).join(' / ')}:1`);
+  for (const e of ['echue', 'a-venir']) {
+    const s2 = resoudre(`--formalite-${e}-survol`); const f = resoudre(`--formalite-${e}-fond`);
+    dire(ok(s2) && ok(f) && contraste(s2, f) >= 3, `contour de survol de la formalité ${e} : ${s2} sur ${f} ≥ 3:1 (${ok(s2) && ok(f) ? contraste(s2, f).toFixed(2) : '—'})`);
+  }
+  // ⚖️ EXCEPTION SOMBRE NOMMÉE (V7b, acceptée) : deux changements valent aussi en sombre.
+  console.log('  · EXCEPTION ACCEPTÉE (V7b) en sombre : (a) fenêtre de téléversement, « manquant » : croix rouge → cercle pointillé');
+  console.log('    (StateMarker, décision de Dom en V4) ; (b) mots désactivés : survol figé et curseur normal. Couleurs sombres identiques.');
+  dire(!/--sens-|--formalite-|--mot-inactif-|--archive-certifiee-|--registre-/.test(SOMBRE), 'le sombre ne définit aucun alias de sens : ils y valent leur valeur :root (le sombre ne bouge pas)');
 }
 
 console.log(echecs === 0 ? '\n✔ check:contrastes — tout tient.' : `\n⛔ check:contrastes — ${echecs} garde(s) tombée(s).`);

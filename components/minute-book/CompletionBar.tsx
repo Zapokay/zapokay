@@ -42,19 +42,20 @@ const ECART = 2;
 const MAX_CARRES = 12;
 const LARGEUR_BARRE = MAX_CARRES * CARRE + (MAX_CARRES - 1) * ECART; // 154 px
 
-// Ordre des parts de la barre continue. Couleurs codées en dur jusqu'à V7 (jetons).
+// Ordre des parts de la barre continue. V7b — couleurs ET formes par jetons de sens : :root garde celles
+// d'aujourd'hui (le sombre ne bouge pas) ; le clair suit Aria (manquant en pointillé gris, à venir en aplat).
 const ORDRE: DisplayState[] = ['final', 'draft', 'upcoming', 'missing'];
 const SEGMENT: Partial<Record<DisplayState, string>> = {
-  final: 'bg-emerald-600',
-  draft: 'bg-amber-500',
-  upcoming: 'border-2 border-dashed border-[var(--nontext-muted)]',
-  missing: 'border-2 border-dashed border-[var(--error-text)]',
+  final: 'bg-[var(--sens-final)]',
+  draft: 'bg-[var(--sens-brouillon)]',
+  upcoming: 'bg-[var(--sens-a-venir-fond)] border-2 border-[var(--sens-a-venir-filet)] [border-style:var(--sens-a-venir-trait)]',
+  missing: 'border-2 border-[var(--sens-manquant)] [border-style:var(--sens-manquant-trait)]',
 };
 
 /**
  * La barre de section de Complétude (V6, décision de Dom : « un brouillon n'est pas fait »).
  *
- *   final (vert) · brouillon (ambre, visible, HORS du compte) · à venir (tirets gris) · manquant (tirets rouges)
+ *   final · brouillon (visible, HORS du compte) · à venir · manquant — couleurs et formes : jetons --sens-* (V7b)
  *
  * Compteur = finaux / total. Le % pondéré de la page reste à lib/minute-book/state.ts (STATE_WEIGHT).
  * Les actes n'ont pas de fenêtre : jamais « à venir » (même règle que CompletenessPage).

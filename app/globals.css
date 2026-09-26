@@ -64,6 +64,29 @@ body {
   --icone-survol-filet: transparent;
   --icone-danger-filet: transparent;
   --focus-ring: var(--amber-400);
+
+  /* V7b — couleurs de sens. Ici, la valeur ET la forme d'AUJOURD'HUI (le sombre ne bouge pas). */
+  --sens-final: #059669;
+  --sens-brouillon: #F59E0B;
+  --sens-manquant: var(--error-text);
+  --sens-manquant-trait: dashed;
+  --sens-a-venir-fond: transparent;
+  --sens-a-venir-filet: var(--nontext-muted);
+  --sens-a-venir-trait: dashed;
+  --formalite-echue-texte: var(--warning-text);
+  --formalite-echue-fond: var(--warning-bg);
+  --formalite-echue-filet: var(--warning-border);
+  --formalite-a-venir-texte: var(--warning-text);
+  --formalite-a-venir-fond: var(--warning-bg);
+  --formalite-a-venir-filet: var(--warning-border);
+  --mot-inactif-texte: var(--text-body);
+  --mot-inactif-opacite: 0.6;
+  --archive-certifiee-texte: var(--row-state-archive-certified);
+  --archive-certifiee-icone: var(--row-state-archive-certified);
+  --formalite-echue-survol: var(--amber-400);
+  --formalite-a-venir-survol: var(--amber-400);
+  --registre-actif: #16A34A;
+  --registre-avertissement: #D97706;
 }
 
 [data-theme="original"] {
@@ -147,7 +170,30 @@ body {
   --icone-survol-filet: var(--card-border);
   --icone-danger-filet: var(--error-border);
   --focus-ring: var(--navy-900);
-  --text-placeholder: #C5C0B9;
+  /* V7b — couleurs de sens (Aria) ; valeurs neuves : #4A7A40 et #B3AFA9. */
+  --sens-final: #4A7A40;
+  --sens-brouillon: var(--st-final);
+  --sens-manquant: var(--nontext-muted);
+  --sens-manquant-trait: dotted;
+  --sens-a-venir-fond: var(--card-border);
+  --sens-a-venir-filet: transparent;
+  --sens-a-venir-trait: solid;
+  --formalite-echue-texte: var(--error-text);
+  --formalite-echue-fond: var(--error-bg);
+  --formalite-echue-filet: var(--error-border);
+  --formalite-a-venir-texte: var(--info-text);
+  --formalite-a-venir-fond: var(--info-bg);
+  --formalite-a-venir-filet: var(--info-border);
+  --mot-inactif-texte: #B3AFA9;
+  --mot-inactif-opacite: 1;
+  --archive-certifiee-texte: var(--text-muted);
+  --archive-certifiee-icone: var(--nontext-muted);
+  --formalite-echue-survol: var(--formalite-echue-texte);
+  --formalite-a-venir-survol: var(--formalite-a-venir-texte);
+  /* Registres du Livre (BinderView) : ✓ d'état « fait » = non-texte ; la note est du TEXTE. */
+  --registre-actif: var(--sens-final);
+  --registre-avertissement: var(--warning-text);
+  --text-placeholder: var(--text-muted); /* V7b — Aria ⑥ (#C5C0B9, 1,8:1) */
   --text-link: #1E3D6B;
 
   /* Brand — immutable */
@@ -169,7 +215,7 @@ body {
   --input-focus-border: #4A6B93;
   --input-ring-focus: rgba(74,107,147,0.12);
   --input-focus-ring: rgba(74,107,147,0.12);
-  --input-placeholder: #C5C0B9;
+  --input-placeholder: var(--text-muted); /* V7b — Aria ⑥ */
   --divider: #E6E4DE;
 
   /* Semantic */

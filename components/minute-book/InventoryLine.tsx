@@ -10,8 +10,8 @@
  */
 
 import { useTranslations } from 'next-intl';
-import { Archive, CheckCircle2, Clock } from 'lucide-react';
-import { MissingMarker } from '@/components/minute-book/state-visuals';
+import { Archive } from 'lucide-react';
+import StateMarker from '@/components/minute-book/StateMarker';
 
 interface Props {
   total: number;
@@ -57,25 +57,22 @@ export default function InventoryLine({ total, uploaded, generated, missing, upc
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
-        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+        <StateMarker etat="final" taille="sm" />
         {tState('count.final', { count: uploaded })}
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
-          <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
-        </svg>
+        <StateMarker etat="brouillon" taille="sm" />
         {tState('count.draft', { count: generated })}
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
-        <MissingMarker className="h-3.5 w-3.5" />
+        <StateMarker etat="manquant" taille="sm" />
         {tState('count.missing', { count: missing })}
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1.5">
-        <Clock className="h-3.5 w-3.5 flex-shrink-0 text-[var(--nontext-muted)]" aria-hidden="true" />
+        <StateMarker etat="a-venir" taille="sm" />
         {tState('count.upcoming', { count: upcoming })}
       </span>
       <span aria-hidden="true">·</span>

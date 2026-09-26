@@ -2,12 +2,14 @@
 
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, Clock, Upload, Eye, RotateCw, ArrowLeftRight } from 'lucide-react';
-import { StateBadge, MissingMarker, IdentityBox } from '@/components/minute-book/state-visuals';
+import { Upload, Eye, RotateCw, ArrowLeftRight } from 'lucide-react';
+import { StateBadge, IdentityBox } from '@/components/minute-book/state-visuals';
 import { typeAffiche, type VaultDocType } from '@/lib/requirement-doctype';
 import { useGenerateDocumentButton } from '@/components/documents/GenerateDocumentButton';
 import ListRow from '@/components/minute-book/ListRow';
 import IconButton from '@/components/minute-book/IconButton';
+import StateMarker from '@/components/minute-book/StateMarker';
+import WordButton from '@/components/minute-book/WordButton';
 import { DownloadButton } from '@/components/documents/DownloadButton';
 import DescriptionTooltip from '@/components/ui/DescriptionTooltip';
 import { getDocumentState } from '@/lib/minute-book/state';
@@ -136,45 +138,9 @@ export default function RequirementRow({
     }
   }
 
-  // Shared button class for the file-input triggers (Téléverser / Remplacer)
-  // and the Generate/Regenerate button (passed via GenerateDocumentButton's
-  // className override). Keeping a single string avoids drift between the
-  // empty-state, generated, and uploaded button surfaces.
-  const buttonClass =
-    'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
-  // ── THE DISABLED-HOVER NEUTRALIZERS, ON THE GATED BUTTONS. ──
-  //
-  // ⚠️ THIS COMMENT USED TO READ "ON THE GENERATE BUTTON ALONE", and said that
-  // buttonClass was shared with Téléverser and Remplacer "which this gate never
-  // disables — uploading a real document is never a false entry". THAT RULE WAS
-  // REVERSED ON 2026-08-15, deliberately: on an OPEN fiscal year we know no
-  // legitimate annual resolution can exist (art. 155(1)a) CBCA anchors financial
-  // statements on CLOSED periods), so accepting the upload lets the user file a
-  // false entry in their own book. Upload is now gated too — see mustBlockUpload.
-  //
-  // ⚠️ IT STILL DOES NOT BELONG ON `buttonClass`. That string stays the plain
-  // shared base; this is the derived variant the gate's buttons wear. Keeping the
-  // two separate is what lets a future reader disable a button WITHOUT inheriting
-  // this gate's styling decisions. Same call, same reason, as genCls vs setBase on
-  // the board (A3Item).
-  //
-  // ⚠️ WHY THEY ARE NEEDED AT ALL — found by eye on 2026-08-15, not by a gate:
-  // `disabled:opacity-60` dims the button but `hover:text-[var(--text-heading)]`
-  // still fires on a disabled button, so word and icon LIGHTEN under the pointer.
-  // A control that answers the mouse says "click me"; an inert one that says it is
-  // the interface lie this whole lot exists to remove. No automated check can see
-  // this: tsc does not read CSS and hover does not exist in a build.
-  //
-  // The hover target is `--text-body` — buttonClass's REST colour. A disabled
-  // hover must return the resting state, never introduce a third colour. The
-  // Sparkles icon inherits currentColor, so the text rule carries it too.
-  //
-  // Specificity, computed not assumed:
-  //   `.hover\:text-[…]:hover`                     → (0,2,0)
-  //   `.disabled\:hover\:text-[…]:disabled:hover`  → (0,3,0)  ← wins
-  // The extra pseudo-class decides it; source order is not involved, and no
-  // `!important` is needed.
-  const gatedButtonClass = `${buttonClass} disabled:hover:bg-transparent disabled:hover:text-[var(--text-body)]`;
+  // V7b — les mots de la ligne (Téléverser, Générer, Régénérer, Remplacer) passent par WordButton,
+  // qui décide seul de l'actif et du désactivé — et fige le survol d'un bouton désactivé, ce que
+  // gatedButtonClass faisait ici (trouvé à l'œil le 2026-08-15 : un bouton inerte ne répond pas au survol).
 
   // ── THE FISCAL-YEAR GATE — computed ONCE, read by both generate surfaces. ──
   //
@@ -187,7 +153,7 @@ export default function RequirementRow({
   //
   // ⚠️ The button stays RENDERED and goes inert — never hidden. A vanished
   // button reads as a broken product; a greyed one with its reason beside it
-  // reads as an answer. `buttonClass` already carries disabled:opacity-60.
+  // reads as an answer. WordButton porte l'apparence désactivée (V7b).
   const generationBlocked = mustBlockGeneration(year, fiscalYearEndDate);
   // Upload joins the gate (2026-08-15). `eventLink` is left undefined ON PURPOSE
   // and it is not an omission: this component only ever renders catalog
@@ -230,7 +196,7 @@ export default function RequirementRow({
     documentLanguage,
     label: satisfied && source === 'generated' ? t('regenerate') : undefined,
     icon: satisfied && source === 'generated' ? <RotateCw className="h-3.5 w-3.5" /> : undefined,
-    className: gatedButtonClass,
+    apparence: 'mot',
     disabled: generationBlocked,
   });
 
@@ -245,18 +211,9 @@ export default function RequirementRow({
             window has not opened is not a failing: it is a date — clock, muted.
             ⚠️ The red branch is UNCHANGED: a missing document on an OPEN window is
             exactly what it always was. (V4 : même icône, même couleur, en 16 px.) */
-        !satisfied && availability === 'upcoming' ? (
-          <Clock className="h-4 w-4 flex-shrink-0 text-[var(--nontext-muted)]" aria-hidden="true" />
-        ) : !satisfied ? (
-          <MissingMarker />
-        ) : isSignedFinal ? (
-          <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-        ) : (
-          <svg viewBox="0 0 24 24" className="h-4 w-4 flex-shrink-0 text-amber-500" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
-            <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
-          </svg>
-        )
+        <StateMarker
+          etat={!satisfied && availability === 'upcoming' ? 'a-venir' : !satisfied ? 'manquant' : isSignedFinal ? 'final' : 'brouillon'}
+        />
       }
       title={titleFr}
       attenue={titreAttenue(displayState)}
@@ -278,40 +235,34 @@ export default function RequirementRow({
         <>
           {/* Empty state — Téléverser, Générer */}
           {!satisfied && canUpload && (
-            <button
+            <WordButton
+              label={isUploading ? t('uploadingButton') : t('uploadButton')}
+              icon={<Upload className="h-3.5 w-3.5" />}
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading || uploadBlocked}
-              className={gatedButtonClass}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              {isUploading ? t('uploadingButton') : t('uploadButton')}
-            </button>
+            />
           )}
           {!satisfied && canGenerate && companyId && generateButton}
 
           {/* Generated — Téléverser (signed) + Régénérer (replace template) */}
           {satisfied && source === 'generated' && canUpload && (
-            <button
+            <WordButton
+              label={isUploading ? t('uploadingButton') : t('uploadButton')}
+              icon={<Upload className="h-3.5 w-3.5" />}
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading || uploadBlocked}
-              className={gatedButtonClass}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              {isUploading ? t('uploadingButton') : t('uploadButton')}
-            </button>
+            />
           )}
           {satisfied && source === 'generated' && canGenerate && companyId && generateButton}
 
           {/* Uploaded but NOT certified — single Remplacer button (drops the canUpload gate on purpose) */}
           {satisfied && source === 'uploaded' && !isCertifiedUpload && (
-            <button
+            <WordButton
+              label={isUploading ? t('uploadingButton') : t('replace')}
+              icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading || uploadBlocked}
-              className={gatedButtonClass}
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5" />
-              {isUploading ? t('uploadingButton') : t('replace')}
-            </button>
+            />
           )}
 
           {/* Single hidden file input shared across all surfaces. A4c gates it on the

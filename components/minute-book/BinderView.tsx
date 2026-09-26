@@ -212,7 +212,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                     : t('residentNotDeclared'),
                   end_date_display: e.end_date || '—',
                   status: e.is_active ? (
-                    <span className="text-green-600">✓</span>
+                    <span className="text-[var(--registre-actif)]">✓</span>
                   ) : (
                     <span className="text-[var(--text-muted)]">✗</span>
                   ),
@@ -233,7 +233,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                   title: locale === 'en' ? e.title_en : e.title_fr,
                   end_date_display: e.end_date || '—',
                   status: e.is_active ? (
-                    <span className="text-green-600">✓</span>
+                    <span className="text-[var(--registre-actif)]">✓</span>
                   ) : (
                     <span className="text-[var(--text-muted)]">✗</span>
                   ),
@@ -277,7 +277,7 @@ export default function BinderView({ onTotalDocuments }: BinderViewProps) {
                     0
                   )
                   return missing > 0 ? (
-                    <p className="text-[11px] text-amber-600">
+                    <p className="text-[11px] text-[var(--registre-avertissement)]">
                       {t('missingConsideration', { count: missing })}
                     </p>
                   ) : undefined

@@ -9,6 +9,7 @@ import { displayStateOf, displayStateLabelKey } from '@/lib/minute-book/display-
 import { typeAffiche } from '@/lib/requirement-doctype';
 import ListRow from './ListRow';
 import IconButton from './IconButton';
+import WordButton from './WordButton';
 import { IdentityBox, codeDeLangue } from './state-visuals';
 
 interface ArchiveDocRowProps {
@@ -64,9 +65,8 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
     isArchived: true,
   });
 
-  const buttonClass =
-    'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
-  const couleurArchive = isSigned ? 'var(--row-state-archive-certified)' : 'var(--row-state-archive)';
+  // V7b — certifiée : mention --archive-certifiee-texte, icône --archive-certifiee-icone (Aria ⑨, Max).
+  const couleurArchive = isSigned ? 'var(--archive-certifiee-icone)' : 'var(--row-state-archive)';
 
   // V6 — la ligne commune : icône Archive dans la case de 16 px, état en texte (couleur actuelle),
   // boîte type · langue, « Remplacer », puis la colonne d'icônes de Complétude (88 px). Aucune date (règle A).
@@ -78,22 +78,19 @@ export default function ArchiveDocRow({ doc, onReplace }: ArchiveDocRowProps) {
       state={
         <span
           className="text-xs whitespace-nowrap"
-          style={isSigned ? { color: 'var(--row-state-archive-certified)' } : { color: 'var(--text-muted)' }}
+          style={isSigned ? { color: 'var(--archive-certifiee-texte)' } : { color: 'var(--text-muted)' }}
         >
           {tState(displayStateLabelKey(displayState, { certified: isSigned }))}
         </span>
       }
       identity={<IdentityBox type={typeAffiche(doc.document_type, 'autre')} languageCode={codeDeLangue(doc.language)} />}
       words={
-        <button
-          type="button"
+        <WordButton
+          label={tDocs('replace')}
+          icon={<Upload className="h-3.5 w-3.5" />}
           onClick={() => fileInputRef.current?.click()}
           disabled={isReplacing}
-          className={buttonClass}
-        >
-          <Upload className="h-3.5 w-3.5" />
-          {tDocs('replace')}
-        </button>
+        />
       }
       icons={
         <>

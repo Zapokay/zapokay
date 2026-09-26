@@ -267,8 +267,12 @@ for (const loc of ['fr', 'en'] as const) {
 }
 {
   const h = barre('fr', [FINAL, MANQUANT, A_VENIR]);
-  dire((h.match(/border-\[var\(--error-text\)\]/g) ?? []).length === 1, 'à venir n\'est PAS rouge : un seul segment en --error-text (le manquant)');
-  dire((h.match(/border-dashed border-\[var\(--nontext-muted\)\]/g) ?? []).length === 1, 'à venir : tirets gris (--nontext-muted, V7a)');
+  // V7b — plus de rouge : le manquant lit --sens-manquant et sa forme --sens-manquant-trait ;
+  //        l'à venir, un fond --sens-a-venir-fond (aplat en clair, transparent en sombre).
+  dire((h.match(/border-\[var\(--sens-manquant\)\] \[border-style:var\(--sens-manquant-trait\)\]/g) ?? []).length === 1 && !h.includes('--error-text'),
+    'manquant : un seul segment --sens-manquant, trait --sens-manquant-trait ; aucun --error-text (V7b)');
+  dire((h.match(/bg-\[var\(--sens-a-venir-fond\)\]/g) ?? []).length === 1 && h.includes('[border-style:var(--sens-a-venir-trait)]'),
+    'à venir : fond --sens-a-venir-fond, trait --sens-a-venir-trait (V7b)');
   dire(h.includes('>1/3<'), 'à venir hors du compte : « 1/3 »');
 }
 {
@@ -279,12 +283,12 @@ for (const loc of ['fr', 'en'] as const) {
   dire(!h.includes('width:11px') && (h.match(/width:154px/g) ?? []).length === 1,
     '13 lignes → UNE barre continue de 154 px (la largeur de 12 carrés), aucun carré');
   const parts = Array.from(h.matchAll(/<div class="([^"]*)" style="width:([0-9.]+)%/g)).map((m) => ({ c: m[1], w: Number(m[2]) }));
-  const attendu = [['bg-emerald-600', 4], ['bg-amber-500', 7], ['--error-text', 2]] as const;
+  const attendu = [['bg-[var(--sens-final)]', 4], ['bg-[var(--sens-brouillon)]', 7], ['--sens-manquant', 2]] as const;
   dire(parts.length === 3 && attendu.every(([c, n], i) => parts[i].c.includes(c) && Math.abs(parts[i].w - (n / 13) * 100) < 1e-6),
     'parts proportionnelles, dans l\'ordre final · brouillon · (à venir absent : 0) · manquant');
   const h2 = barre('fr', [...serie(2, FINAL), ...serie(3, MANQUANT), ...serie(4, A_VENIR), ...serie(4, BROUILLON)]);
   const ordre = Array.from(h2.matchAll(/<div class="([^"]*)" style="width:[0-9.]+%/g)).map((m) => m[1]);
-  dire(ordre.length === 4 && ordre[0].includes('emerald') && ordre[1].includes('amber') && ordre[2].includes('--nontext-muted') && ordre[3].includes('--error-text'),
+  dire(ordre.length === 4 && ordre[0].includes('--sens-final') && ordre[1].includes('--sens-brouillon') && ordre[2].includes('--sens-a-venir-fond') && ordre[3].includes('--sens-manquant'),
     'ordre des parts : final · brouillon · à venir · manquant, quel que soit l\'ordre des lignes');
 }
 
@@ -398,6 +402,120 @@ console.log('h) le bouton-icône partagé');
   const arch = env(React.createElement(ArchiveDocRow as never, { doc: sansFichier, onReplace: () => {} } as never));
   dire(!arch.includes('aria-label="Voir"') && (arch.match(/<span aria-hidden="true" class="invisible h-\[26px\] w-\[26px\]"><\/span>/g) ?? []).length === 3,
     'archive, sans file_url : Voir en réserve (règle 12)');
+}
+
+/* ── i) LES COULEURS DE SENS (V7b) — un marqueur, un mot, une échéance ────── */
+console.log('i) les couleurs de sens');
+{
+  const { existsSync, readdirSync, statSync } = require('node:fs') as typeof import('node:fs');
+  const lire = (f: string) => readFileSync(join(RACINE, f), 'utf8');
+  const MARQUEURS = ['components/minute-book/RequirementRow.tsx', 'components/minute-book/EventActRow.tsx',
+    'components/minute-book/InventoryLine.tsx', 'components/documents/UploadDocumentModal.tsx'];
+  const MOTS = ['components/minute-book/RequirementRow.tsx', 'components/minute-book/EventActRow.tsx', 'components/minute-book/ArchiveDocRow.tsx'];
+  const SM = 'components/minute-book/StateMarker.tsx'; const WB = 'components/minute-book/WordButton.tsx'; const EC = 'lib/obligations/echeance.ts';
+  for (const f of [SM, WB, EC]) dire(existsSync(join(RACINE, f)), `${f} existe`);
+  for (const f of MARQUEURS) {
+    const src = lire(f);
+    dire(/import StateMarker from/.test(src), `${f} : importe StateMarker`);
+    dire(!/<StateMarker\b[^<>]*\bclassName=/.test(src), `${f} : ⛔ aucune className passée à StateMarker`);
+  }
+  const COPIE = "'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)]";
+  for (const f of MOTS) {
+    const src = lire(f);
+    dire(/import WordButton from/.test(src), `${f} : importe WordButton`);
+    dire(!/<WordButton\b[^<>]*\bclassName=/.test(src), `${f} : ⛔ aucune className passée à WordButton`);
+    dire(!src.includes(COPIE.slice(1)), `${f} : ⛔ plus de copie de la classe des mots`);
+  }
+  const rr = lire('components/minute-book/RequirementRow.tsx');
+  dire(/apparence:\s*'mot'/.test(rr) && !/className:\s*gatedButtonClass/.test(rr), 'RequirementRow : Générer passe par apparence \'mot\', plus par une className');
+  // Aucune couleur de palette codée en dur dans les trois pages et leurs fenêtres (les jetons de marque var(--amber-400) restent permis).
+  const DOSSIERS = ['components/minute-book', 'components/documents', 'app/[locale]/dashboard/minute-book'];
+  const tous = (d: string): string[] => readdirSync(join(RACINE, d)).flatMap((x) => {
+    const p = join(d, x); return statSync(join(RACINE, p)).isDirectory() ? tous(p) : /\.tsx?$/.test(x) ? [p] : []; });
+  // BinderView est au Livre (section 7) : il entre dans le lot, sans exception (Max, V7b).
+  const BANQUE: Record<string, string> = {};
+  const PALETTE = /\b(?:[a-z-]+:)*(?:text|bg|border|fill|stroke)-(?:emerald|amber|green)-\d{2,3}\b/g;
+  const fautifs: string[] = [];
+  for (const f of DOSSIERS.flatMap(tous)) {
+    const n = (lire(f).match(PALETTE) ?? []).length;
+    if (BANQUE[f]) { console.log(`  · ${f} — EXCEPTION : ${BANQUE[f]} (${n} emploi(s))`); continue; }
+    if (n) fautifs.push(`${f} (${n})`);
+  }
+  dire(fautifs.length === 0, `⛔ aucune couleur de palette emerald / amber / green codée en dur dans les trois pages${fautifs.length ? ' — ' + fautifs.join(', ') : ''}`);
+  // --sens-final : réservé aux marqueurs et aux parts de barre, JAMAIS à du texte (Max).
+  const lecteurs = ['components', 'app'].flatMap(tous).filter((f) => lire(f).includes('--sens-final'));
+  dire(lecteurs.sort().join(',') === ['components/minute-book/CompletionBar.tsx', SM].sort().join(','),
+    `--sens-final n'est lu que par StateMarker et CompletionBar (lu par : ${lecteurs.join(', ') || 'personne'})`);
+  const bv = lire('components/minute-book/BinderView.tsx');
+  dire((bv.match(/text-\[var\(--registre-actif\)\]">✓/g) ?? []).length === 2 && bv.includes('text-[var(--registre-avertissement)]'),
+    'BinderView : ✓ actif en --registre-actif (×2), la note en --registre-avertissement (texte)');
+  const ad = lire('components/minute-book/ArchiveDocRow.tsx');
+  dire(ad.includes('--archive-certifiee-texte') && ad.includes('--archive-certifiee-icone') && !ad.includes('--row-state-archive-certified'),
+    'ArchiveDocRow : mention et icône par --archive-certifiee-texte / -icone');
+  dire(/echeance=\{/.test(lire('components/dashboard/A3Item.tsx')) && /echeance=\{/.test(lire('components/minute-book/EventActRow.tsx')),
+    'ObligationMarker reçoit echeance au tableau de bord (A3Item) ET sur Complétude (EventActRow)');
+
+  if (existsSync(join(RACINE, EC))) {
+    const { echeanceDe, aujourdhuiMontreal } = require('../lib/obligations/echeance') as {
+      echeanceDe: (d: string | null | undefined, m?: Date) => string; aujourdhuiMontreal: (m?: Date) => string };
+    const midi = new Date('2026-09-25T16:00:00Z');                 // 12 h à Montréal
+    dire(echeanceDe('2026-09-24', midi) === 'echue', 'veille → échue');
+    dire(echeanceDe('2026-09-25', midi) === 'a-venir', 'le jour même → à venir');
+    dire(echeanceDe('2026-09-26', midi) === 'a-venir', 'lendemain → à venir');
+    const soir = new Date('2026-09-26T02:00:00Z');                 // le 25 à 22 h à Montréal, déjà le 26 en UTC
+    dire(aujourdhuiMontreal(soir) === '2026-09-25' && echeanceDe('2026-09-25', soir) === 'a-venir',
+      '⭐ frontière UTC : le 25 à 22 h à Montréal (26 en UTC), une limite au 25 reste à venir');
+    dire(echeanceDe('2026-09-24', soir) === 'echue', 'frontière UTC : la veille reste échue');
+    // Sans date = INCONNU (Max) : on n'affirme pas « à venir » sans savoir.
+    dire(echeanceDe('', midi) === 'inconnue' && echeanceDe(undefined, midi) === 'inconnue' && echeanceDe(null, midi) === 'inconnue',
+      'sans date (vide, undefined, null) → inconnue, jamais « à venir »');
+    // echeanceDe ne reçoit QUE des chaînes AAAA-MM-JJ, jamais passées par toISOString.
+    const ec = lire(EC); const ut = lire('lib/utils.ts'); const ea = lire('components/minute-book/EventActRow.tsx');
+    const a3 = lire('components/dashboard/A3Item.tsx'); const ob = lire('lib/obligations/obligation.ts');
+    dire(!/toISOString\(/.test(ec.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')), 'echeance.ts : aucun toISOString (dans le code)');
+    dire(/export function addDays\([^)]*\): string/.test(ut) && /reqDateLimite = [^;]*addDays\(act\.date, 30\)/.test(ea) && /echeanceDe\(reqDateLimite\)/.test(ea),
+      'Complétude : echeanceDe(addDays(act.date, 30)) — une chaîne AAAA-MM-JJ, la règle des 30 jours intacte');
+    dire(/dueDate: string \| null;\s*\/\/ absolute ISO 'YYYY-MM-DD'/.test(ob) && /echeanceDe\(o\.dueDate\)/.test(a3),
+      'tableau de bord : echeanceDe(o.dueDate) — dueDate typé chaîne ISO AAAA-MM-JJ');
+    const { addDays } = require('../lib/utils') as { addDays: (d: string, n: number) => string };
+    dire(addDays('2026-08-26', 30) === '2026-09-25' && echeanceDe(addDays('2026-08-26', 30), soir) === 'a-venir',
+      'addDays(…, 30) rend une chaîne AAAA-MM-JJ, lue telle quelle à la frontière');
+  }
+  if (existsSync(join(RACINE, SM))) {
+    const SMc = (require('../components/minute-book/StateMarker') as { default: unknown }).default;
+    const r = (p: object) => renderToStaticMarkup(React.createElement(SMc as never, p as never));
+    const fin_ = r({ etat: 'final', taille: 'md' }); const br = r({ etat: 'brouillon', taille: 'md' });
+    const ma = r({ etat: 'manquant', taille: 'md' }); const av = r({ etat: 'a-venir', taille: 'md' });
+    dire(fin_.includes('text-[var(--sens-final)]') && fin_.includes('lucide-circle-check'), 'StateMarker final : le cercle coché en --sens-final');
+    dire(br.includes('text-[var(--sens-brouillon)]') && br.includes('A10 10 0 0 1 12 22 Z'), 'StateMarker brouillon : le demi-cercle en --sens-brouillon');
+    dire(ma.includes('strokeDasharray') || ma.includes('stroke-dasharray'), 'StateMarker manquant : le cercle pointillé (MissingMarker)');
+    dire(av.includes('lucide-clock') && av.includes('--nontext-muted'), 'StateMarker à venir : l\'horloge en --nontext-muted');
+    dire(r({ etat: 'final', taille: 'sm' }).includes('h-3.5') && r({ etat: 'final', taille: 'lg' }).includes('h-5'), 'StateMarker : tailles sm 14 px, lg 20 px');
+  }
+  if (existsSync(join(RACINE, WB))) {
+    const WBc = (require('../components/minute-book/WordButton') as { default: unknown }).default;
+    const r = (p: object) => renderToStaticMarkup(React.createElement(WBc as never, p as never));
+    const on = r({ label: 'Téléverser', icon: React.createElement('svg'), onClick: () => {} });
+    const off = r({ label: 'Téléverser', icon: React.createElement('svg'), onClick: () => {}, disabled: true });
+    dire(/^<button /.test(on) && on.includes('type="button"') && on.includes('>Téléverser<') && on.includes('hover:'), 'WordButton actif : un <button> au texte visible, avec survol');
+    dire(/ disabled=""/.test(off) && off.includes('--mot-inactif-texte') && off.includes('--mot-inactif-opacite') && !/hover:/.test(off),
+      'WordButton désactivé : disabled natif, jetons --mot-inactif-*, AUCUN survol');
+    dire(off.includes('cursor-default') && !off.includes('cursor-not-allowed'), 'WordButton désactivé : curseur normal (Aria)');
+  }
+  if (existsSync(join(RACINE, EC))) {
+    const OM = (require('../components/ui/ObligationMarker') as { ObligationMarker: unknown }).ObligationMarker;
+    const r = (e: string) => renderToStaticMarkup(React.createElement(OM as never, { label: 'Formalité à produire', deadline: '25 sept. 2026', echeance: e, onClick: () => {} } as never));
+    dire(r('echue').includes('--formalite-echue-texte') && r('echue').includes('--formalite-echue-fond'), 'formalité échue : jetons --formalite-echue-*');
+    dire(r('a-venir').includes('--formalite-a-venir-texte') && !r('a-venir').includes('--formalite-echue'), 'formalité à venir : jetons --formalite-a-venir-*');
+    dire(r('echue').includes('Formalité à produire') && r('echue').includes('25 sept. 2026'), 'libellé et date inchangés');
+    dire(r('echue').includes('hover:border-[var(--formalite-echue-survol)]') && r('a-venir').includes('hover:border-[var(--formalite-a-venir-survol)]')
+      && !r('echue').includes('hover:border-[var(--amber-400)]'), 'survol de la formalité : contour --formalite-*-survol (plus d\'ambre en dur)');
+    const inc = r('inconnue');
+    dire(inc.includes('text-[var(--warning-text)]') && inc.includes('bg-[var(--warning-bg)]') && inc.includes('border-[var(--warning-border)]') && !inc.includes('--formalite-'),
+      'formalité d\'échéance inconnue : les jetons d\'aujourd\'hui (--warning-*), dans les deux modes');
+    const aff = renderToStaticMarkup(React.createElement(OM as never, { label: 'x', deadline: 'y', echeance: 'echue', interactive: false } as never));
+    dire(aff.includes('--formalite-echue-texte') && !/hover:/.test(aff), 'tableau de bord (affichage seul) : couleur d\'échéance, sans survol');
+  }
 }
 
 console.log(echecs === 0 ? '\n✔ check:etats — tout tient.' : `\n⛔ check:etats — ${echecs} garde(s) tombée(s).`);

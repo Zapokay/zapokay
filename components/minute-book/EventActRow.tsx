@@ -45,11 +45,14 @@
 
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, Upload, Landmark, Eye, RotateCw, ArrowLeftRight, Sparkles } from 'lucide-react';
-import { StateBadge, MissingMarker, IdentityBox } from '@/components/minute-book/state-visuals';
+import { Upload, Landmark, Eye, RotateCw, ArrowLeftRight, Sparkles } from 'lucide-react';
+import { StateBadge, IdentityBox } from '@/components/minute-book/state-visuals';
 import { TYPE_DOCUMENT_D_UN_ACTE, typeAffiche } from '@/lib/requirement-doctype';
 import ListRow from '@/components/minute-book/ListRow';
 import IconButton from '@/components/minute-book/IconButton';
+import StateMarker from '@/components/minute-book/StateMarker';
+import WordButton from '@/components/minute-book/WordButton';
+import { echeanceDe } from '@/lib/obligations/echeance';
 import { DownloadButton } from '@/components/documents/DownloadButton';
 import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
 import { fileObligation } from '@/components/lifecycle/fileObligation';
@@ -164,10 +167,9 @@ export default function EventActRow({
   const isCertifiedAct = act.satisfied && act.documentIsFinalized === true;
   const derivation = deriveDocKey(act);
   const reqObligations = obligationsForDocKey(derivation?.docKey);
-  const reqDeadline =
-    reqObligations.length > 0 && act.date
-      ? formatDate(addDays(act.date, 30), locale)
-      : null;
+  // V7b — la date limite BRUTE (AAAA-MM-JJ) nourrit l'échéance ; l'écran garde la date formatée.
+  const reqDateLimite = reqObligations.length > 0 && act.date ? addDays(act.date, 30) : null;
+  const reqDeadline = reqDateLimite ? formatDate(reqDateLimite, locale) : null;
 
   // Row label uses the canonical FR resolution title from the template
   // registry (single source of truth — same string that the generated PDF
@@ -203,9 +205,6 @@ export default function EventActRow({
     }
   }
 
-  const uploadButtonClass =
-    'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed';
-
   // V4 — la ligne à deux bandes. Mots dans l'ordre fixe Téléverser → Générer | Régénérer |
   // Remplacer → déclaration ; « Voir » devient l'ŒIL mais reste le même <a href>, nommé « Voir ».
   // ⚪ La déclaration n'apparaît que sur un acte FINALISÉ, où aucun autre mot ne s'affiche :
@@ -213,16 +212,7 @@ export default function EventActRow({
   return (
     <ListRow
       leading={
-        isMissing ? (
-          <MissingMarker />
-        ) : isSignedFinal ? (
-          <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-        ) : (
-          <svg viewBox="0 0 24 24" className="h-4 w-4 flex-shrink-0 text-amber-500" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
-            <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
-          </svg>
-        )
+        <StateMarker etat={isMissing ? 'manquant' : isSignedFinal ? 'final' : 'brouillon'} />
       }
       title={rowLabel}
       attenue={titreAttenue(displayState, { declarationDue: aDeclarer })}
@@ -240,6 +230,7 @@ export default function EventActRow({
           <ObligationMarker
             label={tObl('marker.label')}
             deadline={reqDeadline}
+            echeance={echeanceDe(reqDateLimite)}
             onClick={() => setObligationOpen(true)}
           />
         ) : undefined
@@ -249,55 +240,41 @@ export default function EventActRow({
           {/* Brief 2 — Téléverser (own signed PDF) on missing + draft rows; on a draft it
               SUPERSEDES the draft via the parent's replaceDocumentId. */}
           {(isMissing || isUnsigned) && onEventFileSelected && (
-            <button
-              type="button"
+            <WordButton
+              label={isUploading ? tReq('uploadingButton') : tReq('uploadButton')}
+              icon={<Upload className="h-3.5 w-3.5" />}
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className={uploadButtonClass}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              {isUploading ? tReq('uploadingButton') : tReq('uploadButton')}
-            </button>
+            />
           )}
 
           {(isMissing || isUnsigned) && derivation && (
-            <button
-              type="button"
-              onClick={() =>
-                openGenerate({ source: { kind: 'act', act }, onSuccess: onGenerated })
-              }
+            <WordButton
+              label={isUnsigned ? tEvents('regenerate') : tEvents('generate')}
+              icon={isUnsigned ? <RotateCw className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+              onClick={() => openGenerate({ source: { kind: 'act', act }, onSuccess: onGenerated })}
               disabled={isEventGenerateDisabled(act)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isUnsigned ? <RotateCw className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-              {isUnsigned ? tEvents('regenerate') : tEvents('generate')}
-            </button>
+            />
           )}
 
           {/* Brief 2 — Remplacer, retiré sur un acte CERTIFIÉ (A4c). */}
           {isSignedFinal && !isCertifiedAct && onEventFileSelected && (
-            <button
-              type="button"
+            <WordButton
+              label={isUploading ? tReq('uploadingButton') : tReq('replace')}
+              icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className={uploadButtonClass}
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5" />
-              {isUploading ? tReq('uploadingButton') : tReq('replace')}
-            </button>
+            />
           )}
 
           {/* B-2 — Stage 2: a finalized ROSTER act (docKey → REQ_QC) not filed yet offers
               "J'ai fait la déclaration". Same condition the board uses. */}
           {aDeclarer && (
-              <button
-                type="button"
+              <WordButton
+                label={tObl('filing.button')}
+                icon={<Landmark className="h-3.5 w-3.5" />}
                 onClick={() => setFileConfirmOpen(true)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--card-border)] text-[var(--text-body)] hover:bg-[var(--card-bg)] hover:text-[var(--text-heading)] transition-colors"
-              >
-                <Landmark className="h-3.5 w-3.5" />
-                {tObl('filing.button')}
-              </button>
+              />
             )}
 
           {/* A4c — gated on the SAME constant as Remplacer. It stays IN the row. */}

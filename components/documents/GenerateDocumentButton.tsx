@@ -6,6 +6,7 @@ import { SignatoriesModal } from './SignatoriesModal';
 import { useGenerateWithSignatories } from './useGenerateWithSignatories';
 import { getSignatoryType, isAllSignatoriesRequired } from '@/lib/requirement-map';
 import type { SignatoryBlock } from '@/lib/pdf-templates/signature-blocks';
+import WordButton from '@/components/minute-book/WordButton';
 
 interface GenerateDocumentButtonProps {
   companyId: string;
@@ -27,6 +28,11 @@ interface GenerateDocumentButtonProps {
   icon?: ReactNode;
   /** When provided, applied to the button element and overrides default inline styles */
   className?: string;
+  /**
+   * V7b — 'mot' : le bouton est un WordButton, le mot de ligne commun (Complétude). Remplace la
+   * className que la ligne passait ; `className` reste pour le tableau de bord (A3Item, banqué).
+   */
+  apparence?: 'mot';
   /**
    * EXTERNAL inertness, decided by the caller. OR'd with the button's own
    * in-flight state — it never replaces it, so a caller passing `false` can
@@ -62,6 +68,7 @@ export function useGenerateDocumentButton({
   label,
   icon,
   className,
+  apparence,
   disabled,
 }: GenerateDocumentButtonProps): { button: ReactNode; modal: ReactNode } {
   const fr = locale === 'fr';
@@ -127,7 +134,27 @@ export function useGenerateDocumentButton({
   const isBusy = isGenerating || isFetching;
   const displayError = preCheckError ?? error;
 
-  const button = (
+  const attente = (
+    <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 14 14" fill="none">
+      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="24" strokeDashoffset="6" />
+    </svg>
+  );
+
+  const button = apparence === 'mot' ? (
+    <>
+      <WordButton
+        label={isBusy ? loadingLabel : buttonLabel}
+        icon={isBusy ? attente : (icon ?? <Sparkles className="h-3.5 w-3.5" />)}
+        onClick={handleClick}
+        disabled={isBusy || !!disabled}
+      />
+      {displayError && (
+        <p style={{ fontSize: '12px', color: 'var(--error-text)', margin: '6px 0 0', maxWidth: '280px' }}>
+          {displayError}
+        </p>
+      )}
+    </>
+  ) : (
     <>
       <button
         onClick={handleClick}
@@ -149,12 +176,7 @@ export function useGenerateDocumentButton({
       >
         {isBusy ? (
           <>
-            <svg
-              className="h-3.5 w-3.5 animate-spin"
-              viewBox="0 0 14 14" fill="none"
-            >
-              <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="24" strokeDashoffset="6" />
-            </svg>
+            {attente}
             {loadingLabel}
           </>
         ) : (

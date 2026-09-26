@@ -16,6 +16,7 @@ import { useRowUpload } from '@/components/documents/useRowUpload';
 import { useEventGenerate } from '@/components/lifecycle/useEventGenerate';
 import { fileObligation } from '@/components/lifecycle/fileObligation';
 import { ObligationMarker } from '@/components/ui/ObligationMarker';
+import { echeanceDe } from '@/lib/obligations/echeance';
 import { ObligationModal } from '@/components/ui/ObligationModal';
 import { useObligationModalContent } from '@/components/ui/useObligationModalContent';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -626,6 +627,7 @@ export default function A3Item({
     <ObligationMarker
       interactive={false}
       label={tObl('marker.label')}
+      echeance={echeanceDe(o.dueDate)}
       deadline={
         o.dueDate
           ? formatDate(o.dueDate, locale, { day: 'numeric', month: 'short', year: 'numeric' })

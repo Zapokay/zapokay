@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
-import { AlertTriangle, CheckCircle2, ChevronRight, Clock, X, XCircle } from 'lucide-react';
+import { AlertTriangle, ChevronRight, X } from 'lucide-react';
+import StateMarker from '@/components/minute-book/StateMarker';
 import { getStateForChecklistItem } from '@/lib/minute-book/state';
 import { getFiscalYearLabel } from '@/lib/fiscal-year-label';
 import { uploadErrorMessageKey } from '@/lib/upload-error-message';
@@ -1147,30 +1148,20 @@ export default function UploadDocumentModal(props: UploadDocumentModalProps) {
                                     onChange={() => toggleRequirement(req)}
                                     className="mt-0.5 h-4 w-4 flex-shrink-0 disabled:cursor-not-allowed"
                                   />
-                                  {/* VISUEL-2 — MÊME glyphe, MÊME couleur, MÊME taille de LIGNE
-                                      (h-5 w-5) que RequirementRow.tsx:219-234. Copié, pas redessiné.
+                                  {/* VISUEL-2 — V7b : le MÊME marqueur que les lignes, par StateMarker (h-5 w-5) ; plus de
+                                      copie. Le manquant devient le cercle pointillé des lignes (plus de croix rouge).
                                       ⚠️ L'ORDRE DES BRANCHES EST LOAD-BEARING : `upcoming` passe
                                       AVANT `!satisfied`, sinon une société neuve affiche treize
                                       croix rouges — défaut déjà corrigé le 2026-08-16.
                                       ⚠️ L'état vient de `getStateForChecklistItem`, JAMAIS d'une
                                       lecture à la main de satisfied + document_is_finalized : deux
                                       composants ont fait cette lecture et ont peint le mauvais signe. */}
-                                  {!req.satisfied && req.availability === 'upcoming' ? (
-                                    <Clock className="h-5 w-5 flex-shrink-0 text-[var(--nontext-muted)]" aria-hidden="true" />
-                                  ) : !req.satisfied ? (
-                                    <XCircle className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--error-text)' }} aria-hidden="true" />
-                                  ) : getStateForChecklistItem(req) === 'téléversé' ? (
-                                    <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" aria-hidden="true" />
-                                  ) : (
-                                    <svg
-                                      viewBox="0 0 24 24"
-                                      className="h-5 w-5 flex-shrink-0 text-amber-500"
-                                      aria-hidden="true"
-                                    >
-                                      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
-                                      <path d="M12 2 A10 10 0 0 1 12 22 Z" fill="currentColor" />
-                                    </svg>
-                                  )}
+                                  <StateMarker
+                                    taille="lg"
+                                    etat={!req.satisfied && req.availability === 'upcoming' ? 'a-venir'
+                                      : !req.satisfied ? 'manquant'
+                                      : getStateForChecklistItem(req) === 'téléversé' ? 'final' : 'brouillon'}
+                                  />
                                   <span className="min-w-0">
                                     {/* Couverte → texte muet. ⚠️ PAS d'opacité : `opacity-60` est
                                         déjà l'axe de `blocked`, sur le <label> ci-dessus. */}
